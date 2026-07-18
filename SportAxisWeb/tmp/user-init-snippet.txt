@@ -1,0 +1,121 @@
+    // Simplified approach: Find or create users, always update passwords
+    let adminUserId;
+    let judgeUserId;
+    
+    // Get existing demo users
+    const { data: existingUsersData, error: listUsersError } = await supabase.auth.admin.listUsers();
+    
+    if (listUsersError) {
+      console.error('Error listing users:', listUsersError);
+    }
+    
+    const existingAdmin = existingUsersData?.users?.find(u => u.email === 'admin@university.edu');
+    const existingJudge = existingUsersData?.users?.find(u => u.email === 'judge@university.edu');
+    
+    // Handle admin user
+    if (existingAdmin) {
+      // User exists, just update password
+      adminUserId = existingAdmin.id;
+      console.log('Found existing admin user:', adminUserId);
+      
+      try {
+        await supabase.auth.admin.updateUserById(adminUserId, {
+          password: 'admin123',
+          user_metadata: { name: 'Admin User', role: 'admin' },
+          email_confirm: true
+        });
+        console.log('✅ Admin password updated to: admin123');
+      } catch (updateError: any) {
+        console.error('Error updating admin password:', updateError.message);
+      }
+      
+      // Update KV store
+      await kv.set(`user:${adminUserId}`, {
+        id: adminUserId,
+        email: 'admin@university.edu',
+        name: 'Admin User',
+        role: 'admin'
+      });
+    } else {
+      // User doesn't exist, create new
+      console.log('Creating new admin user...');
+      try {
+        const adminResult = await supabase.auth.admin.createUser({
+          email: 'admin@university.edu',
+          password: 'admin123',
+          user_metadata: { name: 'Admin User', role: 'admin' },
+          email_confirm: true
+        });
+
+        if (adminResult.error) {
+          console.error('Admin creation failed:', adminResult.error.message);
+        } else {
+          adminUserId = adminResult.data.user.id;
+          console.log('✅ Admin user created:', adminUserId);
+          
+          // Update KV store
+          await kv.set(`user:${adminUserId}`, {
+            id: adminUserId,
+            email: 'admin@university.edu',
+            name: 'Admin User',
+            role: 'admin'
+          });
+        }
+      } catch (adminError: any) {
+        console.error('Exception creating admin:', adminError.message);
+      }
+    }
+    
+    // Handle judge user
+    if (existingJudge) {
+      // User exists, just update password
+      judgeUserId = existingJudge.id;
+      console.log('Found existing judge user:', judgeUserId);
+      
+      try {
+        await supabase.auth.admin.updateUserById(judgeUserId, {
+          password: 'judge123',
+          user_metadata: { name: 'Judge User', role: 'judge' },
+          email_confirm: true
+        });
+        console.log('✅ Judge password updated to: judge123');
+      } catch (updateError: any) {
+        console.error('Error updating judge password:', updateError.message);
+      }
+      
+      // Update KV store
+      await kv.set(`user:${judgeUserId}`, {
+        id: judgeUserId,
+        email: 'judge@university.edu',
+        name: 'Judge User',
+        role: 'judge'
+      });
+    } else {
+      // User doesn't exist, create new
+      console.log('Creating new judge user...');
+      try {
+        const judgeResult = await supabase.auth.admin.createUser({
+          email: 'judge@university.edu',
+          password: 'judge123',
+          user_metadata: { name: 'Judge User', role: 'judge' },
+          email_confirm: true
+        });
+
+        if (judgeResult.error) {
+          console.error('Judge creation failed:', judgeResult.error.message);
+        } else {
+          judgeUserId = judgeResult.data.user.id;
+          console.log('✅ Judge user created:', judgeUserId);
+          
+          // Update KV store
+          await kv.set(`user:${judgeUserId}`, {
+            id: judgeUserId,
+            email: 'judge@university.edu',
+            name: 'Judge User',
+            role: 'judge'
+          });
+        }
+      } catch (judgeError: any) {
+        console.error('Exception creating judge:', judgeError.message);
+      }
+    }
