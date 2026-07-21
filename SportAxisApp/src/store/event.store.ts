@@ -4,6 +4,11 @@ import type { EventSession, Criterion } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event Store — Current event session and criteria state
+//
+// Manages event data after QR scan:
+//   - Event details (name, schedule, departments, participants, etc.)
+//   - Scoring criteria
+//   - Loading and error states
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface EventStore {
@@ -17,6 +22,12 @@ interface EventStore {
   refreshCriteria: (eventId: string) => Promise<void>;
   loadFromCache: () => Promise<boolean>;
   clearEvent: () => Promise<void>;
+
+  // Selectors
+  getEventName: () => string | null;
+  getDepartments: () => string[];
+  getParticipants: () => string[];
+  getCriteria: () => Criterion[];
 }
 
 export const useEventStore = create<EventStore>((set, get) => ({
@@ -26,8 +37,13 @@ export const useEventStore = create<EventStore>((set, get) => ({
   error:     null,
 
   /**
-   * Scan QR and load event session + criteria from backend.
-   * Caches results locally automatically via eventService.
+   * PRIMARY: Scan QR and load event session + criteria from backend.
+   * Returns full event data including:
+   *   - name, schedule, start/end times
+   *   - departments and participants (judges)
+   *   - criteria for scoring
+   *
+   * Caches results locally automatically via eventService for offline support.
    */
   loadByQrToken: async (qrToken) => {
     set({ isLoading: true, error: null });
@@ -35,9 +51,10 @@ export const useEventStore = create<EventStore>((set, get) => ({
       const { event, criteria } = await eventService.getEventByQrToken(qrToken);
       set({ event, criteria, isLoading: false });
     } catch (error: any) {
+      const errorMsg = error.message ?? 'Failed to load event. Check your connection.';
       set({
         isLoading: false,
-        error: error.message ?? 'Failed to load event. Check your connection.',
+        error: errorMsg,
       });
       throw error;
     }
@@ -45,6 +62,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
 
   /**
    * Refresh criteria from backend when event is already loaded.
+   * Useful for periodic sync without re-scanning.
    */
   refreshCriteria: async (eventId) => {
     try {
@@ -57,7 +75,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
 
   /**
    * Load cached event session (for offline use after first scan).
-   * Returns true if cache was found.
+   * Returns true if cache was found, false otherwise.
    */
   loadFromCache: async () => {
     const cached = await eventService.loadCachedSession();
@@ -74,5 +92,34 @@ export const useEventStore = create<EventStore>((set, get) => ({
   clearEvent: async () => {
     await eventService.clearCachedSession();
     set({ event: null, criteria: [], error: null });
+  },
+
+  /**
+   * Get event name (or null if not loaded).
+   */
+  getEventName: () => {
+    return get().event?.name ?? null;
+  },
+
+  /**
+   * Get departments for current event.
+   */
+  getDepartments: () => {
+    return get().event?.departments ?? [];
+  },
+
+  /**
+   * Get participants/judges for current event.
+   */
+  getParticipants: () => {
+    const event = get().event;
+    return event?.participants ?? event?.judges ?? [];
+  },
+
+  /**
+   * Get criteria for current event.
+   */
+  getCriteria: () => {
+    return get().criteria;
   },
 }));

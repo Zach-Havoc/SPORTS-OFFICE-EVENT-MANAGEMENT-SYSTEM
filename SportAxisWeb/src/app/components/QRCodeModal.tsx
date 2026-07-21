@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Download, Copy, Check, Smartphone, ChevronDown, ChevronUp, Code2 } from 'lucide-react';
+import { Download, Copy, Check, Smartphone, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -18,10 +18,10 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
   const [copied, setCopied] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
 
-  // Web URL — used by browsers to open the web scoring page
-  // The mobile app reads its API base URL from its own env config (EXPO_PUBLIC_API_URL)
-  const webUrl = `${window.location.origin}/judge-qr/${eventId}/${qrToken}`;
-  const qrUrl = webUrl;
+  // ─── QR Code URL ──────────────────────────────────────────────────────────
+  // Format: /judge-qr/{eventId}/{qrToken}
+  // Mobile app parses this URL to extract token and makes API calls to backend
+  const qrUrl = `${window.location.origin}/judge-qr/${eventId}/${qrToken}`;
 
   const handleDownloadQR = () => {
     const svg = document.getElementById('qr-code-svg');
@@ -53,27 +53,18 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
     }
   };
 
-  const scorePayloadExample = JSON.stringify({
-    department: "Department Name",
-    judgeName: "Judge Full Name",
-    scores: { "Criterion 1": 85, "Criterion 2": 90 },
-    totalScore: 87.5,
-  }, null, 2);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Judge QR Code
-          </DialogTitle>
+          <DialogTitle>Judge Scoring Access</DialogTitle>
           <DialogDescription>
-            Scoring access for <strong>{eventName}</strong>
+            <strong>{eventName}</strong> — Scan with mobile app or access online
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-5">
-          {/* QR Code */}
+          {/* QR Code Display */}
           <div className="flex flex-col items-center gap-3">
             <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-gray-100">
               <QRCodeSVG
@@ -84,147 +75,84 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
                 includeMargin
               />
             </div>
-            <p className="text-xs text-gray-500 text-center">
-              Scan to open web scoring page <em>or</em> parse in the mobile app
+            <p className="text-sm text-gray-600 text-center font-medium">
+              Scan with mobile app or access online
             </p>
           </div>
 
-          {/* Web link */}
+          {/* Direct URL Link */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Web Scoring Link</p>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">
+              Scoring URL
+            </label>
             <div className="flex gap-2">
               <input
                 readOnly
-                value={webUrl}
-                className="flex-1 px-3 py-2 text-xs border rounded-md bg-gray-50 truncate"
+                value={qrUrl}
+                className="flex-1 px-3 py-2 text-xs border rounded-md bg-gray-50 font-mono"
               />
-              <Button size="sm" variant="outline" onClick={() => copy(webUrl, 'Link copied!')}>
+              <Button size="sm" variant="outline" onClick={() => copy(qrUrl, 'Link copied!')}>
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
           </div>
 
-          <Button onClick={handleDownloadQR} className="w-full">
+          {/* Download Button */}
+          <Button onClick={handleDownloadQR} className="w-full bg-blue-600 hover:bg-blue-700">
             <Download className="h-4 w-4 mr-2" />
             Download QR Code (PNG)
           </Button>
 
-          {/* ── Mobile App Integration Docs ── */}
+          {/* Mobile App Info */}
           <div className="border rounded-lg overflow-hidden">
             <button
               onClick={() => setShowDocs(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-semibold text-gray-700"
+              className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 transition-colors text-sm font-semibold text-blue-900"
             >
               <span className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-blue-600" />
-                Mobile App Integration
+                <Smartphone className="h-4 w-4" />
+                Mobile App Setup
               </span>
               {showDocs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
 
             {showDocs && (
-              <div className="p-4 space-y-5 text-sm">
-
-                {/* How it works */}
+              <div className="p-4 space-y-4 text-sm">
                 <div>
-                  <p className="font-semibold text-gray-800 mb-2">How it works</p>
-                  <ol className="space-y-1 text-gray-600 list-decimal list-inside text-xs leading-relaxed">
-                    <li>Mobile app scans the QR code</li>
-                    <li>Parse <code className="bg-gray-100 px-1 rounded">eventId</code>, <code className="bg-gray-100 px-1 rounded">token</code>, <code className="bg-gray-100 px-1 rounded">apiBase</code>, and <code className="bg-gray-100 px-1 rounded">apiKey</code> from the URL</li>
-                    <li>Call the <strong>Get Event</strong> endpoint to fetch event details (criteria, departments)</li>
-                    <li>Judge selects a department, scores each criterion</li>
-                    <li>Call the <strong>Submit Score</strong> endpoint — no login required</li>
+                  <p className="font-semibold text-gray-800 mb-3">How to use on mobile:</p>
+                  <ol className="space-y-2 text-gray-700 list-decimal list-inside text-sm">
+                    <li>Open the SportAxis Judge app</li>
+                    <li>Tap the camera icon to scan QR code</li>
+                    <li>Point at this QR code</li>
+                    <li>App auto-loads event details (departments, criteria)</li>
+                    <li>Select department and enter scores</li>
+                    <li>Submit — scores sync to the dashboard</li>
                   </ol>
                 </div>
 
-                {/* Values from this QR */}
-                <div>
-                  <p className="font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                    <Code2 className="h-4 w-4" /> Values in this QR
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { label: 'eventId', value: eventId },
-                      { label: 'token', value: qrToken },
-                      { label: 'apiBase', value: apiBase },
-                      { label: 'apiKey', value: publicAnonKey },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-purple-700 w-16 shrink-0">{label}</span>
-                        <code className="flex-1 text-xs bg-gray-100 px-2 py-1 rounded truncate font-mono">{value}</code>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={() => copy(value, `${label} copied`)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Step 1 – Get Event */}
-                <div className="space-y-1">
-                  <span className="inline-block text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                    Step 1 — Get Event Details
-                  </span>
-                  <div className="bg-gray-900 rounded-lg p-3 text-xs font-mono text-green-400 leading-relaxed overflow-x-auto">
-                    <span className="text-yellow-400">GET</span>{' '}
-                    <span className="text-white break-all">
-                      {apiBase}/judge/event/{eventId}/{qrToken}
-                    </span>
-                    <br /><br />
-                    <span className="text-gray-400">// Headers</span><br />
-                    <span className="text-blue-300">Authorization</span>:{' '}
-                    <span className="text-orange-300">Bearer {'<apiKey>'}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Returns: <code className="bg-gray-100 px-1 rounded">{'{ event: { name, departments[], criteria[], status, ... } }'}</code>
+                <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                  <p className="text-xs text-blue-800 font-medium">
+                    ✓ QR token authenticates the session — no login required
                   </p>
                 </div>
 
-                {/* Step 2 – Submit Score */}
-                <div className="space-y-1">
-                  <span className="inline-block text-xs font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                    Step 2 — Submit Score
-                  </span>
-                  <div className="bg-gray-900 rounded-lg p-3 text-xs font-mono text-green-400 leading-relaxed overflow-x-auto">
-                    <span className="text-yellow-400">POST</span>{' '}
-                    <span className="text-white break-all">
-                      {apiBase}/judge/score/{eventId}/{qrToken}
-                    </span>
-                    <br /><br />
-                    <span className="text-gray-400">// Headers</span><br />
-                    <span className="text-blue-300">Authorization</span>:{' '}
-                    <span className="text-orange-300">Bearer {'<apiKey>'}</span><br />
-                    <span className="text-blue-300">Content-Type</span>:{' '}
-                    <span className="text-orange-300">application/json</span>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-600 uppercase">Token Values:</p>
+                  <div className="space-y-1 text-xs font-mono">
+                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <span className="text-gray-600">Event ID:</span>
+                      <span className="text-gray-800 break-all">{eventId}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <span className="text-gray-600">QR Token:</span>
+                      <span className="text-gray-800 break-all">{qrToken}</span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Request body:</p>
-                    <pre className="bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-3 overflow-x-auto leading-relaxed whitespace-pre">
-                      {scorePayloadExample}
-                    </pre>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Returns: <code className="bg-gray-100 px-1 rounded">{'{ success: true, message: "Score submitted successfully" }'}</code>
-                  </p>
                 </div>
 
-                {/* URL Parsing hint */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
-                  <p className="font-semibold">Parsing the QR URL (Flutter / React Native)</p>
-                  <pre className="text-xs font-mono overflow-x-auto leading-relaxed whitespace-pre text-blue-900">
-{`final uri = Uri.parse(scannedUrl);
-final segments = uri.pathSegments;
-// segments: ["judge-qr", eventId, token]
-final eventId = segments[1];
-final token   = segments[2];
-final apiBase = uri.queryParameters["apiBase"];
-final apiKey  = uri.queryParameters["apiKey"];`}
-                  </pre>
+                <div className="text-xs text-gray-500 italic">
+                  Works offline — scores submit when connection is available
                 </div>
-
-                <p className="text-xs text-gray-400 text-center">
-                  No judge login required — the QR token authenticates the session.
-                </p>
               </div>
             )}
           </div>

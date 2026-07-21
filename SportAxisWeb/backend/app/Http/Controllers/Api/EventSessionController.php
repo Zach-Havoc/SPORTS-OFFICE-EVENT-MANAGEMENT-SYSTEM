@@ -42,6 +42,7 @@ class EventSessionController extends Controller
             ], 422);
         }
 
+        // Format criteria with consistent structure
         $criteria = collect($event->criteria ?? [])->map(function ($c, $index) {
             return [
                 'criteria_id' => $c['id'] ?? (string)($index + 1),
@@ -50,6 +51,10 @@ class EventSessionController extends Controller
                 'weight'      => isset($c['weight']) ? (float)$c['weight'] : null,
             ];
         })->values();
+
+        // Ensure departments and judges are arrays
+        $departments = is_array($event->departments) ? $event->departments : [];
+        $judges = is_array($event->judges) ? $event->judges : [];
 
         return response()->json([
             'event' => [
@@ -60,8 +65,9 @@ class EventSessionController extends Controller
                 'startTime'   => $event->start_time,
                 'endTime'     => $event->end_time,
                 'venueName'   => $event->venue_name,
-                'departments' => $event->departments ?? [],
-                'judges'      => $event->judges ?? [],
+                'departments' => $departments,
+                'judges'      => $judges,
+                'participants' => $judges, // Alias for mobile app
                 'status'      => $event->status,
                 'qrToken'     => $event->qr_token,
             ],
