@@ -4,37 +4,71 @@ import type { EventSessionResponse, Criterion } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event Service — QR session lookup, criteria fetching
+<<<<<<< HEAD
+=======
+//
+// Handles all event-related API calls with automatic caching for offline support.
+// The primary entry point is `getEventByQrToken()` which resolves a QR code to
+// event data including name, schedule, departments, participants, and criteria.
+>>>>>>> parent of 1bc212b2 (bug fixed in Mobile App)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const eventService = {
   /**
    * GET /api/event/session/{qrToken}
    *
-   * Resolves a QR token to an event session + criteria.
-   * This is the primary QR scan endpoint — public, no auth required.
-   * Caches the result locally for offline use.
+   * PRIMARY: Resolves a QR token to an event session + criteria.
+   * This is called after scanning a QR code to fetch:
+   *   - Event name, schedule, start/end times
+   *   - Departments and participants (judges)
+   *   - Criteria array for dynamic scoring form
+   *
+   * Public endpoint (no auth required).
+   * Response is cached locally for offline use.
+   *
+   * @throws Error if QR token is invalid or network error occurs
    */
   async getEventByQrToken(qrToken: string): Promise<EventSessionResponse> {
-    const response = await api.get<EventSessionResponse>(
-      `/event/session/${encodeURIComponent(qrToken)}`,
-    );
-    const data = response.data;
+    try {
+      const response = await api.get<EventSessionResponse>(
+        `/event/session/${encodeURIComponent(qrToken)}`,
+      );
+      const data = response.data;
 
-    // Cache event and criteria locally
-    await Promise.all([
-      storage.setJSON(STORAGE_KEYS.EVENT_SESSION, data.event),
-      storage.setJSON(STORAGE_KEYS.EVENT_CRITERIA, data.criteria),
-    ]);
+      // Validate response structure
+      if (!data.event || !data.criteria) {
+        throw new Error('Invalid event data structure from server.');
+      }
 
-    return data;
+      // Cache event and criteria locally
+      await Promise.all([
+        storage.setJSON(STORAGE_KEYS.EVENT_SESSION, data.event),
+        storage.setJSON(STORAGE_KEYS.EVENT_CRITERIA, data.criteria),
+      ]);
+
+      return data;
+    } catch (error: any) {
+      // Re-throw with meaningful message
+      if (error.message?.includes('404')) {
+        throw new Error('Event not found. Invalid QR code.');
+      }
+      if (error.message?.includes('422')) {
+        throw new Error('Event has been completed.');
+      }
+      throw error;
+    }
   },
 
   /**
    * GET /api/event/{id}/criteria
    *
-   * Fetches just the criteria array for an event by ID.
-   * Used to refresh criteria when the event is already cached.
+   * Fetches or refreshes just the criteria array for an event by ID.
+   * Used to update criteria when event is already cached, or for
+   * periodic sync without re-scanning the QR code.
+   *
    * Falls back to local cache if network is unavailable.
+   *
+   * @throws Error if event not found (unless offline, then uses cache)
    */
   async getEventCriteria(eventId: string): Promise<Criterion[]> {
     try {
@@ -57,7 +91,8 @@ export const eventService = {
   },
 
   /**
-   * Load cached event session from local storage (offline support).
+   * Load cached event session from local storage.
+   * Used for offline mode — returns null if no cache exists.
    */
   async loadCachedSession(): Promise<EventSessionResponse | null> {
     const [event, criteria] = await Promise.all([
@@ -70,7 +105,8 @@ export const eventService = {
   },
 
   /**
-   * Clear the cached event session (e.g., after submission or logout).
+   * Clear the cached event session.
+   * Called after submission or logout.
    */
   async clearCachedSession(): Promise<void> {
     await Promise.all([
