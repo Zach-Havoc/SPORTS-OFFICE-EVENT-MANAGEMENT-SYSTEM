@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import { getEvents, getEventRankings, getLeaderboard, getCategories, startWarmup } from '../../services/api';
+import { getEvents, getEventRankings, startWarmup } from '../../services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { Trophy, Calendar, Users, Medal, Award, Crown, Filter, Loader2 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import DepartmentCarousel from '../../components/DepartmentCarousel';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Trophy, Calendar, Users, Loader2, Clock } from 'lucide-react';
 import Loading from '../../components/Loading';
 
 interface Event {
@@ -25,26 +23,14 @@ interface Ranking {
   rank: number;
 }
 
-interface LeaderboardEntry {
-  department: string;
-  totalPoints: number;
-  eventsParticipated: number;
-  rank: number;
-  gold: number;
-  silver: number;
-  bronze: number;
-}
-
 export default function PublicViewer() {
   const [events, setEvents] = useState<Event[]>([]);
   const [rankings, setRankings] = useState<Record<string, Ranking[]>>({});
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('overall');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [autoRetryCount, setAutoRetryCount] = useState(0);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Helper function to format time
   const formatTime = (time: string) => {
@@ -59,20 +45,35 @@ export default function PublicViewer() {
   useEffect(() => {
     loadData();
 
-    // Set up polling for live updates every 30 seconds
+    // Set up polling for live updates every 10 seconds
     const interval = setInterval(() => {
       console.log('Polling for updates...');
       loadData();
-    }, 30000);
+    }, 10000);
 
     // Cleanup interval on unmount
     return () => clearInterval(interval);
   }, []);
 
-  // Reload leaderboard when category changes
+  // Refresh rankings when modal opens
   useEffect(() => {
-    loadLeaderboard(selectedCategory);
-  }, [selectedCategory]);
+    if (selectedEvent) {
+      const loadEventRankings = async () => {
+        try {
+          const eventRankings = await getEventRankings(selectedEvent.id);
+          if (Array.isArray(eventRankings)) {
+            setRankings(prev => ({
+              ...prev,
+              [selectedEvent.id]: eventRankings
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading rankings for modal:', error);
+        }
+      };
+      loadEventRankings();
+    }
+  }, [selectedEvent]);
 
   // Auto-retry when server is starting up
   useEffect(() => {
@@ -93,17 +94,6 @@ export default function PublicViewer() {
     }
   }, [error, autoRetryCount]);
 
-  const loadLeaderboard = async (category: string) => {
-    try {
-      const leaderboardData = await getLeaderboard(category === 'overall' ? undefined : category);
-      console.log(`Leaderboard loaded for category ${category}:`, leaderboardData);
-      setLeaderboard(leaderboardData || []);
-    } catch (error: any) {
-      console.error(`Error loading leaderboard for category ${category}:`, error);
-      setLeaderboard([]);
-      // Don't show error toast for empty results, just show empty state
-    }
-  };
 
   const loadData = async () => {
     try {
@@ -150,14 +140,6 @@ export default function PublicViewer() {
       setRankings(rankingsData);
       setLastUpdate(new Date());
 
-      // Load categories
-      const categoriesData = await getCategories();
-      console.log('Categories loaded:', categoriesData);
-      setCategories(categoriesData || []);
-
-      // Load leaderboard
-      await loadLeaderboard(selectedCategory);
-
       // Reset auto-retry count on success
       setAutoRetryCount(0);
     } catch (error: any) {
@@ -179,7 +161,6 @@ export default function PublicViewer() {
   };
 
   const ongoingEvents = events.filter(e => e.status === 'ongoing');
-  const upcomingEvents = events.filter(e => e.status === 'upcoming');
 
   if (loading) {
     return (
@@ -263,318 +244,183 @@ export default function PublicViewer() {
         </div>
       </div>
 
-      {/* Department Carousel */}
+      {/* Ongoing Events */}
       <div className="mb-8">
-        <DepartmentCarousel />
-      </div>
-
-      {/* Department Rankings */}
-      <Card className="mb-8 bg-gradient-to-br from-red-50 to-pink-50 border-2 border-primary">
-        <CardHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <Crown className="h-6 w-6 text-yellow-600" />
-              <CardTitle className="text-xl sm:text-2xl">Department Rankings</CardTitle>
-            </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <CardDescription className="flex-1">
-                {selectedCategory === 'overall' 
-                  ? 'Top performing departments across all competitions'
-                  : `Top performing departments in ${selectedCategory} competitions`
-                }
-              </CardDescription>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-full sm:w-[180px] bg-white">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="overall">Overall</SelectItem>
-                      {categories.map(category => (
-                        <SelectItem key={category.id} value={category.name}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Badge variant="outline" className="bg-white text-xs sm:text-sm text-center">
-                  Based on Event Wins
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {leaderboard.length > 0 ? (
-            <>
-              <div className="grid gap-3">
-                {leaderboard.slice(0, 5).map((entry, index) => (
-                  <div
-                    key={entry.department}
-                    className={`p-3 sm:p-4 rounded-lg transition-all hover:scale-[1.02] ${
-                      index === 0
-                        ? 'bg-gradient-to-r from-yellow-100 to-yellow-50 border-2 border-yellow-400'
-                        : index === 1
-                        ? 'bg-gradient-to-r from-gray-100 to-gray-50 border-2 border-gray-400'
-                        : index === 2
-                        ? 'bg-gradient-to-r from-orange-100 to-orange-50 border-2 border-orange-400'
-                        : 'bg-white border-2 border-gray-200'
-                    }`}
-                  >
-                    {/* Mobile Layout - Stacked */}
-                    <div className="flex sm:hidden flex-col gap-2">
-                      {/* Top Row: Rank, Department, Points */}
-                      <div className="flex items-start gap-2">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
-                            index === 0
-                              ? 'bg-yellow-400 text-yellow-900'
-                              : index === 1
-                              ? 'bg-gray-400 text-gray-900'
-                              : index === 2
-                              ? 'bg-orange-400 text-orange-900'
-                              : 'bg-blue-500 text-white'
-                          }`}
-                        >
-                          {entry.rank}
-                        </div>
-                        <div className="flex-1 min-w-0 mr-2">
-                          <div className="font-bold text-sm text-gray-900 leading-tight break-words">
-                            {entry.department}
-                          </div>
-                          <div className="text-xs text-gray-600 mt-0.5">
-                            {entry.eventsParticipated} {entry.eventsParticipated === 1 ? 'event' : 'events'}
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0 ml-auto">
-                          <div className="text-lg font-bold text-blue-600 leading-tight">
-                            {Math.round(entry.totalPoints)}
-                          </div>
-                          <div className="text-[9px] text-gray-500 uppercase leading-tight">pts</div>
-                        </div>
-                      </div>
-                      
-                      {/* Bottom Row: Medals */}
-                      <div className="flex items-center justify-evenly gap-1 pt-2 border-t border-gray-200">
-                        <div className="flex items-center gap-1">
-                          <Trophy className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-                          <span className="font-bold text-yellow-700 text-xs">{entry.gold}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Medal className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="font-bold text-gray-600 text-xs">{entry.silver}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Award className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
-                          <span className="font-bold text-orange-600 text-xs">{entry.bronze}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Desktop Layout - Single Row */}
-                    <div className="hidden sm:flex items-center justify-between">
-                      {/* Rank & Department */}
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div
-                          className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 ${
-                            index === 0
-                              ? 'bg-yellow-400 text-yellow-900'
-                              : index === 1
-                              ? 'bg-gray-400 text-gray-900'
-                              : index === 2
-                              ? 'bg-orange-400 text-orange-900'
-                              : 'bg-blue-500 text-white'
-                          }`}
-                        >
-                          {entry.rank}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-lg text-gray-900 truncate">
-                            {entry.department}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {entry.eventsParticipated} {entry.eventsParticipated === 1 ? 'event' : 'events'}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Medals */}
-                      <div className="flex items-center gap-4 mr-4">
-                        <div className="flex items-center gap-1">
-                          <Trophy className="h-5 w-5 text-yellow-500" />
-                          <span className="font-bold text-yellow-700">{entry.gold}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Medal className="h-5 w-5 text-gray-400" />
-                          <span className="font-bold text-gray-600">{entry.silver}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Award className="h-5 w-5 text-orange-400" />
-                          <span className="font-bold text-orange-600">{entry.bronze}</span>
-                        </div>
-                      </div>
-
-                      {/* Total Points */}
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {Math.round(entry.totalPoints)}
-                        </div>
-                        <div className="text-xs text-gray-500 uppercase">points</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {leaderboard.length > 5 && (
-                <div className="mt-4 text-center">
-                  <a
-                    href="/leaderboard"
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm inline-flex items-center gap-1"
-                  >
-                    View Full Leaderboard
-                    <Trophy className="h-4 w-4" />
-                  </a>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="py-12 text-center">
-              <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 font-medium mb-2">No Rankings Available</p>
-              <p className="text-sm text-gray-500">
-                {selectedCategory === 'overall' 
-                  ? 'No department rankings data yet. Scores will appear once events are judged.'
-                  : `No rankings found for ${selectedCategory} category. Try selecting a different category or check back later.`
-                }
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="ongoing" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="ongoing">
-            Ongoing ({ongoingEvents.length})
-          </TabsTrigger>
-          <TabsTrigger value="upcoming">
-            Upcoming ({upcomingEvents.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="ongoing" className="mt-6">
-          {ongoingEvents.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-gray-500">
-                No ongoing events at the moment
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {ongoingEvents.map(event => (
-                <Card key={event.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start mb-2">
-                      <Badge className={getStatusColor(event.status)}>
-                        {event.status}
-                      </Badge>
-                      <Trophy className="h-5 w-5 text-yellow-500" />
-                    </div>
-                    <CardTitle className="text-xl">{event.name}</CardTitle>
-                    <CardDescription>{event.category}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {new Date(event.schedule).toLocaleDateString()}
-                        {event.startTime && event.endTime && (
-                          <span className="ml-2 text-blue-600 font-medium">
-                            • {formatTime(event.startTime)} - {formatTime(event.endTime)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Users className="h-4 w-4 mr-2" />
-                        {(event.departments || []).length} departments
-                      </div>
-
-                      {/* Rankings */}
-                      {rankings[event.id] && rankings[event.id].length > 0 && (
-                        <div className="mt-4 pt-4 border-t">
-                          <h4 className="font-semibold text-sm mb-3">Current Rankings</h4>
-                          <div className="space-y-2">
-                            {rankings[event.id].slice(0, 3).map((ranking, index) => (
-                              <div key={ranking.department} className="flex justify-between items-center text-sm">
-                                <div className="flex items-center">
-                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-2 ${
-                                    index === 0 ? 'bg-yellow-400 text-yellow-900' :
-                                    index === 1 ? 'bg-gray-300 text-gray-700' :
-                                    'bg-orange-300 text-orange-900'
-                                  }`}>
-                                    {ranking.rank}
-                                  </span>
-                                  <span className="font-medium">{ranking.department}</span>
-                                </div>
-                                <span className="font-bold text-blue-600">{ranking.totalScore.toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="upcoming" className="mt-6">
-          {upcomingEvents.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-gray-500">
-                No upcoming events scheduled
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {upcomingEvents.map(event => (
-                <Card key={event.id}>
-                  <CardHeader>
-                    <Badge className={`${getStatusColor(event.status)} w-fit mb-2`}>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ongoing Events</h2>
+        {ongoingEvents.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-gray-500">
+              No ongoing events at the moment
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {ongoingEvents.map(event => (
+              <Card 
+                key={event.id} 
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => setSelectedEvent(event)}
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start mb-2">
+                    <Badge className={getStatusColor(event.status)}>
                       {event.status}
                     </Badge>
-                    <CardTitle className="text-xl">{event.name}</CardTitle>
-                    <CardDescription>{event.category}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {new Date(event.schedule).toLocaleDateString()}
-                        {event.startTime && event.endTime && (
-                          <span className="ml-2 text-blue-600 font-medium">
-                            • {formatTime(event.startTime)} - {formatTime(event.endTime)}
-                          </span>
-                        )}
+                    <Trophy className="h-5 w-5 text-yellow-500" />
+                  </div>
+                  <CardTitle className="text-xl">{event.name}</CardTitle>
+                  <CardDescription>{event.category}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {new Date(event.schedule).toLocaleDateString()}
+                      {event.startTime && event.endTime && (
+                        <span className="ml-2 text-blue-600 font-medium">
+                          • {formatTime(event.startTime)} - {formatTime(event.endTime)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Users className="h-4 w-4 mr-2" />
+                      {(event.departments || []).length} departments
+                    </div>
+
+                    {/* Rankings */}
+                    {rankings[event.id] && rankings[event.id].length > 0 && (
+                      <div className="mt-4 pt-4 border-t">
+                        <h4 className="font-semibold text-sm mb-3">Current Rankings</h4>
+                        <div className="space-y-2">
+                          {rankings[event.id].slice(0, 3).map((ranking, index) => (
+                            <div key={ranking.department} className="flex justify-between items-center text-sm">
+                              <div className="flex items-center">
+                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-2 ${
+                                  index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                                  index === 1 ? 'bg-gray-300 text-gray-700' :
+                                  'bg-orange-300 text-orange-900'
+                                }`}>
+                                  {ranking.rank}
+                                </span>
+                                <span className="font-medium">{event.departments[Number(ranking.department)] || ranking.department}</span>
+                              </div>
+                              <span className="font-bold text-blue-600">{Number(ranking.totalScore || 0).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Users className="h-4 w-4 mr-2" />
-                        {(event.departments || []).length} departments participating
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Event Detail Modal */}
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedEvent && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <DialogTitle className="text-2xl mb-2">{selectedEvent.name}</DialogTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(selectedEvent.status)}>
+                        {selectedEvent.status}
+                      </Badge>
+                      <Badge variant="outline">{selectedEvent.category}</Badge>
+                    </div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-6 mt-4">
+                {/* Event Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Date</p>
+                      <p className="font-medium">{new Date(selectedEvent.schedule).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                  </div>
+                  {selectedEvent.startTime && selectedEvent.endTime && (
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-5 w-5 text-gray-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">Time</p>
+                        <p className="font-medium">{formatTime(selectedEvent.startTime)} - {formatTime(selectedEvent.endTime)}</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  )}
+                </div>
+
+                {/* Departments */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Participating Departments ({(selectedEvent.departments || []).length})
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(selectedEvent.departments || []).map((dept) => (
+                      <Badge key={dept} variant="secondary" className="text-sm">
+                        {dept}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Full Rankings */}
+                {rankings[selectedEvent.id] && rankings[selectedEvent.id].length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Trophy className="h-5 w-5" />
+                      Current Rankings
+                    </h3>
+                    <div className="space-y-2">
+                      {rankings[selectedEvent.id].map((ranking, index) => (
+                        <div 
+                          key={ranking.department} 
+                          className={`flex justify-between items-center p-3 rounded-lg ${
+                            index === 0 ? 'bg-yellow-50 border border-yellow-200' :
+                            index === 1 ? 'bg-gray-50 border border-gray-200' :
+                            index === 2 ? 'bg-orange-50 border border-orange-200' :
+                            'bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                              index === 1 ? 'bg-gray-400 text-gray-900' :
+                              index === 2 ? 'bg-orange-400 text-orange-900' :
+                              'bg-blue-500 text-white'
+                            }`}>
+                              {ranking.rank}
+                            </span>
+                            <span className="font-medium">{selectedEvent.departments[Number(ranking.department)] || ranking.department}</span>
+                          </div>
+                          <span className="font-bold text-blue-600 text-lg">{Number(ranking.totalScore || 0).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* No Rankings Message */}
+                {(!rankings[selectedEvent.id] || rankings[selectedEvent.id].length === 0) && (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">No rankings available yet</p>
+                  </div>
+                )}
+              </div>
+            </>
           )}
-        </TabsContent>
-      </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

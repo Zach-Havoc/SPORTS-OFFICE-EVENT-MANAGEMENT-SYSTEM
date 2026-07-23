@@ -39,18 +39,8 @@ export default function ScannerScreen() {
   const [scanError,    setScanError]      = useState<string | null>(null);
   const [cameraActive, setCameraActive]   = useState(true);
 
-  const pulseAnim  = useRef(new Animated.Value(1)).current;
   const scanLineY  = useRef(new Animated.Value(0)).current;
 
-  // Pulse animation on scan frame corners
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.04, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1,    duration: 900, useNativeDriver: true }),
-      ]),
-    ).start();
-  }, []);
 
   // Animated red scan line
   useEffect(() => {
@@ -139,50 +129,40 @@ export default function ScannerScreen() {
             <Ionicons name="trophy" size={16} color={COLORS.textInverse} style={{ marginRight: 4 }} />
             <Text style={styles.brandPillText}>BatStateU Judge</Text>
           </View>
-          <View style={styles.statusRow}>
-            {!isConnected && (
-              <View style={styles.offlineBadge}>
-                <Ionicons name="wifi-outline" size={14} color={COLORS.textInverse} style={{ marginRight: 4 }} />
-                <Text style={styles.offlineBadgeText}>Offline</Text>
-              </View>
-            )}
-            <View style={styles.userPill}>
-              <Ionicons name="person" size={14} color={COLORS.textInverse} style={{ marginRight: 4 }} />
-              <Text style={styles.userPillText}>{user?.name ?? 'Judge'}</Text>
+          {!isConnected && (
+            <View style={styles.offlineBadge}>
+              <Ionicons name="wifi-outline" size={14} color={COLORS.textInverse} style={{ marginRight: 4 }} />
+              <Text style={styles.offlineBadgeText}>Offline</Text>
             </View>
-          </View>
+          )}
         </View>
 
         {/* Scan frame area */}
         <View style={styles.frameSection}>
           <Text style={styles.scanInstructions}>
-            Point camera at the event QR code
+            Point camera at QR code
           </Text>
 
-          <Animated.View
-            style={[styles.scanFrame, { transform: [{ scale: pulseAnim }] }]}
-          >
-            {/* Red corner markers */}
+          <View style={styles.scanFrame}>
+            {/* Corner markers */}
             <View style={[styles.corner, styles.cornerTL]} />
             <View style={[styles.corner, styles.cornerTR]} />
             <View style={[styles.corner, styles.cornerBL]} />
             <View style={[styles.corner, styles.cornerBR]} />
 
-            {/* Animated red scan line */}
+            {/* Animated scan line */}
             <Animated.View
               style={[styles.scanLine, { transform: [{ translateY: scanLineY }] }]}
             />
-          </Animated.View>
+          </View>
 
           {isLoading && (
             <View style={styles.statusChip}>
-              <Ionicons name="hourglass-outline" size={16} color={COLORS.textPrimary} style={{ marginRight: 6 }} />
               <Text style={styles.statusChipText}>Loading event…</Text>
             </View>
           )}
           {!!scanError && (
             <View style={[styles.statusChip, styles.errorChip]}>
-              <Ionicons name="alert-circle" size={16} color={COLORS.primaryDark} style={{ marginRight: 6 }} />
               <Text style={styles.errorChipText}>{scanError}</Text>
             </View>
           )}
@@ -197,13 +177,12 @@ export default function ScannerScreen() {
               onPress={() => router.push(`/(app)/scoring/${event.id}`)}
               activeOpacity={0.85}
             >
-              <View style={styles.resumeLeft}>
-                <Ionicons name="document-text" size={16} color={COLORS.primary} style={{ marginBottom: 2 }} />
-                <Text style={styles.resumeLabel}>Cached Event</Text>
+              <Ionicons name="document-text" size={20} color={COLORS.primary} />
+              <View style={styles.resumeRight}>
                 <Text style={styles.resumeName} numberOfLines={1}>{event.name}</Text>
-                <Text style={styles.resumeHint}>Tap to continue scoring</Text>
+                <Text style={styles.resumeHint}>Tap to continue</Text>
               </View>
-              <Ionicons name="chevron-forward" size={24} color={COLORS.primary} />
+              <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
             </TouchableOpacity>
           )}
 
@@ -213,7 +192,6 @@ export default function ScannerScreen() {
               style={styles.rescanBtn}
               onPress={() => { setScanned(false); setScanError(null); setCameraActive(true); }}
             >
-              <Ionicons name="refresh" size={18} color={COLORS.textPrimary} style={{ marginRight: 6 }} />
               <Text style={styles.rescanBtnText}>Scan Again</Text>
             </TouchableOpacity>
           )}
@@ -244,10 +222,11 @@ const styles = StyleSheet.create({
     paddingTop:        SPACING.xl,
     paddingHorizontal: SPACING.md,
     gap:               SPACING.sm,
+    alignItems:        'center',
   },
   brandPill: {
     alignSelf:         'center',
-    backgroundColor:   COLORS.primary,
+    backgroundColor:   'rgba(0,0,0,0.6)',
     borderRadius:      RADIUS.full,
     paddingHorizontal: SPACING.lg,
     paddingVertical:   SPACING.xs + 2,
@@ -256,28 +235,8 @@ const styles = StyleSheet.create({
   },
   brandPillText: {
     color:      COLORS.textInverse,
-    fontWeight: FONT_WEIGHT.bold,
-    fontSize:   FONT_SIZE.md,
-  },
-  statusRow: {
-    flexDirection:  'row',
-    justifyContent: 'center',
-    gap:            SPACING.sm,
-  },
-  userPill: {
-    backgroundColor:   'rgba(0,0,0,0.55)',
-    borderRadius:      RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical:   SPACING.xs,
-    borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.20)',
-    flexDirection:     'row',
-    alignItems:        'center',
-  },
-  userPillText: {
-    color:      '#fff',
+    fontWeight: FONT_WEIGHT.semibold,
     fontSize:   FONT_SIZE.sm,
-    fontWeight: FONT_WEIGHT.medium,
   },
   offlineBadge: {
     backgroundColor:   'rgba(217,119,6,0.85)',
@@ -289,7 +248,7 @@ const styles = StyleSheet.create({
   },
   offlineBadgeText: {
     color:      '#fff',
-    fontSize:   FONT_SIZE.sm,
+    fontSize:   FONT_SIZE.xs,
     fontWeight: FONT_WEIGHT.semibold,
   },
 
@@ -299,11 +258,12 @@ const styles = StyleSheet.create({
     gap:        SPACING.md,
   },
   scanInstructions: {
-    color:      'rgba(255,255,255,0.85)',
+    color:      'rgba(255,255,255,0.90)',
     fontSize:   FONT_SIZE.md,
     fontWeight: FONT_WEIGHT.medium,
     textAlign:  'center',
     paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   scanFrame: {
     width:    FRAME_SIZE,
@@ -333,17 +293,16 @@ const styles = StyleSheet.create({
     shadowOpacity:   0.8,
   },
   statusChip: {
-    backgroundColor:   'rgba(255,255,255,0.90)',
+    backgroundColor:   'rgba(255,255,255,0.95)',
     borderRadius:      RADIUS.md,
     paddingHorizontal: SPACING.lg,
     paddingVertical:   SPACING.sm,
-    flexDirection:     'row',
-    alignItems:        'center',
   },
   statusChipText: {
     color:      COLORS.textPrimary,
     fontSize:   FONT_SIZE.sm,
     fontWeight: FONT_WEIGHT.medium,
+    textAlign: 'center',
   },
   errorChip: {
     backgroundColor: COLORS.primaryPale,
@@ -375,33 +334,25 @@ const styles = StyleSheet.create({
     borderWidth:     1,
     borderColor:     COLORS.primaryPale,
     padding:         SPACING.md,
+    gap:              SPACING.md,
   },
-  resumeLeft:  { flex: 1, gap: 2 },
-  resumeLabel: {
-    fontSize:   FONT_SIZE.xs,
-    color:      COLORS.primary,
-    fontWeight: FONT_WEIGHT.semibold,
-    letterSpacing: 0.8,
-    marginTop:    2,
-  },
+  resumeRight: { flex: 1, gap: 2 },
   resumeName: {
-    fontSize:   FONT_SIZE.lg,
+    fontSize:   FONT_SIZE.md,
     fontWeight: FONT_WEIGHT.bold,
     color:      COLORS.textPrimary,
   },
   resumeHint: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.xs,
     color:    COLORS.textSecondary,
   },
   rescanBtn: {
-    backgroundColor: COLORS.surfaceAlt,
+    backgroundColor: COLORS.surface,
     borderRadius:    RADIUS.md,
     paddingVertical: SPACING.md,
     alignItems:      'center',
     borderWidth:     1,
-    borderColor:     COLORS.borderStrong,
-    flexDirection:     'row',
-    justifyContent:    'center',
+    borderColor:     COLORS.border,
   },
   rescanBtnText: {
     color:      COLORS.textPrimary,

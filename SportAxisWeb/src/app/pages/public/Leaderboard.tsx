@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { getLeaderboard, startWarmup } from '../../services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Trophy, Medal, Award } from 'lucide-react';
-import { Badge } from '../../components/ui/badge';
 import Loading from '../../components/Loading';
 
 interface LeaderboardEntry {
@@ -69,67 +68,18 @@ export default function PublicLeaderboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">Departmental Leaderboard</h1>
-            <Badge className="bg-red-500 text-white animate-pulse">
-              ● Live
-            </Badge>
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Departmental Leaderboard</h1>
           <p className="text-gray-500 text-sm mt-1">
             Last updated: {lastUpdate.toLocaleTimeString()}
           </p>
         </div>
       </div>
 
-      {/* Top 3 Podium */}
-      {leaderboard.length >= 3 && (
-        <div className="grid grid-cols-3 gap-4 mb-8 max-w-3xl mx-auto">
-          {/* 2nd Place */}
-          <div className="flex flex-col items-center pt-12">
-            <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mb-2">
-              <Medal className="h-8 w-8 text-gray-700" />
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-700">2</div>
-              <div className="font-semibold text-sm">{leaderboard[1].department}</div>
-              <div className="text-xl font-bold text-blue-600 mt-1">{Math.round(leaderboard[1].totalPoints)}</div>
-              <div className="text-xs text-gray-500">points</div>
-            </div>
-          </div>
-
-          {/* 1st Place */}
-          <div className="flex flex-col items-center">
-            <div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center mb-2 animate-pulse">
-              <Trophy className="h-10 w-10 text-yellow-900" />
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-600">1</div>
-              <div className="font-bold text-base">{leaderboard[0].department}</div>
-              <div className="text-2xl font-bold text-blue-600 mt-1">{Math.round(leaderboard[0].totalPoints)}</div>
-              <div className="text-xs text-gray-500">points</div>
-            </div>
-          </div>
-
-          {/* 3rd Place */}
-          <div className="flex flex-col items-center pt-16">
-            <div className="w-14 h-14 bg-orange-300 rounded-full flex items-center justify-center mb-2">
-              <Award className="h-7 w-7 text-orange-900" />
-            </div>
-            <div className="text-center">
-              <div className="text-xl font-bold text-orange-700">3</div>
-              <div className="font-semibold text-xs">{leaderboard[2].department}</div>
-              <div className="text-lg font-bold text-blue-600 mt-1">{Math.round(leaderboard[2].totalPoints)}</div>
-              <div className="text-xs text-gray-500">points</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full Leaderboard Table */}
+      {/* Leaderboard Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Complete Rankings</CardTitle>
-          <CardDescription>Overall departmental performance across all events</CardDescription>
+          <CardTitle>Overall Rankings</CardTitle>
+          <CardDescription>Departmental performance across all events</CardDescription>
         </CardHeader>
         <CardContent>
           {leaderboard.length === 0 ? (
@@ -158,7 +108,10 @@ export default function PublicLeaderboard() {
                     <tr
                       key={entry.department}
                       className={`border-b hover:bg-gray-50 ${
-                        index < 3 ? 'bg-blue-50' : ''
+                        index === 0 ? 'bg-yellow-50' :
+                        index === 1 ? 'bg-gray-50' :
+                        index === 2 ? 'bg-orange-50' :
+                        ''
                       }`}
                     >
                       <td className="py-4 px-4">
