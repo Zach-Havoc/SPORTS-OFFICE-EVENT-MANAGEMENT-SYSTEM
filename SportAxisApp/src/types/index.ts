@@ -35,7 +35,6 @@ export interface EventSession {
   venueName: string | null;
   departments: string[];
   judges: string[];
-  participants?: string[]; // Alias for judges
   status: 'upcoming' | 'ongoing' | 'completed';
   qrToken: string;
 }
