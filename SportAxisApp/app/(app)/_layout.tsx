@@ -68,15 +68,6 @@ export default function AppLayout() {
       }}
     >
       <Tabs.Screen
-        name="events"
-        options={{
-          title: 'Events',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="calendar" size={22} color={focused ? COLORS.primary : COLORS.textSecondary} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="scanner"
         options={{
           title: 'Scan QR',

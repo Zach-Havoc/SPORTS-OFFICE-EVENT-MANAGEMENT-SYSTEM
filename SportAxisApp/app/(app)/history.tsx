@@ -58,22 +58,32 @@ export default function HistoryScreen() {
       item.status === 'syncing'  ? 'info'    :
       item.status === 'failed'   ? 'error'   : 'success';
 
+    const retryLabel = item.retry_count > 0 ? ` (retry ${item.retry_count}/3)` : '';
+
     return (
       <Card style={styles.queueItem}>
         <View style={styles.queueHeader}>
-          <Text style={styles.queueDept}>{item.payload.department}</Text>
-          <Badge label={item.status.toUpperCase()} variant={statusVariant} />
+          <View style={styles.queueLeft}>
+            <Text style={styles.queueDept}>{item.payload.department}</Text>
+            <Text style={styles.queueEvent} numberOfLines={1}>
+              Event #{item.payload.eventId}
+            </Text>
+          </View>
+          <Badge label={item.status.toUpperCase() + retryLabel} variant={statusVariant} />
         </View>
         <View style={styles.queueMeta}>
           <Text style={styles.metaText}>
-            Score: {item.payload.totalScore.toFixed(2)}
+            Score: {item.payload.totalScore.toFixed(2)} · {item.payload.method}
           </Text>
           <Text style={styles.metaText}>
-            {new Date(item.created_at).toLocaleDateString()}
+            {new Date(item.created_at).toLocaleString()}
           </Text>
         </View>
         {item.error && (
-          <Text style={styles.errorText}>{item.error}</Text>
+          <View style={styles.errorRow}>
+            <Ionicons name="alert-circle" size={14} color={COLORS.destructive} style={{ marginRight: 4 }} />
+            <Text style={styles.errorText}>{item.error}</Text>
+          </View>
         )}
       </Card>
     );
@@ -82,7 +92,7 @@ export default function HistoryScreen() {
   return (
     <View style={styles.container}>
 
-      {/* Summary header */}
+      {/* Red summary header — like web sidebar */}
       <View style={styles.summaryHeader}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryCount}>{queue.length}</Text>
@@ -170,7 +180,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
 
-  // Summary header
+  // Red summary header
   summaryHeader: {
     backgroundColor: COLORS.primary,
     flexDirection:   'row',
@@ -182,12 +192,12 @@ const styles = StyleSheet.create({
     gap:        SPACING.xs,
   },
   summaryCount: {
-    fontSize:   FONT_SIZE.xl,
+    fontSize:   FONT_SIZE.xxl,
     fontWeight: FONT_WEIGHT.bold,
     color:      COLORS.textInverse,
   },
   pendingCount: { color: COLORS.primaryPale },
-  failedCount:  { color: '#FCA5A5' },
+  failedCount:  { color: '#FCA5A5' },   // red-300
   summaryLabel: {
     fontSize: FONT_SIZE.xs,
     color:    'rgba(255,255,255,0.70)',
@@ -214,27 +224,38 @@ const styles = StyleSheet.create({
   queueHeader: {
     flexDirection:  'row',
     justifyContent: 'space-between',
-    alignItems:     'center',
+    alignItems:     'flex-start',
   },
+  queueLeft:  { flex: 1, gap: 2, marginRight: SPACING.sm },
   queueDept: {
     fontSize:   FONT_SIZE.md,
     fontWeight: FONT_WEIGHT.bold,
     color:      COLORS.textPrimary,
   },
+  queueEvent: {
+    fontSize: FONT_SIZE.sm,
+    color:    COLORS.textSecondary,
+  },
   queueMeta: {
     flexDirection:  'row',
     justifyContent: 'space-between',
+    flexWrap:       'wrap',
     gap:            SPACING.xs,
   },
   metaText: {
     fontSize: FONT_SIZE.xs,
     color:    COLORS.textMuted,
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    marginTop:     SPACING.xs,
+  },
   errorText: {
     fontSize:   FONT_SIZE.xs,
     color:      COLORS.destructive,
     fontWeight: FONT_WEIGHT.medium,
-    marginTop:  SPACING.xs,
+    flex:       1,
   },
 
   // Empty state

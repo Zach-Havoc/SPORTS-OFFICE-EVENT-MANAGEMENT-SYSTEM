@@ -1,50 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { login as apiLogin, logout as apiLogout, getAuthUser } from '../services/api';
-
-// 5 minutes in milliseconds
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
-
-function useInactivityTimeout(onTimeout: () => void, isActive: boolean) {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const resetTimer = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (isActive) {
-      timeoutRef.current = setTimeout(() => {
-        onTimeout();
-      }, INACTIVITY_TIMEOUT_MS);
-    }
-  }, [isActive, onTimeout]);
-
-  useEffect(() => {
-    if (!isActive) {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      return;
-    }
-
-    const events = ['mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
-    
-    // Initial setup
-    resetTimer();
-
-    const handleActivity = () => {
-      resetTimer();
-    };
-
-    events.forEach(event => {
-      window.addEventListener(event, handleActivity, { passive: true });
-    });
-
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      events.forEach(event => {
-        window.removeEventListener(event, handleActivity);
-      });
-    };
-  }, [isActive, resetTimer]);
-}
 
 interface User {
   id: string;
@@ -79,11 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted.current = false;
     };
   }, []);
-
-  useInactivityTimeout(() => {
-    console.log('User inactive for 5 minutes. Logging out.');
-    logout();
-  }, !!user);
 
   const checkUser = async () => {
     // Prevent concurrent checks

@@ -18,27 +18,6 @@ export interface AuthState {
 
 // ── Event & Criteria ─────────────────────────────────────────────────────────
 
-/**
- * Matches the shape returned by GET /api/events and GET /api/events/{id}
- * (the EventController::toApiFormat() method).
- */
-export interface EventSummary {
-  id: string;
-  name: string;
-  category: string;
-  schedule: string;
-  startTime: string;
-  endTime: string;
-  venueId: string | null;
-  venueName: string | null;
-  departments: string[];
-  judges: string[];
-  criteria: Array<{ id: string; name: string; max_score: number; weight?: number | null }>;
-  status: 'upcoming' | 'ongoing' | 'completed';
-  qrToken: string;
-  createdAt: string;
-}
-
 export interface Criterion {
   criteria_id: string;
   name: string;
@@ -56,6 +35,7 @@ export interface EventSession {
   venueName: string | null;
   departments: string[];
   judges: string[];
+  participants?: string[]; // Alias for judges
   status: 'upcoming' | 'ongoing' | 'completed';
   qrToken: string;
 }

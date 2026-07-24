@@ -61,26 +61,35 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header banner ──────── */}
+        {/* ── Red header banner (mirrors web sidebar gradient) ──────── */}
         <View style={styles.banner}>
-          <Ionicons name="trophy" size={48} color={COLORS.textInverse} />
+          {/* Trophy icon — matches web Lucide Trophy */}
+          <View style={styles.logoBox}>
+            <Ionicons name="trophy" size={36} color={COLORS.textInverse} />
+          </View>
           <Text style={styles.appName}>BatStateU</Text>
-          <Text style={styles.appSub}>Judge Portal</Text>
+          <Text style={styles.appSub}>Competition Scoring System</Text>
+          <View style={styles.judgeChip}>
+            <Ionicons name="scale" size={14} color={COLORS.textInverse} style={{ marginRight: 4 }} />
+            <Text style={styles.judgeChipText}>Judge Portal</Text>
+          </View>
         </View>
 
-        {/* ── Form card ────────────────────────────────────────── */}
+        {/* ── White form card ────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sign In</Text>
+          <Text style={styles.cardTitle}>Welcome Back</Text>
+          <Text style={styles.cardSubtitle}>Sign in with your judge account</Text>
 
           {/* Email */}
           <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Email Address</Text>
             <View style={[styles.inputWrapper, fieldErrors.email ? styles.inputError : null]}>
               <Ionicons name="mail-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: SPACING.sm }} />
               <TextInput
                 style={styles.input}
                 value={email}
                 onChangeText={(v) => { setEmail(v); setFieldErrors((e) => ({ ...e, email: undefined })); }}
-                placeholder="Email"
+                placeholder="judge@batstateu.edu.ph"
                 placeholderTextColor={COLORS.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -94,13 +103,14 @@ export default function LoginScreen() {
 
           {/* Password */}
           <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Password</Text>
             <View style={[styles.inputWrapper, fieldErrors.password ? styles.inputError : null]}>
               <Ionicons name="lock-closed-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: SPACING.sm }} />
               <TextInput
                 style={styles.input}
                 value={password}
                 onChangeText={(v) => { setPassword(v); setFieldErrors((e) => ({ ...e, password: undefined })); }}
-                placeholder="Password"
+                placeholder="••••••••"
                 placeholderTextColor={COLORS.textMuted}
                 secureTextEntry={!showPass}
                 returnKeyType="done"
@@ -118,7 +128,7 @@ export default function LoginScreen() {
             {fieldErrors.password && <Text style={styles.errorText}>{fieldErrors.password}</Text>}
           </View>
 
-          {/* Login Button */}
+          {/* Login Button — BatStateU red */}
           <TouchableOpacity
             style={[styles.loginBtn, isLoading && styles.loginBtnDisabled]}
             onPress={handleLogin}
@@ -135,6 +145,9 @@ export default function LoginScreen() {
 
         {/* ── Footer ─────────────────────────────────────────────────── */}
         <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Judge accounts are managed by the system administrator.
+          </Text>
           <Text style={styles.footerCopy}>© 2026 Batangas State University</Text>
         </View>
       </ScrollView>
@@ -152,26 +165,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Header banner
+  // Red header banner
   banner: {
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.xxl,
     paddingHorizontal: SPACING.xl,
     alignItems:      'center',
-    gap:             SPACING.sm,
+    gap:             SPACING.xs,
+  },
+  logoBox: {
+    width:           72,
+    height:          72,
+    borderRadius:    RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.20)',
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    SPACING.sm,
+    borderWidth:     2,
+    borderColor:     'rgba(255,255,255,0.40)',
   },
   appName: {
-    fontSize:      FONT_SIZE.xxl,
-    fontWeight:    FONT_WEIGHT.bold,
+    fontSize:      FONT_SIZE.xxxl,
+    fontWeight:    FONT_WEIGHT.extrabold,
     color:         COLORS.textInverse,
+    letterSpacing: -0.5,
   },
   appSub: {
-    fontSize:   FONT_SIZE.md,
-    color:      'rgba(255,255,255,0.85)',
+    fontSize:   FONT_SIZE.sm,
+    color:      'rgba(255,255,255,0.80)',
     fontWeight: FONT_WEIGHT.medium,
   },
+  judgeChip: {
+    marginTop:         SPACING.sm,
+    backgroundColor:   'rgba(255,255,255,0.15)',
+    borderRadius:      RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical:   SPACING.xs,
+    borderWidth:       1,
+    borderColor:       'rgba(255,255,255,0.30)',
+    flexDirection:     'row',
+    alignItems:        'center',
+  },
+  judgeChipText: {
+    color:      COLORS.textInverse,
+    fontSize:   FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.semibold,
+  },
 
-  // Card
+  // White card
   card: {
     backgroundColor: COLORS.surface,
     margin:          SPACING.lg,
@@ -187,9 +228,20 @@ const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHT.bold,
     color:      COLORS.textPrimary,
   },
+  cardSubtitle: {
+    fontSize:  FONT_SIZE.md,
+    color:     COLORS.textSecondary,
+    marginTop: -SPACING.sm,
+  },
 
   // Fields
   fieldGroup:  { gap: SPACING.xs },
+  fieldLabel: {
+    fontSize:      FONT_SIZE.sm,
+    fontWeight:    FONT_WEIGHT.medium,
+    color:         COLORS.textPrimary,
+    letterSpacing: 0.2,
+  },
   inputWrapper: {
     flexDirection:   'row',
     alignItems:      'center',
@@ -235,6 +287,12 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     padding:    SPACING.lg,
+    gap:        SPACING.xs,
+  },
+  footerText: {
+    fontSize:  FONT_SIZE.sm,
+    color:     COLORS.textMuted,
+    textAlign: 'center',
   },
   footerCopy: {
     fontSize:  FONT_SIZE.xs,

@@ -60,15 +60,16 @@ export const COLORS = {
 
   // Overlay/glass
   overlay:        'rgba(0,0,0,0.50)',
+  overlayLight:   'rgba(185,28,28,0.08)',
 } as const;
 
 export const SPACING = {
   xs:  4,
   sm:  8,
-  md:  12,
-  lg:  16,
-  xl:  24,
-  xxl: 32,
+  md:  16,
+  lg:  24,
+  xl:  32,
+  xxl: 48,
 } as const;
 
 export const RADIUS = {
@@ -103,37 +104,38 @@ export const SHADOWS = {
   sm: {
     shadowColor:   '#000',
     shadowOffset:  { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius:  2,
-    elevation:     1,
-  },
-  md: {
-    shadowColor:   '#000',
-    shadowOffset:  { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius:  4,
-    elevation:     2,
-  },
-  lg: {
-    shadowColor:   '#000',
-    shadowOffset:  { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius:  8,
-    elevation:     4,
-  },
-  card: {
-    shadowColor:   '#000',
-    shadowOffset:  { width: 0, height: 1 },
-    shadowOpacity: 0.06,
     shadowRadius:  3,
     elevation:     2,
   },
+  md: {
+    shadowColor:   '#000',
+    shadowOffset:  { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius:  8,
+    elevation:     4,
+  },
+  lg: {
+    shadowColor:   '#B91C1C',
+    shadowOffset:  { width: 0, height: 4 },
+    shadowOpacity: 0.20,
+    shadowRadius:  12,
+    elevation:     8,
+  },
+  card: {
+    shadowColor:   '#000',
+    shadowOffset:  { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius:  6,
+    elevation:     3,
+  },
 } as const;
 
-// ── Gradient helper values ─────────────────────────────────────────────────────
+// ── Gradient helper values for the red sidebar ────────────────────────────────
 export const GRADIENTS = {
   sidebarStart:  '#B91C1C',
   sidebarEnd:    '#991B1B',
+  redBanner:     'rgba(185,28,28,0.12)',
 } as const;
 
 // Legacy Colors export (keeps existing @/constants/theme imports working)
