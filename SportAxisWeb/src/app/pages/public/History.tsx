@@ -248,15 +248,6 @@ export default function PublicHistory() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {event.departments.map((dept) => (
-                    <Badge key={dept} variant="secondary">
-                      {dept}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
             </Card>
           ))}
         </div>

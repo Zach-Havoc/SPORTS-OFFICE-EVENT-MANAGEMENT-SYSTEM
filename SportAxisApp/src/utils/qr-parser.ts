@@ -7,21 +7,10 @@ import type { QrPayload } from '../types';
 /**
  * Parse a raw QR code string into a structured QrPayload.
  *
- * The QR code can be in any of these formats:
- *
- *   1. Web QR URL (from SportAxisWeb admin panel):
- *      https://sportaxis.example.com/judge-qr/{eventId}/{qrToken}
- *
- *   2. JSON object:
- *      {"eventId":"123","token":"abc..."} or {"qr_token":"abc..."}
- *
- *   3. Raw token string:
- *      Just the 32-character qr_token value (alphanumeric)
- *
- *   4. Query string URL:
- *      https://example.com/event?token=abc&eventId=123
- *
- * After parsing, use extractToken() to get the QR token for API lookups.
+ * Supported QR formats:
+ *   1. JSON: {"eventId":"xxx","token":"yyy"} or {"qr_token":"yyy"}
+ *   2. Raw token string: just the 32-char qr_token value
+ *   3. URL with params: https://example.com/event?token=xxx&eventId=yyy
  */
 export function parseQrCode(raw: string): QrPayload {
   if (!raw || typeof raw !== 'string') {
@@ -56,7 +45,7 @@ export function parseQrCode(raw: string): QrPayload {
       let token  = url.searchParams.get('token') ?? url.searchParams.get('qr_token');
       let eventId = url.searchParams.get('eventId') ?? url.searchParams.get('event_id');
 
-      // Support path segments: /judge-qr/:eventId/:token (from web admin panel)
+      // Support path segments: /judge-qr/:eventId/:token
       if (!token && !eventId) {
         const parts = url.pathname.split('/').filter(Boolean);
         if (parts.length >= 3 && parts[0] === 'judge-qr') {

@@ -28,6 +28,7 @@ import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { useNetwork } from "../../../src/hooks/use-network";
 import { scoreService } from "../../../src/services/score.service";
+import api from "../../../src/services/api";
 import { useAuthStore } from "../../../src/store/auth.store";
 import { useEventStore } from "../../../src/store/event.store";
 import { useOfflineStore } from "../../../src/store/offline.store";
@@ -67,6 +68,7 @@ export default function ScoringScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOCR, setShowOCR] = useState(false);
   const [ocrImageUri, setOcrImageUri] = useState<string | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const currentScores = department ? (departmentScores[department] ?? {}) : {};
   const currentErrors = department ? (departmentErrors[department] ?? {}) : {};
@@ -205,6 +207,51 @@ export default function ScoringScreen() {
     }
   };
 
+  // ── Complete Event Handler ───────────────────────────────────────────────────
+  const handleCompleteEvent = async () => {
+    if (!event) return;
+
+    Alert.alert(
+      "Complete Event",
+      "Are you sure you want to mark this event as completed? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Complete",
+          style: "destructive",
+          onPress: async () => {
+            if (!isConnected) {
+              Alert.alert(
+                "No Connection",
+                "You need an internet connection to complete an event."
+              );
+              return;
+            }
+
+            setIsCompleting(true);
+            try {
+              await api.put(`/events/${event.id}`, {
+                status: "completed"
+              });
+              Alert.alert(
+                "Event Completed",
+                "The event has been marked as completed successfully."
+              );
+              router.back();
+            } catch (error: any) {
+              Alert.alert(
+                "Error",
+                error.message || "Failed to complete event. Please try again."
+              );
+            } finally {
+              setIsCompleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // ── Missing event guard ───────────────────────────────────────────────────
   if (!event || !criteria.length) {
     return (
@@ -268,29 +315,10 @@ export default function ScoringScreen() {
               />
               {!isConnected && <Badge label="OFFLINE" variant="offline" />}
             </View>
-            <View style={styles.eventDetails}>
-              <Ionicons
-                name="location-outline"
-                size={14}
-                color={COLORS.textSecondary}
-                style={{ marginRight: 4 }}
-              />
-              <Text style={styles.eventDetailsText}>
-                {event.venueName ?? "No venue"}
-              </Text>
-              <Ionicons
-                name="calendar-outline"
-                size={14}
-                color={COLORS.textSecondary}
-                style={{ marginRight: 4, marginLeft: 8 }}
-              />
-              <Text style={styles.eventDetailsText}>{event.schedule}</Text>
-            </View>
           </Card>
 
           {/* ── Department Selector ───────────────────────────────────────── */}
           <View>
-            <Text style={styles.sectionLabel}>SCORING FOR DEPARTMENT</Text>
             <TouchableOpacity
               style={styles.deptSelector}
               onPress={() => setShowDeptPicker(true)}
@@ -298,14 +326,10 @@ export default function ScoringScreen() {
               accessibilityRole="button"
             >
               <Text style={styles.deptSelectorText}>
-                {department || "Tap to select department"}
+                {department || "Select Department"}
               </Text>
-              <Text style={styles.deptChevron}>›</Text>
+              <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
             </TouchableOpacity>
-            <Text style={styles.selectorHelp}>
-              Scores are stored separately for each participating department or
-              college. Switch the selector to score another team.
-            </Text>
           </View>
 
           {/* ── Mode Switcher ─────────────────────────────────────────────── */}
@@ -321,13 +345,6 @@ export default function ScoringScreen() {
               }}
               accessibilityLabel="Manual scoring mode"
             >
-              <Ionicons
-                name="pencil"
-                size={18}
-                color={
-                  mode === "manual" ? COLORS.primary : COLORS.textSecondary
-                }
-              />
               <Text
                 style={[
                   styles.modeBtnText,
@@ -345,18 +362,13 @@ export default function ScoringScreen() {
               onPress={() => setShowOCR(true)}
               accessibilityLabel="OCR scoring mode"
             >
-              <Ionicons
-                name="camera"
-                size={18}
-                color={mode === "ocr" ? COLORS.ocr : COLORS.textSecondary}
-              />
               <Text
                 style={[
                   styles.modeBtnText,
                   mode === "ocr" && styles.modeBtnTextOcr,
                 ]}
               >
-                OCR Capture
+                OCR
               </Text>
             </TouchableOpacity>
           </View>
@@ -405,6 +417,27 @@ export default function ScoringScreen() {
               ) : undefined
             }
           />
+
+          {/* ── Complete Event Button ──────────────────────────────────────────── */}
+          {event.status === "ongoing" && (
+            <Button
+              label={isCompleting ? "Completing…" : "Complete Event"}
+              onPress={handleCompleteEvent}
+              variant="secondary"
+              size="lg"
+              loading={isCompleting}
+              disabled={!isConnected}
+              fullWidth
+              style={styles.completeBtn}
+              icon={
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
+              }
+            />
+          )}
 
           <View style={{ height: SPACING.xxl }} />
         </ScrollView>
@@ -506,7 +539,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   eventName: {
-    fontSize: FONT_SIZE.xl,
+    fontSize: FONT_SIZE.lg,
     fontWeight: FONT_WEIGHT.bold,
     color: COLORS.textPrimary,
   },
@@ -515,24 +548,8 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: SPACING.xs,
   },
-  eventDetails: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  eventDetailsText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-  },
 
   // Department selector
-  sectionLabel: {
-    fontSize: FONT_SIZE.xs,
-    fontWeight: FONT_WEIGHT.semibold,
-    color: COLORS.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: SPACING.xs,
-  },
   deptSelector: {
     flexDirection: "row",
     alignItems: "center",
@@ -550,10 +567,6 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontWeight: FONT_WEIGHT.medium,
   },
-  deptChevron: {
-    fontSize: FONT_SIZE.xl,
-    color: COLORS.textMuted,
-  },
 
   // Mode switcher
   modeRow: {
@@ -562,10 +575,8 @@ const styles = StyleSheet.create({
   },
   modeBtn: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: SPACING.xs,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,
     borderWidth: 1.5,
@@ -581,7 +592,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(139,92,246,0.08)",
   },
   modeBtnText: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.md,
     fontWeight: FONT_WEIGHT.semibold,
     color: COLORS.textSecondary,
   },
@@ -591,6 +602,9 @@ const styles = StyleSheet.create({
   // Submit
   submitBtn: {
     marginTop: SPACING.sm,
+  },
+  completeBtn: {
+    marginTop: SPACING.xs,
   },
 
   // Dept modal
