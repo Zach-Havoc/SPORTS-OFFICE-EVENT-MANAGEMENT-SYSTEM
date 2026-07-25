@@ -266,8 +266,50 @@ export const getMyPerformance = () => apiRequest('/performance/my', {}, true);
 // Requirements
 // ─────────────────────────────────────────────────────────────────────
 
-export const submitRequirement = (data: any) =>
-  apiRequest('/requirements', { method: 'POST', body: JSON.stringify(data) }, true);
+export const submitRequirement = (data: any) => {
+  const formData = new FormData();
+  formData.append('type', data.type);
+  formData.append('name', data.name);
+  if (data.description) formData.append('description', data.description);
+  if (data.file) formData.append('file', data.file);
+
+  console.log('FormData entries:', Array.from(formData.entries()));
+
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  console.log('API URL:', API_URL);
+  console.log('Full URL:', `${API_URL}/requirements`);
+
+  return fetch(`${API_URL}/requirements`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  }).then(async (response) => {
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      let errorMessage = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch (_) {}
+      throw new Error(errorMessage || 'Failed to submit requirement');
+    }
+    const text = await response.text();
+    console.log('Response text:', text);
+    const data = text ? JSON.parse(text) : {};
+    return keysToCamelCase(data);
+  });
+};
 export const getRequirements = () => apiRequest('/requirements', {}, true);
 export const getMyRequirements = () => apiRequest('/requirements/my', {}, true);
 export const updateRequirementStatus = (id: string, data: any) =>

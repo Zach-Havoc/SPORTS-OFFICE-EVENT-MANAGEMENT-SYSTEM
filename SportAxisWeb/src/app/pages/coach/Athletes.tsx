@@ -162,7 +162,7 @@ export default function CoachAthletes() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h1 className="text-2xl font-bold text-gray-900">
-                    {coachProfile?.sport ? `${coachProfile.sport} Class` : 'My Sport Class'}
+                    {coachProfile?.sport ? `${coachProfile.sport} Team` : 'My Sport Team'}
                   </h1>
                   {!coachProfile?.sport && (
                     <Badge className="bg-amber-100 text-amber-800 text-xs">Setup required</Badge>
@@ -202,14 +202,14 @@ export default function CoachAthletes() {
           {!coachProfile?.sport && (
             <div className="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>Set your sport to activate the enrollment code. Athletes use this code to join your class — just like Google Classroom.</span>
+              <span>Set your sport to activate the enrollment code. Athletes use this code to join your team.</span>
             </div>
           )}
 
           {coachProfile?.sport && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
               <BookOpen className="h-4 w-4 inline mr-1.5 mb-0.5" />
-              Share the code <strong className="font-mono">{coachProfile.enrollmentCode}</strong> with your athletes. They log in and enter it on their dashboard to join your {coachProfile.sport} class.
+              Share the code <strong className="font-mono">{coachProfile.enrollmentCode}</strong> with your athletes. They log in and enter it on their dashboard to join your {coachProfile.sport} team.
             </div>
           )}
         </CardContent>

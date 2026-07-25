@@ -8,7 +8,7 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { FileText, Plus, CheckCircle, XCircle, Clock, Upload } from 'lucide-react';
+import { FileText, Plus, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { getMyRequirements, submitRequirement } from '../../services/api';
 
@@ -35,7 +35,8 @@ export default function AthleteRequirements() {
   const [formData, setFormData] = useState({
     type: 'waiver',
     name: '',
-    description: ''
+    description: '',
+    file: null as File | null
   });
 
   useEffect(() => {
@@ -67,9 +68,23 @@ export default function AthleteRequirements() {
       return;
     }
 
+    if (!formData.file) {
+      toast.error('Please select a file to upload');
+      return;
+    }
+
+    console.log('Submitting requirement with data:', {
+      type: formData.type,
+      name: formData.name,
+      description: formData.description,
+      fileName: formData.file?.name,
+      fileSize: formData.file?.size
+    });
+
     try {
       setSubmitting(true);
-      await submitRequirement(formData);
+      const result = await submitRequirement(formData);
+      console.log('Submit result:', result);
       toast.success('Requirement submitted successfully');
       setDialogOpen(false);
       resetForm();
@@ -86,7 +101,8 @@ export default function AthleteRequirements() {
     setFormData({
       type: 'waiver',
       name: '',
-      description: ''
+      description: '',
+      file: null
     });
   };
 
@@ -230,6 +246,19 @@ export default function AthleteRequirements() {
                       <div className="space-y-1 text-sm text-gray-600">
                         <p><strong>Type:</strong> {req.type}</p>
                         {req.description && <p><strong>Description:</strong> {req.description}</p>}
+                        {req.fileUrl && (
+                          <div className="mt-2">
+                            <a
+                              href={req.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              View Uploaded File
+                            </a>
+                          </div>
+                        )}
                         <p className="text-xs text-gray-500">Submitted {formatDate(req.submittedAt)}</p>
                         {req.reviewedAt && (
                           <p className="text-xs text-gray-500">Reviewed {formatDate(req.reviewedAt)}</p>
@@ -319,17 +348,26 @@ export default function AthleteRequirements() {
               />
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Upload className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900">File Upload Placeholder</p>
-                  <p className="text-sm text-blue-700 mt-1">
-                    In a production system, you would upload the actual document file here.
-                    For this demo, the submission is recorded without file storage.
-                  </p>
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="file">Document File *</Label>
+              <Input
+                id="file"
+                type="file"
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setFormData({ ...formData, file });
+                }}
+                required
+              />
+              <p className="text-xs text-gray-500">
+                Accepted formats: Images (JPG, PNG), PDF, Word documents. Max size: 10MB
+              </p>
+              {formData.file && (
+                <p className="text-sm text-green-600">
+                  Selected: {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+              )}
             </div>
 
             <DialogFooter>

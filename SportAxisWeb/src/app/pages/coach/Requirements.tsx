@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { FileText, CheckCircle, XCircle, Clock, Download, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Download, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { getRequirements, updateRequirementStatus } from '../../services/api';
 
@@ -199,6 +199,19 @@ export default function CoachRequirements() {
                         <p><strong>Type:</strong> {req.type}</p>
                         <p><strong>Document:</strong> {req.name}</p>
                         {req.description && <p><strong>Description:</strong> {req.description}</p>}
+                        {req.fileUrl && (
+                          <div className="mt-2">
+                            <a
+                              href={req.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              View/Download File
+                            </a>
+                          </div>
+                        )}
                         <p className="text-xs text-gray-500">Submitted {formatDate(req.submittedAt)}</p>
                       </div>
                     </div>
@@ -242,6 +255,17 @@ export default function CoachRequirements() {
                       </div>
                       <div className="space-y-1 text-sm text-gray-600">
                         <p><strong>Type:</strong> {req.type} - {req.name}</p>
+                        {req.fileUrl && (
+                          <a
+                            href={req.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800 text-xs font-medium"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            View File
+                          </a>
+                        )}
                         <p className="text-xs text-gray-500">
                           Reviewed {req.reviewedAt ? formatDate(req.reviewedAt) : 'N/A'}
                         </p>
@@ -310,12 +334,20 @@ export default function CoachRequirements() {
                 />
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-900">
-                  <strong>Note:</strong> Document files are stored securely. This is a placeholder system.
-                  In production, you would have file preview and download capabilities.
-                </p>
-              </div>
+              {selectedRequirement.fileUrl && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <p className="font-medium text-gray-700 mb-2">Uploaded File</p>
+                  <a
+                    href={selectedRequirement.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    View/Download Document
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
