@@ -7,6 +7,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View
 } from 'react-native';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '../../../constants/theme';
@@ -35,7 +36,44 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
   const [editedScores, setEditedScores] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // ── Capture image ───────────────────────────────────────────────────────
+  const processImage = async (asset: ImagePicker.ImagePickerAsset) => {
+    setImageUri(asset.uri);
+    setStep('processing');
+
+    try {
+      const imagePayload = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+
+      const ocrData = await ocrService.extractScores(
+        imagePayload,
+        criteria,
+      );
+      setOcrResult(ocrData);
+
+      // Auto-map extracted scores to criteria
+      const mapped: Record<string, string> = {};
+      for (const criterion of criteria) {
+        const match = ocrData.extracted_scores.find(
+          (s) =>
+            s.criteria_id === criterion.criteria_id ||
+            (s.label && s.label.toLowerCase().includes(criterion.name.toLowerCase().slice(0, 4))),
+        );
+        if (match) {
+          const clamped = Math.min(match.value, criterion.max_score);
+          mapped[criterion.criteria_id] = clamped.toString();
+        } else {
+          mapped[criterion.criteria_id] = '';
+        }
+      }
+      setEditedScores(mapped);
+      setStep('review');
+    } catch (error: any) {
+      console.error('OCR extraction error:', error);
+      setErrorMessage(error.response?.data?.error ?? error.message ?? 'OCR extraction failed. Please try again.');
+      setStep('error');
+    }
+  };
+
+  // ── Capture via camera ──────────────────────────────────────────────────
   const handleCapture = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -50,38 +88,25 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
     });
 
     if (result.canceled || !result.assets?.[0]) return;
+    await processImage(result.assets[0]);
+  };
 
-    const asset = result.assets[0];
-    setImageUri(asset.uri);
-    setStep('processing');
-
-    try {
-      const ocrData = await ocrService.extractScores(
-        asset.base64 ?? asset.uri,
-        criteria,
-      );
-      setOcrResult(ocrData);
-
-      // Auto-map extracted scores to criteria
-      const mapped: Record<string, string> = {};
-      for (const criterion of criteria) {
-        // Try to match by criteria_id first, then by label similarity
-        const match = ocrData.extracted_scores.find(
-          (s) =>
-            s.criteria_id === criterion.criteria_id ||
-            s.label.toLowerCase().includes(criterion.name.toLowerCase().slice(0, 4)),
-        );
-        if (match) {
-          const clamped = Math.min(match.value, criterion.max_score);
-          mapped[criterion.criteria_id] = clamped.toString();
-        }
-      }
-      setEditedScores(mapped);
-      setStep('review');
-    } catch (error: any) {
-      setErrorMessage(error.message ?? 'OCR extraction failed. Please try again.');
-      setStep('error');
+  // ── Pick from gallery ───────────────────────────────────────────────────
+  const handlePickGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Gallery Permission', 'Gallery access is required to select a score sheet image.');
+      return;
     }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality:    0.9,
+      base64:     true,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+    await processImage(result.assets[0]);
   };
 
   // ── Handle score edit in review step ────────────────────────────────────
@@ -112,7 +137,7 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
             <Text style={styles.title}>OCR Score Capture</Text>
           </View>
           <Text style={styles.subtitle}>
-            Photograph the score sheet. Scores will be extracted automatically.
+            Photograph or upload the physical score sheet. Scores will be extracted automatically.
           </Text>
         </View>
 
@@ -122,7 +147,8 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
         </View>
 
         <View style={styles.actions}>
-          <Button label="Capture Score Sheet" onPress={handleCapture} variant="ocr" size="lg" fullWidth />
+          <Button label="Capture with Camera" onPress={handleCapture} variant="ocr" size="lg" fullWidth />
+          <Button label="Choose from Gallery" onPress={handlePickGallery} variant="secondary" size="md" fullWidth />
           <Button label="Cancel" onPress={onCancel} variant="ghost" size="md" fullWidth />
         </View>
       </View>
@@ -180,14 +206,14 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
 
       <View style={styles.editHint}>
         <Ionicons name="pencil" size={14} color={COLORS.ocr} style={{ marginRight: 4 }} />
-        <Text style={styles.editHintText}>Tap any value to correct it before submitting</Text>
+        <Text style={styles.editHintText}>Tap any score box to modify the extracted value</Text>
       </View>
 
       {criteria.map((criterion) => {
-        const extracted = ocrResult?.extracted_scores.find(
+        const extracted = ocrResult?.extracted_scores?.find(
           (s) =>
             s.criteria_id === criterion.criteria_id ||
-            s.label.toLowerCase().includes(criterion.name.toLowerCase().slice(0, 4)),
+            (s.label && s.label.toLowerCase().includes(criterion.name.toLowerCase().slice(0, 4))),
         );
         const currentValue = editedScores[criterion.criteria_id] ?? '';
 
@@ -196,15 +222,21 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
             <View style={styles.criterionHeader}>
               <Text style={styles.criterionName}>{criterion.name}</Text>
               {extracted ? (
-                <Badge label="Extracted" variant="ocr" />
+                <Badge label={`Extracted: ${extracted.value}`} variant="ocr" />
               ) : (
                 <Badge label="Not Found" variant="warning" />
               )}
             </View>
             <View style={styles.criterionInputRow}>
-              <Text style={styles.extractedLabel}>
-                {extracted ? `Extracted: ${extracted.value}` : 'No data'}
-              </Text>
+              <Text style={styles.extractedLabel}>Score:</Text>
+              <TextInput
+                style={styles.scoreInput}
+                value={currentValue}
+                onChangeText={(val) => handleScoreEdit(criterion.criteria_id, val)}
+                keyboardType="numeric"
+                placeholder="0.0"
+                placeholderTextColor={COLORS.textMuted}
+              />
               <Text style={styles.maxLabel}>/ {criterion.max_score}</Text>
             </View>
           </Card>
@@ -213,7 +245,7 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
 
       <View style={styles.actions}>
         <Button label="Confirm & Use These Scores" onPress={handleConfirm} variant="primary" size="lg" fullWidth />
-        <Button label="Recapture" onPress={() => setStep('capture')} variant="secondary" size="md" fullWidth />
+        <Button label="Recapture Image" onPress={() => setStep('capture')} variant="secondary" size="md" fullWidth />
         <Button label="Enter Manually Instead" onPress={onCancel} variant="ghost" size="md" fullWidth />
       </View>
     </ScrollView>
@@ -359,6 +391,19 @@ const styles = StyleSheet.create({
   extractedLabel: {
     fontSize: FONT_SIZE.md,
     color:    COLORS.textSecondary,
+  },
+  scoreInput: {
+    borderWidth: 1,
+    borderColor: COLORS.ocr,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    minWidth: 80,
+    textAlign: 'center',
+    backgroundColor: COLORS.surface,
   },
   maxLabel: {
     fontSize: FONT_SIZE.sm,

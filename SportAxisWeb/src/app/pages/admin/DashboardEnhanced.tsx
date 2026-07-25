@@ -71,7 +71,7 @@ export default function DashboardEnhanced() {
       const activeEvents = eventsData.filter((e: any) => e.status === 'ongoing').length;
       const completedEvents = eventsData.filter((e: any) => e.status === 'completed').length;
       const upcomingEvents = eventsData.filter((e: any) => e.status === 'upcoming').length;
-      const totalPoints = leaderboardData.reduce((acc: number, dept: any) => acc + (dept.totalPoints || 0), 0);
+      const totalPoints = leaderboardData.reduce((acc: number, dept: any) => acc + (dept.totalPoints || dept.total || 0), 0);
       const totalJudges = judgesData.length || 0;
       
       // Calculate total participants from departments

@@ -11,7 +11,14 @@ class AnnouncementController extends Controller
 {
     public function index()
     {
-        return response()->json(Announcement::orderByDesc('created_at')->get());
+        $announcements = Announcement::orderByDesc('created_at')->get();
+        // Ensure is_tryout is always boolean (default to true for existing records)
+        $announcements->each(function ($announcement) {
+            if ($announcement->is_tryout === null) {
+                $announcement->is_tryout = true;
+            }
+        });
+        return response()->json($announcements);
     }
 
     public function store(Request $request)

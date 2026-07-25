@@ -62,7 +62,13 @@ export default function AdminVenues() {
     try {
       setLoading(true);
       const data = await getVenues();
-      setVenues(data);
+      // Normalize null sports/facilities from API
+      const normalized = data.map((v: any) => ({
+        ...v,
+        sports: v.sports ?? [],
+        facilities: v.facilities ?? '',
+      }));
+      setVenues(normalized);
     } catch (error) {
       console.error('Error loading venues:', error);
       toast.error('Failed to load venues');
@@ -105,9 +111,9 @@ export default function AdminVenues() {
       name: venue.name,
       type: venue.type,
       capacity: venue.capacity,
-      sports: venue.sports,
+      sports: venue.sports ?? [],
       location: venue.location,
-      facilities: venue.facilities,
+      facilities: venue.facilities ?? '',
       status: venue.status
     });
     setDialogOpen(true);

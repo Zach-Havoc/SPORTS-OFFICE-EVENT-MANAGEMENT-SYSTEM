@@ -96,8 +96,12 @@ export default function AdminBracketing() {
         getDepartments(),
         getVenues()
       ]);
-      setDepartments(depts);
-      setVenues(vens.filter((v: Venue) => v.status === 'available'));
+      setDepartments(depts || []);
+      const normalizedVenues = (vens || []).map((v: any) => ({
+        ...v,
+        sports: v.sports ?? [],
+      }));
+      setVenues(normalizedVenues.filter((v: Venue) => v.status === 'available'));
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load data');
@@ -127,10 +131,11 @@ export default function AdminBracketing() {
   };
 
   const assignVenueForMatch = (sport: string): Venue | undefined => {
-    // Filter venues that support this sport
-    const suitableVenues = venues.filter(v =>
-      v.sports.length === 0 || v.sports.some(s => s.toLowerCase() === sport.toLowerCase())
-    );
+    // Filter venues that support this sport safely
+    const suitableVenues = venues.filter(v => {
+      const sports = v.sports || [];
+      return sports.length === 0 || sports.some(s => s && s.toLowerCase() === sport.toLowerCase());
+    });
 
     if (suitableVenues.length === 0) {
       return undefined;
@@ -158,6 +163,33 @@ export default function AdminBracketing() {
     return suitableVenues[0];
   };
 
+  const parseStartDateTime = (startDateStr: string, startTimeStr: string): Date => {
+    try {
+      const dateParts = (startDateStr || '').split('-').map(Number);
+      const timeParts = (startTimeStr || '09:00').split(':').map(Number);
+      if (dateParts.length === 3 && !isNaN(dateParts[0])) {
+        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0] || 9, timeParts[1] || 0);
+        if (!isNaN(d.getTime())) return d;
+      }
+    } catch (e) {
+      console.error('Error parsing datetime:', e);
+    }
+    return new Date();
+  };
+
+  const formatLocalDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatLocalTime = (d: Date): string => {
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const generateSingleEliminationBracket = (): Bracket => {
     const participants = [...config.participants];
     const numParticipants = participants.length;
@@ -167,7 +199,6 @@ export default function AdminBracketing() {
     const totalSlots = Math.pow(2, rounds);
 
     // Add byes if needed
-    const byes = totalSlots - numParticipants;
     const shuffled = [...participants].sort(() => Math.random() - 0.5);
 
     // Fill bracket with participants and byes
@@ -183,7 +214,7 @@ export default function AdminBracketing() {
     // Generate matches for all rounds
     const matches: Match[] = [];
     let matchId = 0;
-    let currentDate = new Date(`${config.startDate}T${config.startTime}`);
+    let currentDate = parseStartDateTime(config.startDate, config.startTime);
 
     for (let round = 1; round <= rounds; round++) {
       const matchesInRound = Math.pow(2, rounds - round);
@@ -212,8 +243,8 @@ export default function AdminBracketing() {
           team1: team1 || 'BYE',
           team2: team2 || 'BYE',
           venue,
-          date: currentDate.toISOString().split('T')[0],
-          time: currentDate.toTimeString().slice(0, 5),
+          date: formatLocalDate(currentDate),
+          time: formatLocalTime(currentDate),
           winner
         });
 
@@ -242,7 +273,7 @@ export default function AdminBracketing() {
     // Round robin: each team plays every other team once
     const matches: Match[] = [];
     let matchId = 0;
-    let currentDate = new Date(`${config.startDate}T${config.startTime}`);
+    let currentDate = parseStartDateTime(config.startDate, config.startTime);
     let round = 1;
 
     for (let i = 0; i < numParticipants; i++) {
@@ -256,8 +287,8 @@ export default function AdminBracketing() {
           team1: participants[i],
           team2: participants[j],
           venue,
-          date: currentDate.toISOString().split('T')[0],
-          time: currentDate.toTimeString().slice(0, 5)
+          date: formatLocalDate(currentDate),
+          time: formatLocalTime(currentDate)
         });
 
         // Add match duration + break
@@ -266,8 +297,9 @@ export default function AdminBracketing() {
         // If it's past 6 PM, move to next day at start time
         if (currentDate.getHours() >= 18) {
           currentDate.setDate(currentDate.getDate() + 1);
-          currentDate.setHours(parseInt(config.startTime.split(':')[0]));
-          currentDate.setMinutes(parseInt(config.startTime.split(':')[1]));
+          const [startH, startM] = (config.startTime || '09:00').split(':').map(Number);
+          currentDate.setHours(startH || 9);
+          currentDate.setMinutes(startM || 0);
           round++;
         }
       }
@@ -313,36 +345,65 @@ export default function AdminBracketing() {
     }
   };
 
+  const calculateEndTime = (startTimeStr: string, durationMinutes: number): string => {
+    if (!startTimeStr) return '10:00';
+    const [hours, minutes] = startTimeStr.split(':').map(Number);
+    const totalMinutes = (hours || 9) * 60 + (minutes || 0) + (durationMinutes || 60);
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMins = totalMinutes % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+  };
+
   const handleSaveBracket = async () => {
     if (!bracket) return;
 
     try {
       setGenerating(true);
 
+      // Filter out matches that are BYE vs BYE or BYE vs single team auto-advances
+      const playableMatches = bracket.matches.filter(
+        match => match.team1 !== 'BYE' && match.team2 !== 'BYE'
+      );
+
+      if (playableMatches.length === 0) {
+        toast.error('No playable matches to save.');
+        return;
+      }
+
       // Create events for each match
-      const eventPromises = bracket.matches.map(match => {
-        const eventName = `${bracket.sport} - ${match.team1} vs ${match.team2}`;
+      const eventPromises = playableMatches.map(match => {
+        const roundLabel = getRoundName(match.round, bracket.rounds, bracket.format);
+        const eventName = `${bracket.sport} (${roundLabel}): ${match.team1} vs ${match.team2}`;
+        
+        const startTime = match.time || config.startTime || '09:00';
+        const endTime = calculateEndTime(startTime, config.matchDuration || 60);
+
+        const depts = [match.team1, match.team2].filter(t => t && t !== 'TBD' && t !== 'BYE');
+        const departmentsList = depts.length > 0 ? depts : bracket.participants;
+
         return createEvent({
           name: eventName,
-          sport: bracket.sport,
           category: bracket.sport,
-          date: `${match.date}T${match.time}:00`,
-          venue: match.venue?.name || 'TBD',
+          schedule: match.date || config.startDate,
+          startTime: startTime,
+          endTime: endTime,
+          venueId: match.venue?.id,
+          venueName: match.venue?.name || 'TBD',
+          departments: departmentsList,
+          criteria: [{ name: 'Overall Performance', weight: 100 }],
           status: 'upcoming',
-          description: `Round ${match.round} - ${bracket.format}`,
-          participants: [match.team1, match.team2]
         });
       });
 
       await Promise.all(eventPromises);
 
-      toast.success(`Successfully created ${bracket.matches.length} events from bracket`);
+      toast.success(`Successfully created ${playableMatches.length} event(s) from bracket`);
       setBracket(null);
       setDialogOpen(false);
       navigate('/admin/events');
     } catch (error: any) {
       console.error('Error saving bracket:', error);
-      toast.error('Failed to save bracket as events');
+      toast.error(error.message || 'Failed to save bracket as events');
     } finally {
       setGenerating(false);
     }
