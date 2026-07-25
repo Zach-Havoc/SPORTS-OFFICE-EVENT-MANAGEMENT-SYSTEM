@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Megaphone, Search, Calendar, User } from 'lucide-react';
-import { getAnnouncements } from '../../services/api';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Megaphone, Search, Calendar, User, UserPlus, Mail, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { getAnnouncements, applyForTryout, verifyTryoutEmail } from '../../services/api';
 
 interface Announcement {
   id: string;
@@ -23,6 +27,20 @@ export default function PublicAnnouncements() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState<string>('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [step, setStep] = useState<'form' | 'verify' | 'success'>('form');
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    studentId: '',
+    department: '',
+    phone: '',
+    yearLevel: '1st Year',
+    verificationCode: ''
+  });
 
   useEffect(() => {
     loadAnnouncements();
@@ -39,6 +57,7 @@ export default function PublicAnnouncements() {
       setAnnouncements(sorted);
     } catch (error) {
       console.error('Error loading announcements:', error);
+      toast.error('Failed to load announcements');
     } finally {
       setLoading(false);
     }
@@ -48,8 +67,96 @@ export default function PublicAnnouncements() {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
+  };
+
+  const handleApplyClick = (announcement: Announcement) => {
+    setSelectedAnnouncement(announcement);
+    setStep('form');
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      studentId: '',
+      department: '',
+      phone: '',
+      yearLevel: '1st Year',
+      verificationCode: ''
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSendVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate university email
+    if (!formData.email.toLowerCase().endsWith('@g.batstate-u.edu.ph') && !formData.email.toLowerCase().endsWith('@batstate-u.edu.ph')) {
+      toast.error('Please use your BatStateU email address (@g.batstate-u.edu.ph)');
+      return;
+    }
+
+    // Validate required fields
+    if (!formData.firstName || !formData.lastName || !formData.studentId || !formData.department || !formData.phone) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await verifyTryoutEmail(formData.email);
+      toast.success('Verification code sent to your email!');
+      setStep('verify');
+    } catch (error: any) {
+      console.error('Error sending verification:', error);
+      toast.error(error.message || 'Failed to send verification code');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmitApplication = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.verificationCode) {
+      toast.error('Please enter the verification code');
+      return;
+    }
+
+    if (!selectedAnnouncement) return;
+
+    try {
+      setSubmitting(true);
+      await applyForTryout({
+        announcementId: selectedAnnouncement.id,
+        sport: selectedAnnouncement.sport,
+        coachId: selectedAnnouncement.coachId,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        studentId: formData.studentId,
+        department: formData.department,
+        phone: formData.phone,
+        yearLevel: formData.yearLevel,
+        verificationCode: formData.verificationCode
+      });
+      setStep('success');
+    } catch (error: any) {
+      console.error('Error submitting application:', error);
+      toast.error(error.message || 'Failed to submit application');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setStep('form');
+      setSelectedAnnouncement(null);
+    }
   };
 
   const getUniqueSports = () => {
@@ -168,7 +275,10 @@ export default function PublicAnnouncements() {
                 <p className="text-gray-700 whitespace-pre-wrap">{announcement.content}</p>
                 {announcement.isTryout && (
                   <div className="mt-4 pt-4 border-t">
-                    <Badge variant="secondary">Tryouts Available</Badge>
+                    <Button onClick={() => handleApplyClick(announcement)} className="w-full sm:w-auto">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Apply for Tryout
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -176,6 +286,179 @@ export default function PublicAnnouncements() {
           ))
         )}
       </div>
+
+      {/* Tryout Application Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {step === 'form' ? 'Apply for Tryout' : step === 'verify' ? 'Email Verification' : 'Application Successful'}
+            </DialogTitle>
+            <DialogDescription>
+              {step === 'form'
+                ? `Fill in your information to apply for ${selectedAnnouncement?.sport || 'this tryout'}`
+                : step === 'verify'
+                  ? 'Enter the verification code sent to your email'
+                  : 'Your application has been received'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {step === 'form' ? (
+            <form onSubmit={handleSendVerification} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="John"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Doe"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="studentId">Student ID *</Label>
+                  <Input
+                    id="studentId"
+                    placeholder="2024-00001"
+                    value={formData.studentId}
+                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="yearLevel">Year Level *</Label>
+                  <select
+                    id="yearLevel"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={formData.yearLevel}
+                    onChange={(e) => setFormData({ ...formData, yearLevel: e.target.value })}
+                    required
+                  >
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="department">Department *</Label>
+                  <Input
+                    id="department"
+                    placeholder="Computer Science"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number *</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+63 912 345 6789"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="email">University Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="23-75760@g.batstate-u.edu.ph"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                  />
+                  <p className="text-xs text-gray-500">
+                    Use your BatStateU email address. A verification code will be sent.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  {submitting ? 'Sending...' : 'Send Verification Code'}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : step === 'verify' ? (
+            <form onSubmit={handleSubmitApplication} className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Verification Code Sent</p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      We've sent a 6-digit verification code to <strong>{formData.email}</strong>.
+                      Please check your inbox and enter the code below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="verificationCode">Verification Code *</Label>
+                <Input
+                  id="verificationCode"
+                  placeholder="Enter 6-digit code"
+                  value={formData.verificationCode}
+                  onChange={(e) => setFormData({ ...formData, verificationCode: e.target.value })}
+                  maxLength={6}
+                  required
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setStep('form')}>
+                  Back
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {submitting ? 'Submitting...' : 'Submit Application'}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <div className="py-8 text-center space-y-4">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Application Submitted!</h2>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Your application for the tryout was completely successful. Please wait for an email containing the next steps, or check back for further announcements.
+              </p>
+              <div className="pt-6">
+                <Button onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">
+                  Close Window
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
