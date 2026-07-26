@@ -194,6 +194,77 @@ export default function AdminEvents() {
     }));
   };
 
+  const SPORT_CRITERIA_PRESETS: Record<string, Array<{ name: string; weight: number; max_score: number }>> = {
+    Basketball: [
+      { name: 'Technical Execution & Shooting', weight: 30, max_score: 30 },
+      { name: 'Offense & Defense Strategy',     weight: 30, max_score: 30 },
+      { name: 'Teamwork & Ball Movement',        weight: 25, max_score: 25 },
+      { name: 'Sportsmanship & Discipline',      weight: 15, max_score: 15 },
+    ],
+    Volleyball: [
+      { name: 'Attacking & Spiking',             weight: 30, max_score: 30 },
+      { name: 'Defense & Reception',             weight: 30, max_score: 30 },
+      { name: 'Setting & Team Coordination',     weight: 25, max_score: 25 },
+      { name: 'Serving & Court Movement',        weight: 15, max_score: 15 },
+    ],
+    Badminton: [
+      { name: 'Stroke & Shot Precision',         weight: 35, max_score: 35 },
+      { name: 'Footwork & Court Coverage',       weight: 30, max_score: 30 },
+      { name: 'Tactical Awareness & Agility',    weight: 25, max_score: 25 },
+      { name: 'Sportsmanship',                   weight: 10, max_score: 10 },
+    ],
+    Football: [
+      { name: 'Ball Control & Passing',          weight: 30, max_score: 30 },
+      { name: 'Offensive & Defensive Execution', weight: 30, max_score: 30 },
+      { name: 'Physical Fitness & Movement',     weight: 25, max_score: 25 },
+      { name: 'Tactical Discipline & Teamwork',  weight: 15, max_score: 15 },
+    ],
+    'Track & Field': [
+      { name: 'Time / Distance Performance',     weight: 50, max_score: 50 },
+      { name: 'Technique & Form',                weight: 30, max_score: 30 },
+      { name: 'Pacing & Endurance',              weight: 20, max_score: 20 },
+    ],
+    Swimming: [
+      { name: 'Stroke Technique & Efficiency',   weight: 40, max_score: 40 },
+      { name: 'Turn & Start Execution',          weight: 30, max_score: 30 },
+      { name: 'Speed & Endurance',               weight: 30, max_score: 30 },
+    ],
+    Tennis: [
+      { name: 'Serve & Groundstrokes',           weight: 35, max_score: 35 },
+      { name: 'Footwork & Positioning',          weight: 30, max_score: 30 },
+      { name: 'Shot Selection & Strategy',       weight: 25, max_score: 25 },
+      { name: 'Sportsmanship',                   weight: 10, max_score: 10 },
+    ],
+    'Table Tennis': [
+      { name: 'Serve & Return Accuracy',         weight: 35, max_score: 35 },
+      { name: 'Rally Control & Shot Selection',  weight: 35, max_score: 35 },
+      { name: 'Speed & Reaction Time',           weight: 20, max_score: 20 },
+      { name: 'Sportsmanship',                   weight: 10, max_score: 10 },
+    ],
+    Cultural: [
+      { name: 'Choreography & Technique',        weight: 35, max_score: 35 },
+      { name: 'Synchronization & Precision',     weight: 30, max_score: 30 },
+      { name: 'Showmanship & Expression',        weight: 20, max_score: 20 },
+      { name: 'Costume & Musicality',            weight: 15, max_score: 15 },
+    ],
+    Default: [
+      { name: 'Technical Execution',             weight: 40, max_score: 40 },
+      { name: 'Team Coordination & Strategy',    weight: 30, max_score: 30 },
+      { name: 'Performance & Discipline',        weight: 20, max_score: 20 },
+      { name: 'Sportsmanship',                   weight: 10, max_score: 10 },
+    ],
+  };
+
+  const autoFillCriteria = (sportCategory?: string) => {
+    const targetCategory = sportCategory || formData.category || 'Default';
+    const preset = SPORT_CRITERIA_PRESETS[targetCategory] || SPORT_CRITERIA_PRESETS['Default'];
+    setFormData(prev => ({
+      ...prev,
+      criteria: [...preset],
+    }));
+    toast.success(`Auto-filled criteria preset for ${targetCategory}`);
+  };
+
   const addCriterion = () => {
     setFormData(prev => ({
       ...prev,
@@ -464,10 +535,15 @@ export default function AdminEvents() {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label>Scoring Criteria</Label>
-                <Button type="button" size="sm" variant="outline" onClick={addCriterion}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Criterion
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="secondary" onClick={() => autoFillCriteria()}>
+                    ⚡ Auto-Fill Preset
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={addCriterion}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Criterion
+                  </Button>
+                </div>
               </div>
               {formData.criteria.map((criterion, index) => (
                 <div key={index} className="flex gap-2">

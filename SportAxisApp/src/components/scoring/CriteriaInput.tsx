@@ -5,13 +5,15 @@ import {
     StyleSheet,
     Text,
     TextInput,
+    TouchableOpacity,
     View
 } from 'react-native';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
 import type { Criterion } from '../../types';
+import type { CriterionHint } from '../../utils/sport-config';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CriteriaInput — BatStateU red-and-white scoring input
+// CriteriaInput — BatStateU red-and-white scoring input with sport hints
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface CriteriaInputProps {
@@ -20,24 +22,30 @@ interface CriteriaInputProps {
   onChange:  (criteriaId: string, value: string) => void;
   error?:    string;
   disabled?: boolean;
+  /** Optional sport-specific hint for this criterion */
+  hint?:     CriterionHint | null;
+  /** Accent color for this sport */
+  sportColor?: string;
 }
 
 export function CriteriaInput({
-  criterion, value, onChange, error, disabled = false,
+  criterion, value, onChange, error, disabled = false, hint, sportColor,
 }: CriteriaInputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const [showRubric, setShowRubric] = useState(false);
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
+  const accentColor = sportColor ?? COLORS.primary;
   const numericValue = parseFloat(value) || 0;
   const percentage   = criterion.max_score > 0
     ? (numericValue / criterion.max_score) * 100
     : 0;
 
-  // Progress bar: red gradient matching web chart colors
+  // Progress bar color tiers
   const progressColor =
     percentage >= 90 ? COLORS.success :
     percentage >= 60 ? COLORS.primaryLighter :
-    percentage >= 30 ? COLORS.primary :
+    percentage >= 30 ? accentColor :
     COLORS.surfaceMuted;
 
   const shake = () => {
@@ -60,20 +68,66 @@ export function CriteriaInput({
     onChange(criterion.criteria_id, cleaned);
   };
 
+  const hasRubric = hint?.rubric && hint.rubric.length > 0;
+
   return (
     <Animated.View style={[styles.container, { transform: [{ translateX: shakeAnim }] }]}>
-      {/* Header */}
+      {/* Header row */}
       <View style={styles.header}>
-        <Text style={styles.name}>{criterion.name}</Text>
-        <View style={styles.maxBadge}>
-          <Text style={styles.maxText}>max {criterion.max_score}</Text>
+        <View style={styles.nameRow}>
+          {hint?.icon && (
+            <View style={[styles.iconBadge, { backgroundColor: `${accentColor}18` }]}>
+              <Ionicons
+                name={hint.icon as any}
+                size={14}
+                color={accentColor}
+              />
+            </View>
+          )}
+          <Text style={styles.name} numberOfLines={2}>{criterion.name}</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <View style={[styles.maxBadge, { borderColor: `${accentColor}40`, backgroundColor: `${accentColor}12` }]}>
+            <Text style={[styles.maxText, { color: accentColor }]}>max {criterion.max_score}</Text>
+          </View>
+          {hasRubric && (
+            <TouchableOpacity
+              style={styles.infoBtn}
+              onPress={() => setShowRubric(!showRubric)}
+              accessibilityLabel="Show scoring rubric"
+            >
+              <Ionicons
+                name={showRubric ? 'close-circle-outline' : 'information-circle-outline'}
+                size={18}
+                color={isFocused ? accentColor : COLORS.textMuted}
+              />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* Input */}
+      {/* Hint text */}
+      {hint?.hint && (
+        <Text style={styles.hintText}>{hint.hint}</Text>
+      )}
+
+      {/* Rubric dropdown */}
+      {showRubric && hasRubric && (
+        <View style={[styles.rubricBox, { borderColor: `${accentColor}30`, backgroundColor: `${accentColor}08` }]}>
+          <Text style={[styles.rubricTitle, { color: accentColor }]}>Scoring Guide:</Text>
+          {hint!.rubric!.map((item, i) => (
+            <View key={i} style={styles.rubricRow}>
+              <Ionicons name="checkmark-circle" size={12} color={accentColor} style={{ marginTop: 1 }} />
+              <Text style={styles.rubricItem}>{item}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Score Input */}
       <View style={[
         styles.inputWrapper,
-        isFocused && styles.inputWrapperFocused,
+        isFocused && [styles.inputWrapperFocused, { borderColor: accentColor }],
         !!error && styles.inputWrapperError,
       ]}>
         <TextInput
@@ -92,12 +146,20 @@ export function CriteriaInput({
         />
         {criterion.weight != null && (
           <View style={styles.weightBadge}>
-            <Text style={styles.weightText}>×{criterion.weight}w</Text>
+            <Text style={styles.weightText}>×{criterion.weight}%</Text>
+          </View>
+        )}
+        {/* Inline percentage */}
+        {value !== '' && !error && (
+          <View style={[styles.percentBadge, { backgroundColor: `${progressColor}22` }]}>
+            <Text style={[styles.percentText, { color: progressColor }]}>
+              {Math.round(percentage)}%
+            </Text>
           </View>
         )}
       </View>
 
-      {/* Progress bar — red shading like web chart-1 → chart-5 */}
+      {/* Progress bar */}
       {value !== '' && !error && (
         <View style={styles.progressBar}>
           <View
@@ -109,6 +171,7 @@ export function CriteriaInput({
         </View>
       )}
 
+      {/* Error */}
       {!!error && (
         <View style={styles.errorRow}>
           <Ionicons name="alert-circle" size={14} color={COLORS.destructive} style={{ marginRight: 4 }} />
@@ -121,37 +184,95 @@ export function CriteriaInput({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.card,
   },
   header: {
     flexDirection:  'row',
-    alignItems:     'center',
+    alignItems:     'flex-start',
     justifyContent: 'space-between',
     marginBottom:   SPACING.xs,
+    gap: SPACING.sm,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: SPACING.xs,
+  },
+  iconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   name: {
     fontSize:   FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.medium,
+    fontWeight: FONT_WEIGHT.semibold,
     color:      COLORS.textPrimary,
     flex:       1,
+    lineHeight: 20,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    flexShrink: 0,
   },
   maxBadge: {
-    backgroundColor: COLORS.surfaceAlt,
     paddingHorizontal: SPACING.sm,
-    paddingVertical:   2,
+    paddingVertical:   3,
     borderRadius:      RADIUS.full,
     borderWidth:       1,
-    borderColor:       COLORS.borderStrong,
   },
   maxText: {
     fontSize:   FONT_SIZE.xs,
-    color:      COLORS.textSecondary,
-    fontWeight: FONT_WEIGHT.medium,
+    fontWeight: FONT_WEIGHT.bold,
+  },
+  infoBtn: {
+    padding: 2,
+  },
+  hintText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+    lineHeight: 16,
+    fontStyle: 'italic',
+  },
+  rubricBox: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  rubricTitle: {
+    fontSize: FONT_SIZE.xs,
+    fontWeight: FONT_WEIGHT.bold,
+    marginBottom: 2,
+  },
+  rubricRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+  rubricItem: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    flex: 1,
+    lineHeight: 16,
   },
   inputWrapper: {
     flexDirection:    'row',
     alignItems:       'center',
-    backgroundColor:  COLORS.surface,
+    backgroundColor:  COLORS.background,
     borderRadius:     RADIUS.md,
     borderWidth:      1.5,
     borderColor:      COLORS.borderStrong,
@@ -159,7 +280,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   inputWrapperFocused: {
-    borderColor: COLORS.primary,
     ...SHADOWS.lg,
   },
   inputWrapperError: {
@@ -187,6 +307,16 @@ const styles = StyleSheet.create({
     fontSize:   FONT_SIZE.sm,
     color:      COLORS.ocr,
     fontWeight: FONT_WEIGHT.semibold,
+  },
+  percentBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+    marginLeft: SPACING.xs,
+  },
+  percentText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.bold,
   },
   progressBar: {
     height:          4,

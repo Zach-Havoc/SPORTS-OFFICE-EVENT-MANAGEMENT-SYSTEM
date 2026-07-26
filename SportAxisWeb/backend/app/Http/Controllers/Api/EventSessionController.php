@@ -43,10 +43,11 @@ class EventSessionController extends Controller
         }
 
         $criteria = collect($event->criteria ?? [])->map(function ($c, $index) {
+            $weight = isset($c['weight']) ? (float)$c['weight'] : 10;
             return [
                 'criteria_id' => $c['id'] ?? (string)($index + 1),
                 'name'        => $c['name'] ?? 'Criterion ' . ($index + 1),
-                'max_score'   => (float)($c['max_score'] ?? 10),
+                'max_score'   => isset($c['max_score']) ? (float)$c['max_score'] : $weight,
                 'weight'      => isset($c['weight']) ? (float)$c['weight'] : null,
             ];
         })->values();
@@ -88,10 +89,11 @@ class EventSessionController extends Controller
         }
 
         $criteria = collect($event->criteria ?? [])->map(function ($c, $index) {
+            $weight = isset($c['weight']) ? (float)$c['weight'] : 10;
             return [
                 'criteria_id' => $c['id'] ?? (string)($index + 1),
                 'name'        => $c['name'] ?? 'Criterion ' . ($index + 1),
-                'max_score'   => (float)($c['max_score'] ?? 10),
+                'max_score'   => isset($c['max_score']) ? (float)$c['max_score'] : $weight,
                 'weight'      => isset($c['weight']) ? (float)$c['weight'] : null,
             ];
         })->values();

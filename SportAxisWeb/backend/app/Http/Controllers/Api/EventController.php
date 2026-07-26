@@ -42,6 +42,41 @@ class EventController extends Controller
             $venueName = $venue?->name;
         }
 
+        $defaultCriteriaMap = [
+            'Basketball' => [
+                ['name' => 'Technical Execution & Shooting', 'weight' => 30],
+                ['name' => 'Offense & Defense Strategy', 'weight' => 30],
+                ['name' => 'Teamwork & Ball Movement', 'weight' => 25],
+                ['name' => 'Sportsmanship & Discipline', 'weight' => 15],
+            ],
+            'Volleyball' => [
+                ['name' => 'Attacking & Spiking', 'weight' => 30],
+                ['name' => 'Defense & Reception', 'weight' => 30],
+                ['name' => 'Setting & Team Coordination', 'weight' => 25],
+                ['name' => 'Serving & Court Movement', 'weight' => 15],
+            ],
+            'Badminton' => [
+                ['name' => 'Stroke & Shot Precision', 'weight' => 35],
+                ['name' => 'Footwork & Court Coverage', 'weight' => 30],
+                ['name' => 'Tactical Awareness & Agility', 'weight' => 25],
+                ['name' => 'Sportsmanship', 'weight' => 10],
+            ],
+            'Football' => [
+                ['name' => 'Ball Control & Passing', 'weight' => 30],
+                ['name' => 'Offensive & Defensive Execution', 'weight' => 30],
+                ['name' => 'Physical Fitness & Movement', 'weight' => 25],
+                ['name' => 'Tactical Discipline & Teamwork', 'weight' => 15],
+            ],
+        ];
+
+        $criteria = $request->criteria;
+        if (empty($criteria)) {
+            $criteria = $defaultCriteriaMap[$request->category] ?? [
+                ['name' => 'Technical Execution', 'weight' => 50],
+                ['name' => 'Teamwork & Coordination', 'weight' => 50],
+            ];
+        }
+
         $event = Event::create([
             'id'         => Str::uuid(),
             'name'       => $request->name,
@@ -53,7 +88,7 @@ class EventController extends Controller
             'venue_name' => $venueName ?? $request->venueName,
             'departments'=> $request->departments,
             'judges'     => $request->judges ?? [],
-            'criteria'   => $request->criteria ?? [['name' => 'Overall Score', 'weight' => 100]],
+            'criteria'   => $criteria,
             'status'     => $request->status ?? 'upcoming',
             'qr_token'   => Str::random(32),
         ]);
