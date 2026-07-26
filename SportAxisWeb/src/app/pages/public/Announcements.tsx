@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Megaphone, Search, Calendar, User, UserPlus, Mail, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAnnouncements, applyForTryout, verifyTryoutEmail } from '../../services/api';
+import { getAnnouncements, applyForTryout, verifyTryoutEmail, getDepartments } from '../../services/api';
 
 interface Announcement {
   id: string;
@@ -22,8 +22,15 @@ interface Announcement {
   updatedAt: string;
 }
 
+interface Department {
+  id: string;
+  name: string;
+  abbreviation: string;
+}
+
 export default function PublicAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState<string>('all');
@@ -44,7 +51,17 @@ export default function PublicAnnouncements() {
 
   useEffect(() => {
     loadAnnouncements();
+    loadDepartments();
   }, []);
+
+  const loadDepartments = async () => {
+    try {
+      const data = await getDepartments();
+      setDepartments(data || []);
+    } catch (error) {
+      console.error('Error loading departments:', error);
+    }
+  };
 
   const loadAnnouncements = async () => {
     try {
@@ -362,13 +379,20 @@ export default function PublicAnnouncements() {
 
                 <div className="space-y-2">
                   <Label htmlFor="department">Department *</Label>
-                  <Input
+                  <select
                     id="department"
-                    placeholder="Computer Science"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     required
-                  />
+                  >
+                    <option value="" disabled>Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id || dept.name} value={dept.name}>
+                        {dept.name} {dept.abbreviation ? `(${dept.abbreviation})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-2">

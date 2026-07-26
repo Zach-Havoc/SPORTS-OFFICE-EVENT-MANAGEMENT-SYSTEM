@@ -3,7 +3,7 @@ import { getEvents, getEventRankings, startWarmup } from '../../services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Trophy, Calendar, Users, Loader2, Clock } from 'lucide-react';
+import { Trophy, Calendar, Users, Loader2, Clock, MapPin } from 'lucide-react';
 import Loading from '../../components/Loading';
 
 interface Event {
@@ -13,6 +13,8 @@ interface Event {
   schedule: string;
   startTime?: string;
   endTime?: string;
+  venueName?: string;
+  venue?: string;
   status: 'upcoming' | 'ongoing' | 'completed';
   departments: string[];
 }
@@ -282,6 +284,12 @@ export default function PublicViewer() {
                         </span>
                       )}
                     </div>
+                    {(event.venueName || event.venue) && (
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="h-4 w-4 mr-2 text-red-500" />
+                        <span className="font-medium text-gray-800">{event.venueName || event.venue}</span>
+                      </div>
+                    )}
                     <div className="flex items-center text-sm text-gray-600">
                       <Users className="h-4 w-4 mr-2" />
                       {(event.departments || []).length} departments
@@ -353,6 +361,15 @@ export default function PublicViewer() {
                       <div>
                         <p className="text-sm text-gray-500">Time</p>
                         <p className="font-medium">{formatTime(selectedEvent.startTime)} - {formatTime(selectedEvent.endTime)}</p>
+                      </div>
+                    </div>
+                  )}
+                  {(selectedEvent.venueName || selectedEvent.venue) && (
+                    <div className="flex items-center gap-3 md:col-span-2">
+                      <MapPin className="h-5 w-5 text-red-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">Venue</p>
+                        <p className="font-medium text-gray-900">{selectedEvent.venueName || selectedEvent.venue}</p>
                       </div>
                     </div>
                   )}

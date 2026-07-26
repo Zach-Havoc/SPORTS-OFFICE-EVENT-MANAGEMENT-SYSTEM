@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Calendar, Search, Trophy } from "lucide-react";
+import { Calendar, Search, Trophy, MapPin } from "lucide-react";
 import Loading from "../../components/Loading";
 
 interface Event {
@@ -24,6 +24,8 @@ interface Event {
   name: string;
   category: string;
   schedule: string;
+  venueName?: string;
+  venue?: string;
   status: "upcoming" | "ongoing" | "completed";
   departments: string[];
 }
@@ -226,8 +228,8 @@ export default function PublicHistory() {
                     <CardTitle className="text-xl">
                       {event.name}
                     </CardTitle>
-                    <CardDescription className="mt-2">
-                      <div className="flex items-center">
+                    <CardDescription className="mt-2 space-y-1">
+                      <div className="flex items-center text-sm">
                         <Calendar className="h-4 w-4 mr-2" />
                         {new Date(
                           event.schedule,
@@ -238,6 +240,12 @@ export default function PublicHistory() {
                           day: "numeric",
                         })}
                       </div>
+                      {(event.venueName || event.venue) && (
+                        <div className="flex items-center text-sm font-medium text-gray-700">
+                          <MapPin className="h-4 w-4 mr-2 text-red-500 flex-shrink-0" />
+                          {event.venueName || event.venue}
+                        </div>
+                      )}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
