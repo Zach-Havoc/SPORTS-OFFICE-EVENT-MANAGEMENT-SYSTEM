@@ -75,28 +75,35 @@ class ScoreController extends Controller
         ], 201);
     }
 
-    private function recalculateRankings(string $eventId): void
+    public static function recalculateRankings(string $eventId): void
     {
         $scores = Score::where('event_id', $eventId)->get();
+        if ($scores->isEmpty()) {
+            Ranking::where('event_id', $eventId)->delete();
+            return;
+        }
 
         $byDept = $scores->groupBy('department')->map(function ($deptScores) {
             return [
-                'total_score' => $deptScores->avg('total_score'),
+                'total_score' => (float) $deptScores->avg('total_score'),
                 'judge_count' => $deptScores->count(),
             ];
         });
 
-        $sorted = $byDept->sortByDesc('total_score')->values();
+        $sorted = $byDept->sortByDesc('total_score');
 
-        foreach ($sorted as $rank => $data) {
-            Ranking::updateOrCreate(
-                ['event_id' => $eventId, 'department' => $sorted->keys()[$rank]],
-                [
-                    'total_score' => $data['total_score'],
-                    'judge_count' => $data['judge_count'],
-                    'rank'        => $rank + 1,
-                ]
-            );
+        Ranking::where('event_id', $eventId)->delete();
+
+        $rank = 1;
+        foreach ($sorted as $deptName => $data) {
+            Ranking::create([
+                'event_id'    => $eventId,
+                'department'  => (string) $deptName,
+                'total_score' => $data['total_score'],
+                'judge_count' => $data['judge_count'],
+                'rank'        => $rank,
+            ]);
+            $rank++;
         }
     }
 }

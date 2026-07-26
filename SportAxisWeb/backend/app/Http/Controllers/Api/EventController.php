@@ -31,7 +31,7 @@ class EventController extends Controller
             'startTime'   => 'required|string',
             'endTime'     => 'required|string',
             'departments' => 'required|array',
-            'criteria'    => 'required|array',
+            'criteria'    => 'sometimes|nullable|array',
             'status'      => 'in:upcoming,ongoing,completed',
         ]);
 
@@ -53,7 +53,7 @@ class EventController extends Controller
             'venue_name' => $venueName ?? $request->venueName,
             'departments'=> $request->departments,
             'judges'     => $request->judges ?? [],
-            'criteria'   => $request->criteria,
+            'criteria'   => $request->criteria ?? [['name' => 'Overall Score', 'weight' => 100]],
             'status'     => $request->status ?? 'upcoming',
             'qr_token'   => Str::random(32),
         ]);

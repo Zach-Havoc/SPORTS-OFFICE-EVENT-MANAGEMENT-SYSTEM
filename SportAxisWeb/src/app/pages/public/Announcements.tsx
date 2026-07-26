@@ -92,9 +92,10 @@ export default function PublicAnnouncements() {
   const handleSendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate university email
-    if (!formData.email.toLowerCase().endsWith('@g.batstate-u.edu.ph') && !formData.email.toLowerCase().endsWith('@batstate-u.edu.ph')) {
-      toast.error('Please use your BatStateU email address (@g.batstate-u.edu.ph)');
+    // Validate email format
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim());
+    if (!isValidEmail) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
@@ -106,8 +107,12 @@ export default function PublicAnnouncements() {
 
     try {
       setSubmitting(true);
-      await verifyTryoutEmail(formData.email);
-      toast.success('Verification code sent to your email!');
+      const res: any = await verifyTryoutEmail(formData.email);
+      if (res?.dev_code) {
+        toast.success(`Verification code: ${res.dev_code} (Code sent to your email/log)`);
+      } else {
+        toast.success('Verification code sent to your email!');
+      }
       setStep('verify');
     } catch (error: any) {
       console.error('Error sending verification:', error);

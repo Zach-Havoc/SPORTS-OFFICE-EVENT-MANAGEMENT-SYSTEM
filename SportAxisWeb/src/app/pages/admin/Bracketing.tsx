@@ -313,36 +313,65 @@ export default function AdminBracketing() {
     }
   };
 
+  const calculateEndTime = (startTimeStr: string, durationMinutes: number): string => {
+    if (!startTimeStr) return '10:00';
+    const [hours, minutes] = startTimeStr.split(':').map(Number);
+    const totalMinutes = (hours || 9) * 60 + (minutes || 0) + (durationMinutes || 60);
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMins = totalMinutes % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+  };
+
   const handleSaveBracket = async () => {
     if (!bracket) return;
 
     try {
       setGenerating(true);
 
+      // Filter out matches that are BYE vs BYE or BYE vs single team auto-advances
+      const playableMatches = bracket.matches.filter(
+        match => match.team1 !== 'BYE' && match.team2 !== 'BYE'
+      );
+
+      if (playableMatches.length === 0) {
+        toast.error('No playable matches to save.');
+        return;
+      }
+
       // Create events for each match
-      const eventPromises = bracket.matches.map(match => {
-        const eventName = `${bracket.sport} - ${match.team1} vs ${match.team2}`;
+      const eventPromises = playableMatches.map(match => {
+        const roundLabel = getRoundName(match.round, bracket.rounds, bracket.format);
+        const eventName = `${bracket.sport} (${roundLabel}): ${match.team1} vs ${match.team2}`;
+        
+        const startTime = match.time || config.startTime || '09:00';
+        const endTime = calculateEndTime(startTime, config.matchDuration || 60);
+
+        const depts = [match.team1, match.team2].filter(t => t && t !== 'TBD' && t !== 'BYE');
+        const departmentsList = depts.length > 0 ? depts : bracket.participants;
+
         return createEvent({
           name: eventName,
-          sport: bracket.sport,
           category: bracket.sport,
-          date: `${match.date}T${match.time}:00`,
-          venue: match.venue?.name || 'TBD',
+          schedule: match.date || config.startDate,
+          startTime: startTime,
+          endTime: endTime,
+          venueId: match.venue?.id,
+          venueName: match.venue?.name || 'TBD',
+          departments: departmentsList,
+          criteria: [{ name: 'Overall Performance', weight: 100 }],
           status: 'upcoming',
-          description: `Round ${match.round} - ${bracket.format}`,
-          participants: [match.team1, match.team2]
         });
       });
 
       await Promise.all(eventPromises);
 
-      toast.success(`Successfully created ${bracket.matches.length} events from bracket`);
+      toast.success(`Successfully created ${playableMatches.length} event(s) from bracket`);
       setBracket(null);
       setDialogOpen(false);
       navigate('/admin/events');
     } catch (error: any) {
       console.error('Error saving bracket:', error);
-      toast.error('Failed to save bracket as events');
+      toast.error(error.message || 'Failed to save bracket as events');
     } finally {
       setGenerating(false);
     }

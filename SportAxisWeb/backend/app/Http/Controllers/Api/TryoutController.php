@@ -16,13 +16,14 @@ class TryoutController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        $code = str_pad((string) rand(0, 999999), 6, '0', STR_PAD_LEFT);
 
         EmailVerification::updateOrCreate(
             ['email' => $request->email],
             ['code' => $code, 'expires_at' => now()->addMinutes(15)]
         );
 
+        $mailSent = false;
         try {
             Mail::raw(
                 "Your SportsAxis tryout verification code is: {$code}\n\nThis code expires in 15 minutes.",
@@ -31,26 +32,49 @@ class TryoutController extends Controller
                         ->subject('SportsAxis Tryout Email Verification');
                 }
             );
+            $mailSent = true;
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to send verification email'], 500);
+            \Illuminate\Support\Facades\Log::error('Tryout verification email failed to send: ' . $e->getMessage());
         }
 
-        return response()->json(['message' => 'Verification code sent']);
+        $response = ['message' => 'Verification code sent'];
+
+        // Include dev code in response for local testing if mail sending failed or mailer is log
+        if (!$mailSent || config('app.env') === 'local' || config('app.debug') || config('mail.default') === 'log') {
+            $response['dev_code'] = $code;
+        }
+
+        return response()->json($response);
     }
 
     /** POST /api/tryouts/apply (public) */
     public function apply(Request $request)
     {
         $request->validate([
-            'firstName'  => 'required|string',
-            'lastName'   => 'required|string',
-            'email'      => 'required|email',
-            'studentId'  => 'required|string',
-            'department' => 'required|string',
-            'phone'      => 'required|string',
-            'yearLevel'  => 'nullable|string',
-            'sport'      => 'nullable|string',
+            'firstName'        => 'required|string',
+            'lastName'         => 'required|string',
+            'email'            => 'required|email',
+            'studentId'        => 'required|string',
+            'department'       => 'required|string',
+            'phone'            => 'required|string',
+            'yearLevel'        => 'nullable|string',
+            'sport'            => 'nullable|string',
+            'verificationCode' => 'required|string',
         ]);
+
+        // Validate verification code
+        $verification = EmailVerification::where('email', $request->email)->first();
+
+        if (!$verification || (string) $verification->code !== (string) trim($request->verificationCode)) {
+            return response()->json(['message' => 'Invalid verification code.'], 422);
+        }
+
+        if ($verification->expires_at && $verification->expires_at->isPast()) {
+            return response()->json(['message' => 'Verification code has expired. Please request a new code.'], 422);
+        }
+
+        // Code is valid - consume it
+        $verification->delete();
 
         $app = TryoutApplication::create([
             'id'              => Str::uuid(),
