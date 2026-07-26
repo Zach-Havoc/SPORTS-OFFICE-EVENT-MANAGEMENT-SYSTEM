@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Badge } from '../../components/ui/badge';
 import { Users, Calendar, TrendingUp, FileCheck, UserPlus, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
-import { getTryoutApplications } from '../../services/api';
+import { getTryoutApplications, getAthletes } from '../../services/api';
 
 interface TryoutApplication {
   id: string;
@@ -27,6 +27,7 @@ export default function CoachDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [tryoutApplications, setTryoutApplications] = useState<TryoutApplication[]>([]);
+  const [athletes, setAthletes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,17 +35,21 @@ export default function CoachDashboard() {
       navigate('/login');
       return;
     }
-    loadTryoutApplications();
+    loadDashboardData();
   }, [user, navigate]);
 
-  const loadTryoutApplications = async () => {
+  const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const data = await getTryoutApplications();
-      setTryoutApplications(data);
+      const [tryoutData, athleteData] = await Promise.all([
+        getTryoutApplications(),
+        getAthletes(),
+      ]);
+      setTryoutApplications(tryoutData);
+      setAthletes(athleteData || []);
     } catch (error) {
-      console.error('Error loading tryout applications:', error);
-      toast.error('Failed to load tryout applications');
+      console.error('Error loading dashboard data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -77,8 +82,8 @@ export default function CoachDashboard() {
             <Users className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-gray-500 mt-1">Total athletes</p>
+            <div className="text-2xl font-bold">{athletes.length}</div>
+            <p className="text-xs text-gray-500 mt-1">{athletes.filter(a => a.status === 'active').length} active</p>
           </CardContent>
         </Card>
 
