@@ -21,7 +21,7 @@ export default function RootLayout() {
   const token          = useAuthStore((s) => s.token);
   const logout         = useAuthStore((s) => s.logout);
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastInteractionRef = useRef<number>(Date.now());
   const appState = useRef(AppState.currentState);
 
