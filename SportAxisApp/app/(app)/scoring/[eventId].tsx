@@ -38,6 +38,8 @@ import {
     validateScores,
 } from "../../../src/utils/score-calculator";
 
+import { PrintableScoreSheetView } from "../../../src/components/scoring/PrintableScoreSheetView";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Scoring Screen — Dynamic form for a scanned event
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,6 +69,7 @@ export default function ScoringScreen() {
   const [showDeptPicker, setShowDeptPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOCR, setShowOCR] = useState(false);
+  const [showPrintableForm, setShowPrintableForm] = useState(false);
   const [ocrImageUri, setOcrImageUri] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
 
@@ -371,6 +374,14 @@ export default function ScoringScreen() {
                 OCR
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modeBtn}
+              onPress={() => setShowPrintableForm(true)}
+              accessibilityLabel="View physical score sheet form"
+            >
+              <Ionicons name="document-text-outline" size={16} color={COLORS.primary} style={{ marginRight: 4 }} />
+              <Text style={styles.modeBtnText}>Form</Text>
+            </TouchableOpacity>
           </View>
 
           {/* ── Dynamic Scoring Form ──────────────────────────────────────── */}
@@ -498,6 +509,19 @@ export default function ScoringScreen() {
           criteria={criteria}
           onConfirm={handleOcrConfirm}
           onCancel={() => setShowOCR(false)}
+        />
+      </Modal>
+
+      {/* ── Physical Form Modal ──────────────────────────────────────────── */}
+      <Modal
+        visible={showPrintableForm}
+        animationType="slide"
+        onRequestClose={() => setShowPrintableForm(false)}
+      >
+        <PrintableScoreSheetView
+          event={event}
+          criteria={criteria}
+          onClose={() => setShowPrintableForm(false)}
         />
       </Modal>
     </>

@@ -9,10 +9,11 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
-import { Calendar, Edit, Plus, Trash2, Users, QrCode } from 'lucide-react';
+import { Calendar, Edit, Plus, Trash2, Users, QrCode, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '../../components/ui/checkbox';
 import { QRCodeModal } from '../../components/QRCodeModal';
+import { PrintableScoreSheetModal } from '../../components/admin/PrintableScoreSheetModal';
 import Loading from '../../components/Loading';
 
 interface Event {
@@ -24,7 +25,7 @@ interface Event {
   endTime?: string;
   status: 'upcoming' | 'ongoing' | 'completed';
   departments: string[];
-  criteria: Array<{ name: string; weight: number }>;
+  criteria: Array<{ name: string; weight: number; max_score?: number }>;
   qrToken?: string;
 }
 
@@ -39,6 +40,8 @@ export default function AdminEvents() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedEventForQR, setSelectedEventForQR] = useState<Event | null>(null);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [selectedEventForPrint, setSelectedEventForPrint] = useState<Event | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -301,6 +304,18 @@ export default function AdminEvents() {
                     <Button 
                       size="sm" 
                       variant="outline"
+                      title="Print Score Sheet Template"
+                      onClick={() => {
+                        setSelectedEventForPrint(event);
+                        setPrintModalOpen(true);
+                      }}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      title="Show QR Code"
                       onClick={() => {
                         setSelectedEventForQR(event);
                         setQrModalOpen(true);
@@ -507,6 +522,13 @@ export default function AdminEvents() {
           qrToken={selectedEventForQR.qrToken}
         />
       )}
+
+      {/* Printable Score Sheet Modal */}
+      <PrintableScoreSheetModal
+        isOpen={printModalOpen}
+        onClose={() => setPrintModalOpen(false)}
+        event={selectedEventForPrint}
+      />
     </div>
   );
 }
