@@ -1,171 +1,497 @@
+<!-- ====================================================== -->
+<!-- Carousel Images Setup Guide                            -->
+<!-- Documentation for Carousel Image Configuration         -->
+<!-- This guide explains image setup, storage, and usage    -->
+<!-- ====================================================== -->
+
 # Carousel Images Setup Guide
 
 ## Overview
+
+<!-- General overview of the carousel image system -->
 The photo carousel feature now includes professional, high-quality images from Unsplash. The images are stored as direct URLs and will work in your local IDE without any additional downloads.
+
+The carousel is designed to provide an attractive landing page while remaining lightweight, responsive, and easy to manage. Administrators can replace or upload images without modifying the application source code.
+
+---
+
+<!-- ====================================================== -->
+<!-- Default Images                                         -->
+<!-- ====================================================== -->
 
 ## Default Professional Images
 
+<!-- Default images displayed when no custom slides exist -->
+
 The carousel now features these professional images:
 
-1. **College of Informatics and Computing Sciences (CICS)**
-   - Modern university campus aerial view
-   - Shows contemporary educational architecture
+### 1. College of Informatics and Computing Sciences (CICS)
 
-2. **Engineering**
-   - Modern engineering technology laboratory
-   - Highlights technical facilities and equipment
+- Modern university campus aerial view
+- Shows contemporary educational architecture
+- Represents technology-focused education
 
-3. **Business Administration**
-   - Professional business conference setting
-   - Showcases collaborative corporate environment
+### 2. Engineering
 
-4. **Medicine**
-   - Modern medical hospital healthcare facility
-   - Displays state-of-the-art medical infrastructure
+- Modern engineering technology laboratory
+- Highlights technical facilities and equipment
+- Represents innovation and engineering excellence
 
-5. **Arts & Humanities**
-   - Art gallery museum creative space
-   - Features artistic and cultural environment
+### 3. Business Administration
+
+- Professional business conference setting
+- Showcases collaborative corporate environment
+- Represents leadership and entrepreneurship
+
+### 4. Medicine
+
+- Modern medical hospital healthcare facility
+- Displays state-of-the-art medical infrastructure
+- Represents healthcare education and research
+
+### 5. Arts & Humanities
+
+- Art gallery museum creative space
+- Features artistic and cultural environment
+- Represents creativity and innovation
+
+---
+
+<!-- ====================================================== -->
+<!-- Local Development                                      -->
+<!-- ====================================================== -->
 
 ## How It Works in Local IDE
 
 ### Image Storage
-- **No downloads required**: Images are hosted on Unsplash's CDN
-- **Automatic loading**: Images load directly from URLs
-- **LocalStorage persistence**: Carousel settings are stored in browser's localStorage
-- **Cross-device sync**: Works on any device with internet connection
+
+<!-- Explains where images come from -->
+
+- **No downloads required** — Images are hosted on Unsplash CDN.
+- **Automatic loading** — Images are loaded directly from public URLs.
+- **LocalStorage persistence** — Carousel settings remain saved in the browser.
+- **Cross-browser compatibility** — Works on all modern browsers.
+- **Internet required** — Images are retrieved online from the CDN.
+
+---
+
+<!-- Local setup instructions -->
 
 ### Running Locally
 
-1. **Start your development server**:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
+1. Start your development server.
 
-2. **Images will automatically load** from Unsplash CDN when you:
-   - Visit the public viewer page (/)
-   - Access the admin carousel management (/admin/carousel)
+```bash
+npm run dev
 
-3. **No additional setup needed** - the images are already configured in:
-   - `/src/app/components/DepartmentCarousel.tsx`
-   - `/src/app/pages/admin/CarouselManagement.tsx`
+# or
 
-### Image URLs
-All images use the following format:
+yarn dev
+```
+
+2. Images automatically load when you:
+
+- Visit the public viewer page (`/`)
+- Open the administrator carousel page (`/admin/carousel`)
+
+3. No additional configuration is required.
+
+Images are already configured inside:
+
+- `/src/app/components/DepartmentCarousel.tsx`
+- `/src/app/pages/admin/CarouselManagement.tsx`
+
+---
+
+<!-- ====================================================== -->
+<!-- Image Optimization                                     -->
+<!-- ====================================================== -->
+
+## Image URLs
+
+All images follow this optimized URL format.
+
 ```
 https://images.unsplash.com/photo-[ID]?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=[ID]&ixlib=rb-4.1.0&q=80&w=1080
 ```
 
-These are optimized for:
-- Quality: 80% compression (good balance)
-- Width: 1080px (perfect for carousels)
-- Format: JPEG (web-optimized)
-- Smart cropping: Entropy-based crop for best composition
+Image optimization includes:
+
+- Quality: 80%
+- Width: 1080 pixels
+- JPEG compression
+- Smart entropy cropping
+- CDN delivery
+- Browser caching
+
+These optimizations reduce loading time while maintaining excellent visual quality.
+
+---
+
+<!-- ====================================================== -->
+<!-- Administrator Features                                 -->
+<!-- ====================================================== -->
 
 ## Admin Management Features
 
-### Adding/Editing Slides
-Admins can manage carousel slides via `/admin/carousel`:
+Administrators can customize carousel slides without editing code.
 
-1. **Using Image URLs**:
-   - Paste any image URL (Unsplash recommended)
-   - Recommended size: 1080x720px
-   - Supports: JPG, PNG, WebP
+### Adding or Editing Slides
 
-2. **Uploading Files**:
-   - Upload local images (Max 5MB)
-   - Supported formats: JPEG, PNG, WebP
-   - Images are stored in Supabase Storage
+Navigate to:
 
-### File Upload for Local Development
-If you want to use your own images:
+```
+/admin/carousel
+```
 
-1. **Via Admin Panel**:
-   - Login as admin (admin@university.edu / admin123)
-   - Navigate to "Carousel Management"
-   - Click "Add Slide"
-   - Either paste an image URL or upload a file
-   - Click "Save"
+Features include:
 
-2. **Using Image URLs**:
-   - Use Unsplash for professional images
-   - Format: `https://images.unsplash.com/photo-[ID]?w=1080`
-   - Free to use, high quality
+- Add new slides
+- Edit existing slides
+- Remove slides
+- Reorder slides
+- Preview carousel changes
 
-3. **LocalStorage Backup**:
-   - All carousel data is saved to localStorage
-   - Persists across browser sessions
-   - Key: `carouselSlides`
+---
+
+<!-- Upload via URL -->
+
+### Using Image URLs
+
+Supported sources include:
+
+- Unsplash
+- Public CDN links
+- Direct image URLs
+
+Recommended specifications:
+
+- Resolution: 1080 × 720
+- Aspect Ratio: 16:9
+- Formats: JPG, PNG, WebP
+
+---
+
+<!-- Upload files -->
+
+### Uploading Files
+
+Upload images directly from your computer.
+
+Supported features:
+
+- Maximum size: 5 MB
+- JPEG
+- PNG
+- WebP
+
+Uploaded images are stored inside Supabase Storage.
+
+---
+
+<!-- ====================================================== -->
+<!-- Local Development Uploads                              -->
+<!-- ====================================================== -->
+
+## File Upload for Local Development
+
+### Using the Admin Panel
+
+1. Login as administrator.
+
+```
+admin@university.edu
+Password: admin123
+```
+
+2. Navigate to **Carousel Management**.
+
+3. Select **Add Slide**.
+
+4. Either:
+
+- Upload an image
+- Paste an image URL
+
+5. Save changes.
+
+---
+
+<!-- URL recommendations -->
+
+### Using Image URLs
+
+For best results:
+
+- Use Unsplash images.
+- Choose high-resolution photographs.
+- Prefer landscape orientation.
+- Use optimized URLs.
+
+Example:
+
+```
+https://images.unsplash.com/photo-[ID]?w=1080&q=80
+```
+
+---
+
+<!-- Browser storage -->
+
+### LocalStorage Backup
+
+Carousel configuration is automatically stored in:
+
+```
+carouselSlides
+```
+
+Benefits:
+
+- Fast loading
+- Offline persistence
+- Automatic recovery
+- Easy reset
+
+---
+
+<!-- ====================================================== -->
+<!-- Troubleshooting Section                                -->
+<!-- ====================================================== -->
 
 ## Troubleshooting
 
 ### Images Not Loading
-1. **Check internet connection** - Images load from Unsplash CDN
-2. **Clear browser cache** - Force refresh with Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)
-3. **Check browser console** - Look for CORS or network errors
+
+Possible causes include:
+
+1. No internet connection
+2. Browser cache
+3. Network restrictions
+4. CDN temporarily unavailable
+
+Recommended solutions:
+
+- Refresh the page
+- Clear browser cache
+- Check Developer Tools
+- Verify network connectivity
+
+---
 
 ### Reset to Default Images
-1. Open browser console (F12)
-2. Run: `localStorage.removeItem('carouselSlides')`
-3. Refresh the page
-4. Default professional images will reload
 
-### Uploading Images Not Working
-1. **Check Supabase connection** - Ensure edge functions are deployed
-2. **Verify admin authentication** - Must be logged in as admin
-3. **File size** - Must be under 5MB
-4. **File format** - Only JPEG, PNG, WebP allowed
+Open Developer Tools.
+
+Run:
+
+```javascript
+localStorage.removeItem("carouselSlides")
+```
+
+Refresh the page.
+
+The application automatically restores the default image collection.
+
+---
+
+### Upload Issues
+
+Possible reasons include:
+
+- Supabase unavailable
+- Authentication expired
+- Unsupported image format
+- File exceeds maximum size
+- Storage permissions
+
+Verify:
+
+- Administrator login
+- Edge Functions deployment
+- Storage bucket configuration
+
+---
+
+<!-- ====================================================== -->
+<!-- Best Practices                                         -->
+<!-- ====================================================== -->
 
 ## Best Practices
 
 ### Image Selection
-- **Aspect ratio**: 16:9 or 3:2 works best
-- **Resolution**: Minimum 1080px wide
-- **File size**: Keep under 500KB for fast loading
-- **Quality**: Use high-quality, professional images
-- **Relevance**: Choose images that represent each department
+
+Recommended guidelines:
+
+- 16:9 aspect ratio
+- Minimum width: 1080px
+- Maximum size: 500 KB
+- High-quality photography
+- Professional appearance
+- Department-related content
+- Consistent lighting
+- Modern campus imagery
+
+---
 
 ### Unsplash Integration
-For best results when using Unsplash:
-1. Visit [Unsplash.com](https://unsplash.com)
-2. Search for relevant images
-3. Copy the image URL
-4. Add `?w=1080&q=80` to optimize
-5. Use in carousel management
 
-### Performance
-- Images are lazy-loaded
-- Cached by browser after first load
-- Optimized delivery via CDN
-- No impact on local storage
+Recommended workflow:
+
+1. Visit Unsplash.
+2. Search for department-related photos.
+3. Copy image URL.
+4. Optimize URL.
+
+Example:
+
+```
+?w=1080&q=80
+```
+
+5. Save through Carousel Management.
+
+---
+
+### Performance Optimization
+
+The carousel includes several performance improvements.
+
+Features:
+
+- Lazy loading
+- Browser caching
+- CDN delivery
+- Optimized compression
+- Responsive image sizing
+- Smooth transitions
+
+These optimizations reduce bandwidth usage while improving user experience.
+
+---
+
+<!-- ====================================================== -->
+<!-- Technical Documentation                                -->
+<!-- ====================================================== -->
 
 ## Technical Details
 
 ### Files Modified
-- `/src/app/components/DepartmentCarousel.tsx` - Main carousel component
-- `/src/app/pages/admin/CarouselManagement.tsx` - Admin management interface
 
-### Storage Locations
-- **Default images**: Embedded in component code as URLs
-- **Custom images**: Supabase Storage bucket `make-21398c83-carousel-images`
-- **Slide data**: Browser localStorage key `carouselSlides`
+Project files include:
 
-### Dependencies
-- No additional packages required
-- Uses existing Tailwind CSS for styling
-- React hooks for state management
-- Supabase for file uploads (optional)
+```
+/src/app/components/DepartmentCarousel.tsx
+```
 
-## Support
+Main public carousel component.
 
-If you encounter any issues:
-1. Check this documentation
-2. Review browser console for errors
-3. Verify internet connection for CDN access
-4. Ensure Supabase edge functions are deployed (for uploads)
+```
+/src/app/pages/admin/CarouselManagement.tsx
+```
+
+Administrator management interface.
 
 ---
 
-**Note**: All images are sourced from Unsplash under their free license, properly optimized for web use, and ready to run in your local development environment without any additional configuration.
+### Storage Locations
+
+Default Images
+
+- Stored as embedded URL references
+
+Custom Images
+
+- Supabase Storage
+
+Storage Bucket
+
+```
+make-21398c83-carousel-images
+```
+
+Browser Storage
+
+```
+carouselSlides
+```
+
+---
+
+### Dependencies
+
+The carousel uses existing project dependencies.
+
+No additional packages are required.
+
+Technologies include:
+
+- React
+- TypeScript
+- Tailwind CSS
+- Supabase
+- LocalStorage API
+
+---
+
+<!-- ====================================================== -->
+<!-- Future Improvements                                    -->
+<!-- ====================================================== -->
+
+## Future Enhancements
+
+Planned improvements include:
+
+- Image drag-and-drop sorting
+- Automatic image compression
+- AI image recommendations
+- Dark mode optimized banners
+- Carousel scheduling
+- Multiple carousel collections
+- Video banner support
+- Image cropping tools
+- Analytics dashboard
+- Cloudflare image optimization
+
+---
+
+<!-- ====================================================== -->
+<!-- Support Information                                    -->
+<!-- ====================================================== -->
+
+## Support
+
+If problems occur:
+
+1. Review this documentation.
+2. Check browser Developer Tools.
+3. Verify internet connectivity.
+4. Confirm Supabase services are operational.
+5. Ensure administrator permissions.
+6. Verify Storage bucket access.
+7. Check browser LocalStorage.
+
+---
+
+<!-- ====================================================== -->
+<!-- Additional Notes                                       -->
+<!-- ====================================================== -->
+
+## Notes
+
+- Images are sourced from Unsplash.
+- Optimized for responsive layouts.
+- Ready for local development.
+- Compatible with desktop and mobile browsers.
+- Easily customizable through the admin interface.
+- Designed for scalability and future expansion.
+- Requires no manual asset downloads.
+- Uses modern web optimization practices.
+
+---
+
+<!-- ====================================================== -->
+<!-- End of Carousel Images Documentation                   -->
+<!-- Thank you for using the SportAxisWeb Carousel System.  -->
+<!-- Future updates should be documented in this guide.     -->
+<!-- ====================================================== -->
