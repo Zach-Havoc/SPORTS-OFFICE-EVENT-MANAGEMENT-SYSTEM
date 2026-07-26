@@ -159,6 +159,8 @@ export const getLeaderboard = (category?: string) => {
   const q = category ? `?category=${encodeURIComponent(category)}` : '';
   return apiRequest(`/leaderboard${q}`);
 };
+export const extractOcrScores = (data: { image?: string; criteria?: any[] }) =>
+  apiRequest('/ocr/extract', { method: 'POST', body: JSON.stringify(data) }, true);
 
 // Reports (admin only)
 export const getEventReport = (eventId: string) =>

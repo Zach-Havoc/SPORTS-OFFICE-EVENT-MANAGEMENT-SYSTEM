@@ -96,8 +96,12 @@ export default function AdminBracketing() {
         getDepartments(),
         getVenues()
       ]);
-      setDepartments(depts);
-      setVenues(vens.filter((v: Venue) => v.status === 'available'));
+      setDepartments(depts || []);
+      const normalizedVenues = (vens || []).map((v: any) => ({
+        ...v,
+        sports: v.sports ?? [],
+      }));
+      setVenues(normalizedVenues.filter((v: Venue) => v.status === 'available'));
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load data');
@@ -127,10 +131,11 @@ export default function AdminBracketing() {
   };
 
   const assignVenueForMatch = (sport: string): Venue | undefined => {
-    // Filter venues that support this sport
-    const suitableVenues = venues.filter(v =>
-      v.sports.length === 0 || v.sports.some(s => s.toLowerCase() === sport.toLowerCase())
-    );
+    // Filter venues that support this sport safely
+    const suitableVenues = venues.filter(v => {
+      const sports = v.sports || [];
+      return sports.length === 0 || sports.some(s => s && s.toLowerCase() === sport.toLowerCase());
+    });
 
     if (suitableVenues.length === 0) {
       return undefined;
@@ -158,6 +163,33 @@ export default function AdminBracketing() {
     return suitableVenues[0];
   };
 
+  const parseStartDateTime = (startDateStr: string, startTimeStr: string): Date => {
+    try {
+      const dateParts = (startDateStr || '').split('-').map(Number);
+      const timeParts = (startTimeStr || '09:00').split(':').map(Number);
+      if (dateParts.length === 3 && !isNaN(dateParts[0])) {
+        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0] || 9, timeParts[1] || 0);
+        if (!isNaN(d.getTime())) return d;
+      }
+    } catch (e) {
+      console.error('Error parsing datetime:', e);
+    }
+    return new Date();
+  };
+
+  const formatLocalDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatLocalTime = (d: Date): string => {
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const generateSingleEliminationBracket = (): Bracket => {
     const participants = [...config.participants];
     const numParticipants = participants.length;
@@ -167,7 +199,6 @@ export default function AdminBracketing() {
     const totalSlots = Math.pow(2, rounds);
 
     // Add byes if needed
-    const byes = totalSlots - numParticipants;
     const shuffled = [...participants].sort(() => Math.random() - 0.5);
 
     // Fill bracket with participants and byes
@@ -183,7 +214,7 @@ export default function AdminBracketing() {
     // Generate matches for all rounds
     const matches: Match[] = [];
     let matchId = 0;
-    let currentDate = new Date(`${config.startDate}T${config.startTime}`);
+    let currentDate = parseStartDateTime(config.startDate, config.startTime);
 
     for (let round = 1; round <= rounds; round++) {
       const matchesInRound = Math.pow(2, rounds - round);
@@ -212,8 +243,8 @@ export default function AdminBracketing() {
           team1: team1 || 'BYE',
           team2: team2 || 'BYE',
           venue,
-          date: currentDate.toISOString().split('T')[0],
-          time: currentDate.toTimeString().slice(0, 5),
+          date: formatLocalDate(currentDate),
+          time: formatLocalTime(currentDate),
           winner
         });
 
@@ -242,7 +273,7 @@ export default function AdminBracketing() {
     // Round robin: each team plays every other team once
     const matches: Match[] = [];
     let matchId = 0;
-    let currentDate = new Date(`${config.startDate}T${config.startTime}`);
+    let currentDate = parseStartDateTime(config.startDate, config.startTime);
     let round = 1;
 
     for (let i = 0; i < numParticipants; i++) {
@@ -256,8 +287,8 @@ export default function AdminBracketing() {
           team1: participants[i],
           team2: participants[j],
           venue,
-          date: currentDate.toISOString().split('T')[0],
-          time: currentDate.toTimeString().slice(0, 5)
+          date: formatLocalDate(currentDate),
+          time: formatLocalTime(currentDate)
         });
 
         // Add match duration + break
@@ -266,8 +297,9 @@ export default function AdminBracketing() {
         // If it's past 6 PM, move to next day at start time
         if (currentDate.getHours() >= 18) {
           currentDate.setDate(currentDate.getDate() + 1);
-          currentDate.setHours(parseInt(config.startTime.split(':')[0]));
-          currentDate.setMinutes(parseInt(config.startTime.split(':')[1]));
+          const [startH, startM] = (config.startTime || '09:00').split(':').map(Number);
+          currentDate.setHours(startH || 9);
+          currentDate.setMinutes(startM || 0);
           round++;
         }
       }
