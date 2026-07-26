@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
   UserPlus, Search, Users, Edit, Eye, Trash2, Copy, Check,
-  Trophy, BookOpen, RefreshCw, AlertTriangle, UserMinus, Settings
+  Trophy, BookOpen, AlertTriangle, UserMinus, Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAthletes, deleteAthlete, removeAthleteFromRoster, getCoachProfile, updateCoachProfile } from '../../services/api';
@@ -44,6 +44,7 @@ interface CoachProfile {
   name: string;
   email: string;
   sport: string;
+  genderCategory?: string | null;
   enrollmentCode: string;
 }
 
@@ -61,6 +62,7 @@ export default function CoachAthletes() {
   // Sport setup dialog
   const [setupOpen, setSetupOpen] = useState(false);
   const [sportDraft, setSportDraft] = useState('');
+  const [genderCategoryDraft, setGenderCategoryDraft] = useState('');
   const [savingSport, setSavingSport] = useState(false);
 
   // Remove confirm dialog
@@ -69,6 +71,8 @@ export default function CoachAthletes() {
   useEffect(() => {
     if (!user || user.role !== 'coach') { navigate('/login'); return; }
     loadAll();
+    const interval = setInterval(loadAll, 30000);
+    return () => clearInterval(interval);
   }, [user, navigate]);
 
   const loadAll = async () => {
@@ -78,6 +82,7 @@ export default function CoachAthletes() {
       setAthletes(athleteData || []);
       setCoachProfile(profileData);
       setSportDraft(profileData?.sport || '');
+      setGenderCategoryDraft(profileData?.genderCategory || '');
     } catch {
       toast.error('Failed to load data');
     } finally {
@@ -87,9 +92,10 @@ export default function CoachAthletes() {
 
   const handleSaveSport = async () => {
     if (!sportDraft) { toast.error('Please select a sport'); return; }
+    if (!genderCategoryDraft) { toast.error('Please select a gender category'); return; }
     setSavingSport(true);
     try {
-      const updated = await updateCoachProfile({ sport: sportDraft });
+      const updated = await updateCoachProfile({ sport: sportDraft, genderCategory: genderCategoryDraft });
       setCoachProfile(updated);
       setSetupOpen(false);
       toast.success('Sport class updated');
@@ -222,9 +228,6 @@ export default function CoachAthletes() {
           <p className="text-gray-500 text-sm mt-0.5">Athletes enrolled in your class</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadAll}>
-            <RefreshCw className="h-4 w-4 mr-2" />Refresh
-          </Button>
           <Link to="/coach/athletes/new">
             <Button>
               <UserPlus className="h-4 w-4 mr-2" />Add Manually
@@ -404,9 +407,22 @@ export default function CoachAthletes() {
               </SelectContent>
             </Select>
           </div>
+          <div className="py-2">
+            <Label className="mb-2 block">Gender Category <span className="text-red-500">*</span></Label>
+            <Select value={genderCategoryDraft} onValueChange={setGenderCategoryDraft}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Men">Men's</SelectItem>
+                <SelectItem value="Women">Women's</SelectItem>
+                <SelectItem value="Men & Women">Men & Women's</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSetupOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSport} disabled={savingSport || !sportDraft}>
+            <Button onClick={handleSaveSport} disabled={savingSport || !sportDraft || !genderCategoryDraft}>
               {savingSport ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

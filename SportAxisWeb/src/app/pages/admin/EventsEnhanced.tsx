@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
 import {
-  Calendar, Edit, Plus, Trash2, Users, QrCode, Search, Filter, Download, RefreshCw,
+  Calendar, Edit, Plus, Trash2, Users, QrCode, Search, Filter, Download,
   Clock, ArrowUpDown, Grid3x3, List, Archive, CheckCircle2, AlertCircle, MapPin,
   UserCheck, Trophy, AlertTriangle
 } from 'lucide-react';
@@ -143,6 +143,8 @@ export default function AdminEventsEnhanced() {
   useEffect(() => {
     if (!user || user.role !== 'admin') { navigate('/login'); return; }
     loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
   }, [user, navigate]);
 
   const loadData = async () => {
@@ -410,7 +412,6 @@ export default function AdminEventsEnhanced() {
             <p className="text-gray-500 mt-1">Create and manage sports competition events</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={loadData} variant="outline" size="sm"><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button>
             <Button onClick={handleExport} variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Export</Button>
             <Button onClick={() => handleOpenDialog()}><Plus className="h-4 w-4 mr-2" />New Event</Button>
           </div>

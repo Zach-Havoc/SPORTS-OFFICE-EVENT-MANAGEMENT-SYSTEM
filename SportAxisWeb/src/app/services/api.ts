@@ -212,8 +212,13 @@ export const removeAthleteFromRoster = (id: string) =>
 // ─────────────────────────────────────────────────────────────────────
 
 export const getCoachProfile = () => apiRequest('/coach/profile', {}, true);
-export const updateCoachProfile = (data: { sport: string }) =>
+export const updateCoachProfile = (data: { sport: string, genderCategory?: string }) =>
   apiRequest('/coach/profile', { method: 'PUT', body: JSON.stringify(data) }, true);
+
+// Admin Coach Management
+export const getCoaches = () => apiRequest('/admin/coaches', {}, true);
+export const updateCoachDepartment = (id: string, data: { department: string | null }) =>
+  apiRequest(`/admin/coaches/${id}`, { method: 'PUT', body: JSON.stringify(data) }, true);
 
 // ─────────────────────────────────────────────────────────────────────
 // Enrollment (athlete)

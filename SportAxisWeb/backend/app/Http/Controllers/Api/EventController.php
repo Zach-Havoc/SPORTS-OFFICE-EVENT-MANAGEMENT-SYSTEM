@@ -101,9 +101,17 @@ class EventController extends Controller
         $event = Event::findOrFail($id);
 
         $request->validate([
-            'name'     => 'sometimes|string',
-            'schedule' => 'sometimes|date',
-            'status'   => 'sometimes|in:upcoming,ongoing,completed',
+            'name'        => 'sometimes|string',
+            'category'    => 'sometimes|string',
+            'schedule'    => 'sometimes|date',
+            'startTime'   => 'sometimes|string',
+            'endTime'     => 'sometimes|string',
+            'venueId'     => 'sometimes|string',
+            'venueName'   => 'sometimes|string',
+            'departments' => 'sometimes|array',
+            'judges'      => 'sometimes|array',
+            'criteria'    => 'sometimes|array',
+            'status'      => 'sometimes|in:upcoming,ongoing,completed',
         ]);
 
         $data = array_filter([

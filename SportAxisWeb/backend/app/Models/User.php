@@ -14,7 +14,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'id', 'email', 'password', 'name', 'role',
-        'sport', 'enrollment_code', 'coach_id', 'coach_name', 'enrolled_at',
+        'sport', 'gender_category', 'department', 'enrollment_code', 'coach_id', 'coach_name', 'enrolled_at',
     ];
 
     protected $hidden = ['password'];
@@ -31,6 +31,8 @@ class User extends Authenticatable
             'name'           => $this->name,
             'role'           => $this->role,
             'sport'          => $this->sport,
+            'department'     => $this->department,
+            'genderCategory' => $this->gender_category,
             'enrollmentCode' => $this->enrollment_code,
             'coachId'        => $this->coach_id,
             'coachName'      => $this->coach_name,

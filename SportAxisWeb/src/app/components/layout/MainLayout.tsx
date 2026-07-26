@@ -21,8 +21,6 @@ import {
   Shield,
   User,
   ChevronRight,
-  Bell,
-  Search,
   Megaphone,
   ClipboardList,
   TrendingUp,
@@ -88,6 +86,7 @@ export default function MainLayout() {
           { name: 'Events', path: '/admin/events', icon: Calendar },
           { name: 'Venues', path: '/admin/venues', icon: MapPin },
           { name: 'Bracketing', path: '/admin/bracketing', icon: Trophy },
+          { name: 'Coaches', path: '/admin/coaches', icon: Users },
           { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
           { name: 'History', path: '/admin/history', icon: History },
         ],
@@ -302,7 +301,16 @@ export default function MainLayout() {
                   {!sidebarCollapsed && (
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{user.name}</p>
-                      <p className="text-xs text-red-100 capitalize">{user.role}</p>
+                      <p className="text-xs text-red-100 capitalize">
+                        {user.role === 'coach' 
+                          ? [
+                              user.department?.split(' ').filter(w => !['of', 'and', 'the', 'for', 'in', 'at'].includes(w.toLowerCase())).map(w => w[0]).join('').toUpperCase(),
+                              user.genderCategory ? `${user.genderCategory}'s` : null,
+                              user.sport,
+                              'Coach'
+                            ].filter(Boolean).join(' ')
+                          : user.role}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -487,17 +495,6 @@ export default function MainLayout() {
                     </>
                   )}
 
-                  {user && (
-                    <>
-                      {/* Quick Actions */}
-                      <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
-                        <Bell className="h-5 w-5 text-gray-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
-                        <Search className="h-5 w-5 text-gray-600" />
-                      </Button>
-                    </>
-                  )}
                 </div>
               </div>
             </div>

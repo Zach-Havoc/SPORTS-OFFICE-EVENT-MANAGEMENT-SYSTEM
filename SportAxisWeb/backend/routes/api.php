@@ -97,6 +97,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/registration-codes', [RegistrationCodeController::class, 'index']);
         Route::post('/registration-codes', [RegistrationCodeController::class, 'store']);
         Route::delete('/registration-codes/{code}', [RegistrationCodeController::class, 'destroy']);
+
+        Route::get('/admin/coaches', [CoachController::class, 'index']);
+        Route::put('/admin/coaches/{id}', [CoachController::class, 'updateCoach']);
     });
 
     // ─── COACH ONLY ───────────────────────────
