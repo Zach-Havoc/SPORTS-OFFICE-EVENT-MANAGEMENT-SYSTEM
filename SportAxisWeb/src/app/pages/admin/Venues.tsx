@@ -56,6 +56,8 @@ export default function AdminVenues() {
       return;
     }
     loadVenues();
+    const interval = setInterval(loadVenues, 30000);
+    return () => clearInterval(interval);
   }, [user, navigate]);
 
   const loadVenues = async () => {

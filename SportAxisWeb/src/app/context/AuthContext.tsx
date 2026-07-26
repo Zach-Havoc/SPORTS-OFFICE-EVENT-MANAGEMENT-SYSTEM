@@ -51,6 +51,9 @@ interface User {
   email: string;
   name: string;
   role: 'admin' | 'coach' | 'athlete' | 'judge';
+  department?: string | null;
+  sport?: string | null;
+  genderCategory?: string | null;
 }
 
 interface AuthContextType {

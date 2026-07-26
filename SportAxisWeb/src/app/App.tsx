@@ -29,6 +29,7 @@ import AdminCarousel from "./pages/admin/CarouselManagement";
 import AdminRegistrationCodes from "./pages/admin/RegistrationCodes";
 import AdminVenues from "./pages/admin/Venues";
 import AdminBracketing from "./pages/admin/Bracketing";
+import AdminCoaches from "./pages/admin/Coaches";
 import JudgeDashboard from "./pages/judge/Dashboard";
 import JudgeScoring from "./pages/judge/Scoring";
 import CoachDashboard from "./pages/coach/Dashboard";
@@ -115,6 +116,7 @@ export default function App() {
               path: "admin/bracketing",
               Component: AdminBracketing,
             },
+            { path: "admin/coaches", Component: AdminCoaches },
 
             // Judge routes
             { path: "judge", Component: JudgeDashboard },

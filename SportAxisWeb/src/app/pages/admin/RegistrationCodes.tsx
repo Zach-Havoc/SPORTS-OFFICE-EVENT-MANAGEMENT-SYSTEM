@@ -45,6 +45,8 @@ export default function AdminRegistrationCodes() {
       return;
     }
     loadCodes();
+    const interval = setInterval(loadCodes, 30000);
+    return () => clearInterval(interval);
   }, [user, navigate]);
 
   const loadCodes = async () => {

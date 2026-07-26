@@ -18,7 +18,40 @@ class AthleteController extends Controller
             $query->where('coach_id', $user->id);
         }
 
-        return response()->json($query->orderBy('last_name')->get());
+        $athletes = $query->orderBy('last_name')->get();
+
+        // Also include users who have this coach_id but no athlete record
+        if ($user->role === 'coach') {
+            $usersWithCoach = \App\Models\User::where('coach_id', $user->id)
+                ->where('role', 'athlete')
+                ->whereNotIn('id', $athletes->pluck('id'))
+                ->get();
+
+            // Convert users to athlete-like format
+            $userAthletes = $usersWithCoach->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'student_id' => null,
+                    'first_name' => $u->name,
+                    'last_name' => '',
+                    'email' => $u->email,
+                    'department' => null,
+                    'year_level' => null,
+                    'course' => null,
+                    'sport' => $u->sport,
+                    'coach_id' => $u->coach_id,
+                    'status' => 'active',
+                    'enrolled_via_code' => true,
+                    'enrolled_at' => $u->enrolled_at,
+                    'emergency_contact' => null,
+                    'created_at' => $u->created_at,
+                ];
+            });
+
+            $athletes = $athletes->concat($userAthletes);
+        }
+
+        return response()->json($athletes);
     }
 
     public function show(string $id)

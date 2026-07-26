@@ -50,6 +50,8 @@ export default function DashboardEnhanced() {
       return;
     }
     loadDashboardData();
+    const interval = setInterval(loadDashboardData, 30000);
+    return () => clearInterval(interval);
   }, [user, navigate]);
 
   const loadDashboardData = async () => {
