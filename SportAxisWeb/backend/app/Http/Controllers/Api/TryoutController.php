@@ -26,7 +26,7 @@ class TryoutController extends Controller
         $mailSent = false;
         try {
             Mail::raw(
-                "Your SportsAxis tryout verification code is: {$code}\n\nThis code expires in 15 minutes.",
+                "Dear Athlete,\n\nThank you for applying to the SportsAxis tryouts. Your email verification code is: {$code}\n\nFor your security, this code will expire in 15 minutes. Please enter this code on the application page to proceed.\n\nBest regards,\nThe SportsAxis Team",
                 function ($message) use ($request) {
                     $message->to($request->email)
                         ->subject('SportsAxis Tryout Email Verification');

@@ -149,7 +149,7 @@ class AuthController extends Controller
 
         try {
             Mail::raw(
-                "Your temporary password for SportsAxis is: {$tempPassword}\n\nPlease log in and change your password immediately.",
+                "Dear User,\n\nWe received a request to reset your password for your SportsAxis account. Your temporary password is: {$tempPassword}\n\nFor your security, please log in and change your password immediately.\n\nIf you did not request this change, please contact your administrator.\n\nBest regards,\nThe SportsAxis Team",
                 function ($message) use ($user) {
                     $message->to($user->email)
                         ->subject('SportsAxis Password Reset');
