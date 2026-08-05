@@ -10,9 +10,15 @@ use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $events = Event::orderBy('schedule', 'desc')->get();
+        $query = Event::orderBy('schedule', 'asc');
+
+        if ($request->has('date') && $request->date) {
+            $query->whereDate('schedule', $request->date);
+        }
+
+        $events = $query->get();
         return response()->json($events->map(fn($e) => $e->toApiFormat()));
     }
 

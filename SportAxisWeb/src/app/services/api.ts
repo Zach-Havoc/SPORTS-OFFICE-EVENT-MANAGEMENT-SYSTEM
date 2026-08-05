@@ -138,6 +138,7 @@ export const deleteCategory = (id: string) =>
 // ─────────────────────────────────────────────────────────────────────
 
 export const getEvents = () => apiRequest('/events');
+export const getEventsByDate = (date: string) => apiRequest(`/events?date=${encodeURIComponent(date)}`);
 export const getEvent = (id: string) => apiRequest(`/events/${id}`);
 export const createEvent = (data: any) =>
   apiRequest('/events', { method: 'POST', body: JSON.stringify(data) }, true);

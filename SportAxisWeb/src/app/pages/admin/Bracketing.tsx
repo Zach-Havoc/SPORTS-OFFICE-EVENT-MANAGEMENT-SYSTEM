@@ -6,10 +6,11 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight } from 'lucide-react';
+import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { getEvents, getDepartments, getVenues, createEvent } from '../../services/api';
 import { Badge } from '../../components/ui/badge';
+import { SingleEliminationBracket, Match as BracketMatch, SVGViewer } from '@g-loot/react-tournament-brackets';
 
 interface Venue {
   id: string;
@@ -65,6 +66,8 @@ export default function AdminBracketing() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [bracket, setBracket] = useState<Bracket | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bracketZoom, setBracketZoom] = useState(1);
+  const [bracketFullscreen, setBracketFullscreen] = useState(false);
 
   const [config, setConfig] = useState({
     sport: '',
@@ -237,7 +240,7 @@ export default function AdminBracketing() {
         const venue = assignVenueForMatch(config.sport);
 
         matches.push({
-          id: `match_${matchId++}`,
+          id: `${round}_${pos}`,
           round,
           position: pos,
           team1: team1 || 'BYE',
@@ -423,6 +426,104 @@ export default function AdminBracketing() {
 
   if (!user) return null;
 
+  const formatMatchesForBracketUI = (matches: Match[], rounds: number) => {
+    return matches.map(match => {
+      const nextRound = match.round + 1;
+      const nextPosition = Math.floor(match.position / 2);
+      const nextMatchId = match.round < rounds ? `${nextRound}_${nextPosition}` : null;
+      
+      return {
+        id: match.id,
+        nextMatchId,
+        tournamentRoundText: getRoundName(match.round, rounds, 'single-elimination'),
+        startTime: `${match.date} ${match.time}`,
+        state: match.winner ? 'DONE' : 'SCHEDULED',
+        participants: [
+          {
+            id: match.team1,
+            isWinner: match.winner === match.team1,
+            status: null,
+            name: match.team1
+          },
+          {
+            id: match.team2,
+            isWinner: match.winner === match.team2,
+            status: null,
+            name: match.team2
+          }
+        ]
+      };
+    });
+  };
+
+  const renderSingleEliminationBracket = () => {
+    if (!bracket) return null;
+    const firstRoundMatches = Math.pow(2, bracket.rounds - 1);
+    const svgW = Math.max(900, bracket.rounds * 280);
+    const svgH = Math.max(500, firstRoundMatches * 120);
+    const scaledW = Math.round(svgW * bracketZoom);
+    const scaledH = Math.round(svgH * bracketZoom);
+
+    const toolbar = (
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-gray-50 rounded-t-md">
+        <span className="text-xs text-gray-500 font-medium mr-auto">Bracket View</span>
+        <button
+          onClick={() => setBracketZoom(z => Math.max(0.3, parseFloat((z - 0.15).toFixed(2))))}
+          className="p-1.5 rounded hover:bg-gray-200 text-gray-600" title="Zoom out"
+        ><ZoomOut className="h-4 w-4" /></button>
+        <span className="text-xs w-10 text-center font-mono">{Math.round(bracketZoom * 100)}%</span>
+        <button
+          onClick={() => setBracketZoom(z => Math.min(2, parseFloat((z + 0.15).toFixed(2))))}
+          className="p-1.5 rounded hover:bg-gray-200 text-gray-600" title="Zoom in"
+        ><ZoomIn className="h-4 w-4" /></button>
+        <button
+          onClick={() => setBracketZoom(1)}
+          className="p-1.5 rounded hover:bg-gray-200 text-gray-600" title="Reset zoom"
+        ><RotateCcw className="h-3.5 w-3.5" /></button>
+        <div className="w-px h-4 bg-gray-300" />
+        <button
+          onClick={() => setBracketFullscreen(f => !f)}
+          className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+          title={bracketFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+        >{bracketFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</button>
+      </div>
+    );
+
+    const viewer = (
+      <div className="overflow-auto" style={{ maxHeight: bracketFullscreen ? 'calc(90vh - 56px)' : '520px' }}>
+        <div style={{ width: scaledW, height: scaledH }}>
+          <SingleEliminationBracket
+            matches={formatMatchesForBracketUI(bracket.matches, bracket.rounds)}
+            matchComponent={BracketMatch}
+            svgWrapper={({ children, ...props }: any) => (
+              <SVGViewer width={scaledW} height={scaledH} {...props}>
+                {children}
+              </SVGViewer>
+            )}
+          />
+        </div>
+      </div>
+    );
+
+    if (bracketFullscreen) {
+      return (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl overflow-hidden border">
+            {toolbar}
+            {viewer}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="border rounded-md overflow-hidden bg-white">
+        {toolbar}
+        {viewer}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -598,61 +699,63 @@ export default function AdminBracketing() {
                 </div>
 
                 {/* Matches by Round */}
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {Array.from({ length: bracket.rounds }, (_, i) => i + 1).map(round => {
-                    const roundMatches = bracket.matches.filter(m => m.round === round);
-                    if (roundMatches.length === 0) return null;
+                {bracket.format === 'single-elimination' ? renderSingleEliminationBracket() : (
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {Array.from({ length: bracket.rounds }, (_, i) => i + 1).map(round => {
+                      const roundMatches = bracket.matches.filter(m => m.round === round);
+                      if (roundMatches.length === 0) return null;
 
-                    return (
-                      <div key={round}>
-                        <h3 className="font-semibold text-lg mb-3">
-                          {getRoundName(round, bracket.rounds, bracket.format)}
-                        </h3>
-                        <div className="space-y-2">
-                          {roundMatches.map(match => (
-                            <Card key={match.id} className="border-l-4 border-l-blue-500">
-                              <CardContent className="py-3 px-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 text-sm">
-                                      <span className={match.team1 === 'BYE' ? 'text-gray-400' : 'font-medium'}>
-                                        {match.team1}
-                                      </span>
-                                      <ArrowRight className="h-3 w-3 text-gray-400" />
-                                      <span className={match.team2 === 'BYE' ? 'text-gray-400' : 'font-medium'}>
-                                        {match.team2}
-                                      </span>
-                                    </div>
-                                    {match.winner && (
-                                      <Badge variant="secondary" className="mt-1 text-xs">
-                                        Winner: {match.winner}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="text-right text-xs text-gray-600 space-y-1">
-                                    <div className="flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" />
-                                      {match.date} {match.time}
-                                    </div>
-                                    {match.venue && (
-                                      <div className="flex items-center gap-1">
-                                        <MapPin className="h-3 w-3" />
-                                        {match.venue.name}
-                                        <Badge variant="outline" className="ml-1 text-xs">
-                                          {match.venue.type}
-                                        </Badge>
+                      return (
+                        <div key={round}>
+                          <h3 className="font-semibold text-lg mb-3">
+                            {getRoundName(round, bracket.rounds, bracket.format)}
+                          </h3>
+                          <div className="space-y-2">
+                            {roundMatches.map(match => (
+                              <Card key={match.id} className="border-l-4 border-l-blue-500">
+                                <CardContent className="py-3 px-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className={match.team1 === 'BYE' ? 'text-gray-400' : 'font-medium'}>
+                                          {match.team1}
+                                        </span>
+                                        <ArrowRight className="h-3 w-3 text-gray-400" />
+                                        <span className={match.team2 === 'BYE' ? 'text-gray-400' : 'font-medium'}>
+                                          {match.team2}
+                                        </span>
                                       </div>
-                                    )}
+                                      {match.winner && (
+                                        <Badge variant="secondary" className="mt-1 text-xs">
+                                          Winner: {match.winner}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-right text-xs text-gray-600 space-y-1">
+                                      <div className="flex items-center gap-1">
+                                        <Calendar className="h-3 w-3" />
+                                        {match.date} {match.time}
+                                      </div>
+                                      {match.venue && (
+                                        <div className="flex items-center gap-1">
+                                          <MapPin className="h-3 w-3" />
+                                          {match.venue.name}
+                                          <Badge variant="outline" className="ml-1 text-xs">
+                                            {match.venue.type}
+                                          </Badge>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t">
