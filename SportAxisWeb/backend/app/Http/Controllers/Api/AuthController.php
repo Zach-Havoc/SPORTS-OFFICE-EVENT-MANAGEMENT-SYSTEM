@@ -18,8 +18,8 @@ class AuthController extends Controller
     {
         $request->validate([
             'email'            => 'required|email|unique:users,email',
-            'password'         => 'required|min:6',
-            'name'             => 'required|string',
+            'password'         => 'required|string|min:8',
+            'name'             => 'required|string|max:255',
             'role'             => 'required|in:admin,coach,athlete,judge',
             'registrationCode' => 'required|string',
         ]);
@@ -118,7 +118,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'currentPassword' => 'required',
-            'newPassword'     => 'required|min:6',
+            'newPassword'     => 'required|string|min:8',
         ]);
 
         $user = $request->user();
@@ -137,14 +137,33 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
+        $genericResponse = response()->json([
+            'message' => 'If that email exists, a reset link has been sent.',
+        ]);
+
         $user = User::where('email', $request->email)->first();
         if (!$user) {
             // Don't reveal if email exists
-            return response()->json(['message' => 'If that email exists, a reset link has been sent.']);
+            return $genericResponse;
         }
 
+        // Per-account cooldown. This endpoint overwrites the account password
+        // immediately, so without a cooldown an attacker can repeatedly reset a
+        // known victim's password and permanently lock them out (and mail-bomb
+        // them). The route-level throttle limits volume; this limits how often
+        // any single account can be forcibly reset.
+        // NOTE (needs product decision): the correct long-term fix is a signed,
+        // single-use reset *token* emailed to the user that only changes the
+        // password after the user follows the link — the real password should
+        // not be invalidated until then. That requires a frontend reset page.
+        $cooldownKey = 'pwreset:' . sha1(strtolower($request->email));
+        if (\Illuminate\Support\Facades\Cache::has($cooldownKey)) {
+            return $genericResponse;
+        }
+        \Illuminate\Support\Facades\Cache::put($cooldownKey, true, now()->addMinutes(15));
+
         // Generate a temporary password
-        $tempPassword = Str::random(10);
+        $tempPassword = Str::random(12);
         $user->update(['password' => Hash::make($tempPassword)]);
 
         try {

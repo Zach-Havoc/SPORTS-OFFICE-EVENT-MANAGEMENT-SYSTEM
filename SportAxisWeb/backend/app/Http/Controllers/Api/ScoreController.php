@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Score;
 use App\Models\Event;
 use App\Models\Ranking;
+use App\Models\TeamMatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -40,8 +41,7 @@ class ScoreController extends Controller
         $request->validate([
             'eventId'        => 'required|string|exists:events,id',
             'department'     => 'required|string',
-            'judgeId'        => 'required|string',
-            'judgeName'      => 'required|string',
+            'judgeName'      => 'sometimes|string',
             'scores'         => 'required|array',
             'totalScore'     => 'required|numeric',
             'method'         => 'sometimes|in:manual,ocr',
@@ -49,15 +49,21 @@ class ScoreController extends Controller
             'submittedViaQr' => 'sometimes|boolean',
         ]);
 
+        // Trust the authenticated token for the judge's identity — never the
+        // request body. This prevents one judge (or a malicious client) from
+        // submitting or overwriting scores on behalf of another judge and
+        // rigging the event rankings.
+        $judge = $request->user();
+
         $score = Score::updateOrCreate(
             [
                 'event_id'   => $request->eventId,
                 'department' => $request->department,
-                'judge_id'   => $request->judgeId,
+                'judge_id'   => $judge->id,
             ],
             [
                 'id'               => Str::uuid(),
-                'judge_name'       => $request->judgeName,
+                'judge_name'       => $request->judgeName ?: $judge->name,
                 'scores'           => $request->scores,
                 'total_score'      => $request->totalScore,
                 'submitted_via_qr' => $request->submittedViaQr ?? false,
@@ -105,5 +111,52 @@ class ScoreController extends Controller
             ]);
             $rank++;
         }
+
+        self::syncTeamMatch($eventId, $sorted);
+    }
+
+    /**
+     * When a scored event has exactly two departments, keep a head-to-head
+     * `team_matches` record in sync so standings/seeding have a source of truth.
+     * Multi-team (judged) events are left alone.
+     */
+    private static function syncTeamMatch(string $eventId, $sortedByDept): void
+    {
+        // Not a head-to-head (0/1 team scored, or a multi-team judged event):
+        // drop any match that was derived at an earlier 2-team moment.
+        if ($sortedByDept->count() !== 2) {
+            TeamMatch::where('event_id', $eventId)->delete();
+
+            return;
+        }
+
+        $event = Event::find($eventId);
+        if (! $event) {
+            return;
+        }
+
+        $entries = $sortedByDept
+            ->map(fn ($data, $dept) => ['dept' => (string) $dept, 'score' => (float) $data['total_score']])
+            ->values();
+
+        [$a, $b] = [$entries[0], $entries[1]]; // already sorted highest score first
+
+        $match = TeamMatch::firstOrNew(['event_id' => $eventId]);
+        if (! $match->exists) {
+            $match->id = (string) Str::uuid();
+        }
+
+        $match->fill([
+            'sport'      => $event->category,
+            'stage'      => $match->stage ?: 'elimination',
+            'home_team'  => $a['dept'],
+            'away_team'  => $b['dept'],
+            'home_score' => $a['score'],
+            'away_score' => $b['score'],
+            'status'     => 'completed',
+            'played_at'  => $match->played_at ?? now(),
+        ]);
+        $match->resolveOutcome();
+        $match->save();
     }
 }

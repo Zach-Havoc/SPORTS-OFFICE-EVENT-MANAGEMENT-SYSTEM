@@ -1,17 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import { useMyCoach, useEnrollWithCode, useUnenrollFromCoach } from '../../hooks/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import {
-  Calendar, TrendingUp, FileText, Trophy, Target,
-  UserCheck, Loader2, AlertTriangle, LogOut, Users,
+  Calendar, TrendingUp, FileText, Trophy,
+  UserCheck, Loader2, LogOut, Users,
   ChevronRight, BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getMyCoach, enrollWithCode, unenrollFromCoach } from '../../services/api';
 
 interface CoachInfo {
   id: string;
@@ -30,21 +30,19 @@ interface EnrollmentState {
 // ── Enrollment Gate ────────────────────────────────────────────────────────
 function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
   const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const enroll = useEnrollWithCode();
+  const loading = enroll.isPending;
 
   const handleEnroll = async () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 4) { toast.error('Please enter a valid enrollment code'); return; }
-    setLoading(true);
     try {
-      const res = await enrollWithCode(trimmed);
+      const res = await enroll.mutateAsync(trimmed);
       toast.success(res.message || `Enrolled in ${res.coach?.sport}!`);
       onEnrolled();
     } catch (err: any) {
       toast.error(err?.message || 'Invalid enrollment code');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -121,19 +119,17 @@ function EnrolledDashboard({
   userName: string;
   onUnenroll: () => void;
 }) {
-  const [unenrolling, setUnenrolling] = useState(false);
+  const unenroll = useUnenrollFromCoach();
+  const unenrolling = unenroll.isPending;
 
   const handleUnenroll = async () => {
     if (!confirm('Are you sure you want to leave this team? You will need a new enrollment code to rejoin.')) return;
-    setUnenrolling(true);
     try {
-      await unenrollFromCoach();
+      await unenroll.mutateAsync();
       toast.success('Successfully unenrolled');
       onUnenroll();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to unenroll');
-    } finally {
-      setUnenrolling(false);
     }
   };
 
@@ -274,25 +270,19 @@ export default function AthleteDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [enrollment, setEnrollment] = useState<EnrollmentState | null>(null);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    if (!user || user.role !== 'athlete') { navigate('/login'); return; }
-    checkEnrollment();
+    if (!user || user.role !== 'athlete') navigate('/login');
   }, [user, navigate]);
 
-  const checkEnrollment = async () => {
-    setLoading(true);
-    try {
-      const data = await getMyCoach();
-      setEnrollment(data);
-    } catch {
-      setEnrollment({ enrolled: false, coach: null, sport: '', enrolledAt: '' });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const myCoachQuery = useMyCoach();
+  const checkEnrollment = () => myCoachQuery.refetch();
+
+  const enrollment: EnrollmentState | null =
+    (myCoachQuery.data as EnrollmentState | undefined) ??
+    (myCoachQuery.isError
+      ? { enrolled: false, coach: null, sport: '', enrolledAt: '' }
+      : null);
+  const loading = myCoachQuery.isLoading;
 
   if (!user) return null;
 

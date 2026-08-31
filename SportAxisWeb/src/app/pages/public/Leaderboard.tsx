@@ -1,8 +1,25 @@
-import { useEffect, useState } from 'react';
-import { getLeaderboard, startWarmup } from '../../services/api';
+import { useMemo } from 'react';
+import { useLeaderboard } from '../../hooks/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Trophy, Medal, Award } from 'lucide-react';
+import { RefreshStatus } from '../../components/RefreshStatus';
 import Loading from '../../components/Loading';
+
+function RankBadge({ rank }: { rank: number }) {
+  const styles: Record<number, string> = {
+    1: 'bg-amber-100 text-amber-800',
+    2: 'bg-gray-200 text-gray-700',
+    3: 'bg-orange-100 text-orange-800',
+  };
+  return (
+    <span
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums ${
+        styles[rank] ?? 'bg-gray-100 text-gray-500'
+      }`}
+    >
+      {rank}
+    </span>
+  );
+}
 
 interface LeaderboardEntry {
   department: string;
@@ -15,29 +32,20 @@ interface LeaderboardEntry {
 }
 
 export default function PublicLeaderboard() {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
+  // Stale-while-revalidate: cached standings render instantly, a background
+  // refetch runs every 30s while the tab is active (and on focus/reconnect).
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isRefetchError,
+    refetch,
+    dataUpdatedAt,
+  } = useLeaderboard(undefined, { refetchInterval: 30_000 });
 
-  useEffect(() => {
-    loadLeaderboard();
-
-    // Set up polling for live updates every 30 seconds
-    const interval = setInterval(() => {
-      console.log('Polling for leaderboard updates...');
-      loadLeaderboard();
-    }, 30000);
-
-    // Cleanup interval on unmount
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadLeaderboard = async () => {
-    try {
-      await startWarmup();
-      const raw: any[] = await getLeaderboard();
-      // API returns `total` and `event_count`; map to the expected shape
-      const data = raw.map((entry, idx) => ({
+  const leaderboard = useMemo<LeaderboardEntry[]>(
+    () =>
+      (data ?? []).map((entry: any, idx: number) => ({
         department: entry.department,
         totalPoints: Number(entry.total ?? entry.totalPoints ?? 0),
         eventsParticipated: entry.event_count ?? entry.eventsParticipated ?? 0,
@@ -45,17 +53,11 @@ export default function PublicLeaderboard() {
         gold: entry.gold ?? 0,
         silver: entry.silver ?? 0,
         bronze: entry.bronze ?? 0,
-      }));
-      setLeaderboard(data);
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error('Error loading leaderboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      })),
+    [data],
+  );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Loading fullScreen={false} message="Loading leaderboard..." />
@@ -64,71 +66,61 @@ export default function PublicLeaderboard() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Departmental Leaderboard</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Last updated: {lastUpdate.toLocaleTimeString()}
-          </p>
+      <header className="mb-8 pb-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
+            Departmental Leaderboard
+          </h1>
+          <RefreshStatus
+            fetching={isFetching && !isLoading}
+            error={isRefetchError}
+            onRetry={() => refetch()}
+          />
         </div>
-      </div>
+        <p className="text-gray-500 text-sm mt-1.5">
+          Cumulative standings across all scored events · Last updated{' '}
+          {new Date(dataUpdatedAt).toLocaleTimeString()}
+        </p>
+      </header>
 
       {/* Leaderboard Table */}
-      <Card>
+      <Card className="border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle>Overall Rankings</CardTitle>
-          <CardDescription>Departmental performance across all events</CardDescription>
+          <CardTitle className="text-base font-semibold">Overall Rankings</CardTitle>
+          <CardDescription>Ranked by total points, then gold, silver, and bronze finishes.</CardDescription>
         </CardHeader>
         <CardContent>
           {leaderboard.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No data available yet</p>
+            <p className="text-center text-gray-500 py-10 text-sm">No results have been recorded yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b">
+                  <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
                     <th className="text-left py-3 px-4 font-semibold">Rank</th>
                     <th className="text-left py-3 px-4 font-semibold">Department</th>
-                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">
-                      <Trophy className="h-4 w-4 inline text-yellow-500" />
-                    </th>
-                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">
-                      <Medal className="h-4 w-4 inline text-gray-400" />
-                    </th>
-                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">
-                      <Award className="h-4 w-4 inline text-orange-400" />
-                    </th>
+                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">Gold</th>
+                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">Silver</th>
+                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">Bronze</th>
                     <th className="text-right py-3 px-4 font-semibold">Total Points</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leaderboard.map((entry, index) => (
+                  {leaderboard.map((entry) => (
                     <tr
                       key={entry.department}
-                      className={`border-b hover:bg-gray-50 ${
-                        index === 0 ? 'bg-yellow-50' :
-                        index === 1 ? 'bg-gray-50' :
-                        index === 2 ? 'bg-orange-50' :
-                        ''
-                      }`}
+                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/70 transition-colors"
                     >
-                      <td className="py-4 px-4">
-                        <span className={`font-bold ${
-                          entry.rank === 1 ? 'text-yellow-600' :
-                          entry.rank === 2 ? 'text-gray-600' :
-                          entry.rank === 3 ? 'text-orange-600' :
-                          'text-gray-900'
-                        }`}>
-                          {entry.rank}
-                        </span>
+                      <td className="py-3.5 px-4">
+                        <RankBadge rank={entry.rank} />
                       </td>
-                      <td className="py-4 px-4 font-medium">{entry.department}</td>
-                      <td className="py-4 px-4 text-center hidden sm:table-cell">{entry.gold}</td>
-                      <td className="py-4 px-4 text-center hidden sm:table-cell">{entry.silver}</td>
-                      <td className="py-4 px-4 text-center hidden sm:table-cell">{entry.bronze}</td>
-                      <td className="py-4 px-4 text-right font-bold text-blue-600 text-lg">
+                      <td className="py-3.5 px-4 font-medium text-gray-900">{entry.department}</td>
+                      <td className="py-3.5 px-4 text-center tabular-nums text-gray-600 hidden sm:table-cell">{entry.gold}</td>
+                      <td className="py-3.5 px-4 text-center tabular-nums text-gray-600 hidden sm:table-cell">{entry.silver}</td>
+                      <td className="py-3.5 px-4 text-center tabular-nums text-gray-600 hidden sm:table-cell">{entry.bronze}</td>
+                      <td className="py-3.5 px-4 text-right font-semibold text-gray-900 tabular-nums">
                         {Math.round(entry.totalPoints)}
                       </td>
                     </tr>

@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
-import { getEvents } from "../../services/api";
+import { useMemo, useState } from "react";
+import { useEvents } from "../../hooks/api";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import { RefreshStatus } from "../../components/RefreshStatus";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import {
@@ -16,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Calendar, Search, Trophy, MapPin } from "lucide-react";
+import { Calendar, Search, Users, MapPin, X } from "lucide-react";
 import Loading from "../../components/Loading";
+import { useDeptAbbreviator } from "../../utils/departments";
 
 interface Event {
   id: string;
@@ -31,100 +32,79 @@ interface Event {
 }
 
 export default function PublicHistory() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<Event[]>(
-    [],
-  );
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("completed");
+  // Cached events show immediately; a background refetch runs on mount and
+  // whenever the tab regains focus or the network reconnects.
+  const { data, isLoading, isFetching, isRefetchError, refetch } = useEvents();
+  const abbr = useDeptAbbreviator();
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
-
-  useEffect(() => {
-    filterEvents();
-  }, [events, searchTerm, categoryFilter, statusFilter]);
-
-  const loadEvents = async () => {
-    try {
-      const data = await getEvents();
-
-      // Normalize events to ensure all required fields exist
-      const normalizedEvents = (data || []).map((event: any) => ({
+  const events = useMemo<Event[]>(
+    () =>
+      (data ?? []).map((event: any) => ({
         ...event,
         departments: event.departments || [],
-        criteria: event.criteria || []
-      }));
-
-      setEvents(normalizedEvents);
-    } catch (error) {
-      console.error("Error loading events:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterEvents = () => {
-    let filtered = events;
-
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(
-        (e) => e.status === statusFilter,
-      );
-    }
-
-    // Filter by category
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter(
-        (e) => e.category === categoryFilter,
-      );
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (e) =>
-          e.name
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          e.category
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-      );
-    }
-
-    // Sort by date (newest first)
-    filtered.sort(
-      (a, b) =>
-        new Date(b.schedule).getTime() -
-        new Date(a.schedule).getTime(),
-    );
-
-    setFilteredEvents(filtered);
-  };
-
-  const categories = Array.from(
-    new Set(events.map((e) => e.category)),
+        criteria: event.criteria || [],
+      })),
+    [data],
   );
 
-  const getStatusColor = (status: string) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const hasActiveFilters =
+    searchTerm.trim() !== "" ||
+    categoryFilter !== "all" ||
+    statusFilter !== "all";
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setCategoryFilter("all");
+    setStatusFilter("all");
+  };
+
+  const filteredEvents = useMemo(() => {
+    let filtered = events;
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((e) => e.status === statusFilter);
+    }
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((e) => e.category === categoryFilter);
+    }
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (e) =>
+          e.name.toLowerCase().includes(q) ||
+          e.category.toLowerCase().includes(q),
+      );
+    }
+
+    return [...filtered].sort(
+      (a, b) =>
+        new Date(b.schedule).getTime() - new Date(a.schedule).getTime(),
+    );
+  }, [events, searchTerm, categoryFilter, statusFilter]);
+
+  const categories = useMemo(
+    () => Array.from(new Set(events.map((e) => e.category))),
+    [events],
+  );
+
+  const getStatusClasses = (status: string) => {
     switch (status) {
       case "ongoing":
-        return "bg-green-500";
+        return "bg-emerald-50 text-emerald-700 border border-emerald-200";
       case "upcoming":
-        return "bg-blue-500";
+        return "bg-blue-50 text-blue-700 border border-blue-200";
       case "completed":
-        return "bg-yellow-500";
+        return "bg-gray-100 text-gray-600 border border-gray-200";
       default:
-        return "bg-gray-500";
+        return "bg-gray-100 text-gray-600 border border-gray-200";
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Loading fullScreen={false} message="Loading history..." />
@@ -133,41 +113,56 @@ export default function PublicHistory() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Event History
-        </h1>
-        <p className="text-gray-500">
-          Browse past and archived events
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+      <header className="mb-8 pb-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
+            Event History
+          </h1>
+          <RefreshStatus
+            fetching={isFetching && !isLoading}
+            error={isRefetchError}
+            onRetry={() => refetch()}
+          />
+        </div>
+        <p className="text-gray-500 text-sm mt-1.5">
+          Browse completed, ongoing, and upcoming events across all sports.
         </p>
-      </div>
+      </header>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search events..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Search — primary, grows to fill */}
+          <div role="search" className="relative flex-1 min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search events by name or category"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 pl-9 pr-9"
+              aria-label="Search events"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
-            <Select
-              value={categoryFilter}
-              onValueChange={setCategoryFilter}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Categories" />
+          {/* Secondary filters — fixed width, wrap on mobile */}
+          <div className="flex gap-3">
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Filter by category">
+                <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">
-                  All Categories
-                </SelectItem>
+                <SelectItem value="all">All categories</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -176,57 +171,77 @@ export default function PublicHistory() {
               </SelectContent>
             </Select>
 
-            <Select
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-10 w-full sm:w-40" aria-label="Filter by status">
+                <SelectValue placeholder="Any status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="completed">
-                  Completed
-                </SelectItem>
+                <SelectItem value="all">Any status</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="ongoing">Ongoing</SelectItem>
-                <SelectItem value="upcoming">
-                  Upcoming
-                </SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Result count + clear */}
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
+          <p className="text-xs text-gray-500">
+            Showing <span className="font-medium text-gray-700">{filteredEvents.length}</span> of {events.length} events
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Events List */}
       {filteredEvents.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-gray-500">
-            No events found matching your filters
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
+          <Calendar className="mx-auto h-8 w-8 text-gray-300" />
+          <p className="mt-3 text-sm font-medium text-gray-700">No events match your filters</p>
+          <p className="mt-1 text-sm text-gray-500">Try a different search term or status.</p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <X className="h-4 w-4" />
+              Clear filters
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
           {filteredEvents.map((event) => (
             <Card
               key={event.id}
-              className="hover:shadow-md transition-shadow"
+              className="border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
             >
               <CardHeader>
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge
-                        className={getStatusColor(event.status)}
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${getStatusClasses(event.status)}`}
                       >
                         {event.status}
-                      </Badge>
-                      <Badge variant="outline">
+                      </span>
+                      <Badge variant="outline" className="font-normal text-gray-600">
                         {event.category}
                       </Badge>
                     </div>
-                    <CardTitle className="text-xl">
-                      {event.name}
+                    <CardTitle className="text-lg font-semibold">
+                      {abbr(event.name)}
                     </CardTitle>
                     <CardDescription className="mt-2 space-y-1">
                       <div className="flex items-center text-sm">
@@ -248,10 +263,10 @@ export default function PublicHistory() {
                       )}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Trophy className="h-5 w-5 text-yellow-500" />
-                    <span className="font-semibold">
-                      {(event.departments || []).length} Departments
+                  <div className="flex items-center gap-2 text-sm text-gray-600 shrink-0">
+                    <Users className="h-4 w-4 text-gray-400" />
+                    <span className="font-medium">
+                      {(event.departments || []).length} departments
                     </span>
                   </div>
                 </div>

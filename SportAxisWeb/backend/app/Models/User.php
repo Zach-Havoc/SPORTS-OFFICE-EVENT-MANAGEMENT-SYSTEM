@@ -14,14 +14,30 @@ class User extends Authenticatable
 
     protected $fillable = [
         'id', 'email', 'password', 'name', 'role',
-        'sport', 'gender_category', 'department', 'enrollment_code', 'coach_id', 'coach_name', 'enrolled_at',
+        'sport', 'sports', 'gender_category', 'department', 'enrollment_code', 'coach_id', 'coach_name', 'enrolled_at',
     ];
 
     protected $hidden = ['password'];
 
     protected $casts = [
         'enrolled_at' => 'datetime',
+        'sports'      => 'array',
     ];
+
+    /**
+     * The coach's full list of sports. Falls back to the single `sport` string
+     * for coaches created before multi-sport support.
+     *
+     * @return array<int, string>
+     */
+    public function sportsList(): array
+    {
+        if (is_array($this->sports) && count($this->sports) > 0) {
+            return array_values($this->sports);
+        }
+
+        return $this->sport ? [$this->sport] : [];
+    }
 
     public function toApiFormat(): array
     {
@@ -31,6 +47,7 @@ class User extends Authenticatable
             'name'           => $this->name,
             'role'           => $this->role,
             'sport'          => $this->sport,
+            'sports'         => $this->sportsList(),
             'department'     => $this->department,
             'genderCategory' => $this->gender_category,
             'enrollmentCode' => $this->enrollment_code,

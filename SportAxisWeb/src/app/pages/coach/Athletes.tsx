@@ -9,11 +9,18 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
-  UserPlus, Search, Users, Edit, Eye, Trash2, Copy, Check,
+  UserPlus, Search, Users, Edit, Eye, Copy, Check,
   Trophy, BookOpen, AlertTriangle, UserMinus, Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAthletes, deleteAthlete, removeAthleteFromRoster, getCoachProfile, updateCoachProfile } from '../../services/api';
+import {
+  useAthletes,
+  useCoachProfile,
+  useDepartments,
+  useRemoveAthleteFromRoster,
+  useUpdateCoachProfile,
+} from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 const SPORTS = [
   'Basketball','Volleyball','Badminton','Swimming','Track & Field',
@@ -43,7 +50,9 @@ interface CoachProfile {
   id: string;
   name: string;
   email: string;
-  sport: string;
+  sport: string;            // primary sport (back-compat)
+  sports?: string[] | null; // full list of sports handled
+  department?: string | null;
   genderCategory?: string | null;
   enrollmentCode: string;
 }
@@ -52,57 +61,78 @@ export default function CoachAthletes() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'injured'>('all');
   const [codeCopied, setCodeCopied] = useState(false);
 
   // Sport setup dialog
   const [setupOpen, setSetupOpen] = useState(false);
-  const [sportDraft, setSportDraft] = useState('');
+  const [sportsDraft, setSportsDraft] = useState<string[]>([]);
+  const [departmentDraft, setDepartmentDraft] = useState('');
   const [genderCategoryDraft, setGenderCategoryDraft] = useState('');
-  const [savingSport, setSavingSport] = useState(false);
 
   // Remove confirm dialog
   const [removeTarget, setRemoveTarget] = useState<Athlete | null>(null);
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') { navigate('/login'); return; }
-    loadAll();
-    const interval = setInterval(loadAll, 30000);
-    return () => clearInterval(interval);
+    if (!user || user.role !== 'coach') navigate('/login');
   }, [user, navigate]);
 
-  const loadAll = async () => {
-    setLoading(true);
-    try {
-      const [athleteData, profileData] = await Promise.all([getAthletes(), getCoachProfile()]);
-      setAthletes(athleteData || []);
-      setCoachProfile(profileData);
-      setSportDraft(profileData?.sport || '');
-      setGenderCategoryDraft(profileData?.genderCategory || '');
-    } catch {
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
+  const athletesQuery = useAthletes();
+  const profileQuery = useCoachProfile();
+  const departmentsQuery = useDepartments();
+
+  const athletes: Athlete[] = athletesQuery.data ?? [];
+  const coachProfile: CoachProfile | null = profileQuery.data ?? null;
+  const departments: { id?: string; name: string }[] = departmentsQuery.data ?? [];
+  const loading = athletesQuery.isLoading || profileQuery.isLoading;
+  const fetching =
+    (athletesQuery.isFetching || profileQuery.isFetching) && !loading;
+  const backgroundError = athletesQuery.isRefetchError || profileQuery.isRefetchError;
+  const retryAll = () => {
+    athletesQuery.refetch();
+    profileQuery.refetch();
+  };
+
+  const updateProfile = useUpdateCoachProfile();
+  const removeFromRoster = useRemoveAthleteFromRoster();
+  const savingSport = updateProfile.isPending;
+
+  // The coach's sports, tolerating older profiles that only have a single `sport`.
+  const coachSports: string[] =
+    coachProfile?.sports && coachProfile.sports.length > 0
+      ? coachProfile.sports
+      : coachProfile?.sport
+        ? [coachProfile.sport]
+        : [];
+  const hasSetUpSport = coachSports.length > 0;
+
+  const toggleSportDraft = (sport: string) =>
+    setSportsDraft((prev) =>
+      prev.includes(sport) ? prev.filter((s) => s !== sport) : [...prev, sport],
+    );
+
+  const openSetup = () => {
+    setSportsDraft(coachSports);
+    setDepartmentDraft(coachProfile?.department || '');
+    setGenderCategoryDraft(coachProfile?.genderCategory || '');
+    setSetupOpen(true);
   };
 
   const handleSaveSport = async () => {
-    if (!sportDraft) { toast.error('Please select a sport'); return; }
+    if (!departmentDraft) { toast.error('Please select your department'); return; }
+    if (sportsDraft.length === 0) { toast.error('Please select at least one sport'); return; }
     if (!genderCategoryDraft) { toast.error('Please select a gender category'); return; }
-    setSavingSport(true);
     try {
-      const updated = await updateCoachProfile({ sport: sportDraft, genderCategory: genderCategoryDraft });
-      setCoachProfile(updated);
+      await updateProfile.mutateAsync({
+        sports: sportsDraft,
+        department: departmentDraft,
+        genderCategory: genderCategoryDraft,
+      });
       setSetupOpen(false);
-      toast.success('Sport class updated');
+      toast.success(sportsDraft.length > 1 ? 'Sports updated' : 'Sport class updated');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to save');
-    } finally {
-      setSavingSport(false);
     }
   };
 
@@ -117,22 +147,11 @@ export default function CoachAthletes() {
   const handleRemove = async () => {
     if (!removeTarget) return;
     try {
-      await removeAthleteFromRoster(removeTarget.id);
+      await removeFromRoster.mutateAsync(removeTarget.id);
       toast.success(`${removeTarget.firstName} ${removeTarget.lastName} removed from roster`);
       setRemoveTarget(null);
-      loadAll();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to remove athlete');
-    }
-  };
-
-  const handleDelete = async (athlete: Athlete) => {
-    try {
-      await deleteAthlete(athlete.id);
-      toast.success('Athlete record deleted');
-      loadAll();
-    } catch {
-      toast.error('Failed to delete athlete');
     }
   };
 
@@ -166,12 +185,17 @@ export default function CoachAthletes() {
                 <Trophy className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <h1 className="text-2xl font-bold text-gray-900">
-                    {coachProfile?.sport ? `${coachProfile.sport} Team` : 'My Sport Team'}
+                    {hasSetUpSport ? `${coachSports.join(' & ')} Team` : 'My Sport Team'}
                   </h1>
-                  {!coachProfile?.sport && (
+                  {!hasSetUpSport && (
                     <Badge className="bg-amber-100 text-amber-800 text-xs">Setup required</Badge>
+                  )}
+                  {coachSports.length > 1 && (
+                    <Badge className="bg-primary/10 text-primary text-xs">
+                      {coachSports.length} sports
+                    </Badge>
                   )}
                 </div>
                 <p className="text-gray-500 text-sm">Coach {user.name}</p>
@@ -180,7 +204,7 @@ export default function CoachAthletes() {
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
               {/* Enrollment Code */}
-              {coachProfile?.enrollmentCode && coachProfile.sport && (
+              {coachProfile?.enrollmentCode && hasSetUpSport && (
                 <div className="flex items-center gap-2 bg-white border-2 border-dashed border-primary/40 rounded-xl px-4 py-2">
                   <div>
                     <p className="text-xs text-gray-500 font-medium leading-none mb-0.5">Enrollment Code</p>
@@ -197,25 +221,25 @@ export default function CoachAthletes() {
                   </button>
                 </div>
               )}
-              <Button variant="outline" size="sm" onClick={() => setSetupOpen(true)}>
+              <Button variant="outline" size="sm" onClick={openSetup}>
                 <Settings className="h-4 w-4 mr-2" />
-                {coachProfile?.sport ? 'Change Sport' : 'Set Up Sport'}
+                {hasSetUpSport ? 'Change Sports' : 'Set Up Sports'}
               </Button>
             </div>
           </div>
 
           {/* Setup prompt */}
-          {!coachProfile?.sport && (
+          {!hasSetUpSport && (
             <div className="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>Set your sport to activate the enrollment code. Athletes use this code to join your team.</span>
+              <span>Set the sport(s) you coach to activate the enrollment code. Athletes use this code to join your team.</span>
             </div>
           )}
 
-          {coachProfile?.sport && (
+          {hasSetUpSport && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
               <BookOpen className="h-4 w-4 inline mr-1.5 mb-0.5" />
-              Share the code <strong className="font-mono">{coachProfile.enrollmentCode}</strong> with your athletes. They log in and enter it on their dashboard to join your {coachProfile.sport} team.
+              Share the code <strong className="font-mono">{coachProfile?.enrollmentCode}</strong> with your athletes. They log in and enter it on their dashboard to join your {coachSports.join(' / ')} team.
             </div>
           )}
         </CardContent>
@@ -224,7 +248,10 @@ export default function CoachAthletes() {
       {/* ── Page actions ──────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Athlete Roster</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-gray-900">Athlete Roster</h2>
+            <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
+          </div>
           <p className="text-gray-500 text-sm mt-0.5">Athletes enrolled in your class</p>
         </div>
         <div className="flex gap-2">
@@ -305,14 +332,14 @@ export default function CoachAthletes() {
               <p className="text-sm text-gray-400 mb-4">
                 {searchQuery || statusFilter !== 'all'
                   ? 'Try adjusting your search'
-                  : coachProfile?.sport
-                  ? `Share code "${coachProfile.enrollmentCode}" so athletes can self-enroll, or add them manually.`
-                  : 'Set up your sport class first, then share the enrollment code.'}
+                  : hasSetUpSport
+                  ? `Share code "${coachProfile?.enrollmentCode}" so athletes can self-enroll, or add them manually.`
+                  : 'Set up your sport(s) first, then share the enrollment code.'}
               </p>
               {!searchQuery && statusFilter === 'all' && (
                 <div className="flex justify-center gap-2">
-                  {!coachProfile?.sport && (
-                    <Button onClick={() => setSetupOpen(true)}>Set Up Sport</Button>
+                  {!hasSetUpSport && (
+                    <Button onClick={openSetup}>Set Up Sports</Button>
                   )}
                   <Link to="/coach/athletes/new">
                     <Button variant="outline"><UserPlus className="h-4 w-4 mr-2" />Add Manually</Button>
@@ -389,24 +416,58 @@ export default function CoachAthletes() {
 
       {/* ── Sport Setup Dialog ─────────────────────────────────────── */}
       <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Sport Class Setup</DialogTitle>
             <DialogDescription>
-              Choose the sport you coach. Athletes will use your enrollment code to join this class.
+              Choose your department and the sport(s) you coach for it. Only athletes
+              from your department can join with your enrollment code.
             </DialogDescription>
           </DialogHeader>
+
           <div className="py-2">
-            <Label className="mb-2 block">Sport <span className="text-red-500">*</span></Label>
-            <Select value={sportDraft} onValueChange={setSportDraft}>
+            <Label className="mb-2 block">Department <span className="text-red-500">*</span></Label>
+            <Select value={departmentDraft} onValueChange={setDepartmentDraft}>
               <SelectTrigger>
-                <SelectValue placeholder="Select your sport" />
+                <SelectValue placeholder="Select your department" />
               </SelectTrigger>
               <SelectContent>
-                {SPORTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {departments.map((d) => (
+                  <SelectItem key={d.id || d.name} value={d.name}>{d.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
+
+          <div className="py-2">
+            <Label className="mb-2 block">
+              Sports <span className="text-red-500">*</span>
+              {sportsDraft.length > 0 && (
+                <span className="ml-1.5 text-xs font-normal text-gray-400">
+                  ({sportsDraft.length} selected)
+                </span>
+              )}
+            </Label>
+            <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+              {SPORTS.map((s) => {
+                const selected = sportsDraft.includes(s);
+                return (
+                  <Button
+                    key={s}
+                    type="button"
+                    size="sm"
+                    variant={selected ? 'default' : 'outline'}
+                    className="justify-start"
+                    onClick={() => toggleSportDraft(s)}
+                  >
+                    {selected && <Check className="h-3.5 w-3.5 mr-1.5 shrink-0" />}
+                    <span className="truncate">{s}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="py-2">
             <Label className="mb-2 block">Gender Category <span className="text-red-500">*</span></Label>
             <Select value={genderCategoryDraft} onValueChange={setGenderCategoryDraft}>
@@ -420,9 +481,10 @@ export default function CoachAthletes() {
               </SelectContent>
             </Select>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setSetupOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSport} disabled={savingSport || !sportDraft || !genderCategoryDraft}>
+            <Button onClick={handleSaveSport} disabled={savingSport || !departmentDraft || sportsDraft.length === 0 || !genderCategoryDraft}>
               {savingSport ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

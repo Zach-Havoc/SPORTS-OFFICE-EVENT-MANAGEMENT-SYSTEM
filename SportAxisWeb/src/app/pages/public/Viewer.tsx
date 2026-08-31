@@ -1,13 +1,18 @@
-import { useEffect, useState, useCallback } from 'react';
-import { getEvents, getEventsByDate, getEventRankings, startWarmup } from '../../services/api';
+import { useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { getEventRankings } from '../../services/api';
+import { useEvents, useEventRankings, qk } from '../../hooks/api';
+import { STALE } from '../../lib/queryClient';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import {
-  Trophy, Calendar, Users, Loader2, Clock, MapPin,
-  ChevronLeft, ChevronRight, RefreshCw, Target, Award,
-  Zap, CheckCircle2, Timer
+  Trophy, Calendar, Users, Clock, MapPin,
+  ChevronLeft, ChevronRight, Target, Award,
+  Activity, CheckCircle2, Timer, ArrowRight
 } from 'lucide-react';
 import Loading from '../../components/Loading';
+import { RefreshStatus } from '../../components/RefreshStatus';
+import { useDeptAbbreviator } from '../../utils/departments';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,15 +55,8 @@ const formatTime = (time: string) => {
 const toDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const formatDayLabel = (d: Date) => {
-  const today = new Date();
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  if (toDateKey(d) === toDateKey(today)) return 'Today';
-  if (toDateKey(d) === toDateKey(yesterday)) return 'Yesterday';
-  if (toDateKey(d) === toDateKey(tomorrow)) return 'Tomorrow';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
+const formatDayLabel = (d: Date) =>
+  d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 const getDateRange = (center: Date, radius = 3): Date[] => {
   const dates: Date[] = [];
@@ -76,38 +74,35 @@ const STATUS_CONFIG = {
   ongoing: {
     label: 'Live',
     sectionLabel: 'Ongoing',
-    icon: Zap,
-    borderClass: 'border-l-4 border-green-500',
-    badgeClass: 'bg-green-500 text-white',
-    sectionColor: 'text-green-700',
-    sectionBg: 'bg-green-50 border-green-200',
-    dot: 'bg-green-500',
+    icon: Activity,
+    borderClass: 'border-l-2 border-emerald-500',
+    badgeClass: 'bg-emerald-600 text-white',
+    barClass: 'bg-emerald-500',
+    sectionColor: 'text-emerald-700',
+    sectionBg: 'bg-emerald-50 border-emerald-200',
     pulse: true,
-    emoji: '🔴',
   },
   upcoming: {
     label: 'Upcoming',
     sectionLabel: 'Upcoming',
     icon: Timer,
-    borderClass: 'border-l-4 border-blue-500',
-    badgeClass: 'bg-blue-500 text-white',
+    borderClass: 'border-l-2 border-blue-500',
+    badgeClass: 'bg-blue-600 text-white',
+    barClass: 'bg-blue-500',
     sectionColor: 'text-blue-700',
     sectionBg: 'bg-blue-50 border-blue-200',
-    dot: 'bg-blue-500',
     pulse: false,
-    emoji: '🗓',
   },
   completed: {
     label: 'Completed',
     sectionLabel: 'Completed',
     icon: CheckCircle2,
-    borderClass: 'border-l-4 border-gray-400',
+    borderClass: 'border-l-2 border-gray-300',
     badgeClass: 'bg-gray-500 text-white',
+    barClass: 'bg-gray-400',
     sectionColor: 'text-gray-600',
     sectionBg: 'bg-gray-50 border-gray-200',
-    dot: 'bg-gray-400',
     pulse: false,
-    emoji: '✅',
   },
 } as const;
 
@@ -148,24 +143,18 @@ function EventCard({
 }) {
   const cfg = STATUS_CONFIG[event.status];
   const topRanking = rankings?.[0];
+  const abbr = useDeptAbbreviator();
 
   return (
     <div
       onClick={onClick}
       className={`
-        group relative bg-white/90 backdrop-blur-sm rounded-xl shadow-sm
+        group relative bg-white rounded-xl border border-gray-200 shadow-sm
         ${cfg.borderClass}
-        hover:shadow-xl hover:-translate-y-1
+        hover:shadow-md hover:border-gray-300
         transition-all duration-200 cursor-pointer overflow-hidden
       `}
     >
-      {/* Subtle top gradient stripe */}
-      <div className={`h-1 w-full ${
-        event.status === 'ongoing' ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
-        event.status === 'upcoming' ? 'bg-gradient-to-r from-blue-400 to-indigo-500' :
-        'bg-gradient-to-r from-gray-300 to-gray-400'
-      }`} />
-
       <div className="p-5">
         {/* Top row: badge + sport icon */}
         <div className="flex items-start justify-between mb-3">
@@ -180,8 +169,8 @@ function EventCard({
         </div>
 
         {/* Event name & category */}
-        <h3 className="font-bold text-gray-900 text-base leading-tight mb-1 group-hover:text-red-700 transition-colors">
-          {event.name}
+        <h3 className="font-semibold text-gray-900 text-base leading-tight mb-1 group-hover:text-gray-600 transition-colors">
+          {abbr(event.name)}
         </h3>
         <p className="text-sm text-gray-500 mb-4">{event.category}</p>
 
@@ -220,7 +209,7 @@ function EventCard({
                   <div className="flex items-center gap-2">
                     <RankMedal rank={r.rank} />
                     <span className="font-medium text-gray-800 truncate max-w-[120px]">
-                      {event.departments[Number(r.department)] || r.department}
+                      {abbr(event.departments[Number(r.department)] || r.department)}
                     </span>
                   </div>
                   <span className="font-bold text-blue-600 tabular-nums">{Number(r.totalScore || 0).toFixed(2)}</span>
@@ -234,9 +223,9 @@ function EventCard({
           <div className="mt-4 pt-4 border-t border-gray-100">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Winner</p>
             <div className="flex items-center gap-2">
-              <span className="text-lg">🏆</span>
+              <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
               <span className="font-semibold text-gray-800 text-sm">
-                {event.departments[Number(topRanking.department)] || topRanking.department}
+                {abbr(event.departments[Number(topRanking.department)] || topRanking.department)}
               </span>
             </div>
           </div>
@@ -244,8 +233,9 @@ function EventCard({
 
         {/* "View Details" hover hint */}
         <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end">
-          <span className="text-xs text-gray-400 group-hover:text-red-600 transition-colors font-medium">
-            View Full Details →
+          <span className="inline-flex items-center gap-1 text-xs text-gray-400 group-hover:text-gray-700 transition-colors font-medium">
+            View full details
+            <ArrowRight className="h-3.5 w-3.5" />
           </span>
         </div>
       </div>
@@ -272,19 +262,19 @@ function MatchSection({
   return (
     <section className="mb-10">
       {/* Section header */}
-      <div className={`flex items-center gap-3 mb-5 p-3 rounded-xl border ${cfg.sectionBg}`}>
+      <div className="flex items-center gap-3 mb-5 pb-2 border-b border-gray-200">
         <div className={`flex items-center gap-2 ${cfg.sectionColor}`}>
-          <SectionIcon className="h-5 w-5" />
-          <h2 className="text-lg font-bold">{cfg.emoji} {cfg.sectionLabel}</h2>
+          <SectionIcon className="h-4 w-4" />
+          <h2 className="text-sm font-semibold uppercase tracking-wide">{cfg.sectionLabel}</h2>
         </div>
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold bg-white border ${cfg.sectionColor}`}>
+        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
           {events.length}
         </span>
       </div>
 
       {events.length === 0 ? (
-        <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-100 py-12 text-center text-gray-400">
-          <SectionIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />
+        <div className="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400">
+          <SectionIcon className="h-7 w-7 mx-auto mb-2 opacity-40" />
           <p className="text-sm">No {cfg.sectionLabel.toLowerCase()} matches</p>
         </div>
       ) : (
@@ -314,24 +304,21 @@ function MatchDetailModal({
   rankings: Ranking[];
   onClose: () => void;
 }) {
+  const abbr = useDeptAbbreviator();
   if (!event) return null;
   const cfg = STATUS_CONFIG[event.status];
 
   return (
     <Dialog open={!!event} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        {/* Colored header band */}
-        <div className={`h-2 w-full rounded-t-lg ${
-          event.status === 'ongoing' ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
-          event.status === 'upcoming' ? 'bg-gradient-to-r from-blue-400 to-indigo-500' :
-          'bg-gradient-to-r from-gray-300 to-gray-400'
-        }`} />
+        {/* Status accent band */}
+        <div className={`h-1 w-full rounded-t-lg ${cfg.barClass}`} />
 
         <div className="px-6 pt-4 pb-6">
           <DialogHeader className="mb-5">
             <div className="flex items-start gap-3">
               <div>
-                <DialogTitle className="text-2xl font-bold text-gray-900 mb-2">{event.name}</DialogTitle>
+                <DialogTitle className="text-2xl font-bold text-gray-900 mb-2">{abbr(event.name)}</DialogTitle>
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusBadge status={event.status} />
                   <Badge variant="outline" className="text-sm">{event.category}</Badge>
@@ -392,8 +379,8 @@ function MatchDetailModal({
               </h3>
               <div className="flex flex-wrap gap-2">
                 {(event.departments || []).map((dept, i) => (
-                  <span key={i} className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full text-sm font-medium">
-                    {dept}
+                  <span key={i} className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full text-sm font-medium" title={dept}>
+                    {abbr(dept)}
                   </span>
                 ))}
               </div>
@@ -413,13 +400,9 @@ function MatchDetailModal({
                         <span className="font-medium text-gray-700">{c.name}</span>
                         <span className="font-bold text-gray-900">{c.weight}%</span>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            event.status === 'ongoing' ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
-                            event.status === 'upcoming' ? 'bg-gradient-to-r from-blue-400 to-indigo-500' :
-                            'bg-gradient-to-r from-gray-400 to-gray-500'
-                          }`}
+                          className={`h-full rounded-full transition-all duration-500 ${cfg.barClass}`}
                           style={{ width: `${c.weight}%` }}
                         />
                       </div>
@@ -450,7 +433,7 @@ function MatchDetailModal({
                       <div className="flex items-center gap-3">
                         <RankMedal rank={r.rank} />
                         <span className="font-semibold text-gray-800 text-sm">
-                          {event.departments[Number(r.department)] || r.department}
+                          {abbr(event.departments[Number(r.department)] || r.department)}
                         </span>
                       </div>
                       <span className="font-bold text-blue-600 text-base tabular-nums">
@@ -482,13 +465,16 @@ function DateFilterBar({
   onChange,
   centerDate,
   onCenterChange,
+  resultCount,
 }: {
   selectedDate: string | null;
   onChange: (d: string | null) => void;
   centerDate: Date;
   onCenterChange: (d: Date) => void;
+  resultCount: number;
 }) {
   const dates = getDateRange(centerDate, 3);
+  const todayKey = toDateKey(new Date());
 
   const shiftCenter = (by: number) => {
     const next = new Date(centerDate);
@@ -496,54 +482,54 @@ function DateFilterBar({
     onCenterChange(next);
   };
 
+  const arrowBtn =
+    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors';
+
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-4 mb-8">
+    <div className="mb-6 rounded-xl border border-gray-200 bg-white p-2 sm:p-3">
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => shiftCenter(-3)}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
-          aria-label="Previous days"
-        >
+        <button onClick={() => shiftCenter(-3)} className={arrowBtn} aria-label="Previous days">
           <ChevronLeft className="h-4 w-4" />
         </button>
 
-        <div className="flex-1 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+        {/* Day strip — pills share the available width evenly */}
+        <div className="flex flex-1 gap-1 overflow-x-auto scrollbar-hide">
           {dates.map(d => {
             const key = toDateKey(d);
             const isSelected = selectedDate === key;
-            const isToday = key === toDateKey(new Date());
+            const isToday = key === todayKey;
             return (
               <button
                 key={key}
                 onClick={() => onChange(isSelected ? null : key)}
-                className={`
-                  shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150
-                  ${isSelected
-                    ? 'bg-red-600 text-white shadow-md scale-105'
-                    : isToday
-                    ? 'bg-red-50 text-red-700 border border-red-200'
+                aria-pressed={isSelected}
+                className={`flex min-w-[60px] flex-1 flex-col items-center rounded-lg px-2 py-1.5 transition-colors duration-150 ${
+                  isSelected
+                    ? 'bg-red-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
-                  }
-                `}
+                }`}
               >
-                <span className="text-[10px] opacity-70 uppercase tracking-wide">
+                <span className={`text-[10px] uppercase tracking-wide ${isSelected ? 'text-red-100' : 'text-gray-400'}`}>
                   {d.toLocaleDateString('en-US', { weekday: 'short' })}
                 </span>
-                <span className="text-sm mt-0.5">{formatDayLabel(d)}</span>
+                <span className="mt-0.5 text-sm font-semibold">{formatDayLabel(d)}</span>
+                <span
+                  className={`mt-1 h-1 w-1 rounded-full ${
+                    isToday && !isSelected ? 'bg-red-500' : 'bg-transparent'
+                  }`}
+                />
               </button>
             );
           })}
         </div>
 
-        <button
-          onClick={() => shiftCenter(3)}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
-          aria-label="Next days"
-        >
+        <button onClick={() => shiftCenter(3)} className={arrowBtn} aria-label="Next days">
           <ChevronRight className="h-4 w-4" />
         </button>
 
-        {/* Custom date picker */}
+        <div className="mx-1 hidden h-8 w-px bg-gray-200 sm:block" />
+
+        {/* Pick an exact date */}
         <div className="relative shrink-0">
           <input
             type="date"
@@ -555,25 +541,41 @@ function DateFilterBar({
                 onCenterChange(new Date(val + 'T00:00:00'));
               }
             }}
-            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-            title="Pick a date"
+            className="absolute inset-0 w-full cursor-pointer opacity-0"
+            aria-label="Pick a specific date"
           />
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
-            <Calendar className="h-4 w-4" />
-            <span className="text-xs font-medium hidden sm:inline">Pick Date</span>
+          <div className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <span className="hidden lg:inline">Pick date</span>
           </div>
         </div>
 
-        {/* View All */}
-        {selectedDate && (
-          <button
-            onClick={() => onChange(null)}
-            className="shrink-0 px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-gray-200 transition-colors"
-          >
-            View All
-          </button>
-        )}
+        {/* All dates toggle — always visible, active when no date is chosen */}
+        <button
+          onClick={() => onChange(null)}
+          aria-pressed={selectedDate === null}
+          className={`h-9 shrink-0 rounded-lg px-3 text-sm font-medium transition-colors ${
+            selectedDate === null
+              ? 'bg-red-600 text-white'
+              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          All dates
+        </button>
       </div>
+
+      {/* Context line — only when a specific date is active */}
+      {selectedDate && (
+        <div className="mt-2 border-t border-gray-100 px-1 pt-2 text-xs text-gray-500">
+          {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+          })}
+          {' · '}
+          <span className="font-medium text-gray-700">
+            {resultCount} {resultCount === 1 ? 'match' : 'matches'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -581,16 +583,23 @@ function DateFilterBar({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PublicViewer() {
-  const [allEvents, setAllEvents] = useState<Event[]>([]);
-  const [rankings, setRankings] = useState<Record<string, Ranking[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
-  const [autoRetryCount, setAutoRetryCount] = useState(0);
+  // Schedule: cached data renders instantly; a background refetch runs every
+  // 10s while the tab is active, and on window-focus / network-reconnect.
+  const eventsQuery = useEvents({ refetchInterval: 10_000 });
+
+  const allEvents = useMemo<Event[]>(
+    () =>
+      (eventsQuery.data ?? []).map((event: any) => ({
+        ...event,
+        departments: event.departments || [],
+        criteria: event.criteria || [],
+      })),
+    [eventsQuery.data],
+  );
+
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(toDateKey(new Date()));
   const [centerDate, setCenterDate] = useState<Date>(new Date());
-  const [refreshing, setRefreshing] = useState(false);
 
   // ── Filter events client-side by selectedDate ─────────────────────────────
   const filteredEvents = selectedDate
@@ -604,85 +613,46 @@ export default function PublicViewer() {
   const upcomingEvents = filteredEvents.filter(e => e.status === 'upcoming');
   const completedEvents = filteredEvents.filter(e => e.status === 'completed');
 
-  // ── Load all events + rankings for ongoing ones ───────────────────────────
-  const loadData = useCallback(async (isManual = false) => {
-    try {
-      if (isManual) setRefreshing(true);
-      setError(null);
-      await startWarmup();
-      const eventsData = await getEvents();
+  // ── Live rankings for every ongoing/completed event, polled with the schedule ──
+  const rankingEventIds = useMemo(
+    () =>
+      allEvents
+        .filter(e => e.status === 'ongoing' || e.status === 'completed')
+        .map(e => e.id),
+    [allEvents],
+  );
 
-      const normalized = (eventsData || []).map((event: any) => ({
-        ...event,
-        departments: event.departments || [],
-        criteria: event.criteria || [],
-      }));
+  const rankingQueries = useQueries({
+    queries: rankingEventIds.map(id => ({
+      queryKey: qk.rankings(id),
+      queryFn: () => getEventRankings(id),
+      staleTime: STALE.live,
+      refetchInterval: 10_000,
+    })),
+  });
 
-      setAllEvents(normalized);
+  // Keep the open event's rankings fresh even if it is "upcoming".
+  const modalRankingsQuery = useEventRankings(selectedEvent?.id, {
+    enabled: !!selectedEvent,
+  });
 
-      // Load rankings for ongoing & completed
-      const relevantEvents = normalized.filter(
-        (e: Event) => e.status === 'ongoing' || e.status === 'completed'
-      );
-      const rankingsData: Record<string, Ranking[]> = { ...rankings };
-
-      for (const event of relevantEvents) {
-        try {
-          const eventRankings = await getEventRankings(event.id);
-          rankingsData[event.id] = Array.isArray(eventRankings) ? eventRankings : [];
-        } catch {
-          rankingsData[event.id] = [];
-        }
-      }
-
-      setRankings(rankingsData);
-      setLastUpdate(new Date());
-      setAutoRetryCount(0);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data. Please check your connection.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  const rankings = useMemo<Record<string, Ranking[]>>(() => {
+    const map: Record<string, Ranking[]> = {};
+    rankingEventIds.forEach((id, i) => {
+      const d = rankingQueries[i]?.data;
+      map[id] = Array.isArray(d) ? (d as Ranking[]) : [];
+    });
+    if (selectedEvent && Array.isArray(modalRankingsQuery.data)) {
+      map[selectedEvent.id] = modalRankingsQuery.data as Ranking[];
     }
-  }, []);
+    return map;
+  }, [rankingEventIds, rankingQueries, selectedEvent, modalRankingsQuery.data]);
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(() => loadData(), 10000);
-    return () => clearInterval(interval);
-  }, [loadData]);
+  const backgroundError =
+    eventsQuery.isRefetchError || rankingQueries.some(q => q.isRefetchError);
 
-  // Auto-retry on cold start
-  useEffect(() => {
-    if (error && autoRetryCount < 3) {
-      const isServerStarting = error.includes('starting up') || error.includes('connect to the server');
-      if (isServerStarting) {
-        const timer = setTimeout(() => {
-          setAutoRetryCount(prev => prev + 1);
-          setError(null);
-          setLoading(true);
-          loadData();
-        }, 3000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [error, autoRetryCount, loadData]);
-
-  // Refresh rankings when modal opens
-  useEffect(() => {
-    if (selectedEvent) {
-      getEventRankings(selectedEvent.id)
-        .then(res => {
-          if (Array.isArray(res)) {
-            setRankings(prev => ({ ...prev, [selectedEvent.id]: res }));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [selectedEvent]);
-
-  // ── Error State ───────────────────────────────────────────────────────────
-  if (loading) {
+  // ── First-load states (cached data, if any, skips straight past these) ────
+  if (eventsQuery.isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Loading fullScreen={false} message="Loading match schedule..." />
@@ -690,31 +660,19 @@ export default function PublicViewer() {
     );
   }
 
-  if (error) {
-    const isServerStarting = error.includes('starting up') || error.includes('connect to the server');
-    const willAutoRetry = isServerStarting && autoRetryCount < 3;
+  if (eventsQuery.isLoadingError) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className={`rounded-2xl border p-8 text-center ${isServerStarting ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}`}>
-          {isServerStarting ? (
-            <>
-              <Loader2 className="h-10 w-10 text-yellow-500 animate-spin mx-auto mb-3" />
-              <p className="text-yellow-800 font-bold mb-1">Server is Waking Up</p>
-              <p className="text-yellow-700 text-sm mb-4">
-                {willAutoRetry ? `Retrying automatically... (${autoRetryCount + 1}/3)` : 'Please click refresh to try again.'}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-red-600 font-bold mb-1">Error Loading Data</p>
-              <p className="text-red-500 text-sm mb-4">{error}</p>
-            </>
-          )}
+        <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
+          <p className="text-red-600 font-semibold mb-1">Couldn&rsquo;t load the match schedule</p>
+          <p className="text-red-500 text-sm mb-4">
+            {(eventsQuery.error as Error)?.message || 'Please check your connection and try again.'}
+          </p>
           <button
-            onClick={() => { setError(null); setLoading(true); setAutoRetryCount(0); loadData(); }}
-            className="px-5 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors"
+            onClick={() => eventsQuery.refetch()}
+            className="px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
           >
-            Refresh Now
+            Try again
           </button>
         </div>
       </div>
@@ -726,31 +684,29 @@ export default function PublicViewer() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-gray-200">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Match Schedule</h1>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-500 text-white">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">Match Schedule</h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-red-200 bg-red-50 text-red-700">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
               </span>
-              LIVE
+              Live
             </span>
           </div>
-          <p className="text-gray-400 text-sm mt-1">
-            Auto-refreshes every 10s · Last updated: {lastUpdate.toLocaleTimeString()}
+          <p className="text-gray-500 text-sm mt-1.5">
+            Updates automatically every 10 seconds · Last updated{' '}
+            {new Date(eventsQuery.dataUpdatedAt).toLocaleTimeString()}
           </p>
         </div>
-        <button
-          onClick={() => loadData(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
-      </div>
+        <RefreshStatus
+          fetching={eventsQuery.isFetching && !eventsQuery.isLoading}
+          error={backgroundError}
+          onRetry={() => eventsQuery.refetch()}
+        />
+      </header>
 
       {/* Date Filter Bar */}
       <DateFilterBar
@@ -758,30 +714,20 @@ export default function PublicViewer() {
         onChange={setSelectedDate}
         centerDate={centerDate}
         onCenterChange={setCenterDate}
+        resultCount={filteredEvents.length}
       />
-
-      {/* Summary chips when date is selected */}
-      {selectedDate && (
-        <div className="flex items-center gap-2 mb-6 flex-wrap">
-          <span className="text-sm text-gray-500">
-            Showing matches for <span className="font-semibold text-gray-800">{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
-          </span>
-          <span className="text-gray-300">·</span>
-          <span className="text-sm font-medium text-gray-500">{filteredEvents.length} match{filteredEvents.length !== 1 ? 'es' : ''}</span>
-        </div>
-      )}
 
       {/* No results for selected date */}
       {selectedDate && filteredEvents.length === 0 && (
-        <div className="text-center py-20 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100">
-          <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-semibold">No matches on this date</p>
-          <p className="text-gray-400 text-sm mt-1">Try selecting a different date or click "View All"</p>
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white py-14 text-center">
+          <Calendar className="mx-auto h-8 w-8 text-gray-300" />
+          <p className="mt-3 text-sm font-medium text-gray-700">No matches on this date</p>
+          <p className="mt-1 text-sm text-gray-500">Pick another date, or view every scheduled match.</p>
           <button
             onClick={() => setSelectedDate(null)}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            View All Matches
+            Show all matches
           </button>
         </div>
       )}

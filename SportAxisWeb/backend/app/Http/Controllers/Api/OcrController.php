@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * OcrController
@@ -37,7 +38,8 @@ class OcrController extends Controller
     public function extract(Request $request)
     {
         $request->validate([
-            'image'      => 'required_without:image_file|nullable|string',
+            // Cap the raw base64 string too (~13.4MB base64 ≈ 10MB binary).
+            'image'      => 'required_without:image_file|nullable|string|max:14000000',
             'image_file' => 'required_without:image|file|image|max:10240',
             'criteria'   => 'sometimes|array',
         ]);
@@ -96,10 +98,24 @@ class OcrController extends Controller
             if (preg_match('/^data:image\/(\w+);base64,/', $base64Image)) {
                 $base64Image = substr($base64Image, strpos($base64Image, ',') + 1);
             }
-            $imageData = base64_decode($base64Image);
+            $imageData = base64_decode($base64Image, true);
             if (!$imageData) return null;
 
-            $filename = 'ocr_captures/' . uniqid('ocr_', true) . '.jpg';
+            // Ensure the decoded bytes are actually a real raster image before
+            // writing to the public disk. Without this an attacker could store
+            // HTML/SVG/script content and serve stored XSS from our origin.
+            $info = @getimagesizefromstring($imageData);
+            $allowed = [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP];
+            if ($info === false || !in_array($info[2] ?? null, $allowed, true)) {
+                \Illuminate\Support\Facades\Log::warning('OCR storeImage rejected non-image payload');
+                return null;
+            }
+
+            if (strlen($imageData) > 10 * 1024 * 1024) {
+                return null;
+            }
+
+            $filename = 'ocr_captures/' . Str::uuid() . '.jpg';
             \Storage::disk('public')->put($filename, $imageData);
             return asset('storage/' . $filename);
         } catch (\Exception $e) {

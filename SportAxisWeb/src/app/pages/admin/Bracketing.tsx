@@ -8,9 +8,10 @@ import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { getEvents, getDepartments, getVenues, createEvent } from '../../services/api';
+import { getEvents, getDepartments, getVenues, createEvent, getStandings } from '../../services/api';
 import { Badge } from '../../components/ui/badge';
-import { SingleEliminationBracket, Match as BracketMatch, SVGViewer } from '@g-loot/react-tournament-brackets';
+import { SingleEliminationBracket, Match as BracketMatch } from '@g-loot/react-tournament-brackets';
+import { seededSlotOrder } from '../../utils/bracket';
 
 interface Venue {
   id: string;
@@ -69,6 +70,22 @@ export default function AdminBracketing() {
   const [bracketZoom, setBracketZoom] = useState(1);
   const [bracketFullscreen, setBracketFullscreen] = useState(false);
 
+  // While the bracket is in fullscreen: close on Escape and stop the page
+  // behind it from scrolling.
+  useEffect(() => {
+    if (!bracketFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setBracketFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [bracketFullscreen]);
+
   const [config, setConfig] = useState({
     sport: '',
     format: 'single-elimination' as 'single-elimination' | 'round-robin',
@@ -77,7 +94,12 @@ export default function AdminBracketing() {
     startTime: '09:00',
     matchDuration: 60, // minutes
     breakDuration: 15, // minutes between matches
+    seedFromStandings: false,
   });
+
+  // Standings for the selected sport (wins / point differential), used to seed.
+  const [standings, setStandings] = useState<any[]>([]);
+  const [standingsLoading, setStandingsLoading] = useState(false);
 
   const sportsList = [
     'Basketball', 'Volleyball', 'Badminton', 'Football',
@@ -91,6 +113,18 @@ export default function AdminBracketing() {
     }
     loadData();
   }, [user, navigate]);
+
+  // Pull standings whenever the sport changes so we can seed / preview.
+  useEffect(() => {
+    if (!config.sport) { setStandings([]); return; }
+    let cancelled = false;
+    setStandingsLoading(true);
+    getStandings(config.sport)
+      .then((rows: any[]) => { if (!cancelled) setStandings(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setStandings([]); })
+      .finally(() => { if (!cancelled) setStandingsLoading(false); });
+    return () => { cancelled = true; };
+  }, [config.sport]);
 
   const loadData = async () => {
     try {
@@ -193,7 +227,7 @@ export default function AdminBracketing() {
     return `${hours}:${minutes}`;
   };
 
-  const generateSingleEliminationBracket = (): Bracket => {
+  const generateSingleEliminationBracket = (seededOrder?: (string | null)[]): Bracket => {
     const participants = [...config.participants];
     const numParticipants = participants.length;
 
@@ -201,16 +235,16 @@ export default function AdminBracketing() {
     const rounds = Math.ceil(Math.log2(numParticipants));
     const totalSlots = Math.pow(2, rounds);
 
-    // Add byes if needed
-    const shuffled = [...participants].sort(() => Math.random() - 0.5);
-
-    // Fill bracket with participants and byes
-    const slots: (string | null)[] = [];
-    for (let i = 0; i < totalSlots; i++) {
-      if (i < shuffled.length) {
-        slots.push(shuffled[i]);
-      } else {
-        slots.push(null); // Bye
+    // Slot the teams. Seeded = #1 vs lowest, #1/#2 in opposite halves, byes to
+    // the top seeds. Otherwise fall back to a random draw.
+    let slots: (string | null)[];
+    if (seededOrder && seededOrder.length === totalSlots) {
+      slots = [...seededOrder];
+    } else {
+      const shuffled = [...participants].sort(() => Math.random() - 0.5);
+      slots = [];
+      for (let i = 0; i < totalSlots; i++) {
+        slots.push(i < shuffled.length ? shuffled[i] : null);
       }
     }
 
@@ -334,12 +368,33 @@ export default function AdminBracketing() {
     setGenerating(true);
 
     try {
+      let seededOrder: (string | null)[] | undefined;
+
+      if (config.format === 'single-elimination' && config.seedFromStandings) {
+        // Rank the chosen participants by their standings (wins, then point
+        // differential); anyone without a record goes to the bottom.
+        const rank = new Map<string, number>();
+        standings.forEach((row: any, i: number) => rank.set(row.department, i));
+        const bySeed = [...config.participants].sort(
+          (a, b) => (rank.get(a) ?? 9999) - (rank.get(b) ?? 9999),
+        );
+        seededOrder = seededSlotOrder(bySeed);
+
+        const withRecord = config.participants.filter((p) => rank.has(p)).length;
+        if (withRecord === 0) {
+          toast.error('No standings found for this sport yet — generate a random draw or record some match results first.');
+          setGenerating(false);
+          return;
+        }
+      }
+
       const newBracket = config.format === 'single-elimination'
-        ? generateSingleEliminationBracket()
+        ? generateSingleEliminationBracket(seededOrder)
         : generateRoundRobinBracket();
 
       setBracket(newBracket);
-      toast.success(`${config.format === 'single-elimination' ? 'Single Elimination' : 'Round Robin'} bracket generated with ${newBracket.matches.length} matches`);
+      const seededNote = seededOrder ? ' (seeded from standings)' : '';
+      toast.success(`${config.format === 'single-elimination' ? 'Single Elimination' : 'Round Robin'} bracket generated with ${newBracket.matches.length} matches${seededNote}`);
     } catch (error: any) {
       console.error('Error generating bracket:', error);
       toast.error('Failed to generate bracket');
@@ -458,22 +513,19 @@ export default function AdminBracketing() {
 
   const renderSingleEliminationBracket = () => {
     if (!bracket) return null;
-    const firstRoundMatches = Math.pow(2, bracket.rounds - 1);
-    const svgW = Math.max(900, bracket.rounds * 280);
-    const svgH = Math.max(500, firstRoundMatches * 120);
-    const scaledW = Math.round(svgW * bracketZoom);
-    const scaledH = Math.round(svgH * bracketZoom);
+
+    const clampZoom = (z: number) => Math.min(3, Math.max(0.4, parseFloat(z.toFixed(2))));
 
     const toolbar = (
-      <div className="flex items-center gap-2 px-3 py-2 border-b bg-gray-50 rounded-t-md">
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-gray-50 shrink-0">
         <span className="text-xs text-gray-500 font-medium mr-auto">Bracket View</span>
         <button
-          onClick={() => setBracketZoom(z => Math.max(0.3, parseFloat((z - 0.15).toFixed(2))))}
+          onClick={() => setBracketZoom(z => clampZoom(z - 0.15))}
           className="p-1.5 rounded hover:bg-gray-200 text-gray-600" title="Zoom out"
         ><ZoomOut className="h-4 w-4" /></button>
         <span className="text-xs w-10 text-center font-mono">{Math.round(bracketZoom * 100)}%</span>
         <button
-          onClick={() => setBracketZoom(z => Math.min(2, parseFloat((z + 0.15).toFixed(2))))}
+          onClick={() => setBracketZoom(z => clampZoom(z + 0.15))}
           className="p-1.5 rounded hover:bg-gray-200 text-gray-600" title="Zoom in"
         ><ZoomIn className="h-4 w-4" /></button>
         <button
@@ -484,42 +536,48 @@ export default function AdminBracketing() {
         <button
           onClick={() => setBracketFullscreen(f => !f)}
           className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
-          title={bracketFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          title={bracketFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
         >{bracketFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</button>
       </div>
     );
 
-    const viewer = (
-      <div className="overflow-auto" style={{ maxHeight: bracketFullscreen ? 'calc(90vh - 56px)' : '520px' }}>
-        <div style={{ width: scaledW, height: scaledH }}>
-          <SingleEliminationBracket
-            matches={formatMatchesForBracketUI(bracket.matches, bracket.rounds)}
-            matchComponent={BracketMatch}
-            svgWrapper={({ children, ...props }: any) => (
-              <SVGViewer width={scaledW} height={scaledH} {...props}>
-                {children}
-              </SVGViewer>
-            )}
-          />
-        </div>
+    // Render the bracket at its natural SVG size and let the surrounding box
+    // scroll. Zoom is applied with CSS `zoom` so scrollbars track the scaled
+    // content (unlike `transform`, which doesn't affect layout).
+    const bracketEl = (
+      <div
+        className="p-4"
+        style={{ zoom: bracketZoom, width: 'max-content', minWidth: '100%' }}
+      >
+        <SingleEliminationBracket
+          matches={formatMatchesForBracketUI(bracket.matches, bracket.rounds)}
+          matchComponent={BracketMatch}
+        />
       </div>
     );
 
     if (bracketFullscreen) {
       return (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl overflow-hidden border">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex p-3 sm:p-6"
+          onClick={(e) => { if (e.target === e.currentTarget) setBracketFullscreen(false); }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl border w-full h-full flex flex-col overflow-hidden">
             {toolbar}
-            {viewer}
+            <div className="flex-1 min-h-0 overflow-auto bg-white">
+              {bracketEl}
+            </div>
           </div>
         </div>
       );
     }
 
     return (
-      <div className="border rounded-md overflow-hidden bg-white">
+      <div className="border rounded-md overflow-hidden bg-white flex flex-col">
         {toolbar}
-        {viewer}
+        <div className="overflow-auto" style={{ maxHeight: 520 }}>
+          {bracketEl}
+        </div>
       </div>
     );
   };
@@ -566,6 +624,61 @@ export default function AdminBracketing() {
                 <option value="round-robin">Round Robin</option>
               </select>
             </div>
+
+            {config.format === 'single-elimination' && (
+              <label className="flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={config.seedFromStandings}
+                  onChange={(e) => setConfig({ ...config, seedFromStandings: e.target.checked })}
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-gray-900">Seed from standings</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Rank teams by wins, then point differential. #1 plays the lowest seed;
+                    byes go to the top seeds. Off = random draw.
+                  </span>
+                </span>
+              </label>
+            )}
+
+            {config.sport && (
+              <div className="rounded-md border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600">
+                  <span>Standings — {config.sport}</span>
+                  {standingsLoading && <span className="font-normal text-gray-400">loading…</span>}
+                </div>
+                {standings.length === 0 ? (
+                  <p className="px-3 py-3 text-xs text-gray-400">
+                    No completed matches recorded for this sport yet.
+                  </p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-gray-500 border-b border-gray-100">
+                        <th className="px-3 py-1.5 font-medium">#</th>
+                        <th className="px-3 py-1.5 font-medium">Team</th>
+                        <th className="px-2 py-1.5 font-medium text-center">W‑L</th>
+                        <th className="px-2 py-1.5 font-medium text-right">Diff</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.map((r: any) => (
+                        <tr key={r.department} className="border-b border-gray-50 last:border-0">
+                          <td className="px-3 py-1.5 tabular-nums text-gray-500">{r.seed}</td>
+                          <td className="px-3 py-1.5 font-medium text-gray-800">{r.department}</td>
+                          <td className="px-2 py-1.5 text-center tabular-nums">{r.wins}‑{r.losses}</td>
+                          <td className={`px-2 py-1.5 text-right tabular-nums ${Number(r.point_diff) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {Number(r.point_diff) > 0 ? '+' : ''}{r.point_diff}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="startDate">Start Date *</Label>

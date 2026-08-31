@@ -67,8 +67,8 @@ export default function Login() {
         }
         
         // Validate password strength
-        if (password.length < 6) {
-          throw new Error('Password must be at least 6 characters long');
+        if (password.length < 8) {
+          throw new Error('Password must be at least 8 characters long');
         }
 
         console.log('Attempting signup for:', email);

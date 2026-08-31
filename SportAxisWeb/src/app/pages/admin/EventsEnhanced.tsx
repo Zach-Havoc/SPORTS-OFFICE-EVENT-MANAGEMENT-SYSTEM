@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { getEvents, getDepartments, getVenues, getJudges, createEvent, updateEvent, deleteEvent } from '../../services/api';
+import { makeAbbreviator } from '../../utils/departments';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -113,6 +114,7 @@ export default function AdminEventsEnhanced() {
   // Data
   const [events, setEvents] = useState<Event[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const abbr = useMemo(() => makeAbbreviator(departments), [departments]);
   const [venues, setVenues] = useState<any[]>([]);
   const [judges, setJudges] = useState<any[]>([]);
 
@@ -542,7 +544,7 @@ export default function AdminEventsEnhanced() {
                     setSelectedEvents(n);
                   }} />
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base leading-tight">{event.name}</CardTitle>
+                    <CardTitle className="text-base leading-tight" title={event.name}>{abbr(event.name)}</CardTitle>
                     <CardDescription className="flex items-center gap-1 mt-1">
                       <Trophy className="h-3 w-3" />{event.category}
                     </CardDescription>
@@ -607,7 +609,7 @@ export default function AdminEventsEnhanced() {
                     }} />
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-3 text-sm">
                       <div className="md:col-span-2">
-                        <p className="font-semibold">{event.name}</p>
+                        <p className="font-semibold" title={event.name}>{abbr(event.name)}</p>
                         <p className="text-gray-500">{event.category}</p>
                       </div>
                       <div>
@@ -873,7 +875,7 @@ export default function AdminEventsEnhanced() {
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>"{eventToDelete?.name}"</strong>? All scores will be permanently removed.
+              Are you sure you want to delete <strong>"{abbr(eventToDelete?.name ?? '')}"</strong>? All scores will be permanently removed.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

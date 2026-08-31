@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { TrendingUp, Trophy, Calendar, BarChart3 } from 'lucide-react';
-import { toast } from 'sonner';
-import { getMyPerformance } from '../../services/api';
+import { TrendingUp, Trophy, Calendar } from 'lucide-react';
+import { useMyPerformance } from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface PerformanceRecord {
   id: string;
@@ -21,29 +21,14 @@ interface PerformanceRecord {
 export default function AthletePerformance() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || user.role !== 'athlete') {
-      navigate('/login');
-      return;
-    }
-    loadPerformance();
+    if (!user || user.role !== 'athlete') navigate('/login');
   }, [user, navigate]);
 
-  const loadPerformance = async () => {
-    try {
-      setLoading(true);
-      const data = await getMyPerformance();
-      setPerformances(data);
-    } catch (error) {
-      console.error('Error loading performance:', error);
-      toast.error('Failed to load performance data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const performanceQuery = useMyPerformance();
+  const performances: PerformanceRecord[] = performanceQuery.data ?? [];
+  const loading = performanceQuery.isLoading;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -78,7 +63,14 @@ export default function AthletePerformance() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">My Performance</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">My Performance</h1>
+          <RefreshStatus
+            fetching={performanceQuery.isFetching && !loading}
+            error={performanceQuery.isRefetchError}
+            onRetry={() => performanceQuery.refetch()}
+          />
+        </div>
         <p className="text-gray-600 mt-2">Track your progress and achievements</p>
       </div>
 

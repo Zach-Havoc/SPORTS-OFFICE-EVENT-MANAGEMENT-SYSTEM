@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -8,9 +8,15 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
-import { TrendingUp, Plus, Eye, Calendar, Trophy } from 'lucide-react';
+import { TrendingUp, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAthletes, getEvents, recordPerformance, getPerformanceRecords } from '../../services/api';
+import {
+  useAthletes,
+  useEvents,
+  usePerformanceRecords,
+  useRecordPerformance,
+} from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Athlete {
   id: string;
@@ -43,12 +49,7 @@ interface PerformanceRecord {
 export default function CoachPerformance() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     athleteId: '',
@@ -66,33 +67,35 @@ export default function CoachPerformance() {
   });
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') {
-      navigate('/login');
-      return;
-    }
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+    if (!user || user.role !== 'coach') navigate('/login');
   }, [user, navigate]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [athletesData, eventsData, performancesData] = await Promise.all([
-        getAthletes(),
-        getEvents(),
-        getPerformanceRecords()
-      ]);
-      setAthletes(athletesData);
-      setEvents(eventsData.filter((e: Event) => e.sport));
-      setPerformances(performancesData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
+  const athletesQuery = useAthletes();
+  const eventsQuery = useEvents();
+  const performancesQuery = usePerformanceRecords();
+  const recordPerf = useRecordPerformance();
+
+  const athletes: Athlete[] = athletesQuery.data ?? [];
+  const events: Event[] = useMemo(
+    () => (eventsQuery.data ?? []).filter((e: Event) => e.sport),
+    [eventsQuery.data],
+  );
+  const performances: PerformanceRecord[] = performancesQuery.data ?? [];
+  const loading =
+    athletesQuery.isLoading || eventsQuery.isLoading || performancesQuery.isLoading;
+  const fetching =
+    (athletesQuery.isFetching || eventsQuery.isFetching || performancesQuery.isFetching) &&
+    !loading;
+  const backgroundError =
+    athletesQuery.isRefetchError ||
+    eventsQuery.isRefetchError ||
+    performancesQuery.isRefetchError;
+  const retryAll = () => {
+    athletesQuery.refetch();
+    eventsQuery.refetch();
+    performancesQuery.refetch();
   };
+  const submitting = recordPerf.isPending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,8 +106,6 @@ export default function CoachPerformance() {
     }
 
     try {
-      setSubmitting(true);
-
       const metrics: Record<string, any> = {};
       if (formData.points) metrics.points = Number(formData.points);
       if (formData.assists) metrics.assists = Number(formData.assists);
@@ -113,7 +114,7 @@ export default function CoachPerformance() {
       if (formData.distance) metrics.distance = formData.distance;
       if (formData.height) metrics.height = formData.height;
 
-      await recordPerformance({
+      await recordPerf.mutateAsync({
         athleteId: formData.athleteId,
         eventId: formData.eventId,
         sport: formData.sport,
@@ -125,12 +126,9 @@ export default function CoachPerformance() {
       toast.success('Performance recorded successfully');
       setDialogOpen(false);
       resetForm();
-      loadData();
     } catch (error: any) {
       console.error('Error recording performance:', error);
       toast.error(error.message || 'Failed to record performance');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -180,7 +178,10 @@ export default function CoachPerformance() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Performance Records</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">Performance Records</h1>
+            <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
+          </div>
           <p className="text-gray-600 mt-2">Track and analyze athlete performance</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>

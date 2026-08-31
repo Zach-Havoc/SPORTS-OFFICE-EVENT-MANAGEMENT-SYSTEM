@@ -163,6 +163,24 @@ export const getLeaderboard = (category?: string) => {
 export const extractOcrScores = (data: { image?: string; criteria?: any[] }) =>
   apiRequest('/ocr/extract', { method: 'POST', body: JSON.stringify(data) }, true);
 
+// ─────────────────────────────────────────────────────────────────────
+// Match records & standings (the bracket-seeding source)
+// ─────────────────────────────────────────────────────────────────────
+
+export const getStandings = (sport: string) =>
+  apiRequest(`/standings/${encodeURIComponent(sport)}`);
+
+export const getMatches = (sport?: string) => {
+  const q = sport ? `?sport=${encodeURIComponent(sport)}` : '';
+  return apiRequest(`/matches${q}`);
+};
+export const createMatch = (data: any) =>
+  apiRequest('/matches', { method: 'POST', body: JSON.stringify(data) }, true);
+export const updateMatch = (id: string, data: any) =>
+  apiRequest(`/matches/${id}`, { method: 'PUT', body: JSON.stringify(data) }, true);
+export const deleteMatch = (id: string) =>
+  apiRequest(`/matches/${id}`, { method: 'DELETE' }, true);
+
 // Reports (admin only)
 export const getEventReport = (eventId: string) =>
   apiRequest(`/reports/${eventId}`, {}, true);
@@ -213,7 +231,7 @@ export const removeAthleteFromRoster = (id: string) =>
 // ─────────────────────────────────────────────────────────────────────
 
 export const getCoachProfile = () => apiRequest('/coach/profile', {}, true);
-export const updateCoachProfile = (data: { sport: string, genderCategory?: string }) =>
+export const updateCoachProfile = (data: { sports: string[]; department: string; genderCategory?: string }) =>
   apiRequest('/coach/profile', { method: 'PUT', body: JSON.stringify(data) }, true);
 
 // Admin Coach Management
@@ -281,8 +299,6 @@ export const submitRequirement = (data: any) => {
   if (data.description) formData.append('description', data.description);
   if (data.file) formData.append('file', data.file);
 
-  console.log('FormData entries:', Array.from(formData.entries()));
-
   const headers: Record<string, string> = {
     'Accept': 'application/json',
   };
@@ -292,19 +308,13 @@ export const submitRequirement = (data: any) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  console.log('API URL:', API_URL);
-  console.log('Full URL:', `${API_URL}/requirements`);
-
   return fetch(`${API_URL}/requirements`, {
     method: 'POST',
     headers,
     body: formData,
   }).then(async (response) => {
-    console.log('Response status:', response.status);
-    console.log('Response ok:', response.ok);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Error response:', errorText);
       let errorMessage = errorText;
       try {
         const errorJson = JSON.parse(errorText);
@@ -313,7 +323,6 @@ export const submitRequirement = (data: any) => {
       throw new Error(errorMessage || 'Failed to submit requirement');
     }
     const text = await response.text();
-    console.log('Response text:', text);
     const data = text ? JSON.parse(text) : {};
     return keysToCamelCase(data);
   });

@@ -16,7 +16,8 @@ interface Coach {
   id: string;
   name: string;
   email: string;
-  sport: string;
+  sport: string;            // primary sport (back-compat)
+  sports?: string[] | null; // full list of sports handled
   department: string | null;
   departmentAbbreviation: string | null;
   gender: string | null;
@@ -120,9 +121,9 @@ export default function AdminCoaches() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge className="bg-purple-100 text-purple-800">Coach</Badge>
-                      {coach.sport && (
-                        <Badge variant="outline">{coach.sport}</Badge>
-                      )}
+                      {(coach.sports?.length ? coach.sports : coach.sport ? [coach.sport] : []).map((s) => (
+                        <Badge key={s} variant="outline">{s}</Badge>
+                      ))}
                       {coach.departmentAbbreviation && coach.gender && (
                         <Badge className="bg-blue-100 text-blue-800">
                           {coach.departmentAbbreviation} {coach.gender} Coach
@@ -152,7 +153,9 @@ export default function AdminCoaches() {
                   <div className="flex items-center">
                     <Trophy className="h-4 w-4 mr-2 text-gray-400" />
                     <span className="text-sm text-gray-600">
-                      {coach.sport || 'No sport assigned'}
+                      {coach.sports?.length
+                        ? coach.sports.join(', ')
+                        : coach.sport || 'No sport assigned'}
                     </span>
                   </div>
                   <div className="flex items-center">
@@ -201,9 +204,10 @@ export default function AdminCoaches() {
               </Select>
             </div>
 
-            {editingCoach?.sport && (
+            {(editingCoach?.sports?.length || editingCoach?.sport) && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
-                <strong>Team:</strong> {editingCoach.sport}
+                <strong>{(editingCoach?.sports?.length ?? 0) > 1 ? 'Sports:' : 'Team:'}</strong>{' '}
+                {editingCoach?.sports?.length ? editingCoach.sports.join(', ') : editingCoach?.sport}
               </div>
             )}
           </div>

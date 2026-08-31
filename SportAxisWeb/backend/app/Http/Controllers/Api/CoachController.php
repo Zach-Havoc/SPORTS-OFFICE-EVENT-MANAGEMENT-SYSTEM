@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\RegistrationCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CoachController extends Controller
 {
@@ -24,7 +25,8 @@ class CoachController extends Controller
             'id'             => $user->id,
             'name'           => $user->name,
             'email'          => $user->email,
-            'sport'          => $user->sport,
+            'sport'          => $user->sport,             // primary sport (back-compat)
+            'sports'         => $user->sportsList(),       // full list
             'genderCategory' => $user->gender_category,
             'enrollmentCode' => $user->enrollment_code,
             'department'     => $user->department,
@@ -35,44 +37,86 @@ class CoachController extends Controller
     public function update(Request $request)
     {
         $request->validate([
-            'sport' => 'required|string',
-            'genderCategory' => 'nullable|string'
+            'sports'         => 'sometimes|array',
+            'sports.*'       => 'nullable|string|max:100',
+            'sport'          => 'sometimes|nullable|string|max:100', // legacy single-sport clients
+            'department'     => 'required|string|max:255',
+            'genderCategory' => 'nullable|string',
         ]);
 
         $user = $request->user();
+        $department = trim($request->input('department'));
 
-        // Generate enrollment code if not set
+        // Accept either `sports: []` (preferred) or a legacy `sport: "..."`.
+        $sports = collect($request->input('sports', []))
+            ->push($request->input('sport'))
+            ->filter(fn ($s) => is_string($s) && trim($s) !== '')
+            ->map(fn ($s) => trim($s))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($sports)) {
+            throw ValidationException::withMessages([
+                'sports' => ['Select at least one sport.'],
+            ]);
+        }
+
+        // Intramurals rule: each (department, sport) team has exactly ONE coach.
+        $conflicts = User::where('role', 'coach')
+            ->where('id', '!=', $user->id)
+            ->where('department', $department)
+            ->get()
+            ->flatMap->sportsList()
+            ->unique()
+            ->intersect($sports)
+            ->values();
+
+        if ($conflicts->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'sports' => [
+                    "{$department} already has a coach for: " . $conflicts->implode(', ') . '.',
+                ],
+            ]);
+        }
+
+        $primary = $sports[0];
+
+        // Generate an enrollment code the first time a coach sets up their team.
         if (!$user->enrollment_code) {
             $enrollCode = strtoupper(Str::random(8));
-            // Create an athlete registration code linked to this coach
             RegistrationCode::create([
                 'code'       => $enrollCode,
                 'role'       => 'athlete',
                 'label'      => "Coach: {$user->name}",
                 'created_by' => $user->id,
             ]);
-            $user->update([
-                'sport' => $request->sport, 
-                'gender_category' => $request->genderCategory,
-                'enrollment_code' => $enrollCode
-            ]);
-        } else {
-            $user->update([
-                'sport' => $request->sport,
-                'gender_category' => $request->genderCategory
-            ]);
+            $user->enrollment_code = $enrollCode;
         }
 
-        // Cascade the sport change to all athletes enrolled under this coach
-        \App\Models\User::where('role', 'athlete')
-            ->where('coach_id', $user->id)
-            ->update(['sport' => $request->sport]);
+        $user->update([
+            'sports'          => $sports,
+            'sport'           => $primary,
+            'department'      => $department,
+            'gender_category' => $request->genderCategory,
+            'enrollment_code' => $user->enrollment_code,
+        ]);
 
-        \App\Models\Athlete::where('coach_id', $user->id)
-            ->update(['sport' => $request->sport]);
+        // Only auto-sync athletes' sport when the coach handles exactly one
+        // sport — with several, each athlete keeps their own assignment.
+        if (count($sports) === 1) {
+            \App\Models\User::where('role', 'athlete')
+                ->where('coach_id', $user->id)
+                ->update(['sport' => $primary]);
+
+            \App\Models\Athlete::where('coach_id', $user->id)
+                ->update(['sport' => $primary]);
+        }
 
         return response()->json([
             'sport'          => $user->sport,
+            'sports'         => $user->sportsList(),
+            'department'     => $user->department,
             'genderCategory' => $user->gender_category,
             'enrollmentCode' => $user->enrollment_code,
         ]);
@@ -106,7 +150,8 @@ class CoachController extends Controller
                     'id' => $coach->id,
                     'name' => $coach->name,
                     'email' => $coach->email,
-                    'sport' => $coach->sport,
+                    'sport' => $coach->sport,          // primary
+                    'sports' => $coach->sportsList(),  // full list
                     'department' => $coach->department,
                     'departmentAbbreviation' => $departmentAbbreviation,
                     'gender' => $gender,
@@ -131,6 +176,27 @@ class CoachController extends Controller
         // Handle null or empty string by setting to null
         $department = $request->department === '' ? null : $request->department;
         \Log::info('Processed department value', ['department' => $department]);
+
+        // Moving a coach into a department must not create two coaches for the
+        // same (department, sport) team.
+        if ($department) {
+            $conflicts = User::where('role', 'coach')
+                ->where('id', '!=', $coach->id)
+                ->where('department', $department)
+                ->get()
+                ->flatMap->sportsList()
+                ->unique()
+                ->intersect($coach->sportsList())
+                ->values();
+
+            if ($conflicts->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'department' => [
+                        "{$department} already has a coach for: " . $conflicts->implode(', ') . '.',
+                    ],
+                ]);
+            }
+        }
 
         $coach->update(['department' => $department]);
 

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { getEvents, getDepartments, getCategories, createEvent, updateEvent, deleteEvent } from '../../services/api';
+import { makeAbbreviator } from '../../utils/departments';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -36,6 +37,7 @@ export default function AdminEvents() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const abbr = useMemo(() => makeAbbreviator(departments), [departments]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -340,7 +342,7 @@ export default function AdminEvents() {
                       </Badge>
                       <Badge variant="outline">{event.category}</Badge>
                     </div>
-                    <CardTitle>{event.name}</CardTitle>
+                    <CardTitle>{abbr(event.name)}</CardTitle>
                     <CardDescription className="mt-2 space-y-1">
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-2" />
@@ -403,7 +405,7 @@ export default function AdminEvents() {
                     <p className="text-sm font-semibold mb-1">Departments:</p>
                     <div className="flex flex-wrap gap-1">
                       {(event.departments || []).map(dept => (
-                        <Badge key={dept} variant="secondary">{dept}</Badge>
+                        <Badge key={dept} variant="secondary" title={dept}>{abbr(dept)}</Badge>
                       ))}
                     </div>
                   </div>

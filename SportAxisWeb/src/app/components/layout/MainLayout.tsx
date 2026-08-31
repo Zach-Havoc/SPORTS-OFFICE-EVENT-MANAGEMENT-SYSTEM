@@ -197,8 +197,8 @@ export default function MainLayout() {
                 <div className="flex items-center space-x-3">
                   <Trophy className="h-6 w-6 text-red-600" />
                   <div>
-                    <h2 className="font-bold text-lg text-gray-900">BatStateU</h2>
-                    <p className="text-xs text-gray-600">Competition System</p>
+                    <h2 className="font-bold text-base text-gray-900 leading-tight">Batangas State University</h2>
+                    <p className="text-xs text-gray-600">Competition Scoring System</p>
                   </div>
                 </div>
                 <button
@@ -302,11 +302,11 @@ export default function MainLayout() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{user.name}</p>
                       <p className="text-xs text-red-100 capitalize">
-                        {user.role === 'coach' 
+                        {user.role === 'coach'
                           ? [
                               user.department?.split(' ').filter(w => !['of', 'and', 'the', 'for', 'in', 'at'].includes(w.toLowerCase())).map(w => w[0]).join('').toUpperCase(),
                               user.genderCategory ? `${user.genderCategory}'s` : null,
-                              user.sport,
+                              user.sports?.length ? user.sports.join(' / ') : user.sport,
                               'Coach'
                             ].filter(Boolean).join(' ')
                           : user.role}
@@ -473,19 +473,26 @@ export default function MainLayout() {
                   {!user && (
                     <>
                       {/* Public Navigation for non-logged-in users */}
-                      <nav className="hidden sm:flex items-center space-x-2">
-                        <Link to="/">
-                          <Button variant="ghost" size="sm">Live Events</Button>
-                        </Link>
-                        <Link to="/leaderboard">
-                          <Button variant="ghost" size="sm">Leaderboard</Button>
-                        </Link>
-                        <Link to="/history">
-                          <Button variant="ghost" size="sm">History</Button>
-                        </Link>
-                        <Link to="/announcements">
-                          <Button variant="ghost" size="sm">Announcements</Button>
-                        </Link>
+                      <nav className="hidden sm:flex items-center gap-1">
+                        {[
+                          { name: 'Live Events', path: '/' },
+                          { name: 'Leaderboard', path: '/leaderboard' },
+                          { name: 'History', path: '/history' },
+                          { name: 'Announcements', path: '/announcements' },
+                        ].map((item) => (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            className={cn(
+                              'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                              isActive(item.path)
+                                ? 'bg-red-50 text-red-700'
+                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            )}
+                          >
+                            {item.name}
+                          </Link>
+                        ))}
                       </nav>
                       <Link to="/login">
                         <Button size="sm" className="bg-red-600 hover:bg-red-700">

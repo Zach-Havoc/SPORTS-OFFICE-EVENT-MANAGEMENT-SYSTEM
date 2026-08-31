@@ -21,13 +21,18 @@ use App\Http\Controllers\Api\PerformanceController;
 use App\Http\Controllers\Api\RequirementController;
 use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\OcrController;
+use App\Http\Controllers\Api\MatchController;
 
 // ─────────────────────────────────────────────
 // PUBLIC ROUTES (no authentication required)
 // ─────────────────────────────────────────────
-Route::post('/signup', [AuthController::class, 'signup']);
-Route::post('/login',  [AuthController::class, 'login']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+// Sensitive auth endpoints are rate limited to slow credential/enumeration
+// and registration-code brute-force attacks.
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/signup', [AuthController::class, 'signup']);
+    Route::post('/login',  [AuthController::class, 'login']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
 
 // Public read-only
 Route::get('/departments', [DepartmentController::class, 'index']);
@@ -41,15 +46,23 @@ Route::get('/leaderboard', [RankingController::class, 'leaderboard']);
 Route::get('/scores/{eventId}', [ScoreController::class, 'show']);
 Route::get('/judge/{id}/status', [ScoreController::class, 'status']);
 
+// Head-to-head match records + standings (the bracket-seeding source)
+Route::get('/matches',           [MatchController::class, 'index']);
+Route::get('/matches/{id}',       [MatchController::class, 'show']);
+Route::get('/standings/{sport}',  [MatchController::class, 'standings']);
+
 // ─── MOBILE JUDGE APP — Public QR Routes ─────────────────────────────────────
 // These are intentionally public so judges can scan QR codes
 // before authenticating and see the event details first.
 Route::get('/event/session/{qrToken}', [EventSessionController::class, 'show']);
 Route::get('/event/{id}/criteria',     [EventSessionController::class, 'criteria']);
 
-// Public tryout
-Route::post('/tryouts/verify-email', [TryoutController::class, 'verifyEmail']);
-Route::post('/tryouts/apply',        [TryoutController::class, 'apply']);
+// Public tryout — throttled to prevent email-verification (OTP) brute force
+// and mail-bombing of arbitrary addresses.
+Route::middleware('throttle:6,1')->group(function () {
+    Route::post('/tryouts/verify-email', [TryoutController::class, 'verifyEmail']);
+    Route::post('/tryouts/apply',        [TryoutController::class, 'apply']);
+});
 
 // ─────────────────────────────────────────────
 // AUTHENTICATED ROUTES (Sanctum token required)
@@ -62,8 +75,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/account/profile',  [AuthController::class, 'updateProfile']);
     Route::put('/account/password', [AuthController::class, 'updatePassword']);
 
-    // Scores (judge)
-    Route::post('/scores', [ScoreController::class, 'store']);
+    // Scores — only authenticated judges (or admins) may submit.
+    // The judge identity is derived from the token server-side, not the body.
+    Route::post('/scores', [ScoreController::class, 'store'])
+        ->middleware('role:judge,admin');
 
     // ─── MOBILE JUDGE APP — Authenticated Routes ──────────────────────────────
     Route::post('/ocr/extract', [OcrController::class, 'extract']);
@@ -85,6 +100,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::put('/categories/{id}', [CategoryController::class, 'update']);
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+        Route::post('/matches', [MatchController::class, 'store']);
+        Route::put('/matches/{id}', [MatchController::class, 'update']);
+        Route::delete('/matches/{id}', [MatchController::class, 'destroy']);
 
         Route::post('/events', [EventController::class, 'store']);
         Route::put('/events/{id}', [EventController::class, 'update']);

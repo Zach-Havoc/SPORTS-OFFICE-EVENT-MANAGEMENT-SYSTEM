@@ -49,6 +49,16 @@ class PerformanceController extends Controller
 
         $user = $request->user();
 
+        // A coach may only record performance for athletes on their own roster.
+        if ($user->role === 'coach') {
+            $onRoster = Athlete::where('coach_id', $user->id)->where('id', $request->athleteId)->exists()
+                || \App\Models\User::where('coach_id', $user->id)->where('id', $request->athleteId)->exists();
+
+            if (!$onRoster) {
+                return response()->json(['error' => 'Athlete is not on your roster'], 403);
+            }
+        }
+
         $record = PerformanceRecord::create([
             'id'             => Str::uuid(),
             'athlete_id'     => $request->athleteId,

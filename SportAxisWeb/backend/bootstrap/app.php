@@ -23,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Prepend CORS handling for all requests
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
+
+        // Baseline security response headers (clickjacking / MIME sniffing / etc.)
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
