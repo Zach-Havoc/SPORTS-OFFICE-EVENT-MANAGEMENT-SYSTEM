@@ -61,7 +61,7 @@ export default function EventTable({ events }: EventTableProps) {
                 <div className="flex items-center gap-4 text-xs text-gray-600">
                   <span>{event.date}</span>
                   <span>•</span>
-                  <span>{event.judgesAssigned} judges assigned</span>
+                  <span>{event.judgesAssigned} committees assigned</span>
                 </div>
               </div>
               <div className="w-32">

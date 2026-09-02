@@ -224,7 +224,7 @@ export default function DepartmentCarousel() {
                   >
                     {slides[current].abbreviation}
                   </span>
-                  <span className="text-white/60 text-xs font-medium uppercase tracking-wider">Department</span>
+                  <span className="text-white/60 text-xs font-medium uppercase tracking-wider">College</span>
                 </div>
                 <h2
                   className="carousel-text-enter text-white font-black leading-tight"

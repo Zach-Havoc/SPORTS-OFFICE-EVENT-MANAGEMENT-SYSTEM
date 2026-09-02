@@ -41,8 +41,6 @@ export default function AdminCoaches() {
       return;
     }
     loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
   }, [user, navigate]);
 
   const loadData = async () => {
@@ -53,7 +51,7 @@ export default function AdminCoaches() {
       setCoaches(coachesData || []);
       console.log('Loading departments...');
       const deptData = await getDepartments();
-      console.log('Departments data:', deptData);
+      console.log('Colleges data:', deptData);
       setDepartments(deptData || []);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -81,7 +79,7 @@ export default function AdminCoaches() {
         : { department: departmentDraft };
       console.log('Updating coach department:', editingCoach.id, data);
       await updateCoachDepartment(editingCoach.id, data);
-      toast.success('Coach department updated successfully');
+      toast.success('Coach college updated');
       setDialogOpen(false);
       loadData();
     } catch (error: any) {
@@ -102,7 +100,7 @@ export default function AdminCoaches() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Coach Management</h1>
-        <p className="text-gray-500 mt-1">Manage coaches and their assigned departments</p>
+        <p className="text-gray-500 mt-1">Manage coaches and their assigned colleges</p>
       </div>
 
       {/* Coaches List */}
@@ -144,7 +142,7 @@ export default function AdminCoaches() {
                     onClick={() => handleOpenDialog(coach)}
                   >
                     <Edit className="h-4 w-4 mr-2" />
-                    Assign Department
+                    Assign College
                   </Button>
                 </div>
               </CardHeader>
@@ -161,7 +159,7 @@ export default function AdminCoaches() {
                   <div className="flex items-center">
                     <User className="h-4 w-4 mr-2 text-gray-400" />
                     <span className="text-sm text-gray-600">
-                      {coach.department ? coach.department : 'No department assigned'}
+                      {coach.department ? coach.department : 'No college assigned'}
                     </span>
                   </div>
                   {coach.enrollmentCode && (
@@ -182,15 +180,15 @@ export default function AdminCoaches() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign Department</DialogTitle>
+            <DialogTitle>Assign College</DialogTitle>
             <DialogDescription>
-              Assign a department to {editingCoach?.name}
+              Assign a college to {editingCoach?.name}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
+              <Label htmlFor="department">College</Label>
               <Select value={departmentDraft} onValueChange={setDepartmentDraft}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select department" />

@@ -32,7 +32,7 @@ export default function DashboardEnhanced() {
     }
   }, [user, navigate]);
 
-  // Background-refreshed on mount, tab-focus and reconnect (no polling loop).
+  // Loads once when the page opens; refresh the browser for the latest.
   const eventsQuery = useEvents();
   const departmentsQuery = useDepartments();
   const leaderboardQuery = useLeaderboard();
@@ -90,7 +90,7 @@ export default function DashboardEnhanced() {
   // Transform leaderboard for BarChart
   const scoresByParticipant = leaderboard.slice(0, 8).map((dept: any, index: number) => ({
     id: `dept-${index}`,
-    name: dept.department || `Department ${index + 1}`,
+    name: dept.department || `College ${index + 1}`,
     score: dept.totalPoints || 0
   }));
 
@@ -151,9 +151,9 @@ export default function DashboardEnhanced() {
         />
         <SummaryCard
           icon={Users}
-          label="Total Judges"
+          label="Total Committees"
           value={stats.totalJudges}
-          subtext="Registered judges"
+          subtext="Registered committees"
           iconColor="text-purple-500"
           accentColor="text-purple-600"
         />
@@ -208,7 +208,7 @@ export default function DashboardEnhanced() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <BarChartComponent
           data={scoresByParticipant}
-          title="Scores by Department"
+          title="Scores by College"
           description="Top 8 departments by points"
           dataKey="score"
           xAxisKey="name"

@@ -10,10 +10,12 @@ use Database\Factories\CategoryFactory;
 use Database\Factories\DepartmentFactory;
 use Database\Factories\EmailVerificationFactory;
 use Database\Factories\EventFactory;
+use Database\Factories\LiveScoreFactory;
 use Database\Factories\PerformanceRecordFactory;
 use Database\Factories\RegistrationCodeFactory;
 use Database\Factories\RequirementFactory;
 use Database\Factories\ScoreFactory;
+use Database\Factories\SiteSlideFactory;
 use Database\Factories\TeamMatchFactory;
 use Database\Factories\TryoutApplicationFactory;
 use Database\Factories\UserFactory;
@@ -43,10 +45,12 @@ abstract class TestCase extends BaseTestCase
     protected function categories(): CategoryFactory { return CategoryFactory::new(); }
     protected function venues(): VenueFactory { return VenueFactory::new(); }
     protected function events(): EventFactory { return EventFactory::new(); }
+    protected function liveScores(): LiveScoreFactory { return LiveScoreFactory::new(); }
     protected function regCodes(): RegistrationCodeFactory { return RegistrationCodeFactory::new(); }
     protected function athletes(): AthleteFactory { return AthleteFactory::new(); }
     protected function announcements(): AnnouncementFactory { return AnnouncementFactory::new(); }
     protected function scores(): ScoreFactory { return ScoreFactory::new(); }
+    protected function siteSlides(): SiteSlideFactory { return SiteSlideFactory::new(); }
     protected function teamMatches(): TeamMatchFactory { return TeamMatchFactory::new(); }
     protected function requirements(): RequirementFactory { return RequirementFactory::new(); }
     protected function tryouts(): TryoutApplicationFactory { return TryoutApplicationFactory::new(); }

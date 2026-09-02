@@ -16,7 +16,7 @@ export interface AuthState {
   token: string | null;
 }
 
-// ── Event & Criteria ─────────────────────────────────────────────────────────
+// ── Event ────────────────────────────────────────────────────────────────────
 
 /**
  * Matches the shape returned by GET /api/events and GET /api/events/{id}
@@ -33,17 +33,9 @@ export interface EventSummary {
   venueName: string | null;
   departments: string[];
   judges: string[];
-  criteria: Array<{ id: string; name: string; max_score: number; weight?: number | null }>;
   status: 'upcoming' | 'ongoing' | 'completed';
   qrToken: string;
   createdAt: string;
-}
-
-export interface Criterion {
-  criteria_id: string;
-  name: string;
-  max_score: number;
-  weight?: number | null;
 }
 
 export interface EventSession {
@@ -62,24 +54,49 @@ export interface EventSession {
 
 export interface EventSessionResponse {
   event: EventSession;
-  criteria: Criterion[];
 }
 
 // ── Scores ───────────────────────────────────────────────────────────────────
 
-export interface ScoreEntry {
-  criteria_id: string;
-  value: number;
+export type ScoringMethod = 'manual' | 'ocr';
+
+// ── Live game score ──────────────────────────────────────────────────────────
+
+export type LiveStatus = 'scheduled' | 'in_progress' | 'final';
+
+export interface LiveScore {
+  eventId: string;
+  sport: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  homeScore: number;
+  awayScore: number;
+  period: string | null;
+  detail: Record<string, unknown>;
+  status: LiveStatus;
+  version: number;
+  updatedBy: string | null;
+  startedAt: string | null;
+  finalizedAt: string | null;
+  updatedAt: string | null;
 }
 
-export type ScoringMethod = 'manual' | 'ocr';
+export interface LiveScorePush {
+  homeTeam?: string | null;
+  awayTeam?: string | null;
+  homeScore?: number;
+  awayScore?: number;
+  period?: string | null;
+  detail?: Record<string, unknown>;
+  status?: LiveStatus;
+  version?: number;
+}
 
 export interface ScorePayload {
   eventId: string;
   department: string;
   judgeId: string;
   judgeName: string;
-  scores: ScoreEntry[];
   totalScore: number;
   method: ScoringMethod;
   image_url?: string | null;
@@ -100,15 +117,10 @@ export interface ScoreSubmissionResponse {
 
 // ── OCR ──────────────────────────────────────────────────────────────────────
 
-export interface OcrExtractedScore {
-  label: string;
-  criteria_id?: string | null;
-  value: number;
-}
-
 export interface OcrResult {
-  extracted_scores: OcrExtractedScore[];
+  total_score: number;
   confidence: number;
+  image_url?: string | null;
   raw_text?: string;
   is_mock?: boolean;
 }

@@ -1,22 +1,24 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
+import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { getEvents, getDepartments, getVenues, createEvent, getStandings } from '../../services/api';
+import { getDepartments, getVenues, getStandings, createBracket, publishBracket } from '../../services/api';
+import { useBrackets } from '../../hooks/api';
 import { Badge } from '../../components/ui/badge';
 import { SingleEliminationBracket, Match as BracketMatch } from '@g-loot/react-tournament-brackets';
 import { seededSlotOrder } from '../../utils/bracket';
+import { makeAbbreviator, shortDeptLabel } from '../../utils/departments';
 
 interface Venue {
   id: string;
   name: string;
-  type: 'indoor' | 'outdoor' | 'open';
+  type: string;
   capacity: number;
   sports: string[];
   location: string;
@@ -58,6 +60,38 @@ interface Bracket {
   rounds: number;
 }
 
+/** Saved (persisted) brackets for the chosen sport, with progression links. */
+function SavedBrackets({ sport }: { sport: string }) {
+  const { data } = useBrackets(sport || undefined);
+  const list = (data ?? []) as Array<{ id: string; name: string; status: string; champion: string | null; matchCount: number }>;
+  if (list.length === 0) return null;
+
+  const dot: Record<string, string> = {
+    draft: 'bg-gray-400', active: 'bg-blue-500', completed: 'bg-emerald-500',
+  };
+
+  return (
+    <div className="rounded-md border border-gray-200">
+      <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600">Saved brackets</div>
+      <ul className="divide-y">
+        {list.map((b) => (
+          <li key={b.id}>
+            <Link to={`/admin/bracketing/${b.id}`} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${dot[b.status] ?? 'bg-gray-300'}`} />
+              <span className="min-w-0 flex-1 truncate">
+                {b.name}
+                {b.champion && <span className="ml-1 text-xs text-emerald-600">· {b.champion} 🏆</span>}
+              </span>
+              <span className="text-xs text-gray-400">{b.matchCount}</span>
+              <ChevronRight className="h-4 w-4 text-gray-300" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function AdminBracketing() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -65,6 +99,10 @@ export default function AdminBracketing() {
   const [generating, setGenerating] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
+  const abbr = useMemo(() => makeAbbreviator(departments), [departments]);
+  // Compact label for tight bracket boxes — keeps 'TBD' / 'BYE' as-is.
+  const shortTeam = (name?: string | null) =>
+    !name || name === 'TBD' || name === 'BYE' ? (name ?? '') : shortDeptLabel(abbr, name);
   const [bracket, setBracket] = useState<Bracket | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bracketZoom, setBracketZoom] = useState(1);
@@ -90,16 +128,20 @@ export default function AdminBracketing() {
     sport: '',
     format: 'single-elimination' as 'single-elimination' | 'round-robin',
     participants: [] as string[],
-    startDate: new Date().toISOString().split('T')[0],
-    startTime: '09:00',
+    venueId: '' as string,   // '' = auto-assign a venue that matches the sport
+    startDate: '',           // admin picks it — no default
+    startTime: '',
     matchDuration: 60, // minutes
     breakDuration: 15, // minutes between matches
-    seedFromStandings: false,
+    drawMethod: 'random' as 'random' | 'standings' | 'manual',
   });
 
   // Standings for the selected sport (wins / point differential), used to seed.
   const [standings, setStandings] = useState<any[]>([]);
   const [standingsLoading, setStandingsLoading] = useState(false);
+
+  // One-line venue/time clash notice shown in the preview when a save is blocked.
+  const [saveConflict, setSaveConflict] = useState<string | null>(null);
 
   const sportsList = [
     'Basketball', 'Volleyball', 'Badminton', 'Football',
@@ -167,37 +209,46 @@ export default function AdminBracketing() {
     setConfig(prev => ({ ...prev, participants: [] }));
   };
 
+  /** Venues whose `sports` list explicitly names this sport. */
+  const venuesForSport = (sport: string): Venue[] =>
+    venues.filter(v =>
+      (v.sports || []).some(s => s && s.toLowerCase() === sport.toLowerCase()),
+    );
+
+  /**
+   * Pick the venue for a match.
+   *
+   *  - If the admin chose a specific venue in the config, always use that.
+   *  - Otherwise only auto-assign a venue that EXPLICITLY lists this sport.
+   *    If none does, return `undefined` so the match stays "TBD" rather than
+   *    being dumped somewhere wrong (e.g. Swimming in the Main Gymnasium).
+   *    The admin is warned and can add/pick a venue.
+   */
   const assignVenueForMatch = (sport: string): Venue | undefined => {
-    // Filter venues that support this sport safely
-    const suitableVenues = venues.filter(v => {
-      const sports = v.sports || [];
-      return sports.length === 0 || sports.some(s => s && s.toLowerCase() === sport.toLowerCase());
-    });
-
-    if (suitableVenues.length === 0) {
-      return undefined;
+    if (config.venueId) {
+      return venues.find(v => v.id === config.venueId);
     }
 
-    // Prioritize venue types based on sport
+    const pool = venuesForSport(sport);
+    if (pool.length === 0) return undefined;
+
+    // Nudge toward the right kind of facility when the venue `type` is set.
     const sportLower = sport.toLowerCase();
-    let preferredType: 'indoor' | 'outdoor' | 'open' | null = null;
-
-    if (['basketball', 'volleyball', 'badminton', 'table tennis'].includes(sportLower)) {
-      preferredType = 'open'; // Gymnasium for court sports
-    } else if (['swimming'].includes(sportLower)) {
-      preferredType = 'indoor'; // Pool
+    let preferred: string | null = null;
+    if (['basketball', 'volleyball', 'badminton', 'table tennis', 'tennis'].includes(sportLower)) {
+      preferred = 'court';
+    } else if (sportLower === 'swimming') {
+      preferred = 'pool';
     } else if (['football', 'track & field'].includes(sportLower)) {
-      preferredType = 'outdoor'; // Field sports
+      preferred = 'field';
     }
 
-    // Try to find preferred type first
-    if (preferredType) {
-      const preferred = suitableVenues.find(v => v.type === preferredType);
-      if (preferred) return preferred;
+    if (preferred) {
+      const match = pool.find(v => (v.type || '').toLowerCase().includes(preferred!));
+      if (match) return match;
     }
 
-    // Otherwise return first suitable venue
-    return suitableVenues[0];
+    return pool[0];
   };
 
   const parseStartDateTime = (startDateStr: string, startTimeStr: string): Date => {
@@ -365,27 +416,35 @@ export default function AdminBracketing() {
       return;
     }
 
+    if (!config.startDate || !config.startTime) {
+      toast.error('Set a start date and time.');
+      return;
+    }
+
+    setSaveConflict(null);
     setGenerating(true);
 
     try {
       let seededOrder: (string | null)[] | undefined;
 
-      if (config.format === 'single-elimination' && config.seedFromStandings) {
-        // Rank the chosen participants by their standings (wins, then point
-        // differential); anyone without a record goes to the bottom.
-        const rank = new Map<string, number>();
-        standings.forEach((row: any, i: number) => rank.set(row.department, i));
-        const bySeed = [...config.participants].sort(
-          (a, b) => (rank.get(a) ?? 9999) - (rank.get(b) ?? 9999),
-        );
-        seededOrder = seededSlotOrder(bySeed);
+      if (config.format === 'single-elimination') {
+        let ordered = [...config.participants];
 
-        const withRecord = config.participants.filter((p) => rank.has(p)).length;
-        if (withRecord === 0) {
-          toast.error('No standings found for this sport yet — generate a random draw or record some match results first.');
-          setGenerating(false);
-          return;
+        if (config.drawMethod === 'standings') {
+          const rank = new Map<string, number>();
+          standings.forEach((row: any, i: number) => rank.set(row.department, i));
+          if (config.participants.every((p) => !rank.has(p))) {
+            toast.error('No standings for this sport yet.');
+            setGenerating(false);
+            return;
+          }
+          ordered.sort((a, b) => (rank.get(a) ?? 9999) - (rank.get(b) ?? 9999));
+        } else if (config.drawMethod === 'random') {
+          ordered = ordered.sort(() => Math.random() - 0.5);
         }
+        // 'manual' → keep the order the admin selected them in.
+
+        seededOrder = seededSlotOrder(ordered);
       }
 
       const newBracket = config.format === 'single-elimination'
@@ -393,8 +452,20 @@ export default function AdminBracketing() {
         : generateRoundRobinBracket();
 
       setBracket(newBracket);
-      const seededNote = seededOrder ? ' (seeded from standings)' : '';
-      toast.success(`${config.format === 'single-elimination' ? 'Single Elimination' : 'Round Robin'} bracket generated with ${newBracket.matches.length} matches${seededNote}`);
+      const drawNote =
+        config.format !== 'single-elimination' ? '' :
+        config.drawMethod === 'standings' ? ' · seeded from standings' :
+        config.drawMethod === 'random' ? ' · random draw' : ' · manual order';
+      const seededNote = drawNote;
+      toast.success(`Bracket generated — ${newBracket.matches.length} matches${seededNote}`);
+
+      // Flag matches with no venue so the admin sets one before saving.
+      const missingVenue = newBracket.matches.some(
+        (m) => !m.venue && m.team1 !== 'BYE' && m.team2 !== 'BYE',
+      );
+      if (missingVenue) {
+        toast.warning(`No venue for ${config.sport} — matches saved as “TBD”.`);
+      }
     } catch (error: any) {
       console.error('Error generating bracket:', error);
       toast.error('Failed to generate bracket');
@@ -403,65 +474,45 @@ export default function AdminBracketing() {
     }
   };
 
-  const calculateEndTime = (startTimeStr: string, durationMinutes: number): string => {
-    if (!startTimeStr) return '10:00';
-    const [hours, minutes] = startTimeStr.split(':').map(Number);
-    const totalMinutes = (hours || 9) * 60 + (minutes || 0) + (durationMinutes || 60);
-    const endHours = Math.floor(totalMinutes / 60) % 24;
-    const endMins = totalMinutes % 60;
-    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
-  };
-
+  // Persist the bracket server-side (authoritative generation), then publish
+  // it into scheduled events. On a venue clash the bracket is kept as a draft
+  // and we land on its detail page so the admin can adjust and re-publish.
   const handleSaveBracket = async () => {
     if (!bracket) return;
 
     try {
+      setSaveConflict(null);
       setGenerating(true);
 
-      // Filter out matches that are BYE vs BYE or BYE vs single team auto-advances
-      const playableMatches = bracket.matches.filter(
-        match => match.team1 !== 'BYE' && match.team2 !== 'BYE'
-      );
+      const payload = {
+        sport: config.sport,
+        format: config.format === 'single-elimination' ? 'single_elimination' : 'round_robin',
+        participants: config.participants,
+        drawMethod: config.format === 'single-elimination' ? config.drawMethod : 'manual',
+        startDate: config.startDate,
+        startTime: config.startTime,
+        matchDuration: config.matchDuration,
+        breakDuration: config.breakDuration,
+        venueId: config.venueId || null,
+      };
 
-      if (playableMatches.length === 0) {
-        toast.error('No playable matches to save.');
+      const created = await createBracket(payload);
+
+      try {
+        await publishBracket(created.id);
+      } catch (e: any) {
+        setSaveConflict(e?.message || 'Venue already scheduled for one or more matches.');
+        toast.error('Saved as draft — resolve the venue clash, then publish.');
+        navigate(`/admin/bracketing/${created.id}`);
         return;
       }
 
-      // Create events for each match
-      const eventPromises = playableMatches.map(match => {
-        const roundLabel = getRoundName(match.round, bracket.rounds, bracket.format);
-        const eventName = `${bracket.sport} (${roundLabel}): ${match.team1} vs ${match.team2}`;
-        
-        const startTime = match.time || config.startTime || '09:00';
-        const endTime = calculateEndTime(startTime, config.matchDuration || 60);
-
-        const depts = [match.team1, match.team2].filter(t => t && t !== 'TBD' && t !== 'BYE');
-        const departmentsList = depts.length > 0 ? depts : bracket.participants;
-
-        return createEvent({
-          name: eventName,
-          category: bracket.sport,
-          schedule: match.date || config.startDate,
-          startTime: startTime,
-          endTime: endTime,
-          venueId: match.venue?.id,
-          venueName: match.venue?.name || 'TBD',
-          departments: departmentsList,
-          criteria: [{ name: 'Overall Performance', weight: 100 }],
-          status: 'upcoming',
-        });
-      });
-
-      await Promise.all(eventPromises);
-
-      toast.success(`Successfully created ${playableMatches.length} event(s) from bracket`);
+      toast.success('Bracket saved and events created.');
       setBracket(null);
-      setDialogOpen(false);
-      navigate('/admin/events');
+      navigate(`/admin/bracketing/${created.id}`);
     } catch (error: any) {
       console.error('Error saving bracket:', error);
-      toast.error(error.message || 'Failed to save bracket as events');
+      toast.error(error.message || 'Failed to save bracket.');
     } finally {
       setGenerating(false);
     }
@@ -498,13 +549,13 @@ export default function AdminBracketing() {
             id: match.team1,
             isWinner: match.winner === match.team1,
             status: null,
-            name: match.team1
+            name: shortTeam(match.team1)
           },
           {
             id: match.team2,
             isWinner: match.winner === match.team2,
             status: null,
-            name: match.team2
+            name: shortTeam(match.team2)
           }
         ]
       };
@@ -552,6 +603,27 @@ export default function AdminBracketing() {
         <SingleEliminationBracket
           matches={formatMatchesForBracketUI(bracket.matches, bracket.rounds)}
           matchComponent={BracketMatch}
+          options={{
+            style: {
+              roundHeader: {
+                backgroundColor: '#B91C1C',
+                fontColor: '#ffffff',
+                // g-loot's default prints "Round <text>" for early columns and
+                // hard-codes "Semi-final" / "Final" for the last two — supplying
+                // a generator replaces all of that.
+                roundTextGenerator: (current: number, total: number) => {
+                  switch (total - current) {
+                    case 0: return 'Finals';
+                    case 1: return 'Semi-Finals';
+                    case 2: return 'Quarter-Finals';
+                    default: return `Round ${current}`;
+                  }
+                },
+              },
+              connectorColor: '#CBD5E1',
+              connectorColorHighlight: '#B91C1C',
+            },
+          } as any}
         />
       </div>
     );
@@ -626,21 +698,26 @@ export default function AdminBracketing() {
             </div>
 
             {config.format === 'single-elimination' && (
-              <label className="flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 p-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={config.seedFromStandings}
-                  onChange={(e) => setConfig({ ...config, seedFromStandings: e.target.checked })}
-                />
-                <span className="text-sm">
-                  <span className="font-medium text-gray-900">Seed from standings</span>
-                  <span className="block text-xs text-gray-500 mt-0.5">
-                    Rank teams by wins, then point differential. #1 plays the lowest seed;
-                    byes go to the top seeds. Off = random draw.
-                  </span>
-                </span>
-              </label>
+              <div className="space-y-1.5 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <label className="block text-sm font-medium text-gray-900">Draw method</label>
+                <select
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  value={config.drawMethod}
+                  onChange={(e) => setConfig({ ...config, drawMethod: e.target.value as typeof config.drawMethod })}
+                >
+                  <option value="random">Random draw</option>
+                  <option value="standings">Seed from standings</option>
+                  <option value="manual">Manual order (as selected)</option>
+                </select>
+                <p className="text-xs text-gray-500">
+                  {config.drawMethod === 'random' &&
+                    'Teams are shuffled, then slotted so #1 and #2 sit in opposite halves.'}
+                  {config.drawMethod === 'standings' &&
+                    'Rank by wins, then point differential. #1 plays the lowest seed; byes go to the top seeds.'}
+                  {config.drawMethod === 'manual' &&
+                    'Uses the exact order you ticked the colleges — first = seed #1.'}
+                </p>
+              </div>
             )}
 
             {config.sport && (
@@ -701,6 +778,32 @@ export default function AdminBracketing() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="venue">Venue</Label>
+              <select
+                id="venue"
+                className="w-full rounded-md border border-gray-300 px-3 py-2"
+                value={config.venueId}
+                onChange={(e) => setConfig({ ...config, venueId: e.target.value })}
+              >
+                <option value="">
+                  {config.sport ? `Auto — match to ${config.sport}` : 'Auto — match to sport'}
+                </option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}{v.type ? ` · ${v.type}` : ''}
+                  </option>
+                ))}
+              </select>
+              {config.venueId ? (
+                <p className="text-xs text-gray-500">All matches use this venue.</p>
+              ) : config.sport && venuesForSport(config.sport).length === 0 ? (
+                <p className="text-xs text-amber-600">No venue for {config.sport} — matches will be “TBD”.</p>
+              ) : (
+                <p className="text-xs text-gray-500">Auto: a venue that lists {config.sport || 'the sport'}.</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="matchDuration">Match Duration (min)</Label>
               <Input
                 id="matchDuration"
@@ -751,12 +854,14 @@ export default function AdminBracketing() {
 
             <Button
               onClick={handleGenerateBracket}
-              disabled={generating || !config.sport || config.participants.length < 2}
+              disabled={generating || !config.sport || config.participants.length < 2 || !config.startDate || !config.startTime}
               className="w-full"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Generate Bracket
             </Button>
+
+            <SavedBrackets sport={config.sport} />
           </CardContent>
         </Card>
 
@@ -780,6 +885,14 @@ export default function AdminBracketing() {
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Venue / time conflict — save blocked */}
+                {saveConflict && (
+                  <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    Venue conflict — not saved. {saveConflict}
+                  </div>
+                )}
+
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4">
                   <Card>
@@ -849,14 +962,23 @@ export default function AdminBracketing() {
                                         <Calendar className="h-3 w-3" />
                                         {match.date} {match.time}
                                       </div>
-                                      {match.venue && (
+                                      {match.venue ? (
                                         <div className="flex items-center gap-1">
                                           <MapPin className="h-3 w-3" />
                                           {match.venue.name}
-                                          <Badge variant="outline" className="ml-1 text-xs">
-                                            {match.venue.type}
-                                          </Badge>
+                                          {match.venue.type && (
+                                            <Badge variant="outline" className="ml-1 text-xs">
+                                              {match.venue.type}
+                                            </Badge>
+                                          )}
                                         </div>
+                                      ) : (
+                                        match.team1 !== 'BYE' && match.team2 !== 'BYE' && (
+                                          <div className="flex items-center gap-1 text-amber-600">
+                                            <MapPin className="h-3 w-3" />
+                                            Venue: TBD
+                                          </div>
+                                        )
                                       )}
                                     </div>
                                   </div>
@@ -872,13 +994,16 @@ export default function AdminBracketing() {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button onClick={() => setBracket(null)} variant="outline" className="flex-1">
+                  <Button onClick={() => { setBracket(null); setSaveConflict(null); }} variant="outline" className="flex-1">
                     Clear Bracket
                   </Button>
                   <Button onClick={handleSaveBracket} disabled={generating} className="flex-1">
-                    Save as Events
+                    {generating ? 'Saving…' : 'Save & Publish'}
                   </Button>
                 </div>
+                <p className="text-xs text-gray-400 text-center">
+                  Saves the bracket and creates its events. Advance winners from the bracket page as results come in.
+                </p>
               </div>
             )}
           </CardContent>

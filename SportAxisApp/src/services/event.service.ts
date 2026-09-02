@@ -1,9 +1,9 @@
 import api from './api';
 import { storage, STORAGE_KEYS } from '../storage/async-storage';
-import type { EventSessionResponse, Criterion } from '../types';
+import type { EventSessionResponse } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Event Service — QR session lookup, criteria fetching, and event listing
+// Event Service — QR session lookup and event listing
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const eventService = {
@@ -26,10 +26,30 @@ export const eventService = {
     const response = await api.get(`/events/${id}`);
     return response.data;
   },
+
+  /**
+   * GET /api/departments
+   *
+   * Department list with abbreviations (for showing "CICS" instead of the full
+   * college name). Public endpoint; cached locally for offline use.
+   */
+  async getDepartments(): Promise<{ id: string; name: string; abbreviation: string | null }[]> {
+    try {
+      const response = await api.get('/departments');
+      await storage.setJSON('departments', response.data);
+      return response.data;
+    } catch (error: any) {
+      if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
+        const cached = await storage.getJSON<{ id: string; name: string; abbreviation: string | null }[]>('departments');
+        if (cached) return cached;
+      }
+      throw error;
+    }
+  },
   /**
    * GET /api/event/session/{qrToken}
    *
-   * Resolves a QR token to an event session + criteria.
+   * Resolves a QR token to an event session.
    * This is the primary QR scan endpoint — public, no auth required.
    * Caches the result locally for offline use.
    */
@@ -39,62 +59,24 @@ export const eventService = {
     );
     const data = response.data;
 
-    // Cache event and criteria locally
-    await Promise.all([
-      storage.setJSON(STORAGE_KEYS.EVENT_SESSION, data.event),
-      storage.setJSON(STORAGE_KEYS.EVENT_CRITERIA, data.criteria),
-    ]);
+    await storage.setJSON(STORAGE_KEYS.EVENT_SESSION, data.event);
 
     return data;
   },
 
   /**
-   * GET /api/event/{id}/criteria
-   *
-   * Fetches just the criteria array for an event by ID.
-   * Used to refresh criteria when the event is already cached.
-   * Falls back to local cache if network is unavailable.
-   */
-  async getEventCriteria(eventId: string): Promise<Criterion[]> {
-    try {
-      const response = await api.get<{ event_id: string; criteria: Criterion[] }>(
-        `/event/${eventId}/criteria`,
-      );
-      const criteria = response.data.criteria;
-
-      // Update local cache
-      await storage.setJSON(STORAGE_KEYS.EVENT_CRITERIA, criteria);
-      return criteria;
-    } catch (error: any) {
-      // If offline, return cached criteria
-      if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-        const cached = await storage.getJSON<Criterion[]>(STORAGE_KEYS.EVENT_CRITERIA);
-        if (cached) return cached;
-      }
-      throw error;
-    }
-  },
-
-  /**
-   * Load cached event session from local storage (offline support).
+   * Load the cached event session from local storage (offline support).
    */
   async loadCachedSession(): Promise<EventSessionResponse | null> {
-    const [event, criteria] = await Promise.all([
-      storage.getJSON<EventSessionResponse['event']>(STORAGE_KEYS.EVENT_SESSION),
-      storage.getJSON<Criterion[]>(STORAGE_KEYS.EVENT_CRITERIA),
-    ]);
-
-    if (!event || !criteria) return null;
-    return { event, criteria };
+    const event = await storage.getJSON<EventSessionResponse['event']>(STORAGE_KEYS.EVENT_SESSION);
+    if (!event) return null;
+    return { event };
   },
 
   /**
    * Clear the cached event session (e.g., after submission or logout).
    */
   async clearCachedSession(): Promise<void> {
-    await Promise.all([
-      storage.remove(STORAGE_KEYS.EVENT_SESSION),
-      storage.remove(STORAGE_KEYS.EVENT_CRITERIA),
-    ]);
+    await storage.remove(STORAGE_KEYS.EVENT_SESSION);
   },
 };

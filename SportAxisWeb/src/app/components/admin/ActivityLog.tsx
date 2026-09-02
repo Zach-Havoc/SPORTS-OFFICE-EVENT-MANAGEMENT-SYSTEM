@@ -41,7 +41,7 @@ export default function ActivityLog({ activities }: ActivityLogProps) {
       case 'score':
         return <Badge className="bg-green-100 text-green-800">Score</Badge>;
       case 'judge':
-        return <Badge className="bg-blue-100 text-blue-800">Judge</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800">Committee</Badge>;
       case 'event':
         return <Badge className="bg-purple-100 text-purple-800">Event</Badge>;
       case 'system':

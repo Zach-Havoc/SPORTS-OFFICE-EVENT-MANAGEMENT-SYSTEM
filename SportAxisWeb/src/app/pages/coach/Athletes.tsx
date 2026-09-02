@@ -354,7 +354,7 @@ export default function CoachAthletes() {
                   <tr className="border-b bg-gray-50">
                     <th className="text-left py-3 px-4 font-semibold text-gray-600">Athlete</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden md:table-cell">Student ID</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden md:table-cell">Department</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden md:table-cell">College</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden lg:table-cell">Year</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden sm:table-cell">Joined via</th>
@@ -426,7 +426,7 @@ export default function CoachAthletes() {
           </DialogHeader>
 
           <div className="py-2">
-            <Label className="mb-2 block">Department <span className="text-red-500">*</span></Label>
+            <Label className="mb-2 block">College <span className="text-red-500">*</span></Label>
             <Select value={departmentDraft} onValueChange={setDepartmentDraft}>
               <SelectTrigger>
                 <SelectValue placeholder="Select your department" />

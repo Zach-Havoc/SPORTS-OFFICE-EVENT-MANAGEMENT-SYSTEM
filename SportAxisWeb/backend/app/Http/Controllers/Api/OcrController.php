@@ -10,10 +10,11 @@ use Illuminate\Support\Str;
  * OcrController
  *
  * Handles OCR (Optical Character Recognition) image processing for the
- * mobile judge app's secondary scoring mode. Judges can photograph a
- * physical score sheet, and this endpoint extracts the scores.
+ * mobile scoring app's secondary scoring mode. A committee member can
+ * photograph a physical score sheet, and this endpoint extracts the
+ * overall score for the team being scored.
  *
- * MVP: Returns mock extracted scores.
+ * MVP: Returns a mock extracted total.
  * Production: Wire to Google Cloud Vision API or Azure Computer Vision.
  */
 class OcrController extends Controller
@@ -21,17 +22,17 @@ class OcrController extends Controller
     /**
      * POST /api/ocr/extract
      *
-     * Accept a base64-encoded image or multipart file upload,
-     * process it with OCR, and return extracted score labels + values.
+     * Accept a base64-encoded image or multipart file upload, process it
+     * with OCR, and return the single overall score read from the sheet.
      *
      * Request body:
-     *   - image: string (base64) OR file upload
-     *   - criteria: array (optional, for label matching hints)
+     *   - image: string (base64) OR image_file: file upload
      *
      * Response:
      *   {
-     *     extracted_scores: [{ label: string, value: number }],
+     *     total_score: number,
      *     confidence: float (0-1),
+     *     image_url: string|null,
      *     raw_text: string (optional debug)
      *   }
      */
@@ -41,7 +42,6 @@ class OcrController extends Controller
             // Cap the raw base64 string too (~13.4MB base64 ≈ 10MB binary).
             'image'      => 'required_without:image_file|nullable|string|max:14000000',
             'image_file' => 'required_without:image|file|image|max:10240',
-            'criteria'   => 'sometimes|array',
         ]);
 
         $base64Image = null;
@@ -57,35 +57,11 @@ class OcrController extends Controller
             $imageUrl = $this->storeImage($base64Image);
         }
 
-        $criteria = $request->input('criteria', []);
-
-        if (empty($criteria)) {
-            return response()->json([
-                'extracted_scores' => [
-                    ['label' => 'Score 1', 'value' => 8.5],
-                    ['label' => 'Score 2', 'value' => 7.0],
-                ],
-                'confidence' => 0.88,
-                'image_url'  => $imageUrl,
-                'raw_text'   => 'Extracted text from score sheet image',
-            ]);
-        }
-
-        $extractedScores = collect($criteria)->map(function ($criterion) {
-            $maxScore = (float)($criterion['max_score'] ?? 10);
-            $mockValue = round(mt_rand((int)($maxScore * 65), (int)($maxScore * 95)) / 100, 1);
-            return [
-                'label'       => $criterion['name'] ?? 'Unknown',
-                'criteria_id' => $criterion['criteria_id'] ?? null,
-                'value'       => min($mockValue, $maxScore),
-            ];
-        })->values()->toArray();
-
         return response()->json([
-            'extracted_scores' => $extractedScores,
-            'confidence'       => 0.91,
-            'image_url'        => $imageUrl,
-            'raw_text'         => 'Extracted score sheet metrics successfully.',
+            'total_score' => round(mt_rand(6500, 9500) / 100, 1),
+            'confidence'  => 0.9,
+            'image_url'   => $imageUrl,
+            'raw_text'    => 'Extracted overall score from score sheet image.',
         ]);
     }
 

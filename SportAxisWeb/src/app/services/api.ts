@@ -146,6 +146,26 @@ export const updateEvent = (id: string, data: any) =>
   apiRequest(`/events/${id}`, { method: 'PUT', body: JSON.stringify(data) }, true);
 export const deleteEvent = (id: string) =>
   apiRequest(`/events/${id}`, { method: 'DELETE' }, true);
+export const bulkDeleteEvents = (ids: string[]) =>
+  apiRequest('/events/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }, true);
+export const bulkUpdateEventStatus = (ids: string[], status: string) =>
+  apiRequest('/events/bulk-status', { method: 'POST', body: JSON.stringify({ ids, status }) }, true);
+
+// ─────────────────────────────────────────────────────────────────────
+// Brackets — persisted tournament trees with progression
+// ─────────────────────────────────────────────────────────────────────
+
+export const getBrackets = (sport?: string) =>
+  apiRequest(`/brackets${sport ? `?sport=${encodeURIComponent(sport)}` : ''}`);
+export const getBracket = (id: string) => apiRequest(`/brackets/${id}`);
+export const createBracket = (data: any) =>
+  apiRequest('/brackets', { method: 'POST', body: JSON.stringify(data) }, true);
+export const publishBracket = (id: string) =>
+  apiRequest(`/brackets/${id}/publish`, { method: 'POST' }, true);
+export const advanceBracketMatch = (bracketId: string, matchId: string, body?: { winner?: string; force?: boolean }) =>
+  apiRequest(`/brackets/${bracketId}/matches/${matchId}/advance`, { method: 'POST', body: JSON.stringify(body ?? {}) }, true);
+export const deleteBracket = (id: string, withEvents = false) =>
+  apiRequest(`/brackets/${id}${withEvents ? '?withEvents=1' : ''}`, { method: 'DELETE' }, true);
 
 // ─────────────────────────────────────────────────────────────────────
 // Scores & Rankings
@@ -160,8 +180,47 @@ export const getLeaderboard = (category?: string) => {
   const q = category ? `?category=${encodeURIComponent(category)}` : '';
   return apiRequest(`/leaderboard${q}`);
 };
-export const extractOcrScores = (data: { image?: string; criteria?: any[] }) =>
+export const extractOcrScores = (data: { image?: string }) =>
   apiRequest('/ocr/extract', { method: 'POST', body: JSON.stringify(data) }, true);
+
+// ─────────────────────────────────────────────────────────────────────
+// Live game scores — the running score of a game in progress
+// ─────────────────────────────────────────────────────────────────────
+
+export interface LiveScore {
+  eventId: string;
+  sport: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  homeScore: number;
+  awayScore: number;
+  period: string | null;
+  detail: any;
+  status: 'scheduled' | 'in_progress' | 'final';
+  version: number;
+  updatedBy: string | null;
+  startedAt: string | null;
+  finalizedAt: string | null;
+  updatedAt: string | null;
+  eventName?: string | null;
+  venueName?: string | null;
+  category?: string | null;
+}
+
+export const getLiveScores = (activeOnly = false): Promise<LiveScore[]> =>
+  apiRequest(`/live-scores${activeOnly ? '?active=1' : ''}`);
+
+export const getEventLiveScore = (eventId: string): Promise<{ live: LiveScore | null }> =>
+  apiRequest(`/events/${eventId}/live`);
+
+export const pushEventLiveScore = (
+  eventId: string,
+  data: Partial<Pick<LiveScore, 'homeTeam' | 'awayTeam' | 'homeScore' | 'awayScore' | 'period' | 'detail' | 'status' | 'version'>>,
+): Promise<{ live: LiveScore }> =>
+  apiRequest(`/events/${eventId}/live`, { method: 'PUT', body: JSON.stringify(data) }, true);
+
+export const clearEventLiveScore = (eventId: string) =>
+  apiRequest(`/events/${eventId}/live`, { method: 'DELETE' }, true);
 
 // ─────────────────────────────────────────────────────────────────────
 // Match records & standings (the bracket-seeding source)
@@ -238,6 +297,44 @@ export const updateCoachProfile = (data: { sports: string[]; department: string;
 export const getCoaches = () => apiRequest('/admin/coaches', {}, true);
 export const updateCoachDepartment = (id: string, data: { department: string | null }) =>
   apiRequest(`/admin/coaches/${id}`, { method: 'PUT', body: JSON.stringify(data) }, true);
+
+// ─────────────────────────────────────────────────────────────────────
+// User Management (admin only) — every account, all roles
+// ─────────────────────────────────────────────────────────────────────
+
+export type UserRole = 'admin' | 'coach' | 'athlete' | 'judge';
+
+export interface UserListFilters {
+  role?: UserRole;
+  status?: 'active' | 'inactive';
+  search?: string;
+}
+
+export const getUsers = (filters: UserListFilters = {}) => {
+  const qs = new URLSearchParams(
+    Object.entries(filters).filter(([, v]) => v != null && v !== '') as [string, string][],
+  ).toString();
+  return apiRequest(`/admin/users${qs ? `?${qs}` : ''}`, {}, true);
+};
+
+export const getUser = (id: string) => apiRequest(`/admin/users/${id}`, {}, true);
+
+export const updateUser = (
+  id: string,
+  data: Partial<{ name: string; email: string; role: UserRole; department: string | null; sport: string | null; genderCategory: string | null }>,
+) => apiRequest(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }, true);
+
+export const setUserActive = (id: string, active: boolean) =>
+  apiRequest(`/admin/users/${id}/active`, { method: 'POST', body: JSON.stringify({ active }) }, true);
+
+export const resetUserPassword = (id: string, password?: string) =>
+  apiRequest(`/admin/users/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify(password ? { password } : {}),
+  }, true);
+
+export const deleteUser = (id: string) =>
+  apiRequest(`/admin/users/${id}`, { method: 'DELETE' }, true);
 
 // ─────────────────────────────────────────────────────────────────────
 // Enrollment (athlete)
@@ -337,6 +434,72 @@ export const updateRequirementStatus = (id: string, data: any) =>
 // ─────────────────────────────────────────────────────────────────────
 
 export const getJudges = () => apiRequest('/judges', {}, true);
+
+// ─────────────────────────────────────────────────────────────────────
+// Site content — the admin-managed public photo slideshow + welcome popup
+// ─────────────────────────────────────────────────────────────────────
+
+/** POST multipart/form-data with the auth token, sharing apiRequest's error handling. */
+async function authMultipart(endpoint: string, formData: FormData) {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const token = localStorage.getItem('auth_token');
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}${endpoint}`, { method: 'POST', headers, body: formData });
+  const text = await response.text();
+  if (!response.ok) {
+    let msg = text;
+    try {
+      const j = JSON.parse(text);
+      msg = j.errors ? Object.values(j.errors).flat().join(', ') : j.error || j.message || text;
+    } catch (_) {}
+    throw new Error(msg || 'Upload failed');
+  }
+  return keysToCamelCase(text ? JSON.parse(text) : {});
+}
+
+interface SiteSlideInput {
+  type?: 'carousel' | 'popup';
+  title?: string;
+  caption?: string;
+  linkUrl?: string;
+  active?: boolean;
+  sortOrder?: number;
+  image?: File | null;
+}
+
+function siteSlideFormData(data: SiteSlideInput, method?: 'PUT'): FormData {
+  const fd = new FormData();
+  if (method) fd.append('_method', method);
+  if (data.type) fd.append('type', data.type);
+  if (data.title !== undefined) fd.append('title', data.title ?? '');
+  if (data.caption !== undefined) fd.append('caption', data.caption ?? '');
+  if (data.linkUrl !== undefined) fd.append('linkUrl', data.linkUrl ?? '');
+  if (data.active !== undefined) fd.append('active', data.active ? '1' : '0');
+  if (data.sortOrder !== undefined) fd.append('sortOrder', String(data.sortOrder));
+  if (data.image) fd.append('image', data.image);
+  return fd;
+}
+
+/** Public: active slides for the slideshow ('carousel') or the welcome popup ('popup'). */
+export const getSiteSlides = (type: 'carousel' | 'popup') =>
+  apiRequest(`/site-slides?type=${type}`);
+
+/** Admin: every slide, including hidden ones. */
+export const getAdminSiteSlides = (type?: 'carousel' | 'popup') =>
+  apiRequest(`/admin/site-slides${type ? `?type=${type}` : ''}`, {}, true);
+
+export const createSiteSlide = (data: SiteSlideInput) =>
+  authMultipart('/admin/site-slides', siteSlideFormData(data));
+
+export const updateSiteSlide = (id: string, data: SiteSlideInput) =>
+  authMultipart(`/admin/site-slides/${id}`, siteSlideFormData(data, 'PUT'));
+
+export const deleteSiteSlide = (id: string) =>
+  apiRequest(`/admin/site-slides/${id}`, { method: 'DELETE' }, true);
+
+export const reorderSiteSlides = (type: 'carousel' | 'popup', order: string[]) =>
+  apiRequest('/admin/site-slides/reorder', { method: 'POST', body: JSON.stringify({ type, order }) }, true);
 
 // ─────────────────────────────────────────────────────────────────────
 // Legacy no-op warmup (kept for compatibility)

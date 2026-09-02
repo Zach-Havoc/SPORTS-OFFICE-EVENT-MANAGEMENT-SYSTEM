@@ -12,7 +12,7 @@ import {
     View
 } from 'react-native';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
-import type { Criterion, EventSession } from '../../types';
+import type { EventSession } from '../../types';
 import { getSportConfigFromEvent } from '../../utils/sport-config';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -23,7 +23,6 @@ import { Card } from '../ui/Card';
 
 interface PrintableScoreSheetViewProps {
   event: EventSession;
-  criteria: Criterion[];
   onClose?: () => void;
 }
 
@@ -43,11 +42,11 @@ const BASE_CSS = `
   th { background: #b91c1c; color: #fff; font-weight: bold; text-align: center; }
   .meta-table td { font-size: 10px; font-weight: bold; padding: 6px; }
   .score-table td { height: 24px; }
-  .criteria-table th { background: #374151; }
-  .criteria-table td.name-col { font-weight: bold; width: 45%; }
-  .criteria-table td.max-col { text-align: center; width: 12%; background: #f9fafb; }
-  .criteria-table td.score-col { text-align: center; width: 20%; }
-  .criteria-table td.notes-col { width: 23%; }
+  .score-sheet-table th { background: #374151; }
+  .score-sheet-table td.name-col { font-weight: bold; width: 45%; }
+  .score-sheet-table td.max-col { text-align: center; width: 12%; background: #f9fafb; }
+  .score-sheet-table td.score-col { text-align: center; width: 20%; }
+  .score-sheet-table td.notes-col { width: 23%; }
   .section-title { font-size: 11px; font-weight: bold; background: #1f2937; color: #fff; padding: 4px 8px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   .sig-line { border-bottom: 1.5px solid #000; margin-top: 22px; width: 100%; }
   .sig-label { font-size: 9px; text-align: center; margin-top: 3px; }
@@ -76,17 +75,6 @@ function fmtDate(schedule: string | undefined) {
   });
 }
 
-function criteriaRows(criteria: Criterion[]) {
-  if (!criteria.length) return '<tr><td colspan="4" style="text-align:center;color:#9ca3af;">No criteria defined.</td></tr>';
-  return criteria.map(c => `
-    <tr>
-      <td class="name-col">${c.name}${c.weight ? ` <span style="color:#9ca3af;">(${c.weight}%)</span>` : ''}</td>
-      <td class="max-col">${c.max_score}</td>
-      <td class="score-col"></td>
-      <td class="notes-col"></td>
-    </tr>`).join('');
-}
-
 function signatureBlock(role1: string, role2: string, role3: string) {
   return `
     <div class="sig-row">
@@ -97,7 +85,7 @@ function signatureBlock(role1: string, role2: string, role3: string) {
 }
 
 // ── Basketball ────────────────────────────────────────────────────────────────
-function buildBasketballHtml(event: EventSession, criteria: Criterion[]): string {
+function buildBasketballHtml(event: EventSession): string {
   const depts = event.departments || [];
   const teamA = depts[0] || 'TEAM A';
   const teamB = depts[1] || 'TEAM B';
@@ -141,7 +129,7 @@ function buildBasketballHtml(event: EventSession, criteria: Criterion[]): string
       </tbody>
     </table>
 
-    <p class="section-title">🏀 Team A — ${teamA} — Player Roster &amp; Fouls</p>
+    <p class="section-title">Team A — ${teamA} — Player Roster &amp; Fouls</p>
     <table class="roster-table">
       <thead><tr>
         <th style="width:8%;">QTR</th><th style="width:30%; text-align:left;">PLAYERS</th>
@@ -160,7 +148,7 @@ function buildBasketballHtml(event: EventSession, criteria: Criterion[]): string
       </tbody>
     </table>
 
-    <p class="section-title">🏀 Team B — ${teamB} — Player Roster &amp; Fouls</p>
+    <p class="section-title">Team B — ${teamB} — Player Roster &amp; Fouls</p>
     <table class="roster-table">
       <thead><tr>
         <th style="width:8%;">QTR</th><th style="width:30%; text-align:left;">PLAYERS</th>
@@ -179,23 +167,13 @@ function buildBasketballHtml(event: EventSession, criteria: Criterion[]): string
       </tbody>
     </table>
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Judge's Criteria Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES / REMARKS</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Scorekeeper / Facilitator', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Scorekeeper / Facilitator', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Volleyball ────────────────────────────────────────────────────────────────
-function buildVolleyballHtml(event: EventSession, criteria: Criterion[]): string {
+function buildVolleyballHtml(event: EventSession): string {
   const depts = event.departments || [];
   const teamA = depts[0] || 'TEAM A';
   const teamB = depts[1] || 'TEAM B';
@@ -215,7 +193,7 @@ function buildVolleyballHtml(event: EventSession, criteria: Criterion[]): string
       </tr>
     </table>
 
-    <p class="section-title">🏐 Set Scores</p>
+    <p class="section-title">Set Scores</p>
     <table>
       <thead><tr>
         <th style="text-align:left; width:25%;">TEAM</th>
@@ -228,7 +206,7 @@ function buildVolleyballHtml(event: EventSession, criteria: Criterion[]): string
       </tbody>
     </table>
 
-    <p class="section-title">📋 Per-Set Point Log (Running Score)</p>
+    <p class="section-title">Per-Set Point Log (Running Score)</p>
     ${[1, 2, 3, 4, 5].map(n => `
       <table>
         <thead><tr><th colspan="28">SET ${n} — Point-by-Point Log (cross each point as scored)</th></tr></thead>
@@ -246,23 +224,13 @@ function buildVolleyballHtml(event: EventSession, criteria: Criterion[]): string
         </tbody>
       </table>`).join('')}
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Judge's Criteria Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES / REMARKS</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Libero Tracker / Scorekeeper', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Libero Tracker / Scorekeeper', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Badminton ─────────────────────────────────────────────────────────────────
-function buildBadmintonHtml(event: EventSession, criteria: Criterion[]): string {
+function buildBadmintonHtml(event: EventSession): string {
   const depts = event.departments || [];
   const playerA = depts[0] || 'PLAYER A';
   const playerB = depts[1] || 'PLAYER B';
@@ -282,7 +250,7 @@ function buildBadmintonHtml(event: EventSession, criteria: Criterion[]): string 
       </tr>
     </table>
 
-    <p class="section-title">🏸 Game Scores (Best of 3 Games – 21 pts each)</p>
+    <p class="section-title">Game Scores (Best of 3 Games – 21 pts each)</p>
     <table>
       <thead><tr>
         <th style="text-align:left; width:30%;">PLAYER</th>
@@ -295,7 +263,7 @@ function buildBadmintonHtml(event: EventSession, criteria: Criterion[]): string 
       </tbody>
     </table>
 
-    <p class="section-title">📋 Point-by-Point Rally Log</p>
+    <p class="section-title">Point-by-Point Rally Log</p>
     ${[1, 2, 3].map(g => `
       <table>
         <thead><tr><th colspan="22" style="background:#047857;">GAME ${g} — Rally Tracker (21 pts · Cross each point as scored)</th></tr></thead>
@@ -312,23 +280,13 @@ function buildBadmintonHtml(event: EventSession, criteria: Criterion[]): string 
         </tbody>
       </table>`).join('')}
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Judge's Criteria Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES / REMARKS</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Umpire / Scorekeeper', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Umpire / Scorekeeper', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Football ──────────────────────────────────────────────────────────────────
-function buildFootballHtml(event: EventSession, criteria: Criterion[]): string {
+function buildFootballHtml(event: EventSession): string {
   const depts = event.departments || [];
   const teamA = depts[0] || 'TEAM A';
   const teamB = depts[1] || 'TEAM B';
@@ -348,7 +306,7 @@ function buildFootballHtml(event: EventSession, criteria: Criterion[]): string {
       </tr>
     </table>
 
-    <p class="section-title">⚽ Match Summary</p>
+    <p class="section-title">Match Summary</p>
     <table>
       <thead><tr>
         <th style="text-align:left; width:25%;">TEAM</th>
@@ -361,7 +319,7 @@ function buildFootballHtml(event: EventSession, criteria: Criterion[]): string {
       </tbody>
     </table>
 
-    <p class="section-title">🥅 Goal Log</p>
+    <p class="section-title">Goal Log</p>
     <table>
       <thead><tr><th style="width:8%;">#</th><th>GOAL SCORER</th><th style="width:20%;">TEAM</th><th style="width:12%;">MINUTE</th><th style="width:12%;">TYPE (Normal / Penalty / OG)</th></tr></thead>
       <tbody>
@@ -369,7 +327,7 @@ function buildFootballHtml(event: EventSession, criteria: Criterion[]): string {
       </tbody>
     </table>
 
-    <p class="section-title">🟨🟥 Cards / Misconduct</p>
+    <p class="section-title">Cards / Misconduct</p>
     <table>
       <thead><tr><th style="width:8%;">#</th><th>PLAYER NAME</th><th style="width:20%;">TEAM</th><th style="width:12%;">MINUTE</th><th style="width:15%;">CARD (Yellow / Red)</th><th>REASON</th></tr></thead>
       <tbody>
@@ -377,23 +335,13 @@ function buildFootballHtml(event: EventSession, criteria: Criterion[]): string {
       </tbody>
     </table>
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Judge's Criteria Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES / REMARKS</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Referee / Scorekeeper', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Referee / Scorekeeper', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Track & Field ─────────────────────────────────────────────────────────────
-function buildTrackFieldHtml(event: EventSession, criteria: Criterion[]): string {
+function buildTrackFieldHtml(event: EventSession): string {
   return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/><style>${BASE_CSS}</style></head><body>
     <div class="header">
       <h1>BatStateU ARASOF – Sports Office</h1>
@@ -409,7 +357,7 @@ function buildTrackFieldHtml(event: EventSession, criteria: Criterion[]): string
       </tr>
     </table>
 
-    <p class="section-title">🏃 Athlete Performance Records</p>
+    <p class="section-title">Athlete Performance Records</p>
     <table>
       <thead><tr>
         <th style="width:6%;">LANE / #</th>
@@ -443,23 +391,13 @@ function buildTrackFieldHtml(event: EventSession, criteria: Criterion[]): string
       </tbody>
     </table>
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Technique Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Official Timer / Measurer', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Official Timer / Measurer', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Swimming ──────────────────────────────────────────────────────────────────
-function buildSwimmingHtml(event: EventSession, criteria: Criterion[]): string {
+function buildSwimmingHtml(event: EventSession): string {
   return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/><style>${BASE_CSS}</style></head><body>
     <div class="header">
       <h1>BatStateU ARASOF – Sports Office</h1>
@@ -475,7 +413,7 @@ function buildSwimmingHtml(event: EventSession, criteria: Criterion[]): string {
       </tr>
     </table>
 
-    <p class="section-title">🏊 Lane & Time Record</p>
+    <p class="section-title">Lane & Time Record</p>
     <table>
       <thead><tr>
         <th style="width:8%;">LANE</th>
@@ -511,23 +449,13 @@ function buildSwimmingHtml(event: EventSession, criteria: Criterion[]): string {
       </tbody>
     </table>
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Technical Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Official Timer / Stroke Judge', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Official Timer / Stroke Committee', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Tennis ────────────────────────────────────────────────────────────────────
-function buildTennisHtml(event: EventSession, criteria: Criterion[]): string {
+function buildTennisHtml(event: EventSession): string {
   const depts = event.departments || [];
   const playerA = depts[0] || 'PLAYER A';
   const playerB = depts[1] || 'PLAYER B';
@@ -547,7 +475,7 @@ function buildTennisHtml(event: EventSession, criteria: Criterion[]): string {
       </tr>
     </table>
 
-    <p class="section-title">🎾 Set & Game Scores</p>
+    <p class="section-title">Set & Game Scores</p>
     <table>
       <thead><tr>
         <th style="text-align:left; width:25%;">PLAYER</th>
@@ -560,7 +488,7 @@ function buildTennisHtml(event: EventSession, criteria: Criterion[]): string {
       </tbody>
     </table>
 
-    <p class="section-title">📊 Game-by-Game Breakdown</p>
+    <p class="section-title">Game-by-Game Breakdown</p>
     ${[1, 2, 3].map(s => `
       <table>
         <thead><tr><th colspan="8" style="background:#b45309;">SET ${s} — Game Scores (circle winner of each game)</th></tr>
@@ -573,23 +501,13 @@ function buildTennisHtml(event: EventSession, criteria: Criterion[]): string {
         </tbody>
       </table>`).join('')}
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Judge's Criteria Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Chair Umpire / Scorekeeper', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Chair Umpire / Scorekeeper', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Table Tennis ──────────────────────────────────────────────────────────────
-function buildTableTennisHtml(event: EventSession, criteria: Criterion[]): string {
+function buildTableTennisHtml(event: EventSession): string {
   const depts = event.departments || [];
   const playerA = depts[0] || 'PLAYER A';
   const playerB = depts[1] || 'PLAYER B';
@@ -609,7 +527,7 @@ function buildTableTennisHtml(event: EventSession, criteria: Criterion[]): strin
       </tr>
     </table>
 
-    <p class="section-title">🏓 Game Scores (Best of 5 – 11 pts each)</p>
+    <p class="section-title">Game Scores (Best of 5 – 11 pts each)</p>
     <table>
       <thead><tr>
         <th style="text-align:left; width:25%;">PLAYER</th>
@@ -622,7 +540,7 @@ function buildTableTennisHtml(event: EventSession, criteria: Criterion[]): strin
       </tbody>
     </table>
 
-    <p class="section-title">📋 Point Log per Game (11 pts = 1 game)</p>
+    <p class="section-title">Point Log per Game (11 pts = 1 game)</p>
     ${[1, 2, 3, 4, 5].map(g => `
       <table>
         <thead><tr><th colspan="13" style="background:#0f766e;">GAME ${g} — Points (circle point as scored)</th></tr>
@@ -633,24 +551,13 @@ function buildTableTennisHtml(event: EventSession, criteria: Criterion[]): strin
         </tbody>
       </table>`).join('')}
 
-    ${criteria.length > 0 ? `
-    <p class="section-title">📋 Judge's Criteria Evaluation</p>
-    <table class="criteria-table">
-      <thead><tr><th class="name-col">CRITERION</th><th class="max-col">MAX</th><th class="score-col">SCORE</th><th class="notes-col">NOTES</th></tr></thead>
-      <tbody>
-        ${criteriaRows(criteria)}
-        <tr class="total-row"><td colspan="2">TOTAL SCORE</td><td class="score"></td><td></td></tr>
-      </tbody>
-    </table>` : ''}
-
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Umpire / Scorekeeper', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Umpire / Scorekeeper', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Cultural / Arts ───────────────────────────────────────────────────────────
-function buildCulturalHtml(event: EventSession, criteria: Criterion[]): string {
-  const maxTotal = criteria.reduce((s, c) => s + c.max_score, 0);
+function buildCulturalHtml(event: EventSession): string {
   return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/><style>${BASE_CSS}
     .perf-header { background: #7c3aed; color: #fff; padding: 6px 10px; font-weight: bold; font-size: 11px; border-radius: 4px; margin-bottom: 6px; }
   </style></head><body>
@@ -668,7 +575,7 @@ function buildCulturalHtml(event: EventSession, criteria: Criterion[]): string {
       </tr>
     </table>
 
-    <p class="section-title">🎭 Participating Teams</p>
+    <p class="section-title">Participating Teams</p>
     <table>
       <thead><tr><th style="width:8%;">#</th><th>TEAM / DEPARTMENT</th><th style="width:20%;">PERFORMANCE TITLE</th><th style="width:15%;">DURATION</th><th style="width:10%;">ORDER</th></tr></thead>
       <tbody>
@@ -677,39 +584,28 @@ function buildCulturalHtml(event: EventSession, criteria: Criterion[]): string {
       </tbody>
     </table>
 
-    <p class="section-title">📋 Criteria Scoring Sheet (Max Total: ${maxTotal})</p>
+    <p class="section-title">Overall Score Sheet (Max 100 per team)</p>
     <table>
       <thead>
         <tr>
-          <th style="text-align:left; width:35%;">CRITERION</th>
-          <th style="width:10%;">MAX SCORE</th>
-          ${(event.departments || ['TEAM A', 'TEAM B', 'TEAM C']).slice(0, 4).map(d => `<th style="width:12%;">${d}</th>`).join('')}
-          <th style="width:10%;">NOTES</th>
+          <th style="text-align:left;">TEAM / DEPARTMENT</th>
+          <th style="width:20%;">OVERALL SCORE (0–100)</th>
+          <th style="width:15%;">RANK</th>
+          <th style="width:30%;">NOTES</th>
         </tr>
       </thead>
       <tbody>
-        ${criteria.map(c => `
-          <tr>
-            <td style="font-weight:bold;">${c.name}${c.weight ? ` <span style="color:#9ca3af; font-weight:normal;">(${c.weight}%)</span>` : ''}</td>
-            <td style="text-align:center; background:#f9fafb;">${c.max_score}</td>
-            ${(event.departments || ['', '', '']).slice(0, 4).map(() => '<td style="text-align:center;"></td>').join('')}
+        ${(event.departments || ['', '', '']).map(dept => `
+          <tr style="height:34px;">
+            <td style="font-weight:bold; color:#7c3aed;">${dept}</td>
+            <td style="text-align:center;"></td>
+            <td style="text-align:center; font-size:16px; font-weight:bold;"></td>
             <td></td>
           </tr>`).join('')}
-        <tr class="total-row">
-          <td>TOTAL SCORE</td>
-          <td class="score">${maxTotal}</td>
-          ${(event.departments || ['', '', '']).slice(0, 4).map(() => '<td class="score"></td>').join('')}
-          <td></td>
-        </tr>
-        <tr style="background:#f3e8ff;">
-          <td colspan="2" style="font-weight:bold;">RANK</td>
-          ${(event.departments || ['', '', '']).slice(0, 4).map(() => '<td style="text-align:center; font-size:16px; font-weight:bold;"></td>').join('')}
-          <td></td>
-        </tr>
       </tbody>
     </table>
 
-    <p class="section-title">📝 Judge's Remarks &amp; Comments</p>
+    <p class="section-title">Committee's Remarks &amp; Comments</p>
     <table>
       <thead><tr><th style="text-align:left; width:25%;">TEAM</th><th>OVERALL REMARKS</th><th style="width:18%;">STRENGTHS</th><th style="width:18%;">AREAS FOR IMPROVEMENT</th></tr></thead>
       <tbody>
@@ -717,14 +613,13 @@ function buildCulturalHtml(event: EventSession, criteria: Criterion[]): string {
       </tbody>
     </table>
 
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Panel Coordinator', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Panel Coordinator', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
 
 // ── Default / Generic ─────────────────────────────────────────────────────────
-function buildDefaultHtml(event: EventSession, criteria: Criterion[]): string {
-  const maxTotal = criteria.reduce((s, c) => s + c.max_score, 0);
+function buildDefaultHtml(event: EventSession): string {
   return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/><style>${BASE_CSS}</style></head><body>
     <div class="header">
       <h1>BatStateU ARASOF – Sports Office</h1>
@@ -744,35 +639,26 @@ function buildDefaultHtml(event: EventSession, criteria: Criterion[]): string {
       </tr>
     </table>
 
-    <p class="section-title">📋 Scoring Criteria Evaluation (Total Max: ${maxTotal} pts)</p>
-    <table class="criteria-table">
+    <p class="section-title">Overall Score Sheet (Max 100 per team)</p>
+    <table class="score-sheet-table">
       <thead><tr>
-        <th class="name-col">CRITERION</th>
-        <th class="max-col">MAX SCORE</th>
-        ${(event.departments || []).slice(0, 3).map(d => `<th style="width:13%;">${d}</th>`).join('')}
-        ${(event.departments || []).length === 0 ? '<th class="score-col">SCORE</th>' : ''}
+        <th class="name-col">TEAM / DEPARTMENT</th>
+        <th class="score-col">OVERALL SCORE (0–100)</th>
+        <th style="width:12%;">RANK</th>
         <th class="notes-col">NOTES</th>
       </tr></thead>
       <tbody>
-        ${criteria.map(c => `
-          <tr>
-            <td class="name-col">${c.name}${c.weight ? ` <span style="color:#9ca3af; font-weight:normal;">(${c.weight}%)</span>` : ''}</td>
-            <td class="max-col">${c.max_score}</td>
-            ${(event.departments || []).slice(0, 3).map(() => '<td style="text-align:center;"></td>').join('')}
-            ${(event.departments || []).length === 0 ? '<td class="score-col"></td>' : ''}
+        ${(event.departments || ['']).map(dept => `
+          <tr style="height:30px;">
+            <td class="name-col">${dept}</td>
+            <td class="score-col"></td>
+            <td style="text-align:center; font-weight:bold;"></td>
             <td class="notes-col"></td>
           </tr>`).join('')}
-        <tr class="total-row">
-          <td>TOTAL SCORE</td>
-          <td class="score">${maxTotal}</td>
-          ${(event.departments || []).slice(0, 3).map(() => '<td class="score"></td>').join('')}
-          ${(event.departments || []).length === 0 ? '<td class="score"></td>' : ''}
-          <td></td>
-        </tr>
       </tbody>
     </table>
 
-    ${signatureBlock('Judge\'s Signature &amp; Name', 'Scoring Facilitator', 'Event Coordinator')}
+    ${signatureBlock('Committee\'s Signature &amp; Name', 'Scoring Facilitator', 'Event Coordinator')}
     <div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
   </body></html>`;
 }
@@ -780,32 +666,32 @@ function buildDefaultHtml(event: EventSession, criteria: Criterion[]): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // Router — select correct template based on sport
 // ─────────────────────────────────────────────────────────────────────────────
-function buildHtml(event: EventSession, criteria: Criterion[]): string {
+function buildHtml(event: EventSession): string {
   const config = getSportConfigFromEvent(event.category, event.name);
   switch (config.type) {
-    case 'basketball':   return buildBasketballHtml(event, criteria);
-    case 'volleyball':   return buildVolleyballHtml(event, criteria);
-    case 'badminton':    return buildBadmintonHtml(event, criteria);
-    case 'football':     return buildFootballHtml(event, criteria);
-    case 'track-field':  return buildTrackFieldHtml(event, criteria);
-    case 'swimming':     return buildSwimmingHtml(event, criteria);
-    case 'tennis':       return buildTennisHtml(event, criteria);
-    case 'table-tennis': return buildTableTennisHtml(event, criteria);
-    case 'cultural':     return buildCulturalHtml(event, criteria);
-    default:             return buildDefaultHtml(event, criteria);
+    case 'basketball':   return buildBasketballHtml(event);
+    case 'volleyball':   return buildVolleyballHtml(event);
+    case 'badminton':    return buildBadmintonHtml(event);
+    case 'football':     return buildFootballHtml(event);
+    case 'track-field':  return buildTrackFieldHtml(event);
+    case 'swimming':     return buildSwimmingHtml(event);
+    case 'tennis':       return buildTennisHtml(event);
+    case 'table-tennis': return buildTableTennisHtml(event);
+    case 'cultural':     return buildCulturalHtml(event);
+    default:             return buildDefaultHtml(event);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
-export function PrintableScoreSheetView({ event, criteria, onClose }: PrintableScoreSheetViewProps) {
+export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetViewProps) {
   const sportConfig = getSportConfigFromEvent(event.category, event.name);
   const accentColor = sportConfig.color;
 
   const handlePrint = async () => {
     try {
-      const html = buildHtml(event, criteria);
+      const html = buildHtml(event);
       if (Platform.OS === 'web') {
         const w = window.open('', '_blank');
         w?.document.write(html);
@@ -821,7 +707,7 @@ export function PrintableScoreSheetView({ event, criteria, onClose }: PrintableS
 
   const handleSharePdf = async () => {
     try {
-      const html = buildHtml(event, criteria);
+      const html = buildHtml(event);
       const { uri } = await Print.printToFileAsync({ html });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
@@ -842,7 +728,7 @@ export function PrintableScoreSheetView({ event, criteria, onClose }: PrintableS
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <View style={[styles.header, { backgroundColor: accentColor }]}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerEmoji}>{sportConfig.emoji}</Text>
+          <Ionicons name={sportConfig.icon as any} size={22} color="#fff" style={{ marginRight: 8 }} />
           <View>
             <Text style={styles.headerTitle}>Score Sheet</Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>{event.name}</Text>
@@ -888,36 +774,11 @@ export function PrintableScoreSheetView({ event, criteria, onClose }: PrintableS
           </View>
         </Card>
 
-        {/* ── Criteria Preview ─────────────────────────────────────────────── */}
-        <Card variant="elevated" style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Ionicons name="list-outline" size={16} color={accentColor} />
-            <Text style={styles.sectionTitle}>Criteria ({criteria.length})</Text>
-          </View>
-          {criteria.length === 0 ? (
-            <Text style={styles.noCriteriaText}>No criteria defined for this event.</Text>
-          ) : (
-            criteria.map((c) => (
-              <View key={c.criteria_id} style={styles.criterionRow}>
-                <Text style={styles.criterionName} numberOfLines={1}>{c.name}</Text>
-                <View style={styles.criterionBadges}>
-                  {c.weight != null && (
-                    <Text style={styles.weightBadgeText}>{c.weight}%</Text>
-                  )}
-                  <Text style={[styles.maxBadgeText, { color: accentColor, backgroundColor: `${accentColor}12` }]}>
-                    max {c.max_score}
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
-        </Card>
-
         {/* ── Info Banner ──────────────────────────────────────────────────── */}
         <View style={[styles.infoBanner, { backgroundColor: `${accentColor}08`, borderColor: `${accentColor}25` }]}>
           <Ionicons name="print-outline" size={16} color={accentColor} />
           <Text style={[styles.infoText, { color: accentColor }]}>
-            The printed form contains the full {sportConfig.label} score sheet with all sections. Hand it to the judge before the event starts.
+            The printed form contains the full {sportConfig.label} score sheet with all sections. Hand it to the committee before the event starts.
           </Text>
         </View>
 
@@ -1020,63 +881,6 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
     flex: 1,
-  },
-  sectionCard: {
-    gap: SPACING.sm,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    paddingBottom: SPACING.xs,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-  },
-  noCriteriaText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    paddingVertical: SPACING.md,
-  },
-  criterionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  criterionName: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: FONT_WEIGHT.medium,
-    color: COLORS.textPrimary,
-    flex: 1,
-  },
-  criterionBadges: {
-    flexDirection: 'row',
-    gap: SPACING.xs,
-  },
-  weightBadgeText: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  maxBadgeText: {
-    fontSize: FONT_SIZE.xs,
-    fontWeight: FONT_WEIGHT.bold,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
   },
   infoBanner: {
     flexDirection: 'row',

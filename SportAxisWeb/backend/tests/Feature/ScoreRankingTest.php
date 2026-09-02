@@ -26,7 +26,6 @@ class ScoreRankingTest extends TestCase
         return array_merge([
             'eventId'    => $eventId,
             'department' => 'College of Engineering',
-            'scores'     => ['Technical' => 8, 'Teamwork' => 9],
             'totalScore' => 85,
         ], $overrides);
     }
@@ -97,9 +96,9 @@ class ScoreRankingTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('eventId');
 
-        $this->postJson('/api/scores', ['department' => 'X', 'scores' => [], 'totalScore' => 1])
+        $this->postJson('/api/scores', ['department' => 'X', 'totalScore' => 1])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['eventId', 'scores']);
+            ->assertJsonValidationErrors('eventId');
     }
 
     public function test_resubmitting_updates_the_same_row(): void

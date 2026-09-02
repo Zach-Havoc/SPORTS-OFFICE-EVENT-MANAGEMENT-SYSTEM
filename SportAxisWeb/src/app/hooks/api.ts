@@ -42,9 +42,14 @@ export const qk = {
   eventReport: (eventId: string) => ['reports', eventId] as const,
   standings: (sport: string) => ['standings', sport] as const,
   matches: (sport?: string) => ['matches', sport ?? 'all'] as const,
+  liveScores: (activeOnly = false) => ['live-scores', activeOnly ? 'active' : 'all'] as const,
+  eventLiveScore: (eventId: string) => ['live-scores', 'event', eventId] as const,
   athletes: ['athletes'] as const,
   athlete: (id: string) => ['athletes', id] as const,
   coaches: ['coaches'] as const,
+  users: (filters?: Record<string, string | undefined>) =>
+    ['users', filters ?? {}] as const,
+  user: (id: string) => ['users', 'detail', id] as const,
   coachProfile: ['coach-profile'] as const,
   myCoach: ['my-coach'] as const,
   announcements: ['announcements'] as const,
@@ -55,6 +60,10 @@ export const qk = {
   requirements: ['requirements'] as const,
   myRequirements: ['requirements', 'mine'] as const,
   judges: ['judges'] as const,
+  siteSlides: (type: 'carousel' | 'popup') => ['site-slides', type] as const,
+  adminSiteSlides: (type?: 'carousel' | 'popup') => ['admin', 'site-slides', type ?? 'all'] as const,
+  brackets: (sport?: string) => ['brackets', sport ?? 'all'] as const,
+  bracket: (id: string) => ['brackets', id] as const,
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -164,6 +173,24 @@ export const useAthlete = (id: string | undefined, opts?: QueryOpts<any>) =>
 export const useCoaches = (opts?: QueryOpts<any[]>) =>
   useQuery({ queryKey: qk.coaches, queryFn: api.getCoaches, staleTime: STALE.live, ...opts });
 
+// User Management (admin) — the whole account directory
+export const useUsers = (filters: api.UserListFilters = {}, opts?: QueryOpts<any[]>) =>
+  useQuery({
+    queryKey: qk.users(filters as Record<string, string | undefined>),
+    queryFn: () => api.getUsers(filters),
+    staleTime: STALE.live,
+    ...opts,
+  });
+
+export const useUser = (id: string | undefined, opts?: QueryOpts<any>) =>
+  useQuery({
+    queryKey: qk.user(id ?? ''),
+    queryFn: () => api.getUser(id as string),
+    enabled: !!id,
+    staleTime: STALE.live,
+    ...opts,
+  });
+
 export const useCoachProfile = (opts?: QueryOpts<any>) =>
   useQuery({ queryKey: qk.coachProfile, queryFn: api.getCoachProfile, staleTime: STALE.static, ...opts });
 
@@ -194,6 +221,81 @@ export const useMyRequirements = (opts?: QueryOpts<any[]>) =>
 export const useJudges = (opts?: QueryOpts<any[]>) =>
   useQuery({ queryKey: qk.judges, queryFn: api.getJudges, staleTime: STALE.live, ...opts });
 
+// Live game scores — these DO poll (the running score of a game in progress is
+// the one thing on the public site that must update on its own). 10s cadence.
+export const useLiveScores = (activeOnly = false, opts?: QueryOpts<api.LiveScore[]>) =>
+  useQuery({
+    queryKey: qk.liveScores(activeOnly),
+    queryFn: () => api.getLiveScores(activeOnly),
+    staleTime: 0,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
+    ...opts,
+  });
+
+export const useEventLiveScore = (eventId: string | undefined, opts?: QueryOpts<{ live: api.LiveScore | null }>) =>
+  useQuery({
+    queryKey: qk.eventLiveScore(eventId ?? ''),
+    queryFn: () => api.getEventLiveScore(eventId as string),
+    enabled: !!eventId,
+    staleTime: 0,
+    refetchInterval: 10_000,
+    ...opts,
+  });
+
+// Site content — public photo slideshow ('carousel') + welcome popup ('popup').
+export const useSiteSlides = (type: 'carousel' | 'popup', opts?: QueryOpts<any[]>) =>
+  useQuery({
+    queryKey: qk.siteSlides(type),
+    queryFn: () => api.getSiteSlides(type),
+    staleTime: STALE.static,
+    ...opts,
+  });
+
+export const useAdminSiteSlides = (type?: 'carousel' | 'popup', opts?: QueryOpts<any[]>) =>
+  useQuery({
+    queryKey: qk.adminSiteSlides(type),
+    queryFn: () => api.getAdminSiteSlides(type),
+    staleTime: STALE.live,
+    ...opts,
+  });
+
+// Brackets
+export const useBrackets = (sport?: string, opts?: QueryOpts<any[]>) =>
+  useQuery({ queryKey: qk.brackets(sport), queryFn: () => api.getBrackets(sport), ...opts });
+
+export const useBracket = (id: string | undefined, opts?: QueryOpts<any>) =>
+  useQuery({ queryKey: qk.bracket(id ?? ''), queryFn: () => api.getBracket(id as string), enabled: !!id, ...opts });
+
+const invalidateBrackets = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ['brackets'] });
+  qc.invalidateQueries({ queryKey: ['events'] });
+};
+
+export const useCreateBracket = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: api.createBracket, onSuccess: () => invalidateBrackets(qc) });
+};
+export const usePublishBracket = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: api.publishBracket, onSuccess: () => invalidateBrackets(qc) });
+};
+export const useAdvanceBracketMatch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bracketId, matchId, body }: { bracketId: string; matchId: string; body?: { winner?: string; force?: boolean } }) =>
+      api.advanceBracketMatch(bracketId, matchId, body),
+    onSuccess: () => invalidateBrackets(qc),
+  });
+};
+export const useDeleteBracket = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, withEvents }: { id: string; withEvents?: boolean }) => api.deleteBracket(id, withEvents),
+    onSuccess: () => invalidateBrackets(qc),
+  });
+};
+
 // ─────────────────────────────────────────────────────────────────────
 // Mutations — each invalidates the caches its write can affect
 // ─────────────────────────────────────────────────────────────────────
@@ -214,6 +316,48 @@ export const useUpdateAccountProfile = () => {
 
 export const useUpdateAccountPassword = () =>
   useMutation({ mutationFn: api.updateAccountPassword });
+
+// User Management — a write here can move an account between the coach / judge
+// directories and change an athlete's coach link, so refresh all of them.
+const invalidateUserDirectory = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ['users'] });
+  qc.invalidateQueries({ queryKey: qk.coaches });
+  qc.invalidateQueries({ queryKey: qk.judges });
+  qc.invalidateQueries({ queryKey: qk.athletes });
+  qc.invalidateQueries({ queryKey: qk.registrationCodes });
+  qc.invalidateQueries({ queryKey: qk.authUser });
+};
+
+export const useUpdateUser = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof api.updateUser>[1] }) =>
+      api.updateUser(id, data),
+    onSuccess: () => invalidateUserDirectory(qc),
+  });
+};
+
+export const useSetUserActive = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => api.setUserActive(id, active),
+    onSuccess: () => invalidateUserDirectory(qc),
+  });
+};
+
+export const useResetUserPassword = () =>
+  useMutation({
+    mutationFn: ({ id, password }: { id: string; password?: string }) =>
+      api.resetUserPassword(id, password),
+  });
+
+export const useDeleteUser = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.deleteUser,
+    onSuccess: () => invalidateUserDirectory(qc),
+  });
+};
 
 export const useCreateDepartment = () => {
   const qc = useQueryClient();
@@ -500,5 +644,44 @@ export const useUpdateRequirementStatus = () => {
       qc.invalidateQueries({ queryKey: qk.requirements });
       qc.invalidateQueries({ queryKey: qk.myRequirements });
     },
+  });
+};
+
+// ── Site content mutations (admin) ───────────────────────────────────
+// Every write can change what the public slideshow / popup shows, so we
+// blow away both the admin lists and the public feeds.
+const invalidateSiteSlides = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ['site-slides'] });
+  qc.invalidateQueries({ queryKey: ['admin', 'site-slides'] });
+};
+
+export const useCreateSiteSlide = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Parameters<typeof api.createSiteSlide>[0]) => api.createSiteSlide(data),
+    onSuccess: () => invalidateSiteSlides(qc),
+  });
+};
+export const useUpdateSiteSlide = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof api.updateSiteSlide>[1] }) =>
+      api.updateSiteSlide(id, data),
+    onSuccess: () => invalidateSiteSlides(qc),
+  });
+};
+export const useDeleteSiteSlide = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.deleteSiteSlide,
+    onSuccess: () => invalidateSiteSlides(qc),
+  });
+};
+export const useReorderSiteSlides = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ type, order }: { type: 'carousel' | 'popup'; order: string[] }) =>
+      api.reorderSiteSlides(type, order),
+    onSuccess: () => invalidateSiteSlides(qc),
   });
 };

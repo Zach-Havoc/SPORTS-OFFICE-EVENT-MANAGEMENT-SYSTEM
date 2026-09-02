@@ -20,7 +20,6 @@ export const scoreService = {
       department:     payload.department,
       judgeId:        payload.judgeId,
       judgeName:      payload.judgeName,
-      scores:         payload.scores,
       totalScore:     payload.totalScore,
       method:         payload.method,
       image_url:      payload.image_url ?? null,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { makeAbbreviator } from './departments'
+import { makeAbbreviator, deptAcronym, shortDeptLabel } from './departments'
 
 /**
  * makeAbbreviator(departments) -> (text) => text with every full department
@@ -56,5 +56,33 @@ describe('makeAbbreviator', () => {
   it('escapes regex metacharacters in department names', () => {
     const abbr = makeAbbreviator([{ name: 'A+ (Special) College', abbreviation: 'ASC' }])
     expect(abbr('Team A+ (Special) College here')).toBe('Team ASC here')
+  })
+})
+
+describe('deptAcronym', () => {
+  it('takes initials of the significant words', () => {
+    expect(deptAcronym('College of Arts and Sciences')).toBe('CAS')
+    expect(deptAcronym('College of Informatics and Computing Sciences')).toBe('CICS')
+    expect(deptAcronym('College of Accountancy, Business, Economics, and International Hospitality Management')).toBe('CABEIHM')
+  })
+})
+
+describe('shortDeptLabel', () => {
+  const abbr = makeAbbreviator([{ name: 'College of Engineering', abbreviation: 'CoE' }])
+
+  it('prefers a registered abbreviation', () => {
+    expect(shortDeptLabel(abbr, 'College of Engineering')).toBe('CoE')
+  })
+
+  it('falls back to an acronym when the name is long and unabbreviated', () => {
+    expect(shortDeptLabel(abbr, 'College of Nursing and Allied Health Sciences')).toBe('CNAHS')
+  })
+
+  it('leaves an already-short name alone', () => {
+    expect(shortDeptLabel(abbr, 'CET')).toBe('CET')
+  })
+
+  it('is safe on empty input', () => {
+    expect(shortDeptLabel(abbr, null)).toBe('')
   })
 })

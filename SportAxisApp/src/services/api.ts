@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from '../config/api.config';
-import { storage } from '../storage/async-storage';
+import { storage, STORAGE_KEYS } from '../storage/async-storage';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Axios API Client
@@ -15,10 +15,19 @@ const api = axios.create({
   },
 });
 
+// ── Session-expiry callback ──────────────────────────────────────────────────
+// The auth store registers a handler here (see app/_layout.tsx) so a 401 on an
+// authenticated route can clear auth state and bounce back to the login screen.
+// Kept as an injected callback to avoid an api ⇄ store import cycle.
+let onUnauthorized: (() => void) | null = null;
+export const setUnauthorizedHandler = (fn: (() => void) | null) => {
+  onUnauthorized = fn;
+};
+
 // ── Request Interceptor: attach Bearer token ──────────────────────────────────
 api.interceptors.request.use(
   async (config) => {
-    const token = await storage.get('auth_token');
+    const token = await storage.get(STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -30,7 +39,7 @@ api.interceptors.request.use(
 // ── Response Interceptor: normalise errors ────────────────────────────────────
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response) {
       // Server responded with a non-2xx status
       const { status, data } = error.response;
@@ -42,6 +51,10 @@ api.interceptors.response.use(
         // so the real server error message is surfaced to the user.
         const isAuthRoute = url.includes('/login') || url.includes('/signup');
         if (!isAuthRoute) {
+          // Drop the dead token now, and let the app return to login.
+          await storage.remove(STORAGE_KEYS.AUTH_TOKEN);
+          await storage.remove(STORAGE_KEYS.AUTH_USER);
+          onUnauthorized?.();
           return Promise.reject({
             code: 'UNAUTHORIZED',
             message: 'Session expired. Please log in again.',
@@ -57,9 +70,21 @@ api.interceptors.response.use(
         });
       }
 
+      if (status === 429) {
+        const retryAfter = Number(error.response.headers?.['retry-after']);
+        return Promise.reject({
+          code: 'RATE_LIMITED',
+          message: retryAfter
+            ? `Too many attempts. Try again in ${retryAfter}s.`
+            : 'Too many attempts. Wait a minute and try again.',
+        });
+      }
+
       return Promise.reject({
         code: data.code ?? 'SERVER_ERROR',
         message: data.error ?? data.message ?? 'An unexpected error occurred.',
+        status,
+        data,
       });
     }
 

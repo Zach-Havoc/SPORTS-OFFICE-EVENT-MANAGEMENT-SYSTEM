@@ -34,7 +34,7 @@ export default function JudgeDashboard() {
   const events = useMemo<Event[]>(
     () =>
       (data ?? [])
-        .map((e: any) => ({ ...e, departments: e.departments || [], criteria: e.criteria || [] }))
+        .map((e: any) => ({ ...e, departments: e.departments || [] }))
         .filter((e: Event) => e.status === 'ongoing'),
     [data],
   );
@@ -51,7 +51,7 @@ export default function JudgeDashboard() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">Judge Panel</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Committee Panel</h1>
           <RefreshStatus
             fetching={isFetching && !isLoading}
             error={isRefetchError}

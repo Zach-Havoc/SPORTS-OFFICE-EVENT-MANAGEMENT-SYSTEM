@@ -1,39 +1,36 @@
 import { create } from 'zustand';
 import { eventService } from '../services/event.service';
-import type { EventSession, Criterion } from '../types';
+import type { EventSession } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Event Store — Current event session and criteria state
+// Event Store — Current event session state
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface EventStore {
   event: EventSession | null;
-  criteria: Criterion[];
   isLoading: boolean;
   error: string | null;
 
   // Actions
   loadByQrToken: (qrToken: string) => Promise<void>;
-  refreshCriteria: (eventId: string) => Promise<void>;
   loadFromCache: () => Promise<boolean>;
   clearEvent: () => Promise<void>;
 }
 
-export const useEventStore = create<EventStore>((set, get) => ({
+export const useEventStore = create<EventStore>((set) => ({
   event:     null,
-  criteria:  [],
   isLoading: false,
   error:     null,
 
   /**
-   * Scan QR and load event session + criteria from backend.
-   * Caches results locally automatically via eventService.
+   * Scan QR and load the event session from the backend.
+   * Caches the result locally automatically via eventService.
    */
   loadByQrToken: async (qrToken) => {
     set({ isLoading: true, error: null });
     try {
-      const { event, criteria } = await eventService.getEventByQrToken(qrToken);
-      set({ event, criteria, isLoading: false });
+      const { event } = await eventService.getEventByQrToken(qrToken);
+      set({ event, isLoading: false });
     } catch (error: any) {
       set({
         isLoading: false,
@@ -44,25 +41,13 @@ export const useEventStore = create<EventStore>((set, get) => ({
   },
 
   /**
-   * Refresh criteria from backend when event is already loaded.
-   */
-  refreshCriteria: async (eventId) => {
-    try {
-      const criteria = await eventService.getEventCriteria(eventId);
-      set({ criteria });
-    } catch {
-      // Silently fail — keep cached criteria
-    }
-  },
-
-  /**
-   * Load cached event session (for offline use after first scan).
-   * Returns true if cache was found.
+   * Load the cached event session (for offline use after first scan).
+   * Returns true if a cache was found.
    */
   loadFromCache: async () => {
     const cached = await eventService.loadCachedSession();
     if (cached) {
-      set({ event: cached.event, criteria: cached.criteria });
+      set({ event: cached.event });
       return true;
     }
     return false;
@@ -73,6 +58,6 @@ export const useEventStore = create<EventStore>((set, get) => ({
    */
   clearEvent: async () => {
     await eventService.clearCachedSession();
-    set({ event: null, criteria: [], error: null });
+    set({ event: null, error: null });
   },
 }));

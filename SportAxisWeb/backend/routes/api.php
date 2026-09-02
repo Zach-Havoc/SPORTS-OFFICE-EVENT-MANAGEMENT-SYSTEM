@@ -22,15 +22,24 @@ use App\Http\Controllers\Api\RequirementController;
 use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\OcrController;
 use App\Http\Controllers\Api\MatchController;
+use App\Http\Controllers\Api\SiteSlideController;
+use App\Http\Controllers\Api\BracketController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\LiveScoreController;
 
 // ─────────────────────────────────────────────
 // PUBLIC ROUTES (no authentication required)
 // ─────────────────────────────────────────────
 // Sensitive auth endpoints are rate limited to slow credential/enumeration
 // and registration-code brute-force attacks.
-Route::middleware('throttle:10,1')->group(function () {
+//   - login  : `auth` limiter — 5 tries / minute per (email + IP) plus a
+//              20 / minute / IP ceiling (see AppServiceProvider). Blocks
+//              password guessing against one account and spraying across many.
+//   - signup / reset-password : `sensitive` limiter — 10 / minute / IP.
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+
+Route::middleware('throttle:sensitive')->group(function () {
     Route::post('/signup', [AuthController::class, 'signup']);
-    Route::post('/login',  [AuthController::class, 'login']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 });
 
@@ -46,16 +55,27 @@ Route::get('/leaderboard', [RankingController::class, 'leaderboard']);
 Route::get('/scores/{eventId}', [ScoreController::class, 'show']);
 Route::get('/judge/{id}/status', [ScoreController::class, 'status']);
 
+// Live game scores — the running score of a game in progress.
+Route::get('/live-scores',      [LiveScoreController::class, 'index']);
+Route::get('/events/{id}/live', [LiveScoreController::class, 'show']);
+
 // Head-to-head match records + standings (the bracket-seeding source)
 Route::get('/matches',           [MatchController::class, 'index']);
 Route::get('/matches/{id}',       [MatchController::class, 'show']);
 Route::get('/standings/{sport}',  [MatchController::class, 'standings']);
 
+// Persisted brackets + progression (read-only for the public tree view).
+Route::get('/brackets',      [BracketController::class, 'index']);
+Route::get('/brackets/{id}', [BracketController::class, 'show']);
+
+// Admin-managed public imagery: the Live Events photo slideshow and the
+// site-visit welcome popup.
+Route::get('/site-slides', [SiteSlideController::class, 'publicIndex']);
+
 // ─── MOBILE JUDGE APP — Public QR Routes ─────────────────────────────────────
 // These are intentionally public so judges can scan QR codes
 // before authenticating and see the event details first.
 Route::get('/event/session/{qrToken}', [EventSessionController::class, 'show']);
-Route::get('/event/{id}/criteria',     [EventSessionController::class, 'criteria']);
 
 // Public tryout — throttled to prevent email-verification (OTP) brute force
 // and mail-bombing of arbitrary addresses.
@@ -78,6 +98,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Scores — only authenticated judges (or admins) may submit.
     // The judge identity is derived from the token server-side, not the body.
     Route::post('/scores', [ScoreController::class, 'store'])
+        ->middleware('role:judge,admin');
+
+    // Live game score — the assigned scorekeeper (committee) or an admin pushes
+    // the running score from the app while the game is being played.
+    Route::put('/events/{id}/live', [LiveScoreController::class, 'upsert'])
         ->middleware('role:judge,admin');
 
     // ─── MOBILE JUDGE APP — Authenticated Routes ──────────────────────────────
@@ -105,9 +130,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/matches/{id}', [MatchController::class, 'update']);
         Route::delete('/matches/{id}', [MatchController::class, 'destroy']);
 
+        Route::post('/brackets', [BracketController::class, 'store']);
+        Route::post('/brackets/{id}/publish', [BracketController::class, 'publish']);
+        Route::post('/brackets/{id}/matches/{matchId}/advance', [BracketController::class, 'advance']);
+        Route::delete('/brackets/{id}', [BracketController::class, 'destroy']);
+
+        Route::get('/admin/site-slides', [SiteSlideController::class, 'index']);
+        Route::post('/admin/site-slides', [SiteSlideController::class, 'store']);
+        Route::post('/admin/site-slides/reorder', [SiteSlideController::class, 'reorder']);
+        Route::put('/admin/site-slides/{id}', [SiteSlideController::class, 'update']);
+        Route::delete('/admin/site-slides/{id}', [SiteSlideController::class, 'destroy']);
+
         Route::post('/events', [EventController::class, 'store']);
+        // Bulk ops — one request instead of N (registered before /events/{id}).
+        Route::post('/events/bulk-delete', [EventController::class, 'bulkDestroy']);
+        Route::post('/events/bulk-status', [EventController::class, 'bulkStatus']);
         Route::put('/events/{id}', [EventController::class, 'update']);
         Route::delete('/events/{id}', [EventController::class, 'destroy']);
+        Route::delete('/events/{id}/live', [LiveScoreController::class, 'destroy']);
 
         Route::post('/venues', [VenueController::class, 'store']);
         Route::put('/venues/{id}', [VenueController::class, 'update']);
@@ -119,6 +159,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/admin/coaches', [CoachController::class, 'index']);
         Route::put('/admin/coaches/{id}', [CoachController::class, 'updateCoach']);
+
+        // User Management — every account, all roles, with cross-entity links.
+        Route::get('/admin/users', [UserController::class, 'index']);
+        Route::get('/admin/users/{id}', [UserController::class, 'show']);
+        Route::put('/admin/users/{id}', [UserController::class, 'update']);
+        Route::post('/admin/users/{id}/active', [UserController::class, 'setActive']);
+        Route::post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword']);
+        Route::delete('/admin/users/{id}', [UserController::class, 'destroy']);
     });
 
     // ─── COACH ONLY ───────────────────────────

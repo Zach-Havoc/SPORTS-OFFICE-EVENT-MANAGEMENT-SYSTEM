@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { getEvents, getDepartments, getVenues, getJudges, createEvent, updateEvent, deleteEvent } from '../../services/api';
+import { getEvents, getDepartments, getVenues, getJudges, getCategories, createEvent, updateEvent, deleteEvent, bulkDeleteEvents, bulkUpdateEventStatus } from '../../services/api';
 import { makeAbbreviator } from '../../utils/departments';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -40,6 +40,18 @@ const SPORTS = [
   'Weightlifting',
 ];
 
+// Sports contested with many participants at once (a placing, not a match).
+// Only used to guess a format for a sport that has no backend category row.
+const RANKED_SPORT_KEYWORDS = [
+  'track', 'field', 'athletic', 'swim', 'gymnast', 'cultural', 'dance', 'cheer',
+  'chorale', 'pageant', 'weightlifting',
+];
+
+function guessFormat(sport: string): 'versus' | 'ranked' {
+  const s = sport.toLowerCase();
+  return RANKED_SPORT_KEYWORDS.some(k => s.includes(k)) ? 'ranked' : 'versus';
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function timeToMinutes(time: string): number {
   if (!time) return 0;
@@ -74,7 +86,6 @@ interface Event {
   venueName: string;
   judges: JudgeRef[];
   departments: string[];
-  criteria: Array<{ name: string; weight: number }>;
   qrToken?: string;
 }
 
@@ -89,7 +100,6 @@ interface FormData {
   venueName: string;
   judgeIds: string[];
   departments: string[];
-  criteria: Array<{ name: string; weight: number }>;
 }
 
 const EMPTY_FORM: FormData = {
@@ -103,7 +113,6 @@ const EMPTY_FORM: FormData = {
   venueName: '',
   judgeIds: [],
   departments: [],
-  criteria: [{ name: '', weight: 100 }],
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -117,6 +126,11 @@ export default function AdminEventsEnhanced() {
   const abbr = useMemo(() => makeAbbreviator(departments), [departments]);
   const [venues, setVenues] = useState<any[]>([]);
   const [judges, setJudges] = useState<any[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string; format?: 'versus' | 'ranked' }[]>([]);
+
+  // How the selected sport is contested — decides the college picker + limit.
+  const formatOf = (sport: string): 'versus' | 'ranked' =>
+    categories.find(c => c.name === sport)?.format ?? guessFormat(sport);
 
   // UI
   const [loading, setLoading] = useState(true);
@@ -145,8 +159,6 @@ export default function AdminEventsEnhanced() {
   useEffect(() => {
     if (!user || user.role !== 'admin') { navigate('/login'); return; }
     loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
   }, [user, navigate]);
 
   const loadData = async () => {
@@ -158,7 +170,6 @@ export default function AdminEventsEnhanced() {
       const normalizedEvents = (eventsData || []).map((e: any) => ({
         ...e,
         departments: e.departments || [],
-        criteria: e.criteria || [],
         judges: e.judges || [],
       }));
       setEvents(normalizedEvents);
@@ -192,6 +203,14 @@ export default function AdminEventsEnhanced() {
       console.error('Failed to load judges:', err);
       toast.error('Could not load judge accounts');
     }
+
+    // Sports + their format (versus / ranked) — drives the college picker
+    try {
+      const catData = await getCategories();
+      setCategories(catData || []);
+    } catch (err) {
+      console.error('Failed to load sports:', err);
+    }
   };
 
   // ── Overlap checks (client-side) ──────────────────────────────────────
@@ -205,11 +224,13 @@ export default function AdminEventsEnhanced() {
       return 'End time must be after start time.';
     if (!data.venueId) return 'Venue is required.';
     if (data.judgeIds.length === 0) return 'At least one judge must be assigned.';
-    if (data.departments.length === 0) return 'At least one department must participate.';
-    if (data.criteria.length === 0) return 'At least one scoring criterion is required.';
-    for (const c of data.criteria) {
-      if (!c.name.trim()) return 'All criteria must have a name.';
-      if (!c.weight || c.weight <= 0) return 'All criteria weights must be greater than 0.';
+    {
+      const picked = data.departments.filter(Boolean);
+      if (formatOf(data.category) === 'versus') {
+        if (new Set(picked).size !== 2) return 'Two-team sport — pick exactly two colleges.';
+      } else if (picked.length < 2) {
+        return 'Pick at least two colleges.';
+      }
     }
 
     // Venue overlap
@@ -222,7 +243,7 @@ export default function AdminEventsEnhanced() {
       );
     });
     if (venueConflict) {
-      return `Venue conflict: "${venueConflict.name}" is already at this venue on ${venueConflict.schedule} from ${formatTime(venueConflict.startTime)} to ${formatTime(venueConflict.endTime)}.`;
+      return `Venue already scheduled at ${formatTime(venueConflict.startTime)}–${formatTime(venueConflict.endTime)}.`;
     }
 
     // Judge overlap
@@ -237,7 +258,7 @@ export default function AdminEventsEnhanced() {
         );
       });
       if (judgeConflict) {
-        return `Judge conflict: "${judge?.name || judgeId}" is already assigned to "${judgeConflict.name}" from ${formatTime(judgeConflict.startTime)} to ${formatTime(judgeConflict.endTime)}.`;
+        return `${judge?.name || 'Committee'} already assigned at ${formatTime(judgeConflict.startTime)}–${formatTime(judgeConflict.endTime)}.`;
       }
     }
 
@@ -260,7 +281,6 @@ export default function AdminEventsEnhanced() {
         venueName: event.venueName || '',
         judgeIds: (event.judges || []).map((j: JudgeRef) => j.id),
         departments: event.departments || [],
-        criteria: event.criteria?.length ? event.criteria : [{ name: '', weight: 100 }],
       });
     } else {
       setEditingEvent(null);
@@ -325,31 +345,26 @@ export default function AdminEventsEnhanced() {
   const handleBulkDelete = async () => {
     if (!selectedEvents.size) { toast.error('No events selected'); return; }
     try {
-      await Promise.all(Array.from(selectedEvents).map(id => deleteEvent(id)));
-      toast.success(`${selectedEvents.size} events deleted`);
+      const { deleted } = await bulkDeleteEvents(Array.from(selectedEvents));
+      toast.success(`${deleted ?? selectedEvents.size} events deleted`);
       setSelectedEvents(new Set());
       loadData();
-    } catch { toast.error('Failed to delete some events'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to delete events'); }
   };
 
   const handleBulkStatusChange = async (newStatus: string) => {
     if (!selectedEvents.size) { toast.error('No events selected'); return; }
     try {
-      await Promise.all(
-        Array.from(selectedEvents).map(id => {
-          const ev = events.find(e => e.id === id);
-          return ev ? updateEvent(id, { ...ev, status: newStatus as any }) : null;
-        })
-      );
-      toast.success(`${selectedEvents.size} events updated`);
+      const { updated } = await bulkUpdateEventStatus(Array.from(selectedEvents), newStatus);
+      toast.success(`${updated ?? selectedEvents.size} events updated`);
       setSelectedEvents(new Set());
       loadData();
-    } catch { toast.error('Failed to update events'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update events'); }
   };
 
   const handleExport = () => {
     const csv = [
-      ['Name', 'Sport', 'Schedule', 'Start', 'End', 'Venue', 'Status', 'Judges', 'Departments'],
+      ['Name', 'Sport', 'Schedule', 'Start', 'End', 'Venue', 'Status', 'Committees', 'Colleges'],
       ...filteredEvents.map(e => [
         e.name, e.category, e.schedule, e.startTime, e.endTime,
         e.venueName,
@@ -364,9 +379,6 @@ export default function AdminEventsEnhanced() {
     a.click();
     toast.success('Exported');
   };
-
-  // ── Criteria helpers ──────────────────────────────────────────────────
-  const totalWeight = formData.criteria.reduce((s, c) => s + (c.weight || 0), 0);
 
   // ── Filtered list ──────────────────────────────────────────────────────
   const filteredEvents = useMemo(() => {
@@ -569,7 +581,7 @@ export default function AdminEventsEnhanced() {
                   )}
                   <div className="flex items-center gap-2 text-gray-600">
                     <UserCheck className="h-4 w-4 shrink-0" />
-                    {(event.judges || []).length} judge{(event.judges || []).length !== 1 ? 's' : ''}
+                    {(event.judges || []).length} committee{(event.judges || []).length !== 1 ? 's' : ''}
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
                     <Users className="h-4 w-4 shrink-0" />
@@ -622,7 +634,7 @@ export default function AdminEventsEnhanced() {
                         <p>{event.venueName || '—'}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Judges / Depts</p>
+                        <p className="text-gray-500">Committees / Depts</p>
                         <p>{(event.judges || []).length} / {(event.departments || []).length}</p>
                       </div>
                       <div className="flex items-center">
@@ -687,10 +699,20 @@ export default function AdminEventsEnhanced() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Sport Type <span className="text-red-500">*</span></Label>
-                <Select value={formData.category} onValueChange={v => setFormData(f => ({ ...f, category: v }))}>
+                <Select
+                  value={formData.category}
+                  onValueChange={v => setFormData(f => ({
+                    ...f,
+                    category: v,
+                    // Switching to a two-team sport can't keep 3+ colleges.
+                    departments: formatOf(v) === 'versus' ? f.departments.filter(Boolean).slice(0, 2) : f.departments,
+                  }))}
+                >
                   <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>
                   <SelectContent>
-                    {SPORTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {(categories.length ? categories.map(c => c.name) : SPORTS).map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -747,7 +769,7 @@ export default function AdminEventsEnhanced() {
             {/* Judges */}
             <div>
               <Label>
-                Assign Judges <span className="text-red-500">*</span>
+                Assign Committees <span className="text-red-500">*</span>
                 <span className="ml-2 text-xs text-gray-500 font-normal">({formData.judgeIds.length} selected)</span>
               </Label>
               {judges.length === 0 ? (
@@ -780,84 +802,72 @@ export default function AdminEventsEnhanced() {
               )}
             </div>
 
-            {/* Departments */}
-            <div>
-              <Label>
-                Participating Departments <span className="text-red-500">*</span>
-                <span className="ml-2 text-xs text-gray-500 font-normal">({formData.departments.length} selected)</span>
-              </Label>
-              <div className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto border rounded p-3 bg-gray-50">
-                {departments.map((dept: any) => (
-                  <div key={dept.id} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`dept-${dept.id}`}
-                      checked={formData.departments.includes(dept.name)}
-                      onCheckedChange={checked => {
-                        setFormData(f => ({
-                          ...f,
-                          departments: checked
-                            ? [...f.departments, dept.name]
-                            : f.departments.filter(d => d !== dept.name),
-                        }));
-                      }}
-                    />
-                    <label htmlFor={`dept-${dept.id}`} className="text-sm cursor-pointer">{dept.name}</label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Criteria */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
+            {/* Colleges — two-team sports pick Home/Away, ranked sports pick a list */}
+            {formatOf(formData.category) === 'versus' ? (
+              <div>
                 <Label>
-                  Scoring Criteria <span className="text-red-500">*</span>
+                  Colleges <span className="text-red-500">*</span>
+                  <span className="ml-2 text-xs text-gray-500 font-normal">one game — two colleges</span>
                 </Label>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${totalWeight === 100 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  Total: {totalWeight}%
-                </span>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  {(['home', 'away'] as const).map((side, idx) => {
+                    const value = formData.departments[idx] || '';
+                    const other = formData.departments[idx === 0 ? 1 : 0];
+                    return (
+                      <div key={side}>
+                        <p className="text-xs font-medium text-gray-500 mb-1">{side === 'home' ? 'Home' : 'Away'}</p>
+                        <Select
+                          value={value}
+                          onValueChange={v => setFormData(f => {
+                            const next = [f.departments[0] || '', f.departments[1] || ''];
+                            next[idx] = v;
+                            return { ...f, departments: next.filter(Boolean) };
+                          })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
+                          <SelectContent>
+                            {departments
+                              .filter((d: any) => d.name !== other)
+                              .map((d: any) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Running several colleges through this sport? Generate the games in{' '}
+                  <span className="font-medium text-gray-700">Bracketing</span>.
+                </p>
               </div>
-              <div className="space-y-2">
-                {formData.criteria.map((c, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <Input
-                      placeholder="Criterion name (e.g. Accuracy)"
-                      value={c.name}
-                      onChange={e => {
-                        const updated = [...formData.criteria];
-                        updated[i] = { ...updated[i], name: e.target.value };
-                        setFormData(f => ({ ...f, criteria: updated }));
-                      }}
-                      className="flex-1"
-                    />
-                    <div className="relative w-28">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={100}
-                        placeholder="Weight"
-                        value={c.weight || ''}
-                        onChange={e => {
-                          const updated = [...formData.criteria];
-                          updated[i] = { ...updated[i], weight: Number(e.target.value) };
-                          setFormData(f => ({ ...f, criteria: updated }));
+            ) : (
+              <div>
+                <Label>
+                  Participating Colleges <span className="text-red-500">*</span>
+                  <span className="ml-2 text-xs text-gray-500 font-normal">({formData.departments.length} selected)</span>
+                </Label>
+                <div className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto border rounded p-3 bg-gray-50">
+                  {departments.map((dept: any) => (
+                    <div key={dept.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`dept-${dept.id}`}
+                        checked={formData.departments.includes(dept.name)}
+                        onCheckedChange={checked => {
+                          setFormData(f => ({
+                            ...f,
+                            departments: checked
+                              ? [...f.departments, dept.name]
+                              : f.departments.filter(d => d !== dept.name),
+                          }));
                         }}
-                        className="pr-7"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                      <label htmlFor={`dept-${dept.id}`} className="text-sm cursor-pointer">{dept.name}</label>
                     </div>
-                    {formData.criteria.length > 1 && (
-                      <Button variant="ghost" size="sm" className="px-2" onClick={() => setFormData(f => ({ ...f, criteria: f.criteria.filter((_, idx) => idx !== i) }))}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button variant="outline" size="sm" onClick={() => setFormData(f => ({ ...f, criteria: [...f.criteria, { name: '', weight: 0 }] }))}>
-                  <Plus className="h-4 w-4 mr-2" />Add Criterion
-                </Button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
           </div>
 
           <DialogFooter>

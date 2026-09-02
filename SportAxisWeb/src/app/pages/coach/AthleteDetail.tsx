@@ -148,7 +148,7 @@ export default function AthleteDetail() {
               <div className="flex items-start gap-3">
                 <Building className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Department</p>
+                  <p className="text-sm font-medium text-gray-500">College</p>
                   <p className="text-base">{athlete.department}</p>
                 </div>
               </div>

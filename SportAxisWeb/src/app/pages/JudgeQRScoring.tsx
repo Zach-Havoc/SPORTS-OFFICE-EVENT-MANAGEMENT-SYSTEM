@@ -19,7 +19,6 @@ interface Event {
   endTime?: string;
   status: 'upcoming' | 'ongoing' | 'completed';
   departments: string[];
-  criteria: Array<{ name: string; weight: number }>;
 }
 
 export default function JudgeQRScoring() {
@@ -35,7 +34,7 @@ export default function JudgeQRScoring() {
   const [formData, setFormData] = useState({
     judgeName: '',
     department: '',
-    scores: {} as Record<string, number>
+    score: '',
   });
 
   useEffect(() => {
@@ -58,21 +57,9 @@ export default function JudgeQRScoring() {
       }
 
       const data = await response.json();
-      // Laravel returns { event: {...}, criteria: [...] }
+      // Laravel returns { event: {...} }
       const evt = data.event ?? data;
-      const criteria: Array<{ name: string; weight: number }> =
-        (data.criteria ?? evt.criteria ?? []).map((c: any) => ({
-          name: c.name,
-          weight: c.weight ?? 0,
-        }));
-
-      setEvent({ ...evt, criteria });
-
-      // Initialize scores for each criterion
-      const initialScores: Record<string, number> = {};
-      criteria.forEach((c) => { initialScores[c.name] = 0; });
-      setFormData(prev => ({ ...prev, scores: initialScores }));
-
+      setEvent(evt);
     } catch (error: any) {
       console.error('Error validating QR token:', error);
       setError(error.message || 'Failed to load event. This QR code may be expired or invalid.');
@@ -82,56 +69,29 @@ export default function JudgeQRScoring() {
     }
   };
 
-  const handleScoreChange = (criterionName: string, value: number) => {
-    setFormData(prev => ({
-      ...prev,
-      scores: {
-        ...prev.scores,
-        [criterionName]: value
-      }
-    }));
-  };
-
-  const calculateTotalScore = () => {
-    if (!event) return 0;
-    
-    let total = 0;
-    event.criteria.forEach(criterion => {
-      const score = formData.scores[criterion.name] || 0;
-      const weightedScore = (score * criterion.weight) / 100;
-      total += weightedScore;
-    });
-    
-    return Math.round(total * 100) / 100;
-  };
+  const totalScore = Number(formData.score) || 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.judgeName.trim()) {
-      toast.error('Please enter your name');
+      toast.error('Enter your name.');
       return;
     }
-    
+
     if (!formData.department) {
-      toast.error('Please select a department');
+      toast.error('Select a college first.');
       return;
     }
-    
-    // Validate all scores are entered
-    const allScoresEntered = event?.criteria.every(c => 
-      formData.scores[c.name] !== undefined && formData.scores[c.name] > 0
-    );
-    
-    if (!allScoresEntered) {
-      toast.error('Please enter scores for all criteria');
+
+    const value = Number(formData.score);
+    if (formData.score === '' || Number.isNaN(value) || value < 0 || value > 100) {
+      toast.error('Enter a score from 0 to 100.');
       return;
     }
-    
+
     try {
       setSubmitting(true);
-
-      const totalScore = calculateTotalScore();
 
       // Use the Laravel API: POST /api/scores
       const authToken = localStorage.getItem('auth_token');
@@ -146,8 +106,7 @@ export default function JudgeQRScoring() {
           eventId,
           department: formData.department,
           judgeName: formData.judgeName,
-          scores: formData.scores,
-          totalScore,
+          totalScore: value,
           submittedViaQr: true,
         }),
       });
@@ -230,18 +189,9 @@ export default function JudgeQRScoring() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Score Summary:</p>
-              <div className="space-y-1">
-                {event?.criteria.map(criterion => (
-                  <div key={criterion.name} className="flex justify-between text-sm">
-                    <span>{criterion.name}:</span>
-                    <span className="font-semibold">{formData.scores[criterion.name]}/100</span>
-                  </div>
-                ))}
-                <div className="border-t pt-2 mt-2 flex justify-between font-bold">
-                  <span>Total Score:</span>
-                  <span className="text-green-600">{calculateTotalScore()}/100</span>
-                </div>
+              <div className="flex justify-between font-bold">
+                <span>Score:</span>
+                <span className="text-green-600">{totalScore}/100</span>
               </div>
             </div>
             
@@ -263,7 +213,7 @@ export default function JudgeQRScoring() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 text-indigo-600 mb-2">
             <QrCode className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">Judge Scoring</h1>
+            <h1 className="text-3xl font-bold">Committee Scoring</h1>
           </div>
           <p className="text-gray-600">Score via QR Code Access</p>
         </div>
@@ -306,7 +256,7 @@ export default function JudgeQRScoring() {
           <CardHeader>
             <CardTitle>Submit Your Score</CardTitle>
             <CardDescription>
-              Enter your name, select the department, and score each criterion
+              Enter your name, select the college, and give it an overall score
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -325,7 +275,7 @@ export default function JudgeQRScoring() {
 
               {/* Department Selection */}
               <div className="space-y-2">
-                <Label htmlFor="department">Department *</Label>
+                <Label htmlFor="department">College *</Label>
                 <Select value={formData.department} onValueChange={v => setFormData({ ...formData, department: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select department to score" />
@@ -338,46 +288,29 @@ export default function JudgeQRScoring() {
                 </Select>
               </div>
 
-              {/* Scoring Criteria */}
-              <div className="space-y-4">
-                <Label className="text-base font-semibold">Scoring Criteria *</Label>
-                {event.criteria.map((criterion, index) => (
-                  <div key={index} className="space-y-2 p-4 bg-gray-50 rounded-lg border">
-                    <div className="flex justify-between items-center mb-2">
-                      <Label htmlFor={`score-${index}`} className="font-medium">
-                        {criterion.name}
-                      </Label>
-                      <Badge variant="secondary">Weight: {criterion.weight}%</Badge>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="range"
-                        id={`score-${index}`}
-                        min="0"
-                        max="100"
-                        value={formData.scores[criterion.name] || 0}
-                        onChange={e => handleScoreChange(criterion.name, Number(e.target.value))}
-                        className="flex-1"
-                      />
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={formData.scores[criterion.name] || 0}
-                        onChange={e => handleScoreChange(criterion.name, Number(e.target.value))}
-                        className="w-20"
-                      />
-                      <span className="text-sm text-gray-500">/ 100</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Total Score Display */}
-              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-gray-800">Total Weighted Score:</span>
-                  <span className="text-2xl font-bold text-indigo-600">{calculateTotalScore()}/100</span>
+              {/* Overall Score */}
+              <div className="space-y-2">
+                <Label htmlFor="overall-score" className="text-base font-semibold">Overall Score *</Label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    id="overall-score"
+                    min="0"
+                    max="100"
+                    value={totalScore}
+                    onChange={e => setFormData({ ...formData, score: e.target.value })}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.score}
+                    onChange={e => setFormData({ ...formData, score: e.target.value })}
+                    placeholder="0-100"
+                    className="w-24"
+                  />
+                  <span className="text-sm text-gray-500">/ 100</span>
                 </div>
               </div>
 

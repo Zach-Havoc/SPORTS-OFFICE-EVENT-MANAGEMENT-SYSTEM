@@ -85,7 +85,7 @@ class EnrollmentTest extends TestCase
 
         $this->postJson('/api/enroll', ['enrollmentCode' => 'JOINME01'])
             ->assertStatus(400)
-            ->assertJsonFragment(['error' => 'This coach has not been assigned to a department yet. Please contact your administrator.']);
+            ->assertJsonFragment(['error' => 'This coach has not been assigned to a college yet. Please contact your administrator.']);
     }
 
     public function test_enroll_rejects_an_unknown_code(): void

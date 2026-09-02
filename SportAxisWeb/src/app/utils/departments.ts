@@ -41,3 +41,34 @@ export function useDeptAbbreviator() {
   const { data } = useDepartments();
   return useMemo(() => makeAbbreviator(data as DeptLike[] | undefined), [data]);
 }
+
+const STOPWORDS = /^(of|and|the|for|in|at|de|del|la|y)$/i;
+
+/** Initials of the significant words — "College of Arts and Sciences" → "CAS". */
+export function deptAcronym(name: string): string {
+  return name
+    .split(/[\s,&/().-]+/)
+    .filter((w) => w && !STOPWORDS.test(w))
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
+
+/**
+ * A guaranteed-short label for tight UI (bracket boxes, chips): the registered
+ * abbreviation if there is one, else a derived acronym, else a hard-truncated
+ * name. Never returns a multi-line paragraph.
+ */
+export function shortDeptLabel(
+  abbreviate: (t: string | null | undefined) => string,
+  name: string | null | undefined,
+  max = 14,
+): string {
+  if (!name) return '';
+  const a = abbreviate(name);
+  if (a !== name) return a;              // registered abbreviation
+  if (name.length <= max) return name;   // already short enough
+  const ac = deptAcronym(name);
+  if (ac.length >= 2 && ac.length <= 12) return ac;
+  return name.slice(0, max - 1).trimEnd() + '…';
+}

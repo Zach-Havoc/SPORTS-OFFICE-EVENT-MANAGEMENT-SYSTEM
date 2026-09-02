@@ -82,7 +82,7 @@ export default function Root() {
                       <Link to="/judge">
                         <Button variant="ghost">
                           <LayoutDashboard className="h-4 w-4 mr-2" />
-                          Judge Panel
+                          Committee Panel
                         </Button>
                       </Link>
                     )}
@@ -135,7 +135,7 @@ export default function Root() {
                     )}
                     {user.role === 'judge' && (
                       <Link to="/judge" onClick={() => setMobileMenuOpen(false)}>
-                        <Button variant="ghost" className="w-full justify-start">Judge Panel</Button>
+                        <Button variant="ghost" className="w-full justify-start">Committee Panel</Button>
                       </Link>
                     )}
                     <Button variant="outline" onClick={handleLogout} className="w-full justify-start">

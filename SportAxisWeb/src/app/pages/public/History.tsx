@@ -42,7 +42,6 @@ export default function PublicHistory() {
       (data ?? []).map((event: any) => ({
         ...event,
         departments: event.departments || [],
-        criteria: event.criteria || [],
       })),
     [data],
   );
@@ -137,7 +136,7 @@ export default function PublicHistory() {
           <div role="search" className="relative flex-1 min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search events by name or category"
+              placeholder="Search events by name or sport"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 pl-9 pr-9"
@@ -158,11 +157,11 @@ export default function PublicHistory() {
           {/* Secondary filters — fixed width, wrap on mobile */}
           <div className="flex gap-3">
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Filter by category">
-                <SelectValue placeholder="All categories" />
+              <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Filter by sport">
+                <SelectValue placeholder="All sports" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
+                <SelectItem value="all">All sports</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}

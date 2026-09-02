@@ -77,6 +77,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if (!$user->active) {
+            throw ValidationException::withMessages([
+                'email' => ['Account is disabled.'],
+            ]);
+        }
+
         // Revoke old tokens
         $user->tokens()->delete();
         $token = $user->createToken('auth_token')->plainTextToken;

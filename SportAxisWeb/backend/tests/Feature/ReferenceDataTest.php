@@ -86,6 +86,22 @@ class ReferenceDataTest extends TestCase
         $this->assertDatabaseHas('categories', ['name' => 'Esports']);
     }
 
+    public function test_a_sport_carries_a_format_that_defaults_to_versus(): void
+    {
+        $this->actingAsRole('admin');
+
+        $this->postJson('/api/categories', ['name' => 'Basketball'])->assertCreated();
+        $this->assertDatabaseHas('categories', ['name' => 'Basketball', 'format' => 'versus']);
+
+        $ranked = $this->postJson('/api/categories', ['name' => 'Cheerdance', 'format' => 'ranked'])
+            ->assertCreated()->json();
+        $this->assertDatabaseHas('categories', ['name' => 'Cheerdance', 'format' => 'ranked']);
+
+        $this->putJson("/api/categories/{$ranked['id']}", ['name' => 'Cheerdance', 'format' => 'versus'])
+            ->assertOk();
+        $this->assertDatabaseHas('categories', ['id' => $ranked['id'], 'format' => 'versus']);
+    }
+
     // ── Venues ──────────────────────────────────────────────────────────
 
     public function test_admin_can_create_a_venue(): void

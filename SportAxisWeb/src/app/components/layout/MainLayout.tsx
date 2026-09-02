@@ -25,7 +25,10 @@ import {
   ClipboardList,
   TrendingUp,
   UserPlus,
+  UserCog,
   MapPin,
+  Radio,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import bgImage from 'figma:asset/d00b81b29bccf92203e98ef7d2b2d2f18d87f4b1.png';
@@ -41,6 +44,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import Loading from '../Loading';
+import SitePopup from '../public/SitePopup';
 
 export default function MainLayout() {
   const { user, logout, loading } = useAuth();
@@ -71,6 +75,8 @@ export default function MainLayout() {
       return {
         main: [
           { name: 'Live Events', path: '/', icon: Home },
+          { name: 'Live Games', path: '/live', icon: Radio },
+          { name: 'Brackets', path: '/brackets', icon: Trophy },
           { name: 'Leaderboard', path: '/leaderboard', icon: Medal },
           { name: 'History', path: '/history', icon: History },
           { name: 'Announcements', path: '/announcements', icon: Megaphone },
@@ -87,11 +93,13 @@ export default function MainLayout() {
           { name: 'Venues', path: '/admin/venues', icon: MapPin },
           { name: 'Bracketing', path: '/admin/bracketing', icon: Trophy },
           { name: 'Coaches', path: '/admin/coaches', icon: Users },
+          { name: 'Users', path: '/admin/users', icon: UserCog },
           { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
           { name: 'History', path: '/admin/history', icon: History },
         ],
         bottom: [
           { name: 'Registration Codes', path: '/admin/registration-codes', icon: Shield },
+          { name: 'Site Content', path: '/admin/carousel', icon: ImageIcon },
           { name: 'Settings', path: '/admin/settings', icon: Settings },
         ]
       };
@@ -476,6 +484,8 @@ export default function MainLayout() {
                       <nav className="hidden sm:flex items-center gap-1">
                         {[
                           { name: 'Live Events', path: '/' },
+                          { name: 'Live Games', path: '/live' },
+                          { name: 'Brackets', path: '/brackets' },
                           { name: 'Leaderboard', path: '/leaderboard' },
                           { name: 'History', path: '/history' },
                           { name: 'Announcements', path: '/announcements' },
@@ -524,6 +534,9 @@ export default function MainLayout() {
           </footer>
         </div>
       </div>
+
+      {/* Welcome popup for public visitors (admin-managed; once per session) */}
+      {!user && <SitePopup />}
 
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>

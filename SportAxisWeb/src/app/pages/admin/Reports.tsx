@@ -139,7 +139,7 @@ export default function AdminReports() {
                       <thead>
                         <tr className="border-b">
                           <th className="text-left py-2">Rank</th>
-                          <th className="text-left py-2">Department</th>
+                          <th className="text-left py-2">College</th>
                           <th className="text-right py-2">Score</th>
                         </tr>
                       </thead>

@@ -220,7 +220,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'admin' && <><Shield className="h-3 w-3 mr-1" /> Admin</>}
                           {code.role === 'coach' && <><User className="h-3 w-3 mr-1" /> Coach</>}
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
-                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Judge</>}
+                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 mb-1">{code.label}</p>
@@ -284,7 +284,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'admin' && <><Shield className="h-3 w-3 mr-1" /> Admin</>}
                           {code.role === 'coach' && <><User className="h-3 w-3 mr-1" /> Coach</>}
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
-                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Judge</>}
+                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
                         <Badge variant="secondary">Used</Badge>
                       </div>
@@ -324,7 +324,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'admin' && <><Shield className="h-3 w-3 mr-1" /> Admin</>}
                           {code.role === 'coach' && <><User className="h-3 w-3 mr-1" /> Coach</>}
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
-                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Judge</>}
+                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
                         <Badge className="bg-red-600">Expired</Badge>
                       </div>
@@ -369,7 +369,7 @@ export default function AdminRegistrationCodes() {
                 <SelectContent>
                   <SelectItem value="athlete">Athlete - View schedule & performance</SelectItem>
                   <SelectItem value="coach">Coach - Manage athletes & teams</SelectItem>
-                  <SelectItem value="judge">Judge - Score events</SelectItem>
+                  <SelectItem value="judge">Committee - Score events</SelectItem>
                   <SelectItem value="admin">Admin - Full system access</SelectItem>
                 </SelectContent>
               </Select>
@@ -381,7 +381,7 @@ export default function AdminRegistrationCodes() {
                 id="label"
                 value={formData.label}
                 onChange={e => setFormData({ ...formData, label: e.target.value })}
-                placeholder={`e.g., "John's Judge Access"`}
+                placeholder={`e.g., "John's Committee Access"`}
               />
               <p className="text-xs text-gray-500">
                 A description to help you remember what this code is for

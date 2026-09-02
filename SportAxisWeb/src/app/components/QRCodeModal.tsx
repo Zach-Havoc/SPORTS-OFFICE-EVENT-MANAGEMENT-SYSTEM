@@ -54,9 +54,8 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
   };
 
   const scorePayloadExample = JSON.stringify({
-    department: "Department Name",
-    judgeName: "Judge Full Name",
-    scores: { "Criterion 1": 85, "Criterion 2": 90 },
+    department: "College Name",
+    judgeName: "Committee Full Name",
     totalScore: 87.5,
   }, null, 2);
 
@@ -65,7 +64,7 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
       <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Judge QR Code
+            Committee QR Code
           </DialogTitle>
           <DialogDescription>
             Scoring access for <strong>{eventName}</strong>
@@ -131,8 +130,8 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
                   <ol className="space-y-1 text-gray-600 list-decimal list-inside text-xs leading-relaxed">
                     <li>Mobile app scans the QR code</li>
                     <li>Parse <code className="bg-gray-100 px-1 rounded">eventId</code>, <code className="bg-gray-100 px-1 rounded">token</code>, <code className="bg-gray-100 px-1 rounded">apiBase</code>, and <code className="bg-gray-100 px-1 rounded">apiKey</code> from the URL</li>
-                    <li>Call the <strong>Get Event</strong> endpoint to fetch event details (criteria, departments)</li>
-                    <li>Judge selects a department, scores each criterion</li>
+                    <li>Call the <strong>Get Event</strong> endpoint to fetch event details (colleges)</li>
+                    <li>Committee selects a college and enters one overall score</li>
                     <li>Call the <strong>Submit Score</strong> endpoint — no login required</li>
                   </ol>
                 </div>
@@ -176,7 +175,7 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
                     <span className="text-orange-300">Bearer {'<apiKey>'}</span>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Returns: <code className="bg-gray-100 px-1 rounded">{'{ event: { name, departments[], criteria[], status, ... } }'}</code>
+                    Returns: <code className="bg-gray-100 px-1 rounded">{'{ event: { name, departments[], status, ... } }'}</code>
                   </p>
                 </div>
 

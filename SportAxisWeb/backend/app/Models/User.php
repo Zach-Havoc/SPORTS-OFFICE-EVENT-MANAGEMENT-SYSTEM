@@ -13,7 +13,7 @@ class User extends Authenticatable
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'email', 'password', 'name', 'role',
+        'id', 'email', 'password', 'name', 'role', 'active',
         'sport', 'sports', 'gender_category', 'department', 'enrollment_code', 'coach_id', 'coach_name', 'enrolled_at',
     ];
 
@@ -22,6 +22,7 @@ class User extends Authenticatable
     protected $casts = [
         'enrolled_at' => 'datetime',
         'sports'      => 'array',
+        'active'      => 'boolean',
     ];
 
     /**
@@ -46,6 +47,7 @@ class User extends Authenticatable
             'email'          => $this->email,
             'name'           => $this->name,
             'role'           => $this->role,
+            'active'         => $this->active ?? true,
             'sport'          => $this->sport,
             'sports'         => $this->sportsList(),
             'department'     => $this->department,

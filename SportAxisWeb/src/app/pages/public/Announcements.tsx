@@ -446,7 +446,7 @@ export default function PublicAnnouncements() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department *</Label>
+                  <Label htmlFor="department">College *</Label>
                   <Select
                     value={formData.department || undefined}
                     onValueChange={(v) => {
@@ -465,7 +465,7 @@ export default function PublicAnnouncements() {
                           {deptByName.get(formData.department)?.abbreviation || formData.department}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">Select Department</span>
+                        <span className="text-muted-foreground">Select College</span>
                       )}
                     </SelectTrigger>
                     <SelectContent>

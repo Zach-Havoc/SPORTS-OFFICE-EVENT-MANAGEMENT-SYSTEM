@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Plus, Pencil, Trash2, Users, Tag } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,10 +20,13 @@ interface Department {
   abbreviation: string;
 }
 
+type SportFormat = 'versus' | 'ranked';
+
 interface Category {
   id: string;
   name: string;
   description: string;
+  format?: SportFormat;
 }
 
 export default function AdminSettings() {
@@ -39,7 +43,7 @@ export default function AdminSettings() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
-  const [catFormData, setCatFormData] = useState({ name: '', description: '' });
+  const [catFormData, setCatFormData] = useState<{ name: string; description: string; format: SportFormat }>({ name: '', description: '', format: 'versus' });
   
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
@@ -84,10 +88,10 @@ export default function AdminSettings() {
     try {
       if (editingDept) {
         await updateDepartment(editingDept.id, deptFormData);
-        toast.success('Department updated successfully');
+        toast.success('College updated successfully');
       } else {
         await createDepartment(deptFormData);
-        toast.success('Department created successfully');
+        toast.success('College created successfully');
       }
       setDeptDialogOpen(false);
       loadData();
@@ -102,7 +106,7 @@ export default function AdminSettings() {
     
     try {
       await deleteDepartment(id);
-      toast.success('Department deleted successfully');
+      toast.success('College deleted successfully');
       loadData();
     } catch (error) {
       console.error('Error deleting department:', error);
@@ -114,10 +118,10 @@ export default function AdminSettings() {
   const handleOpenCatDialog = (cat?: Category) => {
     if (cat) {
       setEditingCat(cat);
-      setCatFormData({ name: cat.name, description: cat.description });
+      setCatFormData({ name: cat.name, description: cat.description, format: cat.format ?? 'versus' });
     } else {
       setEditingCat(null);
-      setCatFormData({ name: '', description: '' });
+      setCatFormData({ name: '', description: '', format: 'versus' });
     }
     setCatDialogOpen(true);
   };
@@ -126,29 +130,29 @@ export default function AdminSettings() {
     try {
       if (editingCat) {
         await updateCategory(editingCat.id, catFormData);
-        toast.success('Category updated successfully');
+        toast.success('Sport updated');
       } else {
         await createCategory(catFormData);
-        toast.success('Category created successfully');
+        toast.success('Sport added');
       }
       setCatDialogOpen(false);
       loadData();
     } catch (error) {
-      console.error('Error saving category:', error);
-      toast.error('Failed to save category');
+      console.error('Error saving sport:', error);
+      toast.error('Failed to save sport');
     }
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this category?')) return;
-    
+    if (!confirm('Delete this sport?')) return;
+
     try {
       await deleteCategory(id);
-      toast.success('Category deleted successfully');
+      toast.success('Sport deleted');
       loadData();
     } catch (error) {
-      console.error('Error deleting category:', error);
-      toast.error('Failed to delete category');
+      console.error('Error deleting sport:', error);
+      toast.error('Failed to delete sport');
     }
   };
 
@@ -162,7 +166,7 @@ export default function AdminSettings() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">System Settings</h1>
-          <p className="text-gray-600 mt-2">Manage departments and event categories</p>
+          <p className="text-gray-600 mt-2">Manage colleges and sports</p>
         </div>
       </div>
 
@@ -213,11 +217,11 @@ export default function AdminSettings() {
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="departments">
             <Users className="h-4 w-4 mr-2" />
-            Departments
+            Colleges
           </TabsTrigger>
           <TabsTrigger value="categories">
             <Tag className="h-4 w-4 mr-2" />
-            Categories
+            Sports
           </TabsTrigger>
         </TabsList>
 
@@ -226,14 +230,14 @@ export default function AdminSettings() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Departments</CardTitle>
+                <CardTitle>Colleges</CardTitle>
                 <p className="text-sm text-gray-600 mt-1">
                   Manage participating departments
                 </p>
               </div>
               <Button onClick={() => handleOpenDeptDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Department
+                Add College
               </Button>
             </CardHeader>
             <CardContent>
@@ -272,7 +276,7 @@ export default function AdminSettings() {
               </div>
               {departments.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
-                  No departments yet. Click "Add Department" to create one.
+                  No colleges yet. Click "Add College" to create one.
                 </div>
               )}
             </CardContent>
@@ -284,14 +288,14 @@ export default function AdminSettings() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Event Categories</CardTitle>
+                <CardTitle>Sports</CardTitle>
                 <p className="text-sm text-gray-600 mt-1">
-                  Manage event categories and types
+                  The sports that events can be held in
                 </p>
               </div>
               <Button onClick={() => handleOpenCatDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Category
+                Add Sport
               </Button>
             </CardHeader>
             <CardContent>
@@ -304,6 +308,13 @@ export default function AdminSettings() {
                           <div className="flex items-center gap-2 mb-1">
                             <Tag className="h-4 w-4 text-green-600" />
                             <h3 className="font-semibold">{cat.name}</h3>
+                            <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                              (cat.format ?? 'versus') === 'ranked'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {(cat.format ?? 'versus') === 'ranked' ? 'Ranked' : 'Versus'}
+                            </span>
                           </div>
                           <p className="text-sm text-gray-600">{cat.description}</p>
                         </div>
@@ -330,7 +341,7 @@ export default function AdminSettings() {
               </div>
               {categories.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
-                  No categories yet. Click "Add Category" to create one.
+                  No sports yet. Click "Add Sport" to create one.
                 </div>
               )}
             </CardContent>
@@ -343,7 +354,7 @@ export default function AdminSettings() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingDept ? 'Edit Department' : 'Add Department'}
+              {editingDept ? 'Edit College' : 'Add College'}
             </DialogTitle>
             <DialogDescription>
               {editingDept 
@@ -353,7 +364,7 @@ export default function AdminSettings() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="dept-name">Department Name</Label>
+              <Label htmlFor="dept-name">College Name</Label>
               <Input
                 id="dept-name"
                 value={deptFormData.name}
@@ -387,22 +398,22 @@ export default function AdminSettings() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingCat ? 'Edit Category' : 'Add Category'}
+              {editingCat ? 'Edit Sport' : 'Add Sport'}
             </DialogTitle>
             <DialogDescription>
-              {editingCat 
-                ? 'Update the category name and description.' 
-                : 'Create a new category for events.'}
+              {editingCat
+                ? 'Update the sport name and description.'
+                : 'Add a sport that events can be held in.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="cat-name">Category Name</Label>
+              <Label htmlFor="cat-name">Sport Name</Label>
               <Input
                 id="cat-name"
                 value={catFormData.name}
                 onChange={(e) => setCatFormData({ ...catFormData, name: e.target.value })}
-                placeholder="e.g., Sports"
+                placeholder="e.g., Basketball"
               />
             </div>
             <div>
@@ -413,6 +424,23 @@ export default function AdminSettings() {
                 onChange={(e) => setCatFormData({ ...catFormData, description: e.target.value })}
                 placeholder="e.g., Athletic competitions"
               />
+            </div>
+            <div>
+              <Label>Format</Label>
+              <Select
+                value={catFormData.format}
+                onValueChange={(v: SportFormat) => setCatFormData({ ...catFormData, format: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="versus">Versus — two colleges per game</SelectItem>
+                  <SelectItem value="ranked">Ranked — many colleges, placed</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Versus events must have exactly two colleges; run a pool through Bracketing. Ranked events
+                (track, swimming, cultural) can have many.
+              </p>
             </div>
           </div>
           <DialogFooter>

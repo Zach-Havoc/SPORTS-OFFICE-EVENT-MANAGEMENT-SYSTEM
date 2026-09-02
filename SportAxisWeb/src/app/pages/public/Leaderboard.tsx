@@ -32,8 +32,7 @@ interface LeaderboardEntry {
 }
 
 export default function PublicLeaderboard() {
-  // Stale-while-revalidate: cached standings render instantly, a background
-  // refetch runs every 30s while the tab is active (and on focus/reconnect).
+  // Loads once when the page opens. Refresh the browser to pull the latest.
   const {
     data,
     isLoading,
@@ -41,7 +40,7 @@ export default function PublicLeaderboard() {
     isRefetchError,
     refetch,
     dataUpdatedAt,
-  } = useLeaderboard(undefined, { refetchInterval: 30_000 });
+  } = useLeaderboard();
 
   const leaderboard = useMemo<LeaderboardEntry[]>(
     () =>
@@ -71,7 +70,7 @@ export default function PublicLeaderboard() {
       <header className="mb-8 pb-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
-            Departmental Leaderboard
+            College Leaderboard
           </h1>
           <RefreshStatus
             fetching={isFetching && !isLoading}
@@ -100,7 +99,7 @@ export default function PublicLeaderboard() {
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
                     <th className="text-left py-3 px-4 font-semibold">Rank</th>
-                    <th className="text-left py-3 px-4 font-semibold">Department</th>
+                    <th className="text-left py-3 px-4 font-semibold">College</th>
                     <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">Gold</th>
                     <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">Silver</th>
                     <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">Bronze</th>

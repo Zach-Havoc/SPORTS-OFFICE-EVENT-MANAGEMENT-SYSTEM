@@ -33,7 +33,7 @@ class EnrollController extends Controller
         // department's team for the coach's sport.
         if (!$coach->department) {
             return response()->json([
-                'error' => 'This coach has not been assigned to a department yet. Please contact your administrator.',
+                'error' => 'This coach has not been assigned to a college yet. Please contact your administrator.',
             ], 400);
         }
 

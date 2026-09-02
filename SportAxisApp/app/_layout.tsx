@@ -5,6 +5,7 @@ import { AppState, PanResponder, View } from 'react-native';
 import { useAuthStore } from '../src/store/auth.store';
 import { useOfflineStore } from '../src/store/offline.store';
 import { useOfflineSync } from '../src/hooks/use-offline-sync';
+import { setUnauthorizedHandler } from '../src/services/api';
 import { COLORS } from '../constants/theme';
 
 // 5 minutes in milliseconds
@@ -87,6 +88,14 @@ export default function RootLayout() {
 
   // Mount offline sync watcher
   useOfflineSync();
+
+  // A 401 on any authenticated request clears auth and drops back to login.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      void useAuthStore.getState().forceLogout();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   // Hydrate stores from AsyncStorage on first load
   useEffect(() => {

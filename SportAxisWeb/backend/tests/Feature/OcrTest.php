@@ -10,7 +10,7 @@ use Tests\TestCase;
 /**
  * POST /api/ocr/extract  (any authenticated user)
  *
- * MVP endpoint that returns mock extracted scores. Security focus: the stored
+ * MVP endpoint that returns a mock overall score. Security focus: the stored
  * audit image must actually be a raster image (base64 payloads that aren't an
  * image are rejected and not written to disk).
  */
@@ -41,31 +41,13 @@ class OcrTest extends TestCase
         $this->postJson('/api/ocr/extract', ['image' => 'x'])->assertUnauthorized();
     }
 
-    public function test_ocr_returns_mock_scores_for_a_valid_image(): void
+    public function test_ocr_returns_a_mock_total_for_a_valid_image(): void
     {
         $this->actingAsRole('judge');
 
         $this->postJson('/api/ocr/extract', ['image' => $this->pngBase64()])
             ->assertOk()
-            ->assertJsonStructure(['extracted_scores', 'confidence', 'image_url']);
-    }
-
-    public function test_ocr_maps_supplied_criteria_to_values(): void
-    {
-        $this->actingAsRole('judge');
-
-        $res = $this->postJson('/api/ocr/extract', [
-            'image'    => $this->pngBase64(),
-            'criteria' => [
-                ['name' => 'Execution', 'criteria_id' => 'c1', 'max_score' => 10],
-                ['name' => 'Difficulty', 'criteria_id' => 'c2', 'max_score' => 10],
-            ],
-        ])->assertOk();
-
-        $scores = $res->json('extracted_scores');
-        $this->assertCount(2, $scores);
-        $this->assertSame('Execution', $scores[0]['label']);
-        $this->assertLessThanOrEqual(10, $scores[0]['value']);
+            ->assertJsonStructure(['total_score', 'confidence', 'image_url']);
     }
 
     public function test_a_non_image_base64_payload_is_not_stored(): void

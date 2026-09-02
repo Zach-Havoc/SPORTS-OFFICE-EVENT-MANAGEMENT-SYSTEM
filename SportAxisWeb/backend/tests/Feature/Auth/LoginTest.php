@@ -11,7 +11,8 @@ use Tests\TestCase;
  * POST /api/login
  *
  * Covers credential checking, token issuance, single-session behaviour
- * (old tokens revoked on new login) and the 10-requests/minute throttle.
+ * (old tokens revoked on new login) and the sign-in rate limiter
+ * (`throttle:auth` — 5 tries/min per email+IP, 20/min per IP).
  */
 class LoginTest extends TestCase
 {
@@ -72,20 +73,50 @@ class LoginTest extends TestCase
         $this->assertCount(1, $user->fresh()->tokens()->get());
     }
 
-    public function test_login_is_rate_limited_to_10_attempts_per_minute(): void
+    public function test_a_disabled_account_cannot_log_in_even_with_the_right_password(): void
+    {
+        $this->users()->inactive()->create([
+            'email'    => 'benched@example.com',
+            'password' => Hash::make('pw12345678'),
+        ]);
+
+        $this->postJson('/api/login', ['email' => 'benched@example.com', 'password' => 'pw12345678'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('email');
+    }
+
+    public function test_login_is_rate_limited_to_5_attempts_per_email_and_ip(): void
     {
         $this->users()->create([
             'email'    => 'user@example.com',
             'password' => Hash::make('pw12345678'),
         ]);
 
-        // 10 allowed (wrong password → 422), the 11th is throttled → 429.
-        for ($i = 0; $i < 10; $i++) {
+        // 5 allowed (wrong password → 422), the 6th is throttled → 429.
+        for ($i = 0; $i < 5; $i++) {
             $this->postJson('/api/login', ['email' => 'user@example.com', 'password' => 'nope'])
                 ->assertStatus(422);
         }
 
         $this->postJson('/api/login', ['email' => 'user@example.com', 'password' => 'nope'])
             ->assertStatus(429);
+    }
+
+    public function test_lockout_is_per_email_so_a_different_account_can_still_sign_in(): void
+    {
+        $this->users()->create(['email' => 'victim@example.com', 'password' => Hash::make('pw12345678')]);
+        $this->users()->create(['email' => 'other@example.com',  'password' => Hash::make('pw12345678')]);
+
+        // Burn through the victim's per-(email+IP) budget.
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson('/api/login', ['email' => 'victim@example.com', 'password' => 'nope']);
+        }
+        $this->postJson('/api/login', ['email' => 'victim@example.com', 'password' => 'pw12345678'])
+            ->assertStatus(429);
+
+        // A different account (same IP, still under the 20/min per-IP ceiling)
+        // is unaffected.
+        $this->postJson('/api/login', ['email' => 'other@example.com', 'password' => 'pw12345678'])
+            ->assertOk();
     }
 }

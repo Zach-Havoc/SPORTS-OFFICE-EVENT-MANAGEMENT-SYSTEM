@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Event;
 use App\Models\Venue;
 use Illuminate\Http\Request;
@@ -10,6 +11,30 @@ use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
+    /**
+     * Reject a roster that doesn't fit how the sport is contested:
+     *   versus → exactly two distinct colleges (one game)
+     *   ranked → two or more
+     * Returns an error phrase, or null when the roster is fine.
+     */
+    private function rosterError(?string $category, array $departments): ?string
+    {
+        $depts = array_values(array_unique(array_filter(
+            array_map(fn ($d) => is_string($d) ? trim($d) : $d, $departments)
+        )));
+
+        $format = Category::where('name', $category)->value('format') ?: 'ranked';
+
+        if ($format === 'versus' && count($depts) !== 2) {
+            return 'Two-team sport — pick exactly two colleges.';
+        }
+        if (count($depts) < 2) {
+            return 'Pick at least two colleges.';
+        }
+
+        return null;
+    }
+
     public function index(Request $request)
     {
         $query = Event::orderBy('schedule', 'asc');
@@ -37,9 +62,12 @@ class EventController extends Controller
             'startTime'   => 'required|string',
             'endTime'     => 'required|string',
             'departments' => 'required|array',
-            'criteria'    => 'sometimes|nullable|array',
             'status'      => 'in:upcoming,ongoing,completed',
-        ]);
+        ], [], ['category' => 'sport']);
+
+        if ($rosterError = $this->rosterError($request->category, (array) $request->departments)) {
+            return response()->json(['error' => $rosterError], 422);
+        }
 
         // Resolve venue name
         $venueName = null;
@@ -47,40 +75,21 @@ class EventController extends Controller
             $venue = Venue::find($request->venueId);
             $venueName = $venue?->name;
         }
+        $venueName = $venueName ?? $request->venueName;
 
-        $defaultCriteriaMap = [
-            'Basketball' => [
-                ['name' => 'Technical Execution & Shooting', 'weight' => 30],
-                ['name' => 'Offense & Defense Strategy', 'weight' => 30],
-                ['name' => 'Teamwork & Ball Movement', 'weight' => 25],
-                ['name' => 'Sportsmanship & Discipline', 'weight' => 15],
-            ],
-            'Volleyball' => [
-                ['name' => 'Attacking & Spiking', 'weight' => 30],
-                ['name' => 'Defense & Reception', 'weight' => 30],
-                ['name' => 'Setting & Team Coordination', 'weight' => 25],
-                ['name' => 'Serving & Court Movement', 'weight' => 15],
-            ],
-            'Badminton' => [
-                ['name' => 'Stroke & Shot Precision', 'weight' => 35],
-                ['name' => 'Footwork & Court Coverage', 'weight' => 30],
-                ['name' => 'Tactical Awareness & Agility', 'weight' => 25],
-                ['name' => 'Sportsmanship', 'weight' => 10],
-            ],
-            'Football' => [
-                ['name' => 'Ball Control & Passing', 'weight' => 30],
-                ['name' => 'Offensive & Defensive Execution', 'weight' => 30],
-                ['name' => 'Physical Fitness & Movement', 'weight' => 25],
-                ['name' => 'Tactical Discipline & Teamwork', 'weight' => 15],
-            ],
-        ];
-
-        $criteria = $request->criteria;
-        if (empty($criteria)) {
-            $criteria = $defaultCriteriaMap[$request->category] ?? [
-                ['name' => 'Technical Execution', 'weight' => 50],
-                ['name' => 'Teamwork & Coordination', 'weight' => 50],
-            ];
+        // Block double-booking: same venue, same day, overlapping time.
+        $conflicts = Event::venueConflicts(
+            $request->venueId,
+            $venueName,
+            $request->schedule,
+            $request->startTime,
+            $request->endTime,
+        );
+        if ($conflicts->isNotEmpty()) {
+            return response()->json([
+                'error'     => Event::conflictMessage($conflicts->first()),
+                'conflicts' => $conflicts->map->toApiFormat(),
+            ], 422);
         }
 
         $event = Event::create([
@@ -91,10 +100,10 @@ class EventController extends Controller
             'start_time' => $request->startTime,
             'end_time'   => $request->endTime,
             'venue_id'   => $request->venueId,
-            'venue_name' => $venueName ?? $request->venueName,
+            'venue_name' => $venueName,
             'departments'=> $request->departments,
             'judges'     => $request->judges ?? [],
-            'criteria'   => $criteria,
+            'criteria'   => [],
             'status'     => $request->status ?? 'upcoming',
             'qr_token'   => Str::random(32),
         ]);
@@ -116,9 +125,39 @@ class EventController extends Controller
             'venueName'   => 'sometimes|string',
             'departments' => 'sometimes|array',
             'judges'      => 'sometimes|array',
-            'criteria'    => 'sometimes|array',
             'status'      => 'sometimes|in:upcoming,ongoing,completed',
-        ]);
+        ], [], ['category' => 'sport']);
+
+        // Re-check the roster whenever the colleges or the sport change.
+        if ($request->has('departments') || $request->has('category')) {
+            $category = $request->input('category', $event->category);
+            $depts    = $request->has('departments') ? (array) $request->departments : ($event->departments ?? []);
+            if ($rosterError = $this->rosterError($category, $depts)) {
+                return response()->json(['error' => $rosterError], 422);
+            }
+        }
+
+        // Only re-check for double-booking when this request actually moves the
+        // event in time or space (not on a bare status flip). Compared against
+        // every other event, using the new value where sent, the current
+        // value otherwise.
+        $touchesSchedule = $request->hasAny(['venueId', 'venueName', 'schedule', 'startTime', 'endTime']);
+        if ($touchesSchedule) {
+            $conflicts = Event::venueConflicts(
+                $request->has('venueId')   ? $request->venueId   : $event->venue_id,
+                $request->has('venueName') ? $request->venueName : $event->venue_name,
+                $request->has('schedule')  ? $request->schedule  : $event->schedule,
+                $request->has('startTime') ? $request->startTime : $event->start_time,
+                $request->has('endTime')   ? $request->endTime   : $event->end_time,
+                $event->id,
+            );
+            if ($conflicts->isNotEmpty()) {
+                return response()->json([
+                    'error'     => Event::conflictMessage($conflicts->first()),
+                    'conflicts' => $conflicts->map->toApiFormat(),
+                ], 422);
+            }
+        }
 
         $data = array_filter([
             'name'       => $request->name,
@@ -130,7 +169,6 @@ class EventController extends Controller
             'venue_name' => $request->venueName,
             'departments'=> $request->departments,
             'judges'     => $request->judges,
-            'criteria'   => $request->criteria,
             'status'     => $request->status,
         ], fn($v) => !is_null($v));
 
@@ -142,5 +180,32 @@ class EventController extends Controller
     {
         Event::findOrFail($id)->delete();
         return response()->json(['message' => 'Event deleted']);
+    }
+
+    /** POST /api/events/bulk-delete  { ids: [] } — delete many in one request. */
+    public function bulkDestroy(Request $request)
+    {
+        $data = $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'string',
+        ]);
+
+        $deleted = Event::whereIn('id', $data['ids'])->delete();
+
+        return response()->json(['deleted' => $deleted]);
+    }
+
+    /** POST /api/events/bulk-status  { ids: [], status } — update status for many. */
+    public function bulkStatus(Request $request)
+    {
+        $data = $request->validate([
+            'ids'    => 'required|array|min:1',
+            'ids.*'  => 'string',
+            'status' => 'required|in:upcoming,ongoing,completed',
+        ]);
+
+        $updated = Event::whereIn('id', $data['ids'])->update(['status' => $data['status']]);
+
+        return response()->json(['updated' => $updated]);
     }
 }

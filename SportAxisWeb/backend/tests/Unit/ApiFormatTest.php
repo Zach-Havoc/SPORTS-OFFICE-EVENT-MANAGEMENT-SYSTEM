@@ -25,7 +25,7 @@ class ApiFormatTest extends TestCase
 
         $this->assertArrayNotHasKey('password', $payload);
         $this->assertSame(
-            ['id', 'email', 'name', 'role', 'sport', 'sports', 'department', 'genderCategory', 'enrollmentCode', 'coachId', 'coachName', 'enrolledAt'],
+            ['id', 'email', 'name', 'role', 'active', 'sport', 'sports', 'department', 'genderCategory', 'enrollmentCode', 'coachId', 'coachName', 'enrolledAt'],
             array_keys($payload),
         );
     }
@@ -48,7 +48,6 @@ class ApiFormatTest extends TestCase
             'start_time'  => '09:00',
             'end_time'    => '11:00',
             'departments' => ['A', 'B'],
-            'criteria'    => [['name' => 'X', 'weight' => 100]],
             'status'      => 'upcoming',
             'qr_token'    => 'tok',
         ]);

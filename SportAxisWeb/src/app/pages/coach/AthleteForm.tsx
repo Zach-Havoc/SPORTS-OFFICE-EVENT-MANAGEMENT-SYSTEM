@@ -100,7 +100,7 @@ export default function AthleteForm() {
       return;
     }
     if (!formData.department.trim()) {
-      setError('Department is required');
+      setError('College is required');
       return;
     }
     if (!formData.course.trim()) {
@@ -243,12 +243,12 @@ export default function AthleteForm() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Academic Information</CardTitle>
-            <CardDescription>Department, year level, and course details</CardDescription>
+            <CardDescription>College, year level, and course details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="department">Department *</Label>
+                <Label htmlFor="department">College *</Label>
                 <Select value={formData.department} onValueChange={(value) => handleChange('department', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select department" />
