@@ -8,6 +8,8 @@ import {
   RouterProvider,
   createBrowserRouter,
 } from "react-router";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "./context/AuthContext";
 import { Toaster } from "./components/ui/sonner";
 import { useEffect, useMemo } from "react";
@@ -29,7 +31,9 @@ import AdminCarousel from "./pages/admin/CarouselManagement";
 import AdminRegistrationCodes from "./pages/admin/RegistrationCodes";
 import AdminVenues from "./pages/admin/Venues";
 import AdminBracketing from "./pages/admin/Bracketing";
+import AdminBracketDetail from "./pages/admin/BracketDetail";
 import AdminCoaches from "./pages/admin/Coaches";
+import AdminUsers from "./pages/admin/Users";
 import JudgeDashboard from "./pages/judge/Dashboard";
 import JudgeScoring from "./pages/judge/Scoring";
 import CoachDashboard from "./pages/coach/Dashboard";
@@ -48,7 +52,10 @@ import AccountSettings from "./pages/settings/AccountSettings";
 import PublicViewer from "./pages/public/Viewer";
 import PublicLeaderboard from "./pages/public/Leaderboard";
 import PublicHistory from "./pages/public/History";
+import PublicLiveBoard from "./pages/public/LiveBoard";
 import PublicAnnouncements from "./pages/public/Announcements";
+import PublicBrackets from "./pages/public/Brackets";
+import PublicBracket from "./pages/public/Bracket";
 import JudgeQRScoring from "./pages/JudgeQRScoring";
 import NotFound from "./pages/NotFound";
 
@@ -86,6 +93,9 @@ export default function App() {
               path: "announcements",
               Component: PublicAnnouncements,
             },
+            { path: "live", Component: PublicLiveBoard },
+            { path: "brackets", Component: PublicBrackets },
+            { path: "bracket/:id", Component: PublicBracket },
 
             // Admin routes
             { path: "admin", Component: AdminDashboardEnhanced },
@@ -116,7 +126,12 @@ export default function App() {
               path: "admin/bracketing",
               Component: AdminBracketing,
             },
+            {
+              path: "admin/bracketing/:id",
+              Component: AdminBracketDetail,
+            },
             { path: "admin/coaches", Component: AdminCoaches },
+            { path: "admin/users", Component: AdminUsers },
 
             // Judge routes
             { path: "judge", Component: JudgeDashboard },
@@ -203,5 +218,9 @@ export default function App() {
     // since the project now relies purely on Laravel backend for API logic.
   }, []);
 
-  return <RouterProvider router={router} />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
 }

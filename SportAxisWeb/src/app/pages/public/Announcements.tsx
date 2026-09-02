@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { RefreshStatus } from '../../components/RefreshStatus';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Megaphone, Search, Calendar, User, UserPlus, Mail, CheckCircle } from 'lucide-react';
+import { Megaphone, Search, Calendar, User, UserPlus, Mail, CheckCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAnnouncements, applyForTryout, verifyTryoutEmail, getDepartments } from '../../services/api';
+import { applyForTryout, verifyTryoutEmail } from '../../services/api';
+import { useAnnouncements, useDepartments } from '../../hooks/api';
 
 interface Announcement {
   id: string;
@@ -29,15 +31,26 @@ interface Department {
 }
 
 export default function PublicAnnouncements() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  const announcementsQuery = useAnnouncements();
+  const departmentsQuery = useDepartments();
+
+  const announcements = useMemo<Announcement[]>(
+    () =>
+      [...((announcementsQuery.data as Announcement[]) ?? [])].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [announcementsQuery.data],
+  );
+  const departments: Department[] = departmentsQuery.data ?? [];
+  const loading = announcementsQuery.isLoading;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [step, setStep] = useState<'form' | 'verify' | 'success'>('form');
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -49,36 +62,32 @@ export default function PublicAnnouncements() {
     verificationCode: ''
   });
 
-  useEffect(() => {
-    loadAnnouncements();
-    loadDepartments();
-  }, []);
+  const deptByName = useMemo(
+    () => new Map(departments.map((d) => [d.name, d])),
+    [departments],
+  );
 
-  const loadDepartments = async () => {
-    try {
-      const data = await getDepartments();
-      setDepartments(data || []);
-    } catch (error) {
-      console.error('Error loading departments:', error);
-    }
+  // ── Field validation ────────────────────────────────────────────────
+  const STUDENT_ID_RE = /^\d{2}-\d{5}$/;                       // ##-#####
+  const BATSTATEU_EMAIL_RE = /@([a-z0-9-]+\.)?batstate-u\.edu\.ph$/i; // ...@[sub.]batstate-u.edu.ph
+
+  const validateForm = () => {
+    const e: Record<string, string> = {};
+    if (!formData.firstName.trim()) e.firstName = 'Required';
+    if (!formData.lastName.trim()) e.lastName = 'Required';
+    if (!STUDENT_ID_RE.test(formData.studentId.trim()))
+      e.studentId = 'Use the format ##-##### (e.g. 00-00000)';
+    if (!formData.department) e.department = 'Please select your department';
+    if (formData.phone.replace(/\D/g, '').length !== 11)
+      e.phone = 'Mobile number must be exactly 11 digits';
+    if (!BATSTATEU_EMAIL_RE.test(formData.email.trim()))
+      e.email = 'Use your BatStateU email (must end in @batstate-u.edu.ph)';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const loadAnnouncements = async () => {
-    try {
-      setLoading(true);
-      const data = await getAnnouncements();
-      // Sort by date, newest first
-      const sorted = data.sort((a: Announcement, b: Announcement) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setAnnouncements(sorted);
-    } catch (error) {
-      console.error('Error loading announcements:', error);
-      toast.error('Failed to load announcements');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const clearError = (field: string) =>
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: '' } : prev));
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -93,6 +102,7 @@ export default function PublicAnnouncements() {
   const handleApplyClick = (announcement: Announcement) => {
     setSelectedAnnouncement(announcement);
     setStep('form');
+    setErrors({});
     setFormData({
       firstName: '',
       lastName: '',
@@ -109,16 +119,8 @@ export default function PublicAnnouncements() {
   const handleSendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate email format
-    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim());
-    if (!isValidEmail) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    // Validate required fields
-    if (!formData.firstName || !formData.lastName || !formData.studentId || !formData.department || !formData.phone) {
-      toast.error('Please fill in all required fields');
+    if (!validateForm()) {
+      toast.error('Please fix the highlighted fields');
       return;
     }
 
@@ -178,6 +180,7 @@ export default function PublicAnnouncements() {
     if (!open) {
       setStep('form');
       setSelectedAnnouncement(null);
+      setErrors({});
     }
   };
 
@@ -187,6 +190,13 @@ export default function PublicAnnouncements() {
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index);
     return ['all', ...sports];
+  };
+
+  const hasActiveFilters = searchQuery.trim() !== '' || sportFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSportFilter('all');
   };
 
   const filteredAnnouncements = announcements.filter(announcement => {
@@ -202,47 +212,78 @@ export default function PublicAnnouncements() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Megaphone className="h-8 w-8 text-red-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Announcements</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+      <header className="mb-8 pb-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Announcements</h1>
+          <RefreshStatus
+            fetching={announcementsQuery.isFetching && !announcementsQuery.isLoading}
+            error={announcementsQuery.isRefetchError}
+            onRetry={() => announcementsQuery.refetch()}
+          />
         </div>
-        <p className="text-gray-600">Stay updated with the latest tryouts, events, and sports news</p>
-      </div>
+        <p className="text-gray-500 text-sm mt-1.5">
+          Latest tryout calls and updates from coaching staff.
+        </p>
+      </header>
 
       {/* Search and Filter */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search announcements..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="w-full md:w-64">
-              <Select value={sportFilter} onValueChange={setSportFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by sport" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getUniqueSports().map(sport => (
-                    <SelectItem key={sport} value={sport}>
-                      {sport === 'all' ? 'All Sports' : sport}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Search — primary, grows to fill */}
+          <div role="search" className="relative flex-1 min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by title, sport, or coach"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-10 pl-9 pr-9"
+              aria-label="Search announcements"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Secondary filter */}
+          <Select value={sportFilter} onValueChange={setSportFilter}>
+            <SelectTrigger className="h-10 w-full sm:w-48" aria-label="Filter by sport">
+              <SelectValue placeholder="All sports" />
+            </SelectTrigger>
+            <SelectContent>
+              {getUniqueSports().map(sport => (
+                <SelectItem key={sport} value={sport}>
+                  {sport === 'all' ? 'All sports' : sport}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Result count + clear */}
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
+          <p className="text-xs text-gray-500">
+            Showing <span className="font-medium text-gray-700">{filteredAnnouncements.length}</span> of {announcements.length} announcements
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Announcements List */}
       <div className="space-y-4">
@@ -253,31 +294,35 @@ export default function PublicAnnouncements() {
             </CardContent>
           </Card>
         ) : filteredAnnouncements.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Megaphone className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-500 mb-2">
-                {searchQuery || sportFilter !== 'all'
-                  ? 'No announcements match your filters'
-                  : 'No announcements yet'}
-              </p>
-              <p className="text-sm text-gray-400">
-                {searchQuery || sportFilter !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'Check back later for updates from coaches'}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
+            <Megaphone className="mx-auto h-8 w-8 text-gray-300" />
+            <p className="mt-3 text-sm font-medium text-gray-700">
+              {hasActiveFilters ? 'No announcements match your filters' : 'No announcements yet'}
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              {hasActiveFilters ? 'Try a different search term or sport.' : 'Check back later for updates from coaches.'}
+            </p>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <X className="h-4 w-4" />
+                Clear filters
+              </button>
+            )}
+          </div>
         ) : (
           filteredAnnouncements.map((announcement) => (
-            <Card key={announcement.id} className="hover:shadow-lg transition-shadow">
+            <Card key={announcement.id} className="border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CardTitle className="text-xl">{announcement.title}</CardTitle>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <CardTitle className="text-lg font-semibold">{announcement.title}</CardTitle>
                       {announcement.sport && (
-                        <Badge variant="secondary">{announcement.sport}</Badge>
+                        <Badge variant="secondary" className="font-normal">{announcement.sport}</Badge>
                       )}
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600">
@@ -334,9 +379,15 @@ export default function PublicAnnouncements() {
                     id="firstName"
                     placeholder="John"
                     value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    aria-invalid={!!errors.firstName}
+                    className={errors.firstName ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    onChange={(e) => {
+                      setFormData({ ...formData, firstName: e.target.value });
+                      clearError('firstName');
+                    }}
                     required
                   />
+                  {errors.firstName && <p className="text-xs text-red-600">{errors.firstName}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -345,20 +396,37 @@ export default function PublicAnnouncements() {
                     id="lastName"
                     placeholder="Doe"
                     value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    aria-invalid={!!errors.lastName}
+                    className={errors.lastName ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    onChange={(e) => {
+                      setFormData({ ...formData, lastName: e.target.value });
+                      clearError('lastName');
+                    }}
                     required
                   />
+                  {errors.lastName && <p className="text-xs text-red-600">{errors.lastName}</p>}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="studentId">Student ID *</Label>
                   <Input
                     id="studentId"
-                    placeholder="2024-00001"
+                    inputMode="numeric"
+                    placeholder="00-00000"
                     value={formData.studentId}
-                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                    aria-invalid={!!errors.studentId}
+                    className={errors.studentId ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 7);
+                      const val = digits.length > 2 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : digits;
+                      setFormData({ ...formData, studentId: val });
+                      clearError('studentId');
+                    }}
                     required
                   />
+                  {errors.studentId && (
+                    <p className="text-xs text-red-600">{errors.studentId}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -378,21 +446,39 @@ export default function PublicAnnouncements() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department *</Label>
-                  <select
-                    id="department"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    required
+                  <Label htmlFor="department">College *</Label>
+                  <Select
+                    value={formData.department || undefined}
+                    onValueChange={(v) => {
+                      setFormData({ ...formData, department: v });
+                      clearError('department');
+                    }}
                   >
-                    <option value="" disabled>Select Department</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id || dept.name} value={dept.name}>
-                        {dept.name} {dept.abbreviation ? `(${dept.abbreviation})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    {/* Trigger shows the abbreviation; the dropdown shows full names */}
+                    <SelectTrigger
+                      id="department"
+                      aria-invalid={!!errors.department}
+                      className={errors.department ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    >
+                      {formData.department ? (
+                        <span>
+                          {deptByName.get(formData.department)?.abbreviation || formData.department}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select College</span>
+                      )}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id || dept.name} value={dept.name}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.department && (
+                    <p className="text-xs text-red-600">{errors.department}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -400,11 +486,23 @@ export default function PublicAnnouncements() {
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+63 912 345 6789"
+                    inputMode="numeric"
+                    placeholder="09123456789"
+                    maxLength={11}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    aria-invalid={!!errors.phone}
+                    className={errors.phone ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    onChange={(e) => {
+                      setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 11) });
+                      clearError('phone');
+                    }}
                     required
                   />
+                  {errors.phone ? (
+                    <p className="text-xs text-red-600">{errors.phone}</p>
+                  ) : (
+                    <p className="text-xs text-gray-500">11-digit mobile number, digits only.</p>
+                  )}
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
@@ -412,14 +510,23 @@ export default function PublicAnnouncements() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="23-75760@g.batstate-u.edu.ph"
+                    placeholder="00-00000@g.batstate-u.edu.ph"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    aria-invalid={!!errors.email}
+                    className={errors.email ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value });
+                      clearError('email');
+                    }}
                     required
                   />
-                  <p className="text-xs text-gray-500">
-                    Use your BatStateU email address. A verification code will be sent.
-                  </p>
+                  {errors.email ? (
+                    <p className="text-xs text-red-600">{errors.email}</p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Must be your BatStateU email (ending in <span className="font-medium">@batstate-u.edu.ph</span>). A verification code will be sent.
+                    </p>
+                  )}
                 </div>
               </div>
 

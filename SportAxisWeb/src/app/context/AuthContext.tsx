@@ -52,7 +52,8 @@ interface User {
   name: string;
   role: 'admin' | 'coach' | 'athlete' | 'judge';
   department?: string | null;
-  sport?: string | null;
+  sport?: string | null;          // primary sport (back-compat)
+  sports?: string[] | null;       // full list of sports a coach handles
   genderCategory?: string | null;
 }
 

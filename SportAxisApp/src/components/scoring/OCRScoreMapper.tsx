@@ -12,28 +12,26 @@ import {
 } from 'react-native';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '../../../constants/theme';
 import { ocrService } from '../../services/ocr.service';
-import type { Criterion, OcrResult } from '../../types';
+import type { OcrResult } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OCRScoreMapper — Capture image → Extract scores → Edit → Confirm
+// OCRScoreMapper — Capture image → Extract overall score → Edit → Confirm
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface OCRScoreMapperProps {
-  criteria:  Criterion[];
-  onConfirm: (scores: Record<string, string>, imageUri: string) => void;
+  onConfirm: (totalScore: number, imageUri: string) => void;
   onCancel:  () => void;
 }
 
 type OcrStep = 'capture' | 'processing' | 'review' | 'error';
 
-export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapperProps) {
+export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
   const [step,         setStep]         = useState<OcrStep>('capture');
   const [imageUri,     setImageUri]     = useState<string | null>(null);
   const [ocrResult,    setOcrResult]    = useState<OcrResult | null>(null);
-  const [editedScores, setEditedScores] = useState<Record<string, string>>({});
+  const [editedScore,  setEditedScore]  = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const processImage = async (asset: ImagePicker.ImagePickerAsset) => {
@@ -43,28 +41,11 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
     try {
       const imagePayload = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
 
-      const ocrData = await ocrService.extractScores(
-        imagePayload,
-        criteria,
-      );
+      const ocrData = await ocrService.extractScore(imagePayload);
       setOcrResult(ocrData);
 
-      // Auto-map extracted scores to criteria
-      const mapped: Record<string, string> = {};
-      for (const criterion of criteria) {
-        const match = ocrData.extracted_scores.find(
-          (s) =>
-            s.criteria_id === criterion.criteria_id ||
-            (s.label && s.label.toLowerCase().includes(criterion.name.toLowerCase().slice(0, 4))),
-        );
-        if (match) {
-          const clamped = Math.min(match.value, criterion.max_score);
-          mapped[criterion.criteria_id] = clamped.toString();
-        } else {
-          mapped[criterion.criteria_id] = '';
-        }
-      }
-      setEditedScores(mapped);
+      const clamped = Math.max(0, Math.min(100, ocrData.total_score));
+      setEditedScore(String(clamped));
       setStep('review');
     } catch (error: any) {
       console.error('OCR extraction error:', error);
@@ -109,15 +90,15 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
     await processImage(result.assets[0]);
   };
 
-  // ── Handle score edit in review step ────────────────────────────────────
-  const handleScoreEdit = (criteriaId: string, value: string) => {
-    setEditedScores((prev) => ({ ...prev, [criteriaId]: value }));
-  };
-
-  // ── Confirm and pass scores to parent ───────────────────────────────────
+  // ── Confirm and pass the score to the parent ────────────────────────────
   const handleConfirm = () => {
     if (!imageUri) return;
-    onConfirm(editedScores, imageUri);
+    const value = Number(editedScore);
+    if (Number.isNaN(value) || value < 0 || value > 100) {
+      Alert.alert('Invalid Score', 'Enter a number from 0 to 100.');
+      return;
+    }
+    onConfirm(value, imageUri);
   };
 
   const confidenceColor =
@@ -137,7 +118,7 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
             <Text style={styles.title}>OCR Score Capture</Text>
           </View>
           <Text style={styles.subtitle}>
-            Photograph or upload the physical score sheet. Scores will be extracted automatically.
+            Photograph or upload the physical score sheet. The overall score will be read automatically.
           </Text>
         </View>
 
@@ -159,7 +140,7 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
     return (
       <View style={styles.processingContainer}>
         <Ionicons name="search" size={64} color={COLORS.ocr} />
-        <Text style={styles.processingTitle}>Extracting Scores...</Text>
+        <Text style={styles.processingTitle}>Extracting Score...</Text>
         <Text style={styles.processingSubtitle}>Analysing image with OCR</Text>
         {imageUri && (
           <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="cover" />
@@ -188,7 +169,7 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.reviewContent}>
       <View style={styles.reviewHeader}>
-        <Text style={styles.title}>Review Extracted Scores</Text>
+        <Text style={styles.title}>Review Extracted Score</Text>
         <View style={styles.confidenceRow}>
           <Text style={styles.confidenceLabel}>Confidence:</Text>
           <Text style={[styles.confidenceValue, { color: confidenceColor }]}>
@@ -206,45 +187,24 @@ export function OCRScoreMapper({ criteria, onConfirm, onCancel }: OCRScoreMapper
 
       <View style={styles.editHint}>
         <Ionicons name="pencil" size={14} color={COLORS.ocr} style={{ marginRight: 4 }} />
-        <Text style={styles.editHintText}>Tap any score box to modify the extracted value</Text>
+        <Text style={styles.editHintText}>Tap the score box to adjust the extracted value</Text>
       </View>
 
-      {criteria.map((criterion) => {
-        const extracted = ocrResult?.extracted_scores?.find(
-          (s) =>
-            s.criteria_id === criterion.criteria_id ||
-            (s.label && s.label.toLowerCase().includes(criterion.name.toLowerCase().slice(0, 4))),
-        );
-        const currentValue = editedScores[criterion.criteria_id] ?? '';
-
-        return (
-          <Card key={criterion.criteria_id} style={styles.criterionCard}>
-            <View style={styles.criterionHeader}>
-              <Text style={styles.criterionName}>{criterion.name}</Text>
-              {extracted ? (
-                <Badge label={`Extracted: ${extracted.value}`} variant="ocr" />
-              ) : (
-                <Badge label="Not Found" variant="warning" />
-              )}
-            </View>
-            <View style={styles.criterionInputRow}>
-              <Text style={styles.extractedLabel}>Score:</Text>
-              <TextInput
-                style={styles.scoreInput}
-                value={currentValue}
-                onChangeText={(val) => handleScoreEdit(criterion.criteria_id, val)}
-                keyboardType="numeric"
-                placeholder="0.0"
-                placeholderTextColor={COLORS.textMuted}
-              />
-              <Text style={styles.maxLabel}>/ {criterion.max_score}</Text>
-            </View>
-          </Card>
-        );
-      })}
+      <View style={styles.scoreRow}>
+        <Text style={styles.scoreRowLabel}>Overall Score</Text>
+        <TextInput
+          style={styles.scoreInput}
+          value={editedScore}
+          onChangeText={setEditedScore}
+          keyboardType="numeric"
+          placeholder="0"
+          placeholderTextColor={COLORS.textMuted}
+        />
+        <Text style={styles.maxLabel}>/ 100</Text>
+      </View>
 
       <View style={styles.actions}>
-        <Button label="Confirm & Use These Scores" onPress={handleConfirm} variant="primary" size="lg" fullWidth />
+        <Button label="Confirm & Use This Score" onPress={handleConfirm} variant="primary" size="lg" fullWidth />
         <Button label="Recapture Image" onPress={() => setStep('capture')} variant="secondary" size="md" fullWidth />
         <Button label="Enter Manually Instead" onPress={onCancel} variant="ghost" size="md" fullWidth />
       </View>
@@ -369,28 +329,16 @@ const styles = StyleSheet.create({
     color:    COLORS.ocr,
     fontWeight: FONT_WEIGHT.medium,
   },
-  criterionCard: {
-    gap: SPACING.sm,
-  },
-  criterionHeader: {
+  scoreRow: {
     flexDirection:  'row',
     alignItems:     'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap:            SPACING.sm,
   },
-  criterionName: {
+  scoreRowLabel: {
     fontSize:   FONT_SIZE.md,
     fontWeight: FONT_WEIGHT.semibold,
     color:      COLORS.textPrimary,
-    flex:       1,
-  },
-  criterionInputRow: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-  },
-  extractedLabel: {
-    fontSize: FONT_SIZE.md,
-    color:    COLORS.textSecondary,
   },
   scoreInput: {
     borderWidth: 1,
@@ -401,7 +349,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.lg,
     fontWeight: FONT_WEIGHT.bold,
     color: COLORS.textPrimary,
-    minWidth: 80,
+    minWidth: 90,
     textAlign: 'center',
     backgroundColor: COLORS.surface,
   },

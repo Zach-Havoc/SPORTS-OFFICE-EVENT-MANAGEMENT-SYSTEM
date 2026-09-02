@@ -17,7 +17,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrator',
   coach: 'Coach',
   athlete: 'Athlete',
-  judge: 'Judge',
+  judge: 'Committee',
 };
 
 const ROLE_COLORS: Record<string, string> = {

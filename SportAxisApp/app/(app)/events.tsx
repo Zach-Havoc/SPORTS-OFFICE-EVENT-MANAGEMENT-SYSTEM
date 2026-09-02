@@ -7,6 +7,7 @@ import { Badge } from '../../src/components/ui/Badge';
 import { eventService } from '../../src/services/event.service';
 import type { EventSummary } from '../../src/types';
 import { useNetwork } from '../../src/hooks/use-network';
+import { useDeptAbbreviator } from '../../src/hooks/use-dept-abbr';
 
 export default function EventsScreen() {
   const [events, setEvents] = useState<EventSummary[]>([]);
@@ -14,6 +15,7 @@ export default function EventsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isConnected } = useNetwork();
+  const abbr = useDeptAbbreviator();
 
   const fetchEvents = async () => {
     try {
@@ -87,7 +89,7 @@ export default function EventsScreen() {
         {item.departments.length > 0 && (
           <View style={styles.departmentsContainer}>
             <Text style={styles.departmentsText}>
-              {item.departments.slice(0, 3).join(' · ')}
+              {item.departments.slice(0, 3).map((d) => abbr(d)).join(' · ')}
               {item.departments.length > 3 && ` +${item.departments.length - 3} more`}
             </Text>
           </View>

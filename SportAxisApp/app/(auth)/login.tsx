@@ -65,7 +65,7 @@ export default function LoginScreen() {
         <View style={styles.banner}>
           <Ionicons name="trophy" size={48} color={COLORS.textInverse} />
           <Text style={styles.appName}>BatStateU</Text>
-          <Text style={styles.appSub}>Judge Portal</Text>
+          <Text style={styles.appSub}>Committee Portal</Text>
         </View>
 
         {/* ── Form card ────────────────────────────────────────── */}

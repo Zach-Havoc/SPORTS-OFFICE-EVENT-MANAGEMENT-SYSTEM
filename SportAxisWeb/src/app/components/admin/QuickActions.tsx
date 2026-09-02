@@ -9,7 +9,9 @@ import {
   MapPin, 
   Trophy,
   Settings,
-  QrCode
+  QrCode,
+  UserCog,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface QuickAction {
@@ -25,11 +27,13 @@ interface QuickActionsProps {
 
 const defaultActions: QuickAction[] = [
   { label: 'Create Event', icon: Calendar, path: '/admin/events', variant: 'outline' },
-  { label: 'Assign Judges', icon: UserPlus, path: '/admin/events', variant: 'outline' },
+  { label: 'Assign Committees', icon: UserPlus, path: '/admin/events', variant: 'outline' },
   { label: 'Generate QR Code', icon: QrCode, path: '/admin/registration-codes', variant: 'outline' },
+  { label: 'Manage Users', icon: UserCog, path: '/admin/users', variant: 'outline' },
   { label: 'View Reports', icon: FileText, path: '/admin/reports', variant: 'outline' },
   { label: 'Manage Venues', icon: MapPin, path: '/admin/venues', variant: 'outline' },
   { label: 'Generate Brackets', icon: Trophy, path: '/admin/bracketing', variant: 'outline' },
+  { label: 'Site Content', icon: ImageIcon, path: '/admin/carousel', variant: 'outline' },
   { label: 'System Settings', icon: Settings, path: '/admin/settings', variant: 'outline' },
   { label: 'View Leaderboard', icon: Award, path: '/leaderboard', variant: 'outline' },
 ];

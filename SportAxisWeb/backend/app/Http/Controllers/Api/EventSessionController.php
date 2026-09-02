@@ -4,14 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
-use Illuminate\Http\Request;
 
 /**
  * EventSessionController
  *
- * Handles QR code-based event session lookup for the mobile judge app.
- * The QR code encodes the event's qr_token; this controller resolves
- * that token to the full event + criteria payload.
+ * Handles QR code-based event session lookup for the mobile scoring app.
+ * The QR code encodes the event's qr_token; this controller resolves that
+ * token to the event payload the scoring screen needs.
  */
 class EventSessionController extends Controller
 {
@@ -19,10 +18,8 @@ class EventSessionController extends Controller
      * GET /api/event/session/{qr_token}
      *
      * Look up an event by its QR token and return the event session data.
-     * This is a public endpoint (no auth required) so judges can scan
-     * before logging in, then authenticate after seeing the event details.
-     *
-     * Returns event info + criteria array for the dynamic scoring form.
+     * Public (no auth) so scorers can scan before logging in, then
+     * authenticate after seeing the event details.
      */
     public function show(string $qrToken)
     {
@@ -42,16 +39,6 @@ class EventSessionController extends Controller
             ], 422);
         }
 
-        $criteria = collect($event->criteria ?? [])->map(function ($c, $index) {
-            $weight = isset($c['weight']) ? (float)$c['weight'] : 10;
-            return [
-                'criteria_id' => $c['id'] ?? (string)($index + 1),
-                'name'        => $c['name'] ?? 'Criterion ' . ($index + 1),
-                'max_score'   => isset($c['max_score']) ? (float)$c['max_score'] : $weight,
-                'weight'      => isset($c['weight']) ? (float)$c['weight'] : null,
-            ];
-        })->values();
-
         return response()->json([
             'event' => [
                 'id'          => $event->id,
@@ -66,41 +53,6 @@ class EventSessionController extends Controller
                 'status'      => $event->status,
                 'qrToken'     => $event->qr_token,
             ],
-            'criteria' => $criteria,
-        ]);
-    }
-
-    /**
-     * GET /api/event/{id}/criteria
-     *
-     * Return only the criteria array for a given event ID.
-     * Used by the mobile app after the event session is cached locally
-     * to refresh criteria without re-scanning the QR code.
-     */
-    public function criteria(string $eventId)
-    {
-        $event = Event::find($eventId);
-
-        if (!$event) {
-            return response()->json([
-                'error' => 'Event not found.',
-                'code'  => 'EVENT_NOT_FOUND',
-            ], 404);
-        }
-
-        $criteria = collect($event->criteria ?? [])->map(function ($c, $index) {
-            $weight = isset($c['weight']) ? (float)$c['weight'] : 10;
-            return [
-                'criteria_id' => $c['id'] ?? (string)($index + 1),
-                'name'        => $c['name'] ?? 'Criterion ' . ($index + 1),
-                'max_score'   => isset($c['max_score']) ? (float)$c['max_score'] : $weight,
-                'weight'      => isset($c['weight']) ? (float)$c['weight'] : null,
-            ];
-        })->values();
-
-        return response()->json([
-            'event_id' => $event->id,
-            'criteria' => $criteria,
         ]);
     }
 }

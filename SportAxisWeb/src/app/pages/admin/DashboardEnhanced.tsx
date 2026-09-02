@@ -1,12 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  getEvents, 
-  getDepartments, 
-  getLeaderboard, 
-  getJudges 
-} from '../../services/api';
+import { useEvents, useDepartments, useLeaderboard, useJudges } from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 import SummaryCard from '../../components/admin/SummaryCard';
 import EventTable from '../../components/admin/EventTable';
 import OCRPanel from '../../components/admin/OCRPanel';
@@ -25,81 +21,60 @@ import {
   Award
 } from 'lucide-react';
 import Loading from '../../components/Loading';
-import { toast } from 'sonner';
 
 export default function DashboardEnhanced() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalEvents: 0,
-    activeEvents: 0,
-    totalJudges: 0,
-    totalParticipants: 0,
-    scoresSubmitted: 0,
-    completedEvents: 0,
-    upcomingEvents: 0,
-    totalPoints: 0
-  });
-  const [events, setEvents] = useState<any[]>([]);
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/login');
-      return;
     }
-    loadDashboardData();
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
   }, [user, navigate]);
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      const [eventsData, departmentsData, leaderboardData, judgesData] = await Promise.all([
-        getEvents().catch(err => { console.error('Failed to load events:', err); return []; }),
-        getDepartments().catch(err => { console.error('Failed to load departments:', err); return []; }),
-        getLeaderboard().catch(err => { console.error('Failed to load leaderboard:', err); return []; }),
-        getJudges().catch(err => { console.error('Failed to load judges:', err); return []; })
-      ]);
+  // Loads once when the page opens; refresh the browser for the latest.
+  const eventsQuery = useEvents();
+  const departmentsQuery = useDepartments();
+  const leaderboardQuery = useLeaderboard();
+  const judgesQuery = useJudges();
+  const allQueries = [eventsQuery, departmentsQuery, leaderboardQuery, judgesQuery];
 
-      setEvents(eventsData);
-      setLeaderboard(leaderboardData);
+  const events: any[] = eventsQuery.data ?? [];
+  const leaderboard: any[] = leaderboardQuery.data ?? [];
+  const departmentsData: any[] = departmentsQuery.data ?? [];
+  const judgesData: any[] = judgesQuery.data ?? [];
 
-      // Calculate stats
-      const totalEvents = eventsData.length || 0;
-      const activeEvents = eventsData.filter((e: any) => e.status === 'ongoing').length;
-      const completedEvents = eventsData.filter((e: any) => e.status === 'completed').length;
-      const upcomingEvents = eventsData.filter((e: any) => e.status === 'upcoming').length;
-      const totalPoints = leaderboardData.reduce((acc: number, dept: any) => acc + (dept.totalPoints || dept.total || 0), 0);
-      const totalJudges = judgesData.length || 0;
-      
-      // Calculate total participants from departments
-      const totalParticipants = departmentsData.reduce((acc: number, dept: any) => acc + (dept.athleteCount || 0), 0);
+  const loading = allQueries.some(q => q.isLoading);
+  const fetching = allQueries.some(q => q.isFetching) && !loading;
+  const backgroundError = allQueries.some(q => q.isRefetchError);
+  const retryAll = () => allQueries.forEach(q => q.refetch());
 
-      // Calculate scores submitted (from leaderboard)
-      const scoresSubmitted = totalPoints; // Using total points as proxy for scores
-
-      setStats({
-        totalEvents,
-        activeEvents,
-        totalJudges,
-        totalParticipants,
-        scoresSubmitted,
-        completedEvents,
-        upcomingEvents,
-        totalPoints
-      });
-
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stats = useMemo(() => {
+    const totalEvents = events.length || 0;
+    const activeEvents = events.filter((e: any) => e.status === 'ongoing').length;
+    const completedEvents = events.filter((e: any) => e.status === 'completed').length;
+    const upcomingEvents = events.filter((e: any) => e.status === 'upcoming').length;
+    const totalPoints = leaderboard.reduce(
+      (acc: number, dept: any) => acc + (dept.totalPoints || dept.total || 0),
+      0,
+    );
+    const totalJudges = judgesData.length || 0;
+    const totalParticipants = departmentsData.reduce(
+      (acc: number, dept: any) => acc + (dept.athleteCount || 0),
+      0,
+    );
+    const scoresSubmitted = totalPoints; // proxy for score submissions
+    return {
+      totalEvents,
+      activeEvents,
+      totalJudges,
+      totalParticipants,
+      scoresSubmitted,
+      completedEvents,
+      upcomingEvents,
+      totalPoints,
+    };
+  }, [events, leaderboard, judgesData, departmentsData]);
 
   // Transform events for EventTable
   const transformedEvents = events.map((event: any) => ({
@@ -115,7 +90,7 @@ export default function DashboardEnhanced() {
   // Transform leaderboard for BarChart
   const scoresByParticipant = leaderboard.slice(0, 8).map((dept: any, index: number) => ({
     id: `dept-${index}`,
-    name: dept.department || `Department ${index + 1}`,
+    name: dept.department || `College ${index + 1}`,
     score: dept.totalPoints || 0
   }));
 
@@ -149,7 +124,10 @@ export default function DashboardEnhanced() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">SportAxisWeb Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">SportAxisWeb Dashboard</h1>
+          <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
+        </div>
         <p className="text-gray-500 mt-1">Sports Event Management System</p>
       </div>
 
@@ -173,9 +151,9 @@ export default function DashboardEnhanced() {
         />
         <SummaryCard
           icon={Users}
-          label="Total Judges"
+          label="Total Committees"
           value={stats.totalJudges}
-          subtext="Registered judges"
+          subtext="Registered committees"
           iconColor="text-purple-500"
           accentColor="text-purple-600"
         />
@@ -230,7 +208,7 @@ export default function DashboardEnhanced() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <BarChartComponent
           data={scoresByParticipant}
-          title="Scores by Department"
+          title="Scores by College"
           description="Top 8 departments by points"
           dataKey="score"
           xAxisKey="name"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -6,7 +6,8 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Edit, Mail, Phone, User, Calendar, BookOpen, Building, AlertCircle, TrendingUp, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAthlete } from '../../services/api';
+import { useAthlete } from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Athlete {
   id: string;
@@ -32,33 +33,21 @@ export default function AthleteDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [athlete, setAthlete] = useState<Athlete | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') {
-      navigate('/login');
-      return;
-    }
+    if (!user || user.role !== 'coach') navigate('/login');
+  }, [user, navigate]);
 
-    if (id) {
-      loadAthlete(id);
-    }
-  }, [user, navigate, id]);
+  const athleteQuery = useAthlete(id);
+  const athlete: Athlete | null = (athleteQuery.data as Athlete | undefined) ?? null;
+  const loading = athleteQuery.isLoading;
 
-  const loadAthlete = async (athleteId: string) => {
-    try {
-      setLoading(true);
-      const data = await getAthlete(athleteId);
-      setAthlete(data);
-    } catch (error) {
-      console.error('Error loading athlete:', error);
+  useEffect(() => {
+    if (athleteQuery.isLoadingError) {
       toast.error('Failed to load athlete details');
       navigate('/coach/athletes');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [athleteQuery.isLoadingError, navigate]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -105,9 +94,16 @@ export default function AthleteDetail() {
         </Link>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {athlete.firstName} {athlete.lastName}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {athlete.firstName} {athlete.lastName}
+              </h1>
+              <RefreshStatus
+                fetching={athleteQuery.isFetching && !loading}
+                error={athleteQuery.isRefetchError}
+                onRetry={() => athleteQuery.refetch()}
+              />
+            </div>
             <p className="text-gray-600 mt-2">Student ID: {athlete.studentId}</p>
           </div>
           <div className="flex gap-2">
@@ -152,7 +148,7 @@ export default function AthleteDetail() {
               <div className="flex items-start gap-3">
                 <Building className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Department</p>
+                  <p className="text-sm font-medium text-gray-500">College</p>
                   <p className="text-base">{athlete.department}</p>
                 </div>
               </div>

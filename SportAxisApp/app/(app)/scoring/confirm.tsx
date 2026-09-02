@@ -74,7 +74,7 @@ export default function ConfirmScreen() {
         {/* Summary */}
         <View style={styles.summaryBox}>
           <SummaryRow label="Event"       value={eventName   ?? '–'} />
-          <SummaryRow label="Department"  value={department  ?? '–'} />
+          <SummaryRow label="College"  value={department  ?? '–'} />
           <SummaryRow label="Total Score" value={total       ?? '0'} highlight />
           <SummaryRow
             label="Method"
@@ -87,7 +87,7 @@ export default function ConfirmScreen() {
         {/* Actions */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.primaryBtn} onPress={handleScanAnother} activeOpacity={0.85}>
-            <Text style={styles.primaryBtnText}>Score Another Department</Text>
+            <Text style={styles.primaryBtnText}>Score Another College</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondaryBtn} onPress={handleDone} activeOpacity={0.85}>
             <Text style={styles.secondaryBtnText}>Done</Text>

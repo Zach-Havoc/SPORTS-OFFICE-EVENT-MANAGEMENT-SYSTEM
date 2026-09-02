@@ -8,7 +8,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { CheckCircle, XCircle, Clock, Download, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { getRequirements, updateRequirementStatus } from '../../services/api';
+import { useRequirements, useUpdateRequirementStatus } from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Requirement {
   id: string;
@@ -28,33 +29,21 @@ interface Requirement {
 export default function CoachRequirements() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
-  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') {
-      navigate('/login');
-      return;
-    }
-    loadRequirements();
+    if (!user || user.role !== 'coach') navigate('/login');
   }, [user, navigate]);
 
-  const loadRequirements = async () => {
-    try {
-      setLoading(true);
-      const data = await getRequirements();
-      setRequirements(data);
-    } catch (error) {
-      console.error('Error loading requirements:', error);
-      toast.error('Failed to load requirements');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const requirementsQuery = useRequirements();
+  const updateStatus = useUpdateRequirementStatus();
+
+  const requirements: Requirement[] = requirementsQuery.data ?? [];
+  const loading = requirementsQuery.isLoading;
+  const fetching = requirementsQuery.isFetching && !loading;
+  const processing = updateStatus.isPending;
 
   const handleViewRequirement = (requirement: Requirement) => {
     setSelectedRequirement(requirement);
@@ -66,22 +55,18 @@ export default function CoachRequirements() {
     if (!selectedRequirement) return;
 
     try {
-      setProcessing(true);
-      await updateRequirementStatus(selectedRequirement.id, {
-        status,
-        notes: reviewNotes
+      await updateStatus.mutateAsync({
+        id: selectedRequirement.id,
+        data: { status, notes: reviewNotes },
       });
 
       toast.success(`Requirement ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
       setDialogOpen(false);
       setSelectedRequirement(null);
       setReviewNotes('');
-      loadRequirements();
     } catch (error: any) {
       console.error('Error updating requirement:', error);
       toast.error(error.message || 'Failed to update requirement');
-    } finally {
-      setProcessing(false);
     }
   };
 
@@ -121,7 +106,14 @@ export default function CoachRequirements() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Requirements Management</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">Requirements Management</h1>
+          <RefreshStatus
+            fetching={fetching}
+            error={requirementsQuery.isRefetchError}
+            onRetry={() => requirementsQuery.refetch()}
+          />
+        </div>
         <p className="text-gray-600 mt-2">Review and approve athlete document submissions</p>
       </div>
 

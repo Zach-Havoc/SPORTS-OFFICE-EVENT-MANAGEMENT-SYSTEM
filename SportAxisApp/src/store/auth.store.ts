@@ -16,6 +16,7 @@ interface AuthStore {
   // Actions
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  forceLogout: () => Promise<void>;      // Local-only wipe (e.g. after a 401)
   hydrate: () => Promise<void>;          // Load from AsyncStorage on app start
 }
 
@@ -60,5 +61,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } finally {
       set({ user: null, token: null, isLoading: false });
     }
+  },
+
+  /**
+   * Clear auth state without calling the server — used when the token is
+   * already known to be invalid (a 401 on an authenticated request). The
+   * app layout redirects to the login screen once `token` is null.
+   */
+  forceLogout: async () => {
+    await Promise.all([
+      storage.remove(STORAGE_KEYS.AUTH_TOKEN),
+      storage.remove(STORAGE_KEYS.AUTH_USER),
+    ]);
+    set({ user: null, token: null, isLoading: false });
   },
 }));

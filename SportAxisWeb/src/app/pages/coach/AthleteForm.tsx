@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAthlete, createAthlete, updateAthlete } from '../../services/api';
+import { useAthlete, useCreateAthlete, useUpdateAthlete } from '../../hooks/api';
 
 interface AthleteFormData {
   studentId: string;
@@ -45,45 +45,42 @@ export default function AthleteForm() {
     emergencyContactPhone: '',
   });
 
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') {
-      navigate('/login');
-      return;
-    }
+    if (!user || user.role !== 'coach') navigate('/login');
+  }, [user, navigate]);
 
-    if (isEditMode && id) {
-      loadAthlete(id);
-    }
-  }, [user, navigate, isEditMode, id]);
+  const athleteQuery = useAthlete(isEditMode ? id : undefined);
+  const createMut = useCreateAthlete();
+  const updateMut = useUpdateAthlete();
+  const saving = createMut.isPending || updateMut.isPending;
 
-  const loadAthlete = async (athleteId: string) => {
-    try {
-      setLoading(true);
-      const athlete = await getAthlete(athleteId);
-      setFormData({
-        studentId: athlete.studentId,
-        firstName: athlete.firstName,
-        lastName: athlete.lastName,
-        email: athlete.email,
-        department: athlete.department,
-        yearLevel: athlete.yearLevel,
-        course: athlete.course,
-        status: athlete.status,
-        emergencyContactName: athlete.emergencyContact.name,
-        emergencyContactRelationship: athlete.emergencyContact.relationship,
-        emergencyContactPhone: athlete.emergencyContact.phone,
-      });
-    } catch (error) {
-      console.error('Error loading athlete:', error);
+  // Prefill the form once the athlete record loads (edit mode).
+  useEffect(() => {
+    const athlete: any = athleteQuery.data;
+    if (!athlete) return;
+    setFormData({
+      studentId: athlete.studentId,
+      firstName: athlete.firstName,
+      lastName: athlete.lastName,
+      email: athlete.email,
+      department: athlete.department,
+      yearLevel: athlete.yearLevel,
+      course: athlete.course,
+      status: athlete.status,
+      emergencyContactName: athlete.emergencyContact?.name ?? '',
+      emergencyContactRelationship: athlete.emergencyContact?.relationship ?? '',
+      emergencyContactPhone: athlete.emergencyContact?.phone ?? '',
+    });
+  }, [athleteQuery.data]);
+
+  useEffect(() => {
+    if (athleteQuery.isLoadingError) {
       toast.error('Failed to load athlete data');
       navigate('/coach/athletes');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [athleteQuery.isLoadingError, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +100,7 @@ export default function AthleteForm() {
       return;
     }
     if (!formData.department.trim()) {
-      setError('Department is required');
+      setError('College is required');
       return;
     }
     if (!formData.course.trim()) {
@@ -112,8 +109,6 @@ export default function AthleteForm() {
     }
 
     try {
-      setLoading(true);
-
       const athleteData = {
         studentId: formData.studentId.trim(),
         firstName: formData.firstName.trim(),
@@ -131,10 +126,10 @@ export default function AthleteForm() {
       };
 
       if (isEditMode && id) {
-        await updateAthlete(id, athleteData);
+        await updateMut.mutateAsync({ id, data: athleteData });
         toast.success('Athlete updated successfully');
       } else {
-        await createAthlete(athleteData);
+        await createMut.mutateAsync(athleteData);
         toast.success('Athlete added successfully');
       }
 
@@ -143,8 +138,6 @@ export default function AthleteForm() {
       console.error('Error saving athlete:', err);
       setError(err.message || 'Failed to save athlete. Please try again.');
       toast.error(err.message || 'Failed to save athlete');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -250,12 +243,12 @@ export default function AthleteForm() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Academic Information</CardTitle>
-            <CardDescription>Department, year level, and course details</CardDescription>
+            <CardDescription>College, year level, and course details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="department">Department *</Label>
+                <Label htmlFor="department">College *</Label>
                 <Select value={formData.department} onValueChange={(value) => handleChange('department', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select department" />
@@ -347,9 +340,9 @@ export default function AthleteForm() {
               Cancel
             </Button>
           </Link>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={saving}>
             <Save className="h-4 w-4 mr-2" />
-            {loading ? 'Saving...' : isEditMode ? 'Update Athlete' : 'Add Athlete'}
+            {saving ? 'Saving...' : isEditMode ? 'Update Athlete' : 'Add Athlete'}
           </Button>
         </div>
       </form>

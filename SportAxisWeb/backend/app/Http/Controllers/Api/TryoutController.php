@@ -16,7 +16,8 @@ class TryoutController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        $code = str_pad((string) rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        // Cryptographically secure OTP (rand() is predictable / seedable).
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         EmailVerification::updateOrCreate(
             ['email' => $request->email],
@@ -39,8 +40,11 @@ class TryoutController extends Controller
 
         $response = ['message' => 'Verification code sent'];
 
-        // Include dev code in response for local testing if mail sending failed or mailer is log
-        if (!$mailSent || config('app.env') === 'local' || config('app.debug') || config('mail.default') === 'log') {
+        // Only ever leak the code back to the client on a local dev machine.
+        // Previously this also fired whenever APP_DEBUG was on or the mailer
+        // was "log", which completely defeats email verification in any
+        // non-production-but-internet-facing environment.
+        if (app()->environment('local')) {
             $response['dev_code'] = $code;
         }
 

@@ -6,9 +6,26 @@ use App\Http\Controllers\Controller;
 use App\Models\Athlete;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AthleteController extends Controller
 {
+    /**
+     * Fetch an athlete, enforcing that the current coach owns it.
+     * Admins may access any athlete. Anyone else gets a 404 (rather than a
+     * 403) so we don't disclose that the record exists.
+     */
+    private function findOwnedAthlete(Request $request, string $id): Athlete
+    {
+        $athlete = Athlete::findOrFail($id);
+        $user    = $request->user();
+
+        if ($user->role !== 'admin' && $athlete->coach_id !== $user->id) {
+            throw new NotFoundHttpException('Athlete not found');
+        }
+
+        return $athlete;
+    }
     public function index(Request $request)
     {
         $user = $request->user();
@@ -54,9 +71,9 @@ class AthleteController extends Controller
         return response()->json($athletes);
     }
 
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
-        return response()->json(Athlete::findOrFail($id));
+        return response()->json($this->findOwnedAthlete($request, $id));
     }
 
     public function store(Request $request)
@@ -88,7 +105,11 @@ class AthleteController extends Controller
 
     public function update(Request $request, string $id)
     {
-        $athlete = Athlete::findOrFail($id);
+        $athlete = $this->findOwnedAthlete($request, $id);
+
+        $request->validate([
+            'email' => 'sometimes|email',
+        ]);
 
         $athlete->update(array_filter([
             'first_name'        => $request->firstName,
@@ -105,16 +126,16 @@ class AthleteController extends Controller
         return response()->json($athlete->fresh());
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        Athlete::findOrFail($id)->delete();
+        $this->findOwnedAthlete($request, $id)->delete();
         return response()->json(['message' => 'Athlete deleted']);
     }
 
     /** DELETE /athletes/{id}/remove — removes athlete from coach's roster (sets coach_id to null) */
-    public function removeFromRoster(string $id)
+    public function removeFromRoster(Request $request, string $id)
     {
-        $athlete = Athlete::findOrFail($id);
+        $athlete = $this->findOwnedAthlete($request, $id);
         $athlete->update(['coach_id' => null]);
         return response()->json(['message' => 'Athlete removed from roster']);
     }

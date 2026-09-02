@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -10,7 +10,13 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { MapPin, Plus, Edit, Trash2, Building } from 'lucide-react';
 import { toast } from 'sonner';
-import { getVenues, createVenue, updateVenue, deleteVenue } from '../../services/api';
+import {
+  useVenues,
+  useCreateVenue,
+  useUpdateVenue,
+  useDeleteVenue,
+} from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Venue {
   id: string;
@@ -27,11 +33,8 @@ interface Venue {
 export default function AdminVenues() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -51,33 +54,25 @@ export default function AdminVenues() {
   ];
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/login');
-      return;
-    }
-    loadVenues();
-    const interval = setInterval(loadVenues, 30000);
-    return () => clearInterval(interval);
+    if (!user || user.role !== 'admin') navigate('/login');
   }, [user, navigate]);
 
-  const loadVenues = async () => {
-    try {
-      setLoading(true);
-      const data = await getVenues();
-      // Normalize null sports/facilities from API
-      const normalized = data.map((v: any) => ({
+  const venuesQuery = useVenues();
+  const createMut = useCreateVenue();
+  const updateMut = useUpdateVenue();
+  const deleteMut = useDeleteVenue();
+
+  const venues: Venue[] = useMemo(
+    () =>
+      (venuesQuery.data ?? []).map((v: any) => ({
         ...v,
         sports: v.sports ?? [],
         facilities: v.facilities ?? '',
-      }));
-      setVenues(normalized);
-    } catch (error) {
-      console.error('Error loading venues:', error);
-      toast.error('Failed to load venues');
-    } finally {
-      setLoading(false);
-    }
-  };
+      })),
+    [venuesQuery.data],
+  );
+  const loading = venuesQuery.isLoading;
+  const submitting = createMut.isPending || updateMut.isPending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,22 +83,18 @@ export default function AdminVenues() {
     }
 
     try {
-      setSubmitting(true);
       if (editingId) {
-        await updateVenue(editingId, formData);
+        await updateMut.mutateAsync({ id: editingId, data: formData });
         toast.success('Venue updated successfully');
       } else {
-        await createVenue(formData);
+        await createMut.mutateAsync(formData);
         toast.success('Venue created successfully');
       }
       setDialogOpen(false);
       resetForm();
-      loadVenues();
     } catch (error: any) {
       console.error('Error saving venue:', error);
       toast.error(error.message || 'Failed to save venue');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -127,9 +118,8 @@ export default function AdminVenues() {
     }
 
     try {
-      await deleteVenue(id);
+      await deleteMut.mutateAsync(id);
       toast.success('Venue deleted successfully');
-      loadVenues();
     } catch (error) {
       console.error('Error deleting venue:', error);
       toast.error('Failed to delete venue');
@@ -188,7 +178,14 @@ export default function AdminVenues() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Venue Management</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">Venue Management</h1>
+            <RefreshStatus
+              fetching={venuesQuery.isFetching && !loading}
+              error={venuesQuery.isRefetchError}
+              onRetry={() => venuesQuery.refetch()}
+            />
+          </div>
           <p className="text-gray-600 mt-2">Manage sports facilities and venues</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>

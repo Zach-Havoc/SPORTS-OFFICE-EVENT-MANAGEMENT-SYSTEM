@@ -65,9 +65,13 @@ class RequirementController extends Controller
         ]);
 
         $request->validate([
-            'type'        => 'required|string',
-            'name'        => 'required|string',
-            'file'        => 'required|file|max:10240', // Max 10MB
+            'type'        => 'required|string|max:255',
+            'name'        => 'required|string|max:255',
+            'description' => 'nullable|string|max:2000',
+            // Restrict to document / image types only. Without this an
+            // attacker could upload .php / .html / .svg to the public disk
+            // and get stored XSS or code execution.
+            'file'        => 'required|file|max:10240|mimes:pdf,doc,docx,jpg,jpeg,png',
         ]);
 
         $user = $request->user();
@@ -88,10 +92,14 @@ class RequirementController extends Controller
         $fileUrl = null;
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $filePath = $file->storeAs('requirements', $fileName, 'public');
-            $fileUrl = Storage::url($filePath);
-            \Log::info('File stored', ['file_path' => $filePath, 'file_url' => $fileUrl]);
+            // Generate a random, extension-controlled name. Never trust the
+            // client-supplied original name (path traversal / overwrite /
+            // double-extension tricks).
+            $extension = strtolower($file->extension() ?: $file->getClientOriginalExtension());
+            $fileName  = Str::uuid() . ($extension ? ('.' . $extension) : '');
+            $filePath  = $file->storeAs('requirements', $fileName, 'public');
+            $fileUrl   = Storage::url($filePath);
+            \Log::info('File stored', ['file_path' => $filePath]);
         }
 
         $req = Requirement::create([
@@ -118,7 +126,21 @@ class RequirementController extends Controller
             'notes'  => 'nullable|string',
         ]);
 
-        $req = Requirement::findOrFail($id);
+        $req  = Requirement::findOrFail($id);
+        $user = $request->user();
+
+        // A coach may only review requirements belonging to athletes on their
+        // own roster. Admins may review any.
+        if ($user->role === 'coach') {
+            $rosterIds = \App\Models\Athlete::where('coach_id', $user->id)->pluck('id')
+                ->merge(\App\Models\User::where('coach_id', $user->id)->pluck('id'))
+                ->unique();
+
+            if (!$rosterIds->contains($req->athlete_id)) {
+                return response()->json(['error' => 'Not found'], 404);
+            }
+        }
+
         $req->update([
             'status'      => $request->status,
             'notes'       => $request->notes,

@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { getRegistrationCodes, createRegistrationCode, revokeRegistrationCode } from '../../services/api';
+import {
+  useRegistrationCodes,
+  useCreateRegistrationCode,
+  useRevokeRegistrationCode,
+} from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -28,11 +33,8 @@ interface RegistrationCode {
 export default function AdminRegistrationCodes() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [codes, setCodes] = useState<RegistrationCode[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     role: 'judge' as 'admin' | 'coach' | 'athlete' | 'judge',
     label: '',
@@ -40,38 +42,29 @@ export default function AdminRegistrationCodes() {
   });
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/login');
-      return;
-    }
-    loadCodes();
-    const interval = setInterval(loadCodes, 30000);
-    return () => clearInterval(interval);
+    if (!user || user.role !== 'admin') navigate('/login');
   }, [user, navigate]);
 
-  const loadCodes = async () => {
-    try {
-      const data = await getRegistrationCodes();
-      // Sort: active codes first, then by creation date
-      const sorted = data.sort((a: RegistrationCode, b: RegistrationCode) => {
+  const codesQuery = useRegistrationCodes();
+  const createMut = useCreateRegistrationCode();
+  const revokeMut = useRevokeRegistrationCode();
+
+  const codes: RegistrationCode[] = useMemo(
+    () =>
+      [...((codesQuery.data as RegistrationCode[]) ?? [])].sort((a, b) => {
         if (a.used !== b.used) return a.used ? 1 : -1;
         return b.createdAt - a.createdAt;
-      });
-      setCodes(sorted);
-    } catch (error) {
-      console.error('Error loading registration codes:', error);
-      toast.error('Failed to load registration codes');
-    } finally {
-      setLoading(false);
-    }
-  };
+      }),
+    [codesQuery.data],
+  );
+  const loading = codesQuery.isLoading;
+  const generating = createMut.isPending;
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGenerating(true);
 
     try {
-      const result = await createRegistrationCode({
+      const result = await createMut.mutateAsync({
         role: formData.role,
         label: formData.label || `${formData.role.charAt(0).toUpperCase() + formData.role.slice(1)} Registration Code`,
         expiresInDays: formData.expiresInDays > 0 ? formData.expiresInDays : undefined
@@ -80,12 +73,9 @@ export default function AdminRegistrationCodes() {
       toast.success(`Registration code generated: ${result.code.code}`);
       setDialogOpen(false);
       setFormData({ role: 'judge', label: '', expiresInDays: 0 });
-      loadCodes();
     } catch (error: any) {
       console.error('Error generating code:', error);
       toast.error(error.message || 'Failed to generate code');
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -98,9 +88,8 @@ export default function AdminRegistrationCodes() {
     if (!confirm('Are you sure you want to revoke this registration code?')) return;
 
     try {
-      await revokeRegistrationCode(code);
+      await revokeMut.mutateAsync(code);
       toast.success('Registration code revoked');
-      loadCodes();
     } catch (error: any) {
       console.error('Error revoking code:', error);
       toast.error(error.message || 'Failed to revoke code');
@@ -138,7 +127,14 @@ export default function AdminRegistrationCodes() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Registration Codes</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">Registration Codes</h1>
+            <RefreshStatus
+              fetching={codesQuery.isFetching && !loading}
+              error={codesQuery.isRefetchError}
+              onRetry={() => codesQuery.refetch()}
+            />
+          </div>
           <p className="text-gray-500 mt-1">Generate and manage registration codes for all user roles</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
@@ -224,7 +220,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'admin' && <><Shield className="h-3 w-3 mr-1" /> Admin</>}
                           {code.role === 'coach' && <><User className="h-3 w-3 mr-1" /> Coach</>}
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
-                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Judge</>}
+                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 mb-1">{code.label}</p>
@@ -288,7 +284,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'admin' && <><Shield className="h-3 w-3 mr-1" /> Admin</>}
                           {code.role === 'coach' && <><User className="h-3 w-3 mr-1" /> Coach</>}
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
-                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Judge</>}
+                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
                         <Badge variant="secondary">Used</Badge>
                       </div>
@@ -328,7 +324,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'admin' && <><Shield className="h-3 w-3 mr-1" /> Admin</>}
                           {code.role === 'coach' && <><User className="h-3 w-3 mr-1" /> Coach</>}
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
-                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Judge</>}
+                          {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
                         <Badge className="bg-red-600">Expired</Badge>
                       </div>
@@ -373,7 +369,7 @@ export default function AdminRegistrationCodes() {
                 <SelectContent>
                   <SelectItem value="athlete">Athlete - View schedule & performance</SelectItem>
                   <SelectItem value="coach">Coach - Manage athletes & teams</SelectItem>
-                  <SelectItem value="judge">Judge - Score events</SelectItem>
+                  <SelectItem value="judge">Committee - Score events</SelectItem>
                   <SelectItem value="admin">Admin - Full system access</SelectItem>
                 </SelectContent>
               </Select>
@@ -385,7 +381,7 @@ export default function AdminRegistrationCodes() {
                 id="label"
                 value={formData.label}
                 onChange={e => setFormData({ ...formData, label: e.target.value })}
-                placeholder={`e.g., "John's Judge Access"`}
+                placeholder={`e.g., "John's Committee Access"`}
               />
               <p className="text-xs text-gray-500">
                 A description to help you remember what this code is for

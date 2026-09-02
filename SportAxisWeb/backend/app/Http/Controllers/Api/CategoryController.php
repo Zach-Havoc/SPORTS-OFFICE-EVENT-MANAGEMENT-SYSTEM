@@ -19,12 +19,14 @@ class CategoryController extends Controller
         $request->validate([
             'name'        => 'required|string|unique:categories,name',
             'description' => 'nullable|string',
+            'format'      => 'nullable|in:versus,ranked',
         ]);
 
         $category = Category::create([
             'id'          => Str::uuid(),
             'name'        => $request->name,
             'description' => $request->description,
+            'format'      => $request->format ?: 'versus',
         ]);
 
         return response()->json($category, 201);
@@ -37,9 +39,10 @@ class CategoryController extends Controller
         $request->validate([
             'name'        => 'required|string|unique:categories,name,' . $id . ',id',
             'description' => 'nullable|string',
+            'format'      => 'nullable|in:versus,ranked',
         ]);
 
-        $category->update($request->only('name', 'description'));
+        $category->update($request->only('name', 'description', 'format'));
         return response()->json($category);
     }
 

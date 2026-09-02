@@ -65,7 +65,6 @@ export const STORAGE_KEYS = {
   AUTH_TOKEN:     'auth_token',
   AUTH_USER:      'auth_user',
   EVENT_SESSION:  'event_session',
-  EVENT_CRITERIA: 'event_criteria',
   OFFLINE_QUEUE:  'offline_queue',
   LAST_SYNC:      'last_sync',
 } as const;

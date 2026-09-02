@@ -88,13 +88,20 @@ export const useOfflineStore = create<OfflineStore>((set, get) => ({
         updatedQueue.splice(index, 1);
       } catch (error: any) {
         const retryCount = updatedQueue[index].retry_count + 1;
-        const isFinalFailure = retryCount >= 3;
+
+        // A connection hiccup is worth retrying later; anything the server
+        // actively rejected (bad data, rate limit, expired session) will just
+        // keep failing — mark it failed now so it surfaces on the History
+        // screen instead of silently retrying forever.
+        const isConnectionIssue =
+          error?.code === 'NETWORK_ERROR' || error?.code === 'TIMEOUT';
+        const isFinalFailure = !isConnectionIssue || retryCount >= 3;
 
         updatedQueue[index] = {
           ...updatedQueue[index],
           status:      isFinalFailure ? 'failed' : 'pending',
           retry_count: retryCount,
-          error:       error.message ?? 'Sync failed',
+          error:       error?.message ?? 'Sync failed',
         };
       }
 

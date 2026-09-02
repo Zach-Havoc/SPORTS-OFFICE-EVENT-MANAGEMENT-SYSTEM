@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -11,7 +11,13 @@ import { Switch } from '../../components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Plus, Edit, Trash2, Megaphone, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '../../services/api';
+import {
+  useAnnouncements,
+  useCreateAnnouncement,
+  useUpdateAnnouncement,
+  useDeleteAnnouncement,
+} from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Announcement {
   id: string;
@@ -28,8 +34,6 @@ interface Announcement {
 export default function CoachAnnouncements() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -40,27 +44,19 @@ export default function CoachAnnouncements() {
   });
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') {
-      navigate('/login');
-      return;
-    }
-    loadAnnouncements();
+    if (!user || user.role !== 'coach') navigate('/login');
   }, [user, navigate]);
 
-  const loadAnnouncements = async () => {
-    try {
-      setLoading(true);
-      const data = await getAnnouncements();
-      // Filter to only show this coach's announcements
-      const myAnnouncements = data.filter((a: Announcement) => a.coachId === user?.id);
-      setAnnouncements(myAnnouncements);
-    } catch (error) {
-      console.error('Error loading announcements:', error);
-      toast.error('Failed to load announcements');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const announcementsQuery = useAnnouncements();
+  const createMut = useCreateAnnouncement();
+  const updateMut = useUpdateAnnouncement();
+  const deleteMut = useDeleteAnnouncement();
+
+  const announcements: Announcement[] = useMemo(
+    () => (announcementsQuery.data ?? []).filter((a: Announcement) => a.coachId === user?.id),
+    [announcementsQuery.data, user?.id],
+  );
+  const loading = announcementsQuery.isLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,15 +68,14 @@ export default function CoachAnnouncements() {
 
     try {
       if (editingId) {
-        await updateAnnouncement(editingId, formData);
+        await updateMut.mutateAsync({ id: editingId, data: formData });
         toast.success('Announcement updated successfully');
       } else {
-        await createAnnouncement(formData);
+        await createMut.mutateAsync(formData);
         toast.success('Announcement created successfully');
       }
       setDialogOpen(false);
       resetForm();
-      loadAnnouncements();
     } catch (error: any) {
       console.error('Error saving announcement:', error);
       toast.error(error.message || 'Failed to save announcement');
@@ -104,9 +99,8 @@ export default function CoachAnnouncements() {
     }
 
     try {
-      await deleteAnnouncement(id);
+      await deleteMut.mutateAsync(id);
       toast.success('Announcement deleted successfully');
-      loadAnnouncements();
     } catch (error) {
       console.error('Error deleting announcement:', error);
       toast.error('Failed to delete announcement');
@@ -141,7 +135,14 @@ export default function CoachAnnouncements() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Announcements</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">My Announcements</h1>
+            <RefreshStatus
+              fetching={announcementsQuery.isFetching && !loading}
+              error={announcementsQuery.isRefetchError}
+              onRetry={() => announcementsQuery.refetch()}
+            />
+          </div>
           <p className="text-gray-600 mt-2">Create and manage announcements for tryouts and events</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>

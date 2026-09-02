@@ -67,8 +67,8 @@ export default function Login() {
         }
         
         // Validate password strength
-        if (password.length < 6) {
-          throw new Error('Password must be at least 6 characters long');
+        if (password.length < 8) {
+          throw new Error('Password must be at least 8 characters long');
         }
 
         console.log('Attempting signup for:', email);
@@ -132,7 +132,7 @@ export default function Login() {
           {mode === 'signup' && (
             <div className="mt-3 text-xs text-gray-600 bg-gray-50 p-3 rounded-md">
               <strong>Note:</strong> Public viewers can access the system without creating an account.
-              Accounts are only for admins and judges who need to manage or score events.
+              Accounts are only for admins and committees who need to manage or score events.
             </div>
           )}
         </CardHeader>
@@ -191,14 +191,14 @@ export default function Login() {
                   <SelectContent>
                     <SelectItem value="athlete">Athlete - View schedule & performance</SelectItem>
                     <SelectItem value="coach">Coach - Manage athletes & teams</SelectItem>
-                    <SelectItem value="judge">Judge - Score events</SelectItem>
+                    <SelectItem value="judge">Committee - Score events</SelectItem>
                     <SelectItem value="admin">Admin - Full system access</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500 mt-1">
                   {role === 'athlete' && 'Athletes can view schedules, performance, and submit requirements'}
                   {role === 'coach' && 'Coaches can manage athletes, track attendance, and record performance'}
-                  {role === 'judge' && 'Judges can view and score assigned events'}
+                  {role === 'judge' && 'Committees can view and score assigned events'}
                   {role === 'admin' && 'Admins can manage events, users, and view all data'}
                 </p>
               </div>

@@ -10,7 +10,8 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { FileText, Plus, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { getMyRequirements, submitRequirement } from '../../services/api';
+import { useMyRequirements, useSubmitRequirement } from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Requirement {
   id: string;
@@ -27,10 +28,7 @@ interface Requirement {
 export default function AthleteRequirements() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     type: 'waiver',
@@ -40,25 +38,14 @@ export default function AthleteRequirements() {
   });
 
   useEffect(() => {
-    if (!user || user.role !== 'athlete') {
-      navigate('/login');
-      return;
-    }
-    loadRequirements();
+    if (!user || user.role !== 'athlete') navigate('/login');
   }, [user, navigate]);
 
-  const loadRequirements = async () => {
-    try {
-      setLoading(true);
-      const data = await getMyRequirements();
-      setRequirements(data);
-    } catch (error) {
-      console.error('Error loading requirements:', error);
-      toast.error('Failed to load requirements');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const requirementsQuery = useMyRequirements();
+  const submitMut = useSubmitRequirement();
+  const requirements: Requirement[] = requirementsQuery.data ?? [];
+  const loading = requirementsQuery.isLoading;
+  const submitting = submitMut.isPending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,27 +60,14 @@ export default function AthleteRequirements() {
       return;
     }
 
-    console.log('Submitting requirement with data:', {
-      type: formData.type,
-      name: formData.name,
-      description: formData.description,
-      fileName: formData.file?.name,
-      fileSize: formData.file?.size
-    });
-
     try {
-      setSubmitting(true);
-      const result = await submitRequirement(formData);
-      console.log('Submit result:', result);
+      await submitMut.mutateAsync(formData);
       toast.success('Requirement submitted successfully');
       setDialogOpen(false);
       resetForm();
-      loadRequirements();
     } catch (error: any) {
       console.error('Error submitting requirement:', error);
       toast.error(error.message || 'Failed to submit requirement');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -144,7 +118,14 @@ export default function AthleteRequirements() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Requirements</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">My Requirements</h1>
+            <RefreshStatus
+              fetching={requirementsQuery.isFetching && !loading}
+              error={requirementsQuery.isRefetchError}
+              onRetry={() => requirementsQuery.refetch()}
+            />
+          </div>
           <p className="text-gray-600 mt-2">Submit and track your document requirements</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>

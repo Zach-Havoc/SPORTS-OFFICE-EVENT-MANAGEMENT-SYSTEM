@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { Calendar as CalendarIcon, CheckCircle, XCircle, Clock, Users, Search, Filter } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Users, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAthletes, getEvents, markAttendance, getAttendanceRecords } from '../../services/api';
+import { useAthletes, useEvents, useMarkAttendance } from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Athlete {
   id: string;
@@ -25,62 +25,52 @@ interface Event {
   venue: string;
 }
 
-interface AttendanceRecord {
-  id: string;
-  athleteId: string;
-  eventId: string;
-  date: string;
-  status: 'present' | 'absent' | 'late' | 'excused';
-  notes: string;
-  recordedBy: string;
-}
-
 export default function CoachAttendance() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent' | 'late' | 'excused'>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') {
-      navigate('/login');
-      return;
-    }
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+    if (!user || user.role !== 'coach') navigate('/login');
   }, [user, navigate]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [athletesData, eventsData] = await Promise.all([
-        getAthletes(),
-        getEvents()
-      ]);
-      setAthletes(athletesData);
-      setEvents(eventsData.filter((e: Event) => e.sport)); // Only sports events
+  const athletesQuery = useAthletes();
+  const eventsQuery = useEvents();
+  const markAtt = useMarkAttendance();
 
-      // Initialize attendance to 'present' for all athletes
-      const initialAttendance: Record<string, 'present' | 'absent' | 'late' | 'excused'> = {};
-      athletesData.forEach((athlete: Athlete) => {
-        initialAttendance[athlete.id] = 'present';
-      });
-      setAttendance(initialAttendance);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
+  const athletes: Athlete[] = athletesQuery.data ?? [];
+  const events: Event[] = useMemo(
+    () => (eventsQuery.data ?? []).filter((e: Event) => e.sport),
+    [eventsQuery.data],
+  );
+  const loading = athletesQuery.isLoading || eventsQuery.isLoading;
+  const fetching = (athletesQuery.isFetching || eventsQuery.isFetching) && !loading;
+  const backgroundError = athletesQuery.isRefetchError || eventsQuery.isRefetchError;
+  const retryAll = () => {
+    athletesQuery.refetch();
+    eventsQuery.refetch();
   };
+  const saving = markAtt.isPending;
+
+  // Default any not-yet-tracked athlete to "present".
+  useEffect(() => {
+    if (!athletes.length) return;
+    setAttendance(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const a of athletes) {
+        if (!(a.id in next)) {
+          next[a.id] = 'present';
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [athletes]);
 
   const handleMarkAttendance = (athleteId: string, status: 'present' | 'absent' | 'late' | 'excused') => {
     setAttendance(prev => ({ ...prev, [athleteId]: status }));
@@ -93,7 +83,6 @@ export default function CoachAttendance() {
     }
 
     try {
-      setSaving(true);
       const records = Object.entries(attendance).map(([athleteId, status]) => ({
         athleteId,
         eventId: selectedEvent || 'training',
@@ -102,7 +91,7 @@ export default function CoachAttendance() {
         notes: notes[athleteId] || ''
       }));
 
-      await markAttendance(records);
+      await markAtt.mutateAsync(records);
       toast.success('Attendance marked successfully');
 
       // Reset to 'present' for all
@@ -115,28 +104,6 @@ export default function CoachAttendance() {
     } catch (error: any) {
       console.error('Error saving attendance:', error);
       toast.error(error.message || 'Failed to save attendance');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'present': return 'bg-green-100 text-green-800 border-green-300';
-      case 'absent': return 'bg-red-100 text-red-800 border-red-300';
-      case 'late': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'excused': return 'bg-blue-100 text-blue-800 border-blue-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'present': return <CheckCircle className="h-4 w-4" />;
-      case 'absent': return <XCircle className="h-4 w-4" />;
-      case 'late': return <Clock className="h-4 w-4" />;
-      case 'excused': return <CheckCircle className="h-4 w-4" />;
-      default: return null;
     }
   };
 
@@ -158,7 +125,10 @@ export default function CoachAttendance() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Mark Attendance</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">Mark Attendance</h1>
+          <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
+        </div>
         <p className="text-gray-600 mt-2">Track athlete attendance for training and events</p>
       </div>
 

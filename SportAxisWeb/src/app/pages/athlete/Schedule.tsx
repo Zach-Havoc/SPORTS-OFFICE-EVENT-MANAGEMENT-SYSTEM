@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Calendar, MapPin, Clock, Trophy } from 'lucide-react';
-import { toast } from 'sonner';
-import { getEvents } from '../../services/api';
+import { useEvents } from '../../hooks/api';
+import { RefreshStatus } from '../../components/RefreshStatus';
+import { useDeptAbbreviator } from '../../utils/departments';
 
 interface Event {
   id: string;
@@ -23,34 +24,22 @@ interface Event {
 export default function AthleteSchedule() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'ongoing' | 'completed'>('all');
 
   useEffect(() => {
-    if (!user || user.role !== 'athlete') {
-      navigate('/login');
-      return;
-    }
-    loadEvents();
+    if (!user || user.role !== 'athlete') navigate('/login');
   }, [user, navigate]);
 
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-      const data = await getEvents();
-      // Sort by schedule date
-      const sorted = data.sort((a: Event, b: Event) =>
-        new Date(a.schedule).getTime() - new Date(b.schedule).getTime()
-      );
-      setEvents(sorted);
-    } catch (error) {
-      console.error('Error loading events:', error);
-      toast.error('Failed to load schedule');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const eventsQuery = useEvents();
+  const abbr = useDeptAbbreviator();
+  const events: Event[] = useMemo(
+    () =>
+      [...((eventsQuery.data as Event[]) ?? [])].sort(
+        (a, b) => new Date(a.schedule).getTime() - new Date(b.schedule).getTime(),
+      ),
+    [eventsQuery.data],
+  );
+  const loading = eventsQuery.isLoading;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -87,7 +76,14 @@ export default function AthleteSchedule() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">My Schedule</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">My Schedule</h1>
+          <RefreshStatus
+            fetching={eventsQuery.isFetching && !loading}
+            error={eventsQuery.isRefetchError}
+            onRetry={() => eventsQuery.refetch()}
+          />
+        </div>
         <p className="text-gray-600 mt-2">View your upcoming games and events</p>
       </div>
 
@@ -182,7 +178,7 @@ export default function AthleteSchedule() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <CardTitle className="text-xl">{event.name}</CardTitle>
+                      <CardTitle className="text-xl">{abbr(event.name)}</CardTitle>
                       <Badge variant="secondary">{event.sport}</Badge>
                       <Badge className={getStatusColor(event.status)}>
                         {event.status}

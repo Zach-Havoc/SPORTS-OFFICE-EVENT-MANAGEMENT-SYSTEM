@@ -43,7 +43,17 @@ class AttendanceController extends Controller
         $user = $request->user();
         $created = [];
 
+        // Restrict writes to the coach's own roster so a coach cannot record
+        // attendance against another coach's athletes.
+        $rosterIds = \App\Models\Athlete::where('coach_id', $user->id)->pluck('id')
+            ->merge(\App\Models\User::where('coach_id', $user->id)->pluck('id'))
+            ->unique()
+            ->flip();
+
         foreach ($request->records as $rec) {
+            if ($user->role === 'coach' && !$rosterIds->has($rec['athleteId'])) {
+                continue;
+            }
             $record = AttendanceRecord::updateOrCreate(
                 ['athlete_id' => $rec['athleteId'], 'date' => $rec['date']],
                 [

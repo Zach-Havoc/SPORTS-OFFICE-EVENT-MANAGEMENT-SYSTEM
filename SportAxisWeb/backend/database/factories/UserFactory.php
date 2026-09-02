@@ -8,38 +8,61 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
+ * Builds valid `users` rows for the SportsAxis schema.
+ *
+ * NOTE: this schema has NO `email_verified_at` / `remember_token` columns, so
+ * (unlike the stock Laravel factory) we must not set them.
+ *
  * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+    protected $model = User::class;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    /** Shared bcrypt hash so tests can log in with the literal password "password". */
+    public static ?string $password = null;
+
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
+            'id'       => (string) Str::uuid(),
+            'name'     => fake()->name(),
+            'email'    => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+            'role'     => 'athlete',
+            'active'   => true,
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+        return $this->state(fn () => ['active' => false]);
+    }
+
+    public function admin(): static
+    {
+        return $this->state(fn () => ['role' => 'admin']);
+    }
+
+    public function coach(): static
+    {
+        return $this->state(fn () => [
+            'role'            => 'coach',
+            'sport'           => 'Basketball',
+            'sports'          => ['Basketball'],
+            'department'      => 'College of Engineering',
+            'gender_category' => 'Men',
+            'enrollment_code' => strtoupper(Str::random(8)),
         ]);
+    }
+
+    public function athlete(): static
+    {
+        return $this->state(fn () => ['role' => 'athlete']);
+    }
+
+    public function judge(): static
+    {
+        return $this->state(fn () => ['role' => 'judge']);
     }
 }

@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -19,9 +18,11 @@ import { getSportConfigFromEvent } from '../../utils/sport-config';
 
 interface LiveScoreTrackerProps {
   event: EventSession;
+  /** When rendered inside its own tab, drop the collapsible section chrome. */
+  embedded?: boolean;
 }
 
-export function LiveScoreTracker({ event }: LiveScoreTrackerProps) {
+export function LiveScoreTracker({ event, embedded = false }: LiveScoreTrackerProps) {
   const sportConfig = getSportConfigFromEvent(event.category, event.name);
   const accentColor = sportConfig.color;
   const depts       = event.departments ?? [];
@@ -30,6 +31,9 @@ export function LiveScoreTracker({ event }: LiveScoreTrackerProps) {
 
   const [isExpanded, setIsExpanded] = useState(true);
 
+  // Every sport resolves to a sheet — recognised sports get their purpose-built
+  // scoreboard; anything else (cultural, chess, arnis, …) gets a generic
+  // points sheet so the tab is never empty.
   const renderTracker = () => {
     switch (sportConfig.type) {
       case 'basketball':   return <BasketballTracker teamA={teamA} teamB={teamB} accentColor={accentColor} />;
@@ -40,12 +44,24 @@ export function LiveScoreTracker({ event }: LiveScoreTrackerProps) {
       case 'tennis':       return <TennisTracker     teamA={teamA} teamB={teamB} accentColor={accentColor} />;
       case 'track-field':  return <TrackFieldTracker depts={depts} accentColor={accentColor} />;
       case 'swimming':     return <SwimmingTracker   depts={depts} accentColor={accentColor} />;
-      default:             return null; // cultural / generic: no live scoreboard needed
+      default:             return <GenericTracker    depts={depts} accentColor={accentColor} />;
     }
   };
 
-  const tracker = renderTracker();
-  if (!tracker) return null;
+  const card = (
+    <View style={[styles.trackerCard, { borderColor: `${accentColor}30` }]}>
+      <View style={[styles.trackerBanner, { backgroundColor: accentColor }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ionicons name={sportConfig.icon as any} size={16} color="#fff" />
+          <Text style={styles.trackerBannerText}>{event.name.toUpperCase()}</Text>
+        </View>
+        <Text style={styles.trackerBannerSub}>{sportConfig.label} · App sheet · Not submitted</Text>
+      </View>
+      {renderTracker()}
+    </View>
+  );
+
+  if (embedded) return card;
 
   return (
     <View style={styles.wrapper}>
@@ -58,10 +74,9 @@ export function LiveScoreTracker({ event }: LiveScoreTrackerProps) {
         <View style={styles.sectionHeaderLeft}>
           <View style={[styles.sectionDot, { backgroundColor: accentColor }]} />
           <Text style={styles.sectionTitle}>LIVE SCORE TRACKER</Text>
-          <View style={[styles.sectionBadge, { backgroundColor: `${accentColor}15` }]}>
-            <Text style={[styles.sectionBadgeText, { color: accentColor }]}>
-              {sportConfig.emoji} {sportConfig.label}
-            </Text>
+          <View style={[styles.sectionBadge, { backgroundColor: `${accentColor}15`, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+            <Ionicons name={sportConfig.icon as any} size={12} color={accentColor} />
+            <Text style={[styles.sectionBadgeText, { color: accentColor }]}>{sportConfig.label}</Text>
           </View>
         </View>
         <Ionicons
@@ -71,18 +86,7 @@ export function LiveScoreTracker({ event }: LiveScoreTrackerProps) {
         />
       </TouchableOpacity>
 
-      {/* ── Tracker content ─────────────────────────────────────────── */}
-      {isExpanded && (
-        <View style={[styles.trackerCard, { borderColor: `${accentColor}30` }]}>
-          <View style={[styles.trackerBanner, { backgroundColor: accentColor }]}>
-            <Text style={styles.trackerBannerText}>
-              {sportConfig.emoji}  {event.name.toUpperCase()}
-            </Text>
-            <Text style={styles.trackerBannerSub}>App Score Sheet · Local Tracking</Text>
-          </View>
-          {tracker}
-        </View>
-      )}
+      {isExpanded && card}
     </View>
   );
 }
@@ -556,6 +560,53 @@ function SwimmingTracker({ depts, accentColor }: { depts: string[]; accentColor:
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Generic Tracker — plain points sheet for sports without a bespoke scoreboard
+// (cultural / arts, chess, arnis, sepak takraw, e-sports, …)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function GenericTracker({ depts, accentColor }: { depts: string[]; accentColor: string }) {
+  const teams = depts.length > 0 ? depts : ['Team A', 'Team B'];
+  const [scores, setScores] = useState<string[]>(teams.map(() => ''));
+
+  const nums     = scores.map(s => parseInt(s) || 0);
+  const anyScore = nums.some(n => n > 0);
+  const leaderIdx = anyScore ? nums.indexOf(Math.max(...nums)) : -1;
+  const tie      = anyScore && nums.filter(n => n === Math.max(...nums)).length > 1;
+
+  return (
+    <View style={styles.trackerBody}>
+      <View style={[styles.trackHeader, { backgroundColor: accentColor }]}>
+        <Text style={styles.trackHeaderTh}>TEAM / DEPARTMENT</Text>
+        <Text style={styles.trackHeaderThSm}>SCORE</Text>
+      </View>
+      {teams.map((t, i) => {
+        const leads = !tie && i === leaderIdx;
+        return (
+          <View key={i} style={[styles.trackRow, i % 2 === 1 && { backgroundColor: COLORS.background }]}>
+            <Text style={styles.trackLane}>{i + 1}</Text>
+            <Text style={styles.trackDept} numberOfLines={2}>{t}</Text>
+            {leads && (
+              <View style={[styles.genLeadBadge, { backgroundColor: accentColor }]}>
+                <Text style={styles.genLeadText}>LEADS</Text>
+              </View>
+            )}
+            <TextInput
+              style={[styles.genScoreInput, { borderColor: `${accentColor}40`, color: accentColor }]}
+              value={scores[i]}
+              onChangeText={v => { const n = [...scores]; n[i] = v.replace(/\D/g, ''); setScores(n); }}
+              keyboardType="number-pad"
+              maxLength={3}
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FoulCounter — Increment/decrement counter for fouls/cards
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -901,5 +952,30 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     backgroundColor: COLORS.background,
     minHeight: 36,
+  },
+
+  // Generic tracker
+  genLeadBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    marginRight: 4,
+  },
+  genLeadText: {
+    fontSize: 9,
+    fontWeight: FONT_WEIGHT.bold,
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  genScoreInput: {
+    flex: 1.4,
+    borderWidth: 1.5,
+    borderRadius: RADIUS.sm,
+    paddingVertical: 6,
+    textAlign: 'center',
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.extrabold,
+    backgroundColor: COLORS.surface,
+    minHeight: 38,
   },
 });

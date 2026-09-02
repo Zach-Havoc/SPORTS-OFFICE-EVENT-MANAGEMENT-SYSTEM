@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { RefreshStatus } from '../../components/RefreshStatus';
 import { Badge } from '../../components/ui/badge';
 import { Users, Calendar, TrendingUp, FileCheck, UserPlus, Mail, Phone } from 'lucide-react';
-import { toast } from 'sonner';
-import { getTryoutApplications } from '../../services/api';
+import { useTryoutApplications, useAthletes } from '../../hooks/api';
 
 interface TryoutApplication {
   id: string;
@@ -26,28 +26,25 @@ interface TryoutApplication {
 export default function CoachDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tryoutApplications, setTryoutApplications] = useState<TryoutApplication[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user || user.role !== 'coach') {
       navigate('/login');
-      return;
     }
-    loadTryoutApplications();
   }, [user, navigate]);
 
-  const loadTryoutApplications = async () => {
-    try {
-      setLoading(true);
-      const data = await getTryoutApplications();
-      setTryoutApplications(data);
-    } catch (error) {
-      console.error('Error loading tryout applications:', error);
-      toast.error('Failed to load tryout applications');
-    } finally {
-      setLoading(false);
-    }
+  const tryoutsQuery = useTryoutApplications();
+  const athletesQuery = useAthletes();
+
+  const tryoutApplications: TryoutApplication[] = tryoutsQuery.data ?? [];
+  const athletes: any[] = athletesQuery.data ?? [];
+  const loading = tryoutsQuery.isLoading || athletesQuery.isLoading;
+  const fetching =
+    (tryoutsQuery.isFetching || athletesQuery.isFetching) && !loading;
+  const backgroundError = tryoutsQuery.isRefetchError || athletesQuery.isRefetchError;
+  const retryAll = () => {
+    tryoutsQuery.refetch();
+    athletesQuery.refetch();
   };
 
   const formatDate = (dateString: string) => {
@@ -65,7 +62,10 @@ export default function CoachDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
+          <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
+        </div>
         <p className="text-gray-600 mt-2">Welcome back, {user.name}!</p>
       </div>
 
@@ -77,7 +77,7 @@ export default function CoachDashboard() {
             <Users className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{athletes.length}</div>
             <p className="text-xs text-gray-500 mt-1">Total athletes</p>
           </CardContent>
         </Card>

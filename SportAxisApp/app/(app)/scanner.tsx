@@ -127,7 +127,7 @@ export default function ScannerScreen() {
         <View style={styles.topBar}>
           <View style={styles.brandPill}>
             <Ionicons name="trophy" size={16} color={COLORS.textInverse} style={{ marginRight: 4 }} />
-            <Text style={styles.brandPillText}>BatStateU Judge</Text>
+            <Text style={styles.brandPillText}>BatStateU Committee</Text>
           </View>
           {!isConnected && (
             <View style={styles.offlineBadge}>
