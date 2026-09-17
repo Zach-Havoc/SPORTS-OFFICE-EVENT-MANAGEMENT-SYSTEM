@@ -2,23 +2,31 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class Event extends Model
 {
+    use Auditable;
+    use SoftDeletes;
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
         'id', 'name', 'category', 'schedule', 'start_time', 'end_time',
-        'venue_id', 'venue_name', 'departments', 'judges', 'criteria', 'status', 'qr_token',
+        'venue_id', 'venue_name', 'departments', 'judges', 'criteria', 'status', 'qr_token', 'category_id',
+        'season_id',
     ];
 
     protected $casts = [
         'departments' => 'array',
-        'judges'      => 'array',
-        'criteria'    => 'array',
+        'judges' => 'array',
+        'criteria' => 'array',
     ];
 
     /**
@@ -65,8 +73,8 @@ class Event extends Model
         ?string $ignoreId = null
     ): Collection {
         $start = self::timeToMinutes($startTime);
-        $end   = self::timeToMinutes($endTime);
-        $date  = $schedule ? substr($schedule, 0, 10) : null;
+        $end = self::timeToMinutes($endTime);
+        $date = $schedule ? substr($schedule, 0, 10) : null;
 
         // Nothing to clash with: no venue, no date, or no readable time window.
         if (! $date || $start === null || $end === null) {
@@ -94,7 +102,7 @@ class Event extends Model
             })
             ->get()
             ->filter(function (Event $e) use ($start, $end) {
-                $s  = self::timeToMinutes($e->start_time);
+                $s = self::timeToMinutes($e->start_time);
                 $en = self::timeToMinutes($e->end_time);
                 if ($s === null || $en === null) {
                     return false;
@@ -124,22 +132,104 @@ class Event extends Model
         return $this->hasMany(Ranking::class, 'event_id');
     }
 
+    protected static function booted(): void
+    {
+        // A new event with no explicit season joins the active one, so no
+        // write path (admin form, bracket publish, seeder) can leave it
+        // unattached.
+        static::creating(function (Event $event) {
+            if (! $event->season_id) {
+                $event->season_id = Season::current()?->id;
+            }
+        });
+
+        // Every write path goes through save(), so keeping the taxonomy keys
+        // in step here means none of them can forget to.
+        static::saved(fn (Event $event) => $event->syncTaxonomyKeys());
+    }
+
+    /** The tournament edition this event belongs to. */
+    public function season()
+    {
+        return $this->belongsTo(Season::class, 'season_id');
+    }
+
+    /**
+     * Mirror the `category` / `departments` name fields onto the real keys:
+     * `category_id` and the `event_department` junction. Colleges are matched
+     * on full name OR abbreviation, because both spellings exist in the data.
+     */
+    public function syncTaxonomyKeys(): void
+    {
+        $key = fn (?string $v) => mb_strtolower(trim((string) $v));
+
+        if ($this->wasRecentlyCreated || $this->wasChanged('category') || $this->category_id === null) {
+            $categoryId = Category::whereRaw('LOWER(name) = ?', [$key($this->category)])->value('id');
+            if ($categoryId !== $this->category_id) {
+                DB::table('events')->where('id', $this->id)->update(['category_id' => $categoryId]);
+                $this->attributes['category_id'] = $categoryId;
+            }
+        }
+
+        $stale = $this->wasRecentlyCreated
+            || $this->wasChanged('departments')
+            || ! DB::table('event_department')->where('event_id', $this->id)->exists();
+
+        if (! $stale) {
+            return;
+        }
+
+        $wanted = collect($this->departments ?? [])->map($key)->filter()->unique();
+
+        $ids = $wanted->isEmpty()
+            ? collect()
+            : Department::all(['id', 'name', 'abbreviation'])
+                ->filter(fn ($d) => $wanted->contains($key($d->name)) || $wanted->contains($key($d->abbreviation)))
+                ->pluck('id');
+
+        DB::table('event_department')->where('event_id', $this->id)->delete();
+
+        if ($ids->isNotEmpty()) {
+            DB::table('event_department')->insertOrIgnore(
+                $ids->map(fn ($id) => ['event_id' => $this->id, 'department_id' => $id])->all()
+            );
+        }
+    }
+
+    /** The competing colleges, by key (the `departments` JSON stays as the label cache). */
+    public function departmentRows()
+    {
+        return $this->belongsToMany(Department::class, 'event_department', 'event_id', 'department_id');
+    }
+
+    /** The sport (or racquet discipline) this event is played under. */
+    public function categoryRow()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
     public function toApiFormat(): array
     {
         return [
-            'id'          => $this->id,
-            'name'        => $this->name,
-            'category'    => $this->category,
-            'schedule'    => $this->schedule,
-            'startTime'   => $this->start_time,
-            'endTime'     => $this->end_time,
-            'venueId'     => $this->venue_id,
-            'venueName'   => $this->venue_name,
+            'id' => $this->id,
+            'name' => $this->name,
+            'category' => $this->category,
+            'schedule' => $this->schedule,
+            'startTime' => $this->start_time,
+            'endTime' => $this->end_time,
+            'venueId' => $this->venue_id,
+            'venueName' => $this->venue_name,
             'departments' => $this->departments ?? [],
-            'judges'      => $this->judges ?? [],
-            'status'      => $this->status,
-            'qrToken'     => $this->qr_token,
-            'createdAt'   => $this->created_at,
+            // Public endpoint: expose only what consumers need to show, never
+            // a judge's contact details (mirrors EventSessionController).
+            'judges' => collect($this->judges ?? [])
+                ->map(fn ($j) => ['id' => $j['id'] ?? null, 'name' => $j['name'] ?? null])
+                ->values()
+                ->all(),
+            'status' => $this->status,
+            'qrToken' => $this->qr_token,
+            'seasonId' => $this->season_id,
+            'createdAt' => $this->created_at,
         ];
     }
 }

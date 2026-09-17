@@ -1,286 +1,140 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import {
-    Alert,
-    FlatList, StyleSheet,
-    Text,
-    View
-} from 'react-native';
-import {
-    COLORS,
-    FONT_SIZE, FONT_WEIGHT, RADIUS,
-    SPACING,
-} from '../../constants/theme';
-import { Badge } from '../../src/components/ui/Badge';
+import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { COLORS, SPACING, TYPE } from '../../constants/theme';
+import { Screen, ScreenHeader } from '../../src/components/ui/Screen';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import { Icon } from '../../src/components/ui/Icon';
+import { EmptyState } from '../../src/components/ui/States';
 import { useNetwork } from '../../src/hooks/use-network';
 import { useOfflineStore } from '../../src/store/offline.store';
+import { useDeptAbbreviator } from '../../src/hooks/use-dept-abbr';
 import type { OfflineQueueItem } from '../../src/types';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// History Screen — BatStateU red-and-white offline queue management
-// ─────────────────────────────────────────────────────────────────────────────
+const DOT = {
+  pending: COLORS.warning,
+  syncing: COLORS.info,
+  failed: COLORS.destructive,
+  synced: COLORS.success,
+} as const;
 
 export default function HistoryScreen() {
-  const queue       = useOfflineStore((s) => s.queue);
-  const syncAll     = useOfflineStore((s) => s.syncAll);
+  const queue = useOfflineStore((s) => s.queue);
+  const syncAll = useOfflineStore((s) => s.syncAll);
   const clearFailed = useOfflineStore((s) => s.clearFailed);
-  const isSyncing   = useOfflineStore((s) => s.isSyncing);
+  const isSyncing = useOfflineStore((s) => s.isSyncing);
   const { isConnected } = useNetwork();
+  const abbr = useDeptAbbreviator();
 
   const pendingCount = queue.filter((i) => i.status === 'pending').length;
-  const failedCount  = queue.filter((i) => i.status === 'failed').length;
+  const failedCount = queue.filter((i) => i.status === 'failed').length;
 
   const handleSync = async () => {
     if (!isConnected) {
-      Alert.alert('No Connection', 'You need an internet connection to sync scores.');
+      Alert.alert('No connection', 'You need internet to sync scores.');
       return;
     }
     await syncAll();
-    Alert.alert('Sync Complete', 'All pending scores have been synced.');
+    Alert.alert('Synced', 'All pending scores are synced.');
   };
 
   const handleClearFailed = () => {
-    Alert.alert(
-      'Clear Failed Submissions',
-      `Remove ${failedCount} failed submission(s)? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: clearFailed },
-      ],
-    );
+    Alert.alert('Clear failed', `Remove ${failedCount} failed submission(s)?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: clearFailed },
+    ]);
   };
 
-  const renderItem = ({ item }: { item: OfflineQueueItem }) => {
-    const statusVariant =
-      item.status === 'pending'  ? 'warning' :
-      item.status === 'syncing'  ? 'info'    :
-      item.status === 'failed'   ? 'error'   : 'success';
-
-    return (
-      <Card style={styles.queueItem}>
-        <View style={styles.queueHeader}>
-          <Text style={styles.queueDept}>{item.payload.department}</Text>
-          <Badge label={item.status.toUpperCase()} variant={statusVariant} />
-        </View>
-        <View style={styles.queueMeta}>
-          <Text style={styles.metaText}>
-            Score: {item.payload.totalScore.toFixed(2)}
-          </Text>
-          <Text style={styles.metaText}>
-            {new Date(item.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-        {item.error && (
-          <Text style={styles.errorText}>{item.error}</Text>
-        )}
-      </Card>
-    );
-  };
+  const renderItem = ({ item }: { item: OfflineQueueItem }) => (
+    <Card style={styles.item}>
+      <View style={[styles.itemDot, { backgroundColor: DOT[item.status as keyof typeof DOT] ?? COLORS.warning }]} />
+      <View style={styles.itemBody}>
+        <Text style={styles.dept} numberOfLines={1}>{abbr(item.payload.department)}</Text>
+        <Text style={styles.time} numberOfLines={1}>
+          {new Date(item.created_at).toLocaleString()}
+          {item.error ? ` · ${item.error}` : ''}
+        </Text>
+      </View>
+      <Text style={styles.score}>{item.payload.totalScore.toFixed(0)}</Text>
+    </Card>
+  );
 
   return (
-    <View style={styles.container}>
+    <Screen padded={false}>
+      <View style={styles.headerPad}>
+        <ScreenHeader
+          title="Sync"
+          right={<View style={[styles.conn, { backgroundColor: isConnected ? COLORS.online : COLORS.offline }]} />}
+        />
 
-      {/* Summary header */}
-      <View style={styles.summaryHeader}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryCount}>{queue.length}</Text>
-          <Text style={styles.summaryLabel}>Total</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryCount, styles.pendingCount]}>{pendingCount}</Text>
-          <Text style={styles.summaryLabel}>Pending</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryCount, styles.failedCount]}>{failedCount}</Text>
-          <Text style={styles.summaryLabel}>Failed</Text>
-        </View>
+        <Card style={styles.hero}>
+          <View style={styles.heroMain}>
+            <Text style={styles.heroNum}>{pendingCount}</Text>
+            <Text style={styles.heroLabel}>pending</Text>
+          </View>
+          <View style={styles.heroSide}>
+            <Text style={styles.sideNum}>{queue.length}</Text>
+            <Text style={styles.sideLabel}>total</Text>
+          </View>
+          <View style={styles.heroSide}>
+            <Text style={[styles.sideNum, failedCount > 0 && { color: COLORS.destructive }]}>{failedCount}</Text>
+            <Text style={styles.sideLabel}>failed</Text>
+          </View>
+        </Card>
+
+        {(pendingCount > 0 || failedCount > 0) && (
+          <View style={styles.actions}>
+            {pendingCount > 0 && (
+              <Button
+                label={isSyncing ? 'Syncing…' : 'Sync'}
+                onPress={handleSync}
+                loading={isSyncing}
+                fullWidth
+                icon={<Icon name="refresh" size={16} color={COLORS.textInverse} />}
+              />
+            )}
+            {failedCount > 0 && (
+              <Button label="Clear failed" onPress={handleClearFailed} variant="danger" fullWidth />
+            )}
+          </View>
+        )}
       </View>
 
-      {/* Action buttons */}
-      {(pendingCount > 0 || failedCount > 0) && (
-        <View style={styles.actions}>
-          {pendingCount > 0 && (
-            <Button
-              label={isSyncing ? 'Syncing…' : `Sync ${pendingCount} Pending`}
-              onPress={handleSync}
-              loading={isSyncing}
-              variant="primary"
-              size="md"
-              fullWidth
-            />
-          )}
-          {failedCount > 0 && (
-            <Button
-              label={`Clear ${failedCount} Failed`}
-              onPress={handleClearFailed}
-              variant="danger"
-              size="md"
-              fullWidth
-            />
-          )}
-        </View>
-      )}
-
-      {/* Queue list */}
       {queue.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconBox}>
-            <Ionicons name="document-text-outline" size={36} color={COLORS.primary} />
-          </View>
-          <Text style={styles.emptyTitle}>No Queued Submissions</Text>
-          <Text style={styles.emptySub}>
-            Scores submitted while offline will appear here until they sync.
-          </Text>
-        </View>
+        <EmptyState icon="check-circle" title="All caught up" />
       ) : (
         <FlatList
           data={queue}
           keyExtractor={(i) => i.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
       )}
-
-      {/* Connection status footer — matches web footer style */}
-      <View style={[
-        styles.footer,
-        { borderTopColor: isConnected ? COLORS.success : COLORS.warning },
-      ]}>
-        <View
-          style={[styles.connDot, { backgroundColor: isConnected ? COLORS.online : COLORS.offline }]}
-        />
-        <Text style={styles.footerText}>
-          {isConnected
-            ? 'Connected — auto-sync active'
-            : 'Offline — scores queued locally'}
-        </Text>
-      </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex:            1,
-    backgroundColor: COLORS.background,
-  },
+  headerPad: { paddingHorizontal: SPACING.lg },
+  list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl, gap: SPACING.sm, marginTop: SPACING.md },
 
-  // Summary header
-  summaryHeader: {
-    backgroundColor: COLORS.primary,
-    flexDirection:   'row',
-    paddingVertical: SPACING.lg,
-  },
-  summaryItem: {
-    flex:       1,
-    alignItems: 'center',
-    gap:        SPACING.xs,
-  },
-  summaryCount: {
-    fontSize:   FONT_SIZE.xl,
-    fontWeight: FONT_WEIGHT.bold,
-    color:      COLORS.textInverse,
-  },
-  pendingCount: { color: COLORS.primaryPale },
-  failedCount:  { color: '#FCA5A5' },
-  summaryLabel: {
-    fontSize: FONT_SIZE.xs,
-    color:    'rgba(255,255,255,0.70)',
-    fontWeight: FONT_WEIGHT.medium,
-  },
-  summaryDivider: {
-    width:          1,
-    backgroundColor: 'rgba(255,255,255,0.20)',
-    marginVertical: SPACING.xs,
-  },
+  conn: { width: 9, height: 9, borderRadius: 5 },
 
-  // Actions
-  actions: {
-    padding: SPACING.md,
-    gap:     SPACING.sm,
-  },
+  hero: { flexDirection: 'row', alignItems: 'center', padding: SPACING.lg, gap: SPACING.lg },
+  heroMain: { flex: 1 },
+  heroNum: { ...TYPE.display, fontSize: 44, lineHeight: 48, color: COLORS.textPrimary },
+  heroLabel: { ...TYPE.label, color: COLORS.textMuted },
+  heroSide: { alignItems: 'center', gap: 2 },
+  sideNum: { ...TYPE.title, color: COLORS.textPrimary },
+  sideLabel: { ...TYPE.caption, textTransform: 'uppercase', color: COLORS.textMuted },
 
-  // List
-  listContent: {
-    padding: SPACING.md,
-    gap:     SPACING.sm,
-  },
-  queueItem: { gap: SPACING.sm },
-  queueHeader: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'center',
-  },
-  queueDept: {
-    fontSize:   FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.bold,
-    color:      COLORS.textPrimary,
-  },
-  queueMeta: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    gap:            SPACING.xs,
-  },
-  metaText: {
-    fontSize: FONT_SIZE.xs,
-    color:    COLORS.textMuted,
-  },
-  errorText: {
-    fontSize:   FONT_SIZE.xs,
-    color:      COLORS.destructive,
-    fontWeight: FONT_WEIGHT.medium,
-    marginTop:  SPACING.xs,
-  },
+  actions: { gap: SPACING.sm, marginTop: SPACING.md },
 
-  // Empty state
-  emptyState: {
-    flex:           1,
-    alignItems:     'center',
-    justifyContent: 'center',
-    padding:        SPACING.xl,
-    gap:            SPACING.lg,
-  },
-  emptyIconBox: {
-    width:           80,
-    height:          80,
-    borderRadius:    RADIUS.full,
-    backgroundColor: COLORS.primaryPale,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  emptyTitle: {
-    fontSize:   FONT_SIZE.xl,
-    fontWeight: FONT_WEIGHT.bold,
-    color:      COLORS.textPrimary,
-    textAlign:  'center',
-  },
-  emptySub: {
-    fontSize:  FONT_SIZE.md,
-    color:     COLORS.textSecondary,
-    textAlign: 'center',
-  },
-
-  // Footer — matches web footer style
-  footer: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            SPACING.sm,
-    padding:        SPACING.md,
-    borderTopWidth: 2,
-    backgroundColor: COLORS.surface,
-  },
-  connDot: {
-    width:        8,
-    height:       8,
-    borderRadius: 4,
-  },
-  footerText: {
-    fontSize: FONT_SIZE.sm,
-    color:    COLORS.textSecondary,
-  },
+  item: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.md },
+  itemDot: { width: 8, height: 8, borderRadius: 4 },
+  itemBody: { flex: 1, gap: 2 },
+  dept: { ...TYPE.subhead, color: COLORS.textPrimary },
+  time: { ...TYPE.caption, textTransform: 'none', color: COLORS.textMuted },
+  score: { ...TYPE.title, color: COLORS.textPrimary },
 });

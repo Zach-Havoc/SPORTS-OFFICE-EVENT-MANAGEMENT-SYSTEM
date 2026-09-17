@@ -14,13 +14,13 @@ class AnnouncementFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'         => (string) Str::uuid(),
-            'title'      => fake()->sentence(4),
-            'content'    => fake()->paragraph(),
-            'sport'      => 'Basketball',
-            'coach_id'   => (string) Str::uuid(),
+            'id' => (string) Str::uuid(),
+            'title' => fake()->sentence(4),
+            'content' => fake()->paragraph(),
+            'sport' => 'Basketball',
+            'coach_id' => UserFactory::new()->coach()->create()->id,
             'coach_name' => fake()->name(),
-            'is_tryout'  => true,
+            'is_tryout' => true,
         ];
     }
 }

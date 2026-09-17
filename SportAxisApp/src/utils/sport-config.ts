@@ -27,7 +27,7 @@ export interface SportConfig {
   type: SportType;
   /** Display label for the sport */
   label: string;
-  /** Ionicons name for the sport icon */
+  /** Icon name (see src/components/ui/Icon.tsx) */
   icon: string;
   /** Theme color (hex) for header */
   color: string;
@@ -48,7 +48,7 @@ export interface SportConfig {
 const BASKETBALL_CONFIG: SportConfig = {
   type: 'basketball',
   label: 'Basketball',
-  icon: 'basketball-outline',
+  icon: 'circle-dot',
   color: '#B91C1C',
   colorLight: '#FEE2E2',
   layout: 'scoreboard',
@@ -59,7 +59,7 @@ const BASKETBALL_CONFIG: SportConfig = {
 const VOLLEYBALL_CONFIG: SportConfig = {
   type: 'volleyball',
   label: 'Volleyball',
-  icon: 'football-outline',
+  icon: 'goal',
   color: '#1D4ED8',
   colorLight: '#DBEAFE',
   layout: 'set-game',
@@ -70,7 +70,7 @@ const VOLLEYBALL_CONFIG: SportConfig = {
 const BADMINTON_CONFIG: SportConfig = {
   type: 'badminton',
   label: 'Badminton',
-  icon: 'git-network-outline',
+  icon: 'feather',
   color: '#047857',
   colorLight: '#D1FAE5',
   layout: 'match-game',
@@ -81,7 +81,7 @@ const BADMINTON_CONFIG: SportConfig = {
 const FOOTBALL_CONFIG: SportConfig = {
   type: 'football',
   label: 'Football (Soccer)',
-  icon: 'ellipse-outline',
+  icon: 'volleyball',
   color: '#15803D',
   colorLight: '#DCFCE7',
   layout: 'scoreboard',
@@ -92,7 +92,7 @@ const FOOTBALL_CONFIG: SportConfig = {
 const TRACK_FIELD_CONFIG: SportConfig = {
   type: 'track-field',
   label: 'Track & Field',
-  icon: 'timer-outline',
+  icon: 'timer',
   color: '#9333EA',
   colorLight: '#F3E8FF',
   layout: 'timed',
@@ -102,7 +102,7 @@ const TRACK_FIELD_CONFIG: SportConfig = {
 const SWIMMING_CONFIG: SportConfig = {
   type: 'swimming',
   label: 'Swimming',
-  icon: 'water-outline',
+  icon: 'waves',
   color: '#0284C7',
   colorLight: '#E0F2FE',
   layout: 'timed',
@@ -112,7 +112,7 @@ const SWIMMING_CONFIG: SportConfig = {
 const TENNIS_CONFIG: SportConfig = {
   type: 'tennis',
   label: 'Tennis',
-  icon: 'radio-outline',
+  icon: 'zap',
   color: '#B45309',
   colorLight: '#FEF3C7',
   layout: 'set-game',
@@ -123,7 +123,7 @@ const TENNIS_CONFIG: SportConfig = {
 const TABLE_TENNIS_CONFIG: SportConfig = {
   type: 'table-tennis',
   label: 'Table Tennis',
-  icon: 'ellipse-outline',
+  icon: 'table',
   color: '#0F766E',
   colorLight: '#CCFBF1',
   layout: 'match-game',
@@ -134,7 +134,7 @@ const TABLE_TENNIS_CONFIG: SportConfig = {
 const CULTURAL_CONFIG: SportConfig = {
   type: 'cultural',
   label: 'Cultural / Arts',
-  icon: 'musical-notes-outline',
+  icon: 'music',
   color: '#7C3AED',
   colorLight: '#EDE9FE',
   layout: 'overall',
@@ -144,7 +144,7 @@ const CULTURAL_CONFIG: SportConfig = {
 const DEFAULT_CONFIG: SportConfig = {
   type: 'default',
   label: 'General Sport',
-  icon: 'trophy-outline',
+  icon: 'trophy',
   color: '#B91C1C',
   colorLight: '#FEE2E2',
   layout: 'overall',

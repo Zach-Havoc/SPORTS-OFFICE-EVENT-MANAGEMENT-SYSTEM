@@ -33,11 +33,11 @@ class BracketTest extends TestCase
     private function config(array $overrides = []): array
     {
         return array_merge([
-            'sport'         => 'Basketball',
-            'format'        => 'single_elimination',
-            'participants'  => ['CICS', 'CET', 'CABEIHM', 'CAS'],
-            'startDate'     => '2026-10-01',
-            'startTime'     => '09:00',
+            'sport' => 'Basketball',
+            'format' => 'single_elimination',
+            'participants' => ['CICS', 'CET', 'CABEIHM', 'CAS'],
+            'startDate' => '2026-10-01',
+            'startTime' => '09:00',
             'matchDuration' => 60,
             'breakDuration' => 15,
         ], $overrides);
@@ -128,8 +128,8 @@ class BracketTest extends TestCase
     public function test_draw_method_manual_keeps_the_admin_selection_order(): void
     {
         $bracket = $this->service()->generate($this->config([
-            'drawMethod'   => 'manual',
-            'participants'  => ['Alpha', 'Bravo', 'Charlie', 'Delta'],
+            'drawMethod' => 'manual',
+            'participants' => ['Alpha', 'Bravo', 'Charlie', 'Delta'],
         ]));
 
         $this->assertFalse($bracket->seeded);
@@ -139,15 +139,23 @@ class BracketTest extends TestCase
         $this->assertSame('Delta', $slot0->away_team);
     }
 
-    public function test_draw_method_random_shuffles_but_keeps_every_participant(): void
+    public function test_draw_method_random_trusts_the_already_previewed_order(): void
     {
+        // The frontend does its own shuffle to show the admin a preview before
+        // saving; the backend must NOT re-randomize on top of that; it should
+        // treat the submitted order exactly like 'manual'.
         $teams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
         $bracket = $this->service()->generate($this->config([
-            'drawMethod'  => 'random',
+            'drawMethod' => 'random',
             'participants' => $teams,
         ]));
 
         $this->assertFalse($bracket->seeded);
+        // seedSlots(4) = [1,4,2,3] → slot 0 pairs order[0] vs order[3], same as manual.
+        $slot0 = $bracket->matches->firstWhere(fn ($m) => $m->round === 1 && $m->slot === 0);
+        $this->assertSame('Alpha', $slot0->home_team);
+        $this->assertSame('Delta', $slot0->away_team);
+
         $placed = $bracket->matches
             ->where('round', 1)
             ->flatMap(fn ($m) => [$m->home_team, $m->away_team])
@@ -158,12 +166,31 @@ class BracketTest extends TestCase
         $this->assertSame($teams, $placed); // same four teams, none dropped or duplicated
     }
 
+    public function test_draw_method_random_is_deterministic_given_the_same_submitted_order(): void
+    {
+        $teams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+
+        $first = $this->service()->generate($this->config([
+            'drawMethod' => 'random',
+            'participants' => $teams,
+        ]));
+        $second = $this->service()->generate($this->config([
+            'drawMethod' => 'random',
+            'participants' => $teams,
+        ]));
+
+        $slotTeams = fn ($bracket) => $bracket->matches->where('round', 1)->sortBy('slot')
+            ->map(fn ($m) => [$m->home_team, $m->away_team])->values()->all();
+
+        $this->assertSame($slotTeams($first), $slotTeams($second));
+    }
+
     public function test_seed_from_standings_flag_still_works_as_an_alias(): void
     {
         $this->teamMatches()->result('Chess', 'Winner', 9, 'Loser', 1)->create();
 
         $bracket = $this->service()->generate($this->config([
-            'sport'        => 'Chess',
+            'sport' => 'Chess',
             'participants' => ['Loser', 'Winner'],
             'seedFromStandings' => true,
         ]));
@@ -190,9 +217,35 @@ class BracketTest extends TestCase
         }
     }
 
+    public function test_generating_a_bracket_rejects_an_unknown_venue_id(): void
+    {
+        $this->actingAsRole('admin');
+
+        // bracket_matches.venue_id is a foreign key. Unlike events there is no
+        // venueName to fall back to, so an unresolvable id is rejected outright
+        // rather than silently stripping the venue from every match.
+        $this->postJson('/api/brackets', $this->config(['venueId' => 'no-such-venue']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('venueId');
+
+        $this->assertDatabaseCount('brackets', 0);
+    }
+
+    public function test_generating_a_bracket_accepts_a_real_venue_id(): void
+    {
+        $this->actingAsRole('admin');
+        $this->venues()->create(['id' => 'gym-1']);
+
+        $this->postJson('/api/brackets', $this->config(['venueId' => 'gym-1']))
+            ->assertSuccessful();
+
+        $this->assertDatabaseCount('brackets', 1);
+    }
+
     public function test_publish_is_blocked_when_a_match_clashes_with_an_existing_event(): void
     {
         $this->actingAsRole('admin');
+        $this->venues()->create(['id' => 'gym-1']);
         $bracket = $this->service()->generate($this->config([
             'venueId' => 'gym-1',
         ]));
@@ -235,12 +288,38 @@ class BracketTest extends TestCase
 
         $final = BracketMatch::where('bracket_id', $bracket->id)->where('round', 2)->first();
         $slot = $semi->next_match_slot; // 'home'
-        $this->assertSame($winner, $final->{$slot . '_team'});
+        $this->assertSame($winner, $final->{$slot.'_team'});
 
         // The final's Event picked up the new team.
         $event = Event::find($final->event_id);
         $this->assertContains($winner, $event->departments);
         $this->assertStringContainsString($winner, $event->name);
+    }
+
+    public function test_scoring_a_bracket_match_auto_advances_the_winner(): void
+    {
+        $this->actingAsRole('admin');
+        $bracket = $this->service()->generate($this->config());
+        $this->service()->publish($bracket);
+        $bracket->refresh()->load('matches');
+
+        $semi = $bracket->matches->where('round', 1)->firstWhere('slot', 0);
+
+        // Score the semi's event through the normal endpoint — no manual advance.
+        $this->postJson('/api/scores', [
+            'eventId' => $semi->event_id, 'department' => $semi->home_team, 'totalScore' => 88,
+        ])->assertCreated();
+        $this->postJson('/api/scores', [
+            'eventId' => $semi->event_id, 'department' => $semi->away_team, 'totalScore' => 71,
+        ])->assertCreated();
+
+        $semi->refresh();
+        $this->assertSame('completed', $semi->status);
+        $this->assertSame($semi->home_team, $semi->winner);
+
+        // The winner is now sitting in the final without anyone clicking "advance".
+        $final = BracketMatch::where('bracket_id', $bracket->id)->where('round', 2)->first();
+        $this->assertContains($semi->home_team, [$final->home_team, $final->away_team]);
     }
 
     public function test_advancing_the_final_crowns_a_champion(): void
@@ -404,8 +483,16 @@ class BracketTest extends TestCase
 
         $this->deleteJson("/api/brackets/{$bracket->id}?withEvents=1")->assertOk();
 
-        $this->assertDatabaseCount('brackets', 0);
-        $this->assertDatabaseCount('bracket_matches', 0);
-        $this->assertDatabaseCount('events', 0);
+        // Soft delete: the bracket and its events are hidden from every ordinary
+        // query but the rows stay so the whole thing can be restored. The match
+        // tree is left in place for the same reason.
+        $this->assertSoftDeleted('brackets', ['id' => $bracket->id]);
+        $this->assertSame(0, Bracket::count());
+        $this->assertSame(0, Event::count());
+        $this->assertGreaterThan(0, BracketMatch::where('bracket_id', $bracket->id)->count());
+
+        $this->postJson("/api/brackets/{$bracket->id}/restore?withEvents=1")->assertOk();
+        $this->assertSame(1, Bracket::count());
+        $this->assertGreaterThan(0, Event::count());
     }
 }

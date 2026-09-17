@@ -23,15 +23,18 @@ export const COLORS = {
   sidebarFrom:    '#B91C1C',
   sidebarTo:      '#991B1B',
 
-  // Neutral backgrounds (white-first, like the web)
-  background:     '#F9FAFB',   // gray-50 (web --sidebar: #F9FAFB)
-  surface:        '#FFFFFF',   // pure white card
-  surfaceAlt:     '#F3F4F6',   // gray-100
-  surfaceMuted:   '#E5E7EB',   // gray-200
+  // Neutral backgrounds — white-first
+  background:     '#FFFFFF',   // pure white app background
+  surface:        '#FFFFFF',   // white card
+  surfaceAlt:     '#F5F6F8',   // faint gray zone (chips, insets)
+  surfaceMuted:   '#EDEEF1',   // gray-200-ish
 
   // Borders & dividers
-  border:         'rgba(0,0,0,0.10)',   // web --border
+  border:         'rgba(17,24,39,0.10)',
   borderStrong:   '#D1D5DB',            // gray-300
+  hairline:       'rgba(17,24,39,0.08)', // 1px dividers / card outlines
+  pressed:        'rgba(17,24,39,0.05)', // Pressable feedback wash
+  primaryTint:    'rgba(185,28,28,0.08)', // BatStateU-red wash for active/selected
 
   // Text (dark on white, matching web)
   textPrimary:    '#111827',   // gray-900
@@ -99,6 +102,32 @@ export const FONT_WEIGHT = {
   extrabold: '800' as const,
 } as const;
 
+// ── Inter faces ─────────────────────────────────────────────────────────────
+// Loaded in app/_layout.tsx; text-defaults.ts maps any `fontWeight` a style
+// carries to the matching face (RN doesn't synthesize weights for custom fonts).
+export const FONT = {
+  regular:   'Inter_400Regular',
+  medium:    'Inter_500Medium',
+  semibold:  'Inter_600SemiBold',
+  bold:      'Inter_700Bold',
+  extrabold: 'Inter_800ExtraBold',
+} as const;
+
+// ── Type scale ──────────────────────────────────────────────────────────────
+// One source of truth for text — screens spread `...TYPE.body` instead of
+// hand-pairing fontSize + fontWeight. `fontWeight` here is what text-defaults
+// translates into an Inter face.
+export const TYPE = {
+  display:  { fontSize: 28, lineHeight: 34, fontWeight: FONT_WEIGHT.extrabold, letterSpacing: -0.4 },
+  title:    { fontSize: 22, lineHeight: 28, fontWeight: FONT_WEIGHT.bold,      letterSpacing: -0.3 },
+  heading:  { fontSize: 17, lineHeight: 24, fontWeight: FONT_WEIGHT.bold,      letterSpacing: -0.2 },
+  subhead:  { fontSize: 15, lineHeight: 22, fontWeight: FONT_WEIGHT.semibold,  letterSpacing: -0.1 },
+  body:     { fontSize: 15, lineHeight: 22, fontWeight: FONT_WEIGHT.regular },
+  bodySm:   { fontSize: 13, lineHeight: 19, fontWeight: FONT_WEIGHT.regular },
+  label:    { fontSize: 13, lineHeight: 18, fontWeight: FONT_WEIGHT.semibold,  letterSpacing: 0.1 },
+  caption:  { fontSize: 11, lineHeight: 14, fontWeight: FONT_WEIGHT.bold,      letterSpacing: 0.5 },
+} as const;
+
 export const SHADOWS = {
   sm: {
     shadowColor:   '#000',
@@ -157,8 +186,8 @@ export const Colors = {
 };
 
 export const Fonts = {
-  sans:    'System',
-  rounded: 'System',
+  sans:    FONT.regular,
+  rounded: FONT.semibold,
   mono:    'monospace',
 };
 

@@ -67,6 +67,15 @@ export default function AccountSettings() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
 
+  // Athlete profile form
+  const [yearLevel, setYearLevel] = useState(user?.yearLevel || '');
+  const [course, setCourse] = useState(user?.course || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [ecName, setEcName] = useState(user?.emergencyContact?.name || '');
+  const [ecRel, setEcRel] = useState(user?.emergencyContact?.relationship || '');
+  const [ecPhone, setEcPhone] = useState(user?.emergencyContact?.phone || '');
+  const [savingStudent, setSavingStudent] = useState(false);
+
   // Password form
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -100,6 +109,29 @@ export default function AccountSettings() {
       toast.error(err?.message || 'Failed to update name');
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  // ── Athlete profile save ─────────────────────────────────────────────────
+  const handleSaveStudentProfile = async () => {
+    setSavingStudent(true);
+    try {
+      await updateAccountProfile({
+        yearLevel: yearLevel.trim() || null,
+        course: course.trim() || null,
+        phone: phone.trim() || null,
+        emergencyContact: {
+          name: ecName.trim(),
+          relationship: ecRel.trim(),
+          phone: ecPhone.trim(),
+        },
+      });
+      await refreshUser();
+      toast.success('Profile updated');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update profile');
+    } finally {
+      setSavingStudent(false);
     }
   };
 
@@ -209,6 +241,61 @@ export default function AccountSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Student Profile (athletes) ───────────────────────────────── */}
+      {user.role === 'athlete' && (
+        <Card className="mb-6">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                <ShieldCheck className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Student Profile</CardTitle>
+                <CardDescription className="text-xs mt-0">Your details, shared with your coach</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg bg-gray-50 border p-3 text-xs text-gray-600 space-y-1">
+              <div className="flex justify-between"><span className="text-gray-400">SR Code</span><span className="font-mono">{user.srCode || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-400">Gender</span><span>{user.gender || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-400">College</span><span className="text-right">{user.department || '—'}</span></div>
+              <p className="pt-1 text-gray-400">Verified against the campus registry — not editable.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="yearLevel" className="text-sm font-medium">Year Level</Label>
+                <Input id="yearLevel" value={yearLevel} onChange={e => setYearLevel(e.target.value)} placeholder="e.g., 3rd Year" className="mt-1.5" />
+              </div>
+              <div>
+                <Label htmlFor="course" className="text-sm font-medium">Course / Program</Label>
+                <Input id="course" value={course} onChange={e => setCourse(e.target.value)} placeholder="e.g., BS Computer Science" className="mt-1.5" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
+                <Input id="phone" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g., +63 912 345 6789" className="mt-1.5" />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-gray-900 mb-2">Emergency Contact</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Input value={ecName} onChange={e => setEcName(e.target.value)} placeholder="Contact name" />
+                <Input value={ecRel} onChange={e => setEcRel(e.target.value)} placeholder="Relationship" />
+                <Input value={ecPhone} onChange={e => setEcPhone(e.target.value)} placeholder="Contact phone" />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleSaveStudentProfile} disabled={savingStudent} size="sm" className="min-w-24">
+                {savingStudent ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving…</> : 'Save Profile'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Change Password ───────────────────────────────────────────── */}
       <Card>

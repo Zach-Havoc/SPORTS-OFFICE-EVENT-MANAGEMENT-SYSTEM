@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\CampusStudent;
 use App\Models\RegistrationCode;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -17,11 +19,12 @@ class AuthController extends Controller
     public function signup(Request $request)
     {
         $request->validate([
-            'email'            => 'required|email|unique:users,email',
-            'password'         => 'required|string|min:8',
-            'name'             => 'required|string|max:255',
-            'role'             => 'required|in:admin,coach,athlete,judge',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
+            'name' => 'required|string|max:255',
+            'role' => 'required|in:admin,coach,athlete,judge',
             'registrationCode' => 'required|string',
+            'srCode' => 'required_if:role,athlete|nullable|string',
         ]);
 
         // Validate registration code
@@ -30,7 +33,7 @@ class AuthController extends Controller
             ->where('used', false)
             ->first();
 
-        if (!$code) {
+        if (! $code) {
             return response()->json(['error' => 'Invalid or expired registration code'], 400);
         }
 
@@ -38,17 +41,68 @@ class AuthController extends Controller
             return response()->json(['error' => 'Registration code has expired'], 400);
         }
 
+        // An athlete must be a real, enrolled campus student: their SR Code and
+        // name have to match the registrar roster the admin imported.
+        $verified = [
+            'name' => $request->name,
+            'sr_code' => null,
+            'gender' => null,
+            'department' => null,
+            'year_level' => null,
+            'course' => null,
+            'student_verified_at' => null,
+        ];
+
+        if ($request->role === 'athlete') {
+            $srCode = CampusStudent::normalizeCode($request->srCode);
+            $student = CampusStudent::find($srCode);
+
+            if (! $student) {
+                return response()->json([
+                    'error' => "We couldn't verify you as an enrolled student. Check your SR Code with your college registrar.",
+                ], 422);
+            }
+
+            if (User::where('sr_code', $srCode)->exists()) {
+                return response()->json([
+                    'error' => 'An account already exists for that SR Code.',
+                ], 422);
+            }
+
+            if (! $student->nameMatches($request->name)) {
+                return response()->json([
+                    'error' => 'The name you entered does not match the registrar record for that SR Code.',
+                ], 422);
+            }
+
+            $verified = [
+                'name' => $student->fullName(),
+                'sr_code' => $srCode,
+                'gender' => $student->gender,
+                'department' => $student->college ?: null,
+                'year_level' => $student->year_level ?: null,
+                'course' => $student->program ?: null,
+                'student_verified_at' => now(),
+            ];
+        }
+
         $user = User::create([
-            'id'       => Str::uuid(),
-            'email'    => $request->email,
+            'id' => Str::uuid(),
+            'email' => $request->email,
             'password' => Hash::make($request->password),
-            'name'     => $request->name,
-            'role'     => $request->role,
+            'name' => $verified['name'],
+            'role' => $request->role,
+            'sr_code' => $verified['sr_code'],
+            'gender' => $verified['gender'],
+            'department' => $verified['department'],
+            'year_level' => $verified['year_level'],
+            'course' => $verified['course'],
+            'student_verified_at' => $verified['student_verified_at'],
         ]);
 
         // Mark code as used
         $code->update([
-            'used'    => true,
+            'used' => true,
             'used_by' => $user->id,
             'used_at' => now(),
         ]);
@@ -57,7 +111,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user'  => $user->toApiFormat(),
+            'user' => $user->toApiFormat(),
         ], 201);
     }
 
@@ -65,19 +119,19 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email'    => 'required|email',
+            'email' => 'required|email',
             'password' => 'required',
         ]);
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid email or password.'],
             ]);
         }
 
-        if (!$user->active) {
+        if (! $user->active) {
             throw ValidationException::withMessages([
                 'email' => ['Account is disabled.'],
             ]);
@@ -89,7 +143,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user'  => $user->toApiFormat(),
+            'user' => $user->toApiFormat(),
         ]);
     }
 
@@ -97,6 +151,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
+
         return response()->json(['message' => 'Logged out successfully']);
     }
 
@@ -106,16 +161,42 @@ class AuthController extends Controller
         return response()->json($request->user()->toApiFormat());
     }
 
-    /** PUT /api/account/profile */
+    /**
+     * PUT /api/account/profile
+     *
+     * The account owner edits their own details. SR code, gender and college are
+     * fixed by the campus registry at verification and are not editable here.
+     */
     public function updateProfile(Request $request)
     {
-        $request->validate(['name' => 'required|string|max:255']);
+        $data = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'yearLevel' => 'sometimes|nullable|string|max:50',
+            'course' => 'sometimes|nullable|string|max:150',
+            'phone' => 'sometimes|nullable|string|max:40',
+            'emergencyContact' => 'sometimes|nullable|array',
+        ]);
 
-        $request->user()->update(['name' => $request->name]);
+        $map = [
+            'name' => 'name',
+            'yearLevel' => 'year_level',
+            'course' => 'course',
+            'phone' => 'phone',
+            'emergencyContact' => 'emergency_contact',
+        ];
+
+        $update = [];
+        foreach ($map as $in => $col) {
+            if (array_key_exists($in, $data)) {
+                $update[$col] = $data[$in];
+            }
+        }
+
+        $request->user()->update($update);
 
         return response()->json([
             'message' => 'Profile updated',
-            'user'    => $request->user()->fresh()->toApiFormat(),
+            'user' => $request->user()->fresh()->toApiFormat(),
         ]);
     }
 
@@ -124,12 +205,12 @@ class AuthController extends Controller
     {
         $request->validate([
             'currentPassword' => 'required',
-            'newPassword'     => 'required|string|min:8',
+            'newPassword' => 'required|string|min:8',
         ]);
 
         $user = $request->user();
 
-        if (!Hash::check($request->currentPassword, $user->password)) {
+        if (! Hash::check($request->currentPassword, $user->password)) {
             return response()->json(['error' => 'Current password is incorrect'], 400);
         }
 
@@ -148,7 +229,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $request->email)->first();
-        if (!$user) {
+        if (! $user) {
             // Don't reveal if email exists
             return $genericResponse;
         }
@@ -162,11 +243,11 @@ class AuthController extends Controller
         // single-use reset *token* emailed to the user that only changes the
         // password after the user follows the link — the real password should
         // not be invalidated until then. That requires a frontend reset page.
-        $cooldownKey = 'pwreset:' . sha1(strtolower($request->email));
-        if (\Illuminate\Support\Facades\Cache::has($cooldownKey)) {
+        $cooldownKey = 'pwreset:'.sha1(strtolower($request->email));
+        if (Cache::has($cooldownKey)) {
             return $genericResponse;
         }
-        \Illuminate\Support\Facades\Cache::put($cooldownKey, true, now()->addMinutes(15));
+        Cache::put($cooldownKey, true, now()->addMinutes(15));
 
         // Generate a temporary password
         $tempPassword = Str::random(12);

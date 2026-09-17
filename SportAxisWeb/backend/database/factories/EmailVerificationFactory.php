@@ -13,8 +13,8 @@ class EmailVerificationFactory extends Factory
     public function definition(): array
     {
         return [
-            'email'      => fake()->unique()->safeEmail(),
-            'code'       => str_pad((string) fake()->numberBetween(0, 999999), 6, '0', STR_PAD_LEFT),
+            'email' => fake()->unique()->safeEmail(),
+            'code' => str_pad((string) fake()->numberBetween(0, 999999), 6, '0', STR_PAD_LEFT),
             'expires_at' => now()->addMinutes(15),
         ];
     }

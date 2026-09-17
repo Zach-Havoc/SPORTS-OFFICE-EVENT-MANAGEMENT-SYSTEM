@@ -81,7 +81,7 @@ interface EditDraft {
   email: string;
   role: UserRole;
   department: string;
-  sport: string;
+  sports: string[];
   genderCategory: string;
 }
 
@@ -117,8 +117,14 @@ export default function AdminUsers() {
   const stats = useMemo(() => summarizeUsers(allUsers), [allUsers]);
 
   const departments: any[] = departmentsQuery.data ?? [];
+  // Only real sports here — racquet "line" categories (parentSport set) are an
+  // internal bracket concept, never something you assign a coach or judge to.
   const sports: string[] = useMemo(
-    () => (categoriesQuery.data ?? []).map((c: any) => c.name).filter(Boolean),
+    () =>
+      (categoriesQuery.data ?? [])
+        .filter((c: any) => !c.parentSport)
+        .map((c: any) => c.name)
+        .filter(Boolean),
     [categoriesQuery.data],
   );
 
@@ -132,7 +138,7 @@ export default function AdminUsers() {
       email: u.email,
       role: u.role,
       department: u.department || NONE,
-      sport: u.sport || NONE,
+      sports: u.sports?.length ? u.sports : u.sport ? [u.sport] : [],
       genderCategory: u.genderCategory || NONE,
     });
   };
@@ -147,7 +153,7 @@ export default function AdminUsers() {
           email: draft.email.trim(),
           role: draft.role,
           department: draft.department === NONE ? null : draft.department,
-          sport: draft.sport === NONE ? null : draft.sport,
+          sports: draft.sports,
           genderCategory: draft.genderCategory === NONE ? null : draft.genderCategory,
         },
       });
@@ -479,39 +485,60 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Sport</Label>
-                  <Select value={draft.sport} onValueChange={(v) => setDraft({ ...draft, sport: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>None</SelectItem>
-                      {sports.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={draft.genderCategory}
-                    onValueChange={(v) => setDraft({ ...draft, genderCategory: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>None</SelectItem>
-                      <SelectItem value="Men">Men</SelectItem>
-                      <SelectItem value="Women">Women</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label>Sport{draft.sports.length > 1 ? 's' : ''} <span className="font-normal text-gray-400">— pick one or more</span></Label>
+                {draft.sports.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {draft.sports.map((s) => (
+                      <Badge key={s} variant="secondary" className="gap-1 pr-1">
+                        {s}
+                        <button
+                          type="button"
+                          onClick={() => setDraft({ ...draft, sports: draft.sports.filter((x) => x !== s) })}
+                          className="rounded-full p-0.5 hover:bg-gray-300/60"
+                          aria-label={`Remove ${s}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <Select
+                  value=""
+                  onValueChange={(v) => {
+                    if (v && !draft.sports.includes(v)) setDraft({ ...draft, sports: [...draft.sports, v] });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={draft.sports.length ? 'Add another sport…' : 'Select sport'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sports.filter((s) => !draft.sports.includes(s)).map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                    {sports.every((s) => draft.sports.includes(s)) && (
+                      <div className="px-2 py-1.5 text-xs text-gray-400">All sports added</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={draft.genderCategory}
+                  onValueChange={(v) => setDraft({ ...draft, genderCategory: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>None</SelectItem>
+                    <SelectItem value="Men">Men</SelectItem>
+                    <SelectItem value="Women">Women</SelectItem>
+                    <SelectItem value="Mixed">Men &amp; Women</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}

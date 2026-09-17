@@ -18,27 +18,28 @@ class AnnouncementController extends Controller
                 $announcement->is_tryout = true;
             }
         });
+
         return response()->json($announcements);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'title'    => 'required|string',
-            'content'  => 'required|string',
+            'title' => 'required|string',
+            'content' => 'required|string',
             'isTryout' => 'boolean',
         ]);
 
         $user = $request->user();
 
         $ann = Announcement::create([
-            'id'         => Str::uuid(),
-            'title'      => $request->title,
-            'content'    => $request->content,
-            'sport'      => $request->sport,
-            'coach_id'   => $user->id,
+            'id' => Str::uuid(),
+            'title' => $request->title,
+            'content' => $request->content,
+            'sport' => $request->sport,
+            'coach_id' => $user->id,
             'coach_name' => $user->name,
-            'is_tryout'  => $request->has('isTryout') ? $request->isTryout : true,
+            'is_tryout' => $request->has('isTryout') ? $request->isTryout : true,
         ]);
 
         return response()->json($ann, 201);
@@ -53,11 +54,19 @@ class AnnouncementController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
+        $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'content' => 'sometimes|required|string',
+            'sport' => 'sometimes|nullable|string|max:100',
+            'isTryout' => 'sometimes|boolean',
+        ]);
+
         $data = $request->only('title', 'content', 'sport');
         if ($request->has('isTryout')) {
             $data['is_tryout'] = $request->isTryout;
         }
         $ann->update($data);
+
         return response()->json($ann->fresh());
     }
 
@@ -70,6 +79,21 @@ class AnnouncementController extends Controller
         }
 
         $ann->delete();
+
         return response()->json(['message' => 'Announcement deleted']);
+    }
+
+    /** POST /api/announcements/{id}/restore — the admin or the owning coach. */
+    public function restore(Request $request, string $id)
+    {
+        $ann = Announcement::onlyTrashed()->findOrFail($id);
+
+        if ($request->user()->role !== 'admin' && $ann->coach_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $ann->restore();
+
+        return response()->json($ann->fresh());
     }
 }

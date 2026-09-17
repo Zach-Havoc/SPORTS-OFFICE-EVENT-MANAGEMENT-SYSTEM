@@ -2,17 +2,24 @@
 
 namespace Database\Seeders;
 
+use App\Models\AuditLog;
+use App\Models\Category;
+use App\Models\Department;
+use App\Models\RegistrationCode;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use App\Models\User;
-use App\Models\RegistrationCode;
-use App\Models\Department;
-use App\Models\Category;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
+    {
+        // Seed data is reference data, not a user action — keep it out of the trail.
+        AuditLog::withoutRecording(fn () => $this->seed());
+    }
+
+    private function seed(): void
     {
         // ── Registration Codes ─────────────────────
         $codes = [
@@ -35,18 +42,18 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($demoUsers as $demoUser) {
-            if (!User::where('email', $demoUser['email'])->exists()) {
+            if (! User::where('email', $demoUser['email'])->exists()) {
                 $user = User::create([
-                    'id'       => Str::uuid(),
-                    'email'    => $demoUser['email'],
+                    'id' => Str::uuid(),
+                    'email' => $demoUser['email'],
                     'password' => Hash::make($demoUser['password']),
-                    'name'     => $demoUser['name'],
-                    'role'     => $demoUser['role'],
+                    'name' => $demoUser['name'],
+                    'role' => $demoUser['role'],
                 ]);
 
                 // Mark the code as used
                 RegistrationCode::where('code', $demoUser['code'])->update([
-                    'used'    => true,
+                    'used' => true,
                     'used_by' => $user->id,
                     'used_at' => now(),
                 ]);
@@ -64,8 +71,8 @@ class DatabaseSeeder extends Seeder
 
         foreach ($departments as $dept) {
             Department::firstOrCreate(['name' => $dept['name']], [
-                'id'           => Str::uuid(),
-                'name'         => $dept['name'],
+                'id' => Str::uuid(),
+                'name' => $dept['name'],
                 'abbreviation' => $dept['abbreviation'],
             ]);
         }
@@ -81,8 +88,8 @@ class DatabaseSeeder extends Seeder
 
         foreach ($categories as $cat) {
             Category::firstOrCreate(['name' => $cat['name']], [
-                'id'          => Str::uuid(),
-                'name'        => $cat['name'],
+                'id' => Str::uuid(),
+                'name' => $cat['name'],
                 'description' => $cat['description'],
             ]);
         }

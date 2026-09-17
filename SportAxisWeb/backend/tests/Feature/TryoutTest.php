@@ -60,36 +60,99 @@ class TryoutTest extends TestCase
     private function applyPayload(array $overrides = []): array
     {
         return array_merge([
-            'firstName'        => 'Sam',
-            'lastName'         => 'Cruz',
-            'email'            => 'applicant@example.com',
-            'studentId'        => '24-00001',
-            'department'       => 'College of Engineering',
-            'phone'            => '09123456789',
+            'firstName' => 'Sam',
+            'lastName' => 'Cruz',
+            'email' => 'applicant@batstate-u.edu.ph',
+            'studentId' => '24-00001',
+            'department' => 'College of Engineering',
+            'phone' => '09123456789',
             'verificationCode' => '123456',
         ], $overrides);
     }
 
     public function test_apply_succeeds_with_a_valid_code_and_consumes_it(): void
     {
+        $this->departments()->create(['name' => 'College of Engineering']);
         $this->emailVerifications()->create([
-            'email' => 'applicant@example.com', 'code' => '123456',
+            'email' => 'applicant@batstate-u.edu.ph', 'code' => '123456',
         ]);
 
         $this->postJson('/api/tryouts/apply', $this->applyPayload())
             ->assertCreated();
 
         $this->assertDatabaseHas('tryout_applications', [
-            'email'      => 'applicant@example.com',
+            'email' => 'applicant@batstate-u.edu.ph',
             'student_id' => '24-00001',
         ]);
         // The verification code is single-use.
-        $this->assertDatabaseMissing('email_verifications', ['email' => 'applicant@example.com']);
+        $this->assertDatabaseMissing('email_verifications', ['email' => 'applicant@batstate-u.edu.ph']);
+    }
+
+    public function test_apply_accepts_a_subdomain_of_batstate_u_and_a_formatted_phone_number(): void
+    {
+        $this->departments()->create(['name' => 'College of Engineering']);
+        $this->emailVerifications()->create([
+            'email' => 'applicant@students.batstate-u.edu.ph', 'code' => '123456',
+        ]);
+
+        $this->postJson('/api/tryouts/apply', $this->applyPayload([
+            'email' => 'applicant@students.batstate-u.edu.ph',
+            // Punctuation is stripped server-side before the digit-count check.
+            'phone' => '0912-345-6789',
+        ]))->assertCreated();
+
+        $this->assertDatabaseHas('tryout_applications', [
+            'email' => 'applicant@students.batstate-u.edu.ph',
+            'phone' => '09123456789',
+        ]);
+    }
+
+    public function test_apply_rejects_a_non_batstate_u_email(): void
+    {
+        $this->departments()->create(['name' => 'College of Engineering']);
+
+        $this->postJson('/api/tryouts/apply', $this->applyPayload(['email' => 'applicant@gmail.com']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('email');
+
+        $this->assertDatabaseCount('tryout_applications', 0);
+    }
+
+    public function test_apply_rejects_a_malformed_student_id(): void
+    {
+        $this->departments()->create(['name' => 'College of Engineering']);
+
+        $this->postJson('/api/tryouts/apply', $this->applyPayload(['studentId' => '2024-1']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('studentId');
+
+        $this->assertDatabaseCount('tryout_applications', 0);
+    }
+
+    public function test_apply_rejects_a_phone_number_with_the_wrong_digit_count(): void
+    {
+        $this->departments()->create(['name' => 'College of Engineering']);
+
+        $this->postJson('/api/tryouts/apply', $this->applyPayload(['phone' => '091234567']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('phone');
+
+        $this->assertDatabaseCount('tryout_applications', 0);
+    }
+
+    public function test_apply_rejects_an_unknown_department(): void
+    {
+        $this->postJson('/api/tryouts/apply', $this->applyPayload(['department' => 'Not A Real College']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('department');
+
+        $this->assertDatabaseCount('tryout_applications', 0);
     }
 
     public function test_apply_rejects_a_wrong_code(): void
     {
-        $this->emailVerifications()->create(['email' => 'applicant@example.com', 'code' => '111111']);
+        $this->departments()->create(['name' => 'College of Engineering']);
+        $this->emailVerifications()->create(['email' => 'applicant@batstate-u.edu.ph', 'code' => '111111']);
 
         $this->postJson('/api/tryouts/apply', $this->applyPayload(['verificationCode' => '999999']))
             ->assertStatus(422)
@@ -100,8 +163,9 @@ class TryoutTest extends TestCase
 
     public function test_apply_rejects_an_expired_code(): void
     {
+        $this->departments()->create(['name' => 'College of Engineering']);
         $this->emailVerifications()->expired()->create([
-            'email' => 'applicant@example.com', 'code' => '123456',
+            'email' => 'applicant@batstate-u.edu.ph', 'code' => '123456',
         ]);
 
         $this->postJson('/api/tryouts/apply', $this->applyPayload())
@@ -111,6 +175,8 @@ class TryoutTest extends TestCase
 
     public function test_apply_rejects_when_no_code_was_ever_requested(): void
     {
+        $this->departments()->create(['name' => 'College of Engineering']);
+
         $this->postJson('/api/tryouts/apply', $this->applyPayload())
             ->assertStatus(422);
     }

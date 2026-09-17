@@ -17,7 +17,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasColumn('users', 'sports')) {
+        if (! Schema::hasColumn('users', 'sports')) {
             Schema::table('users', function (Blueprint $table) {
                 $table->json('sports')->nullable()->after('sport');
             });

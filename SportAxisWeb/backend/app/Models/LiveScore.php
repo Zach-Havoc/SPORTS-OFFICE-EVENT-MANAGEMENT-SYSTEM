@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 class LiveScore extends Model
 {
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -20,11 +21,11 @@ class LiveScore extends Model
     ];
 
     protected $casts = [
-        'detail'       => 'array',
-        'home_score'   => 'integer',
-        'away_score'   => 'integer',
-        'version'      => 'integer',
-        'started_at'   => 'datetime',
+        'detail' => 'array',
+        'home_score' => 'integer',
+        'away_score' => 'integer',
+        'version' => 'integer',
+        'started_at' => 'datetime',
         'finalized_at' => 'datetime',
     ];
 
@@ -39,23 +40,23 @@ class LiveScore extends Model
         $event ??= $this->relationLoaded('event') ? $this->event : null;
 
         return [
-            'eventId'     => $this->event_id,
-            'sport'       => $this->sport,
-            'homeTeam'    => $this->home_team,
-            'awayTeam'    => $this->away_team,
-            'homeScore'   => (int) $this->home_score,
-            'awayScore'   => (int) $this->away_score,
-            'period'      => $this->period,
-            'detail'      => $this->detail ?? [],
-            'status'      => $this->status,
-            'version'     => (int) $this->version,
-            'updatedBy'   => $this->updated_by,
-            'startedAt'   => $this->started_at,
+            'eventId' => $this->event_id,
+            'sport' => $this->sport,
+            'homeTeam' => $this->home_team,
+            'awayTeam' => $this->away_team,
+            'homeScore' => (int) $this->home_score,
+            'awayScore' => (int) $this->away_score,
+            'period' => $this->period,
+            'detail' => $this->detail ?? [],
+            'status' => $this->status,
+            'version' => (int) $this->version,
+            'updatedBy' => $this->updated_by,
+            'startedAt' => $this->started_at,
             'finalizedAt' => $this->finalized_at,
-            'updatedAt'   => $this->updated_at,
-            'eventName'   => $event?->name,
-            'venueName'   => $event?->venue_name,
-            'category'    => $event?->category,
+            'updatedAt' => $this->updated_at,
+            'eventName' => $event?->name,
+            'venueName' => $event?->venue_name,
+            'category' => $event?->category,
         ];
     }
 }

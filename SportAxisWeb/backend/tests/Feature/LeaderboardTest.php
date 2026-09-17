@@ -20,7 +20,8 @@ class LeaderboardTest extends TestCase
 
     private function board(?string $category = null): array
     {
-        $url = '/api/leaderboard' . ($category ? '?category=' . urlencode($category) : '');
+        $url = '/api/leaderboard'.($category ? '?category='.urlencode($category) : '');
+
         return $this->getJson($url)->assertOk()->json();
     }
 
@@ -73,11 +74,11 @@ class LeaderboardTest extends TestCase
 
         $service = app(BracketService::class);
         $bracket = $service->generate([
-            'sport'        => 'Basketball',
-            'format'       => 'single_elimination',
+            'sport' => 'Basketball',
+            'format' => 'single_elimination',
             'participants' => ['CICS', 'CET', 'CABEIHM', 'CAS'],
-            'startDate'    => '2026-10-01',
-            'startTime'    => '09:00',
+            'startDate' => '2026-10-01',
+            'startTime' => '09:00',
         ]);
         $service->publish($bracket);
 
@@ -102,7 +103,7 @@ class LeaderboardTest extends TestCase
     {
         $this->categories()->create(['name' => 'Swimming 50m', 'format' => 'ranked']);
         $this->categories()->create(['name' => 'Track 100m', 'format' => 'ranked']);
-        $swim  = $this->events()->create(['category' => 'Swimming 50m']);
+        $swim = $this->events()->create(['category' => 'Swimming 50m']);
         $track = $this->events()->create(['category' => 'Track 100m']);
         $this->scores()->create(['event_id' => $swim->id,  'department' => 'CET', 'total_score' => 50]);
         $this->scores()->create(['event_id' => $track->id, 'department' => 'CET', 'total_score' => 50]);

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Athlete;
+use App\Models\Department;
 use App\Models\RegistrationCode;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -22,14 +24,14 @@ class CoachController extends Controller
             ->first();
 
         return response()->json([
-            'id'             => $user->id,
-            'name'           => $user->name,
-            'email'          => $user->email,
-            'sport'          => $user->sport,             // primary sport (back-compat)
-            'sports'         => $user->sportsList(),       // full list
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'sport' => $user->sport,             // primary sport (back-compat)
+            'sports' => $user->sportsList(),       // full list
             'genderCategory' => $user->gender_category,
             'enrollmentCode' => $user->enrollment_code,
-            'department'     => $user->department,
+            'department' => $user->department,
         ]);
     }
 
@@ -37,10 +39,10 @@ class CoachController extends Controller
     public function update(Request $request)
     {
         $request->validate([
-            'sports'         => 'sometimes|array',
-            'sports.*'       => 'nullable|string|max:100',
-            'sport'          => 'sometimes|nullable|string|max:100', // legacy single-sport clients
-            'department'     => 'required|string|max:255',
+            'sports' => 'sometimes|array',
+            'sports.*' => 'nullable|string|max:100',
+            'sport' => 'sometimes|nullable|string|max:100', // legacy single-sport clients
+            'department' => 'required|string|max:255',
             'genderCategory' => 'nullable|string',
         ]);
 
@@ -75,7 +77,7 @@ class CoachController extends Controller
         if ($conflicts->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'sports' => [
-                    "{$department} already has a coach for: " . $conflicts->implode(', ') . '.',
+                    "{$department} already has a coach for: ".$conflicts->implode(', ').'.',
                 ],
             ]);
         }
@@ -83,21 +85,21 @@ class CoachController extends Controller
         $primary = $sports[0];
 
         // Generate an enrollment code the first time a coach sets up their team.
-        if (!$user->enrollment_code) {
+        if (! $user->enrollment_code) {
             $enrollCode = strtoupper(Str::random(8));
             RegistrationCode::create([
-                'code'       => $enrollCode,
-                'role'       => 'athlete',
-                'label'      => "Coach: {$user->name}",
+                'code' => $enrollCode,
+                'role' => 'athlete',
+                'label' => "Coach: {$user->name}",
                 'created_by' => $user->id,
             ]);
             $user->enrollment_code = $enrollCode;
         }
 
         $user->update([
-            'sports'          => $sports,
-            'sport'           => $primary,
-            'department'      => $department,
+            'sports' => $sports,
+            'sport' => $primary,
+            'department' => $department,
             'gender_category' => $request->genderCategory,
             'enrollment_code' => $user->enrollment_code,
         ]);
@@ -105,18 +107,18 @@ class CoachController extends Controller
         // Only auto-sync athletes' sport when the coach handles exactly one
         // sport — with several, each athlete keeps their own assignment.
         if (count($sports) === 1) {
-            \App\Models\User::where('role', 'athlete')
+            User::where('role', 'athlete')
                 ->where('coach_id', $user->id)
                 ->update(['sport' => $primary]);
 
-            \App\Models\Athlete::where('coach_id', $user->id)
+            Athlete::where('coach_id', $user->id)
                 ->update(['sport' => $primary]);
         }
 
         return response()->json([
-            'sport'          => $user->sport,
-            'sports'         => $user->sportsList(),
-            'department'     => $user->department,
+            'sport' => $user->sport,
+            'sports' => $user->sportsList(),
+            'department' => $user->department,
             'genderCategory' => $user->gender_category,
             'enrollmentCode' => $user->enrollment_code,
         ]);
@@ -132,7 +134,7 @@ class CoachController extends Controller
                 // Look up department abbreviation
                 $departmentAbbreviation = null;
                 if ($coach->department) {
-                    $dept = \App\Models\Department::where('name', $coach->department)->first();
+                    $dept = Department::where('name', $coach->department)->first();
                     $departmentAbbreviation = $dept ? $dept->abbreviation : null;
                 }
 
@@ -192,7 +194,7 @@ class CoachController extends Controller
             if ($conflicts->isNotEmpty()) {
                 throw ValidationException::withMessages([
                     'department' => [
-                        "{$department} already has a coach for: " . $conflicts->implode(', ') . '.',
+                        "{$department} already has a coach for: ".$conflicts->implode(', ').'.',
                     ],
                 ]);
             }

@@ -33,7 +33,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'role'   => ['nullable', Rule::in(self::ROLES)],
+            'role' => ['nullable', Rule::in(self::ROLES)],
             'status' => 'nullable|in:active,inactive',
             'search' => 'nullable|string|max:255',
         ]);
@@ -49,7 +49,7 @@ class UserController extends Controller
             $query->where('active', false);
         }
         if ($request->filled('search')) {
-            $term = '%' . $request->search . '%';
+            $term = '%'.$request->search.'%';
             $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
         }
 
@@ -64,7 +64,7 @@ class UserController extends Controller
     public function show(string $id)
     {
         $user = User::findOrFail($id);
-        $row  = $this->withLinks(collect([$user]))->first()['row'];
+        $row = $this->withLinks(collect([$user]))->first()['row'];
 
         $athletes = Athlete::where('coach_id', $user->id)
             ->orderBy('last_name')
@@ -83,22 +83,22 @@ class UserController extends Controller
         $assignedEvents = Event::all(['id', 'name', 'category', 'schedule', 'status', 'judges'])
             ->filter(fn ($e) => collect($e->judges ?? [])->contains(fn ($j) => ($j['id'] ?? null) === $user->id))
             ->map(fn ($e) => [
-                'id'       => $e->id,
-                'name'     => $e->name,
+                'id' => $e->id,
+                'name' => $e->name,
                 'category' => $e->category,
                 'schedule' => $e->schedule,
-                'status'   => $e->status,
+                'status' => $e->status,
             ])
             ->values();
 
         $code = RegistrationCode::where('used_by', $user->id)->first();
 
         return response()->json([
-            'user'             => $row,
-            'athletes'         => $athletes,
-            'roster'           => $roster,
-            'scores'           => $scores,
-            'assignedEvents'   => $assignedEvents,
+            'user' => $row,
+            'athletes' => $athletes,
+            'roster' => $roster,
+            'scores' => $scores,
+            'assignedEvents' => $assignedEvents,
             'registrationCode' => $code ? ['code' => $code->code, 'label' => $code->label, 'usedAt' => $code->used_at] : null,
         ]);
     }
@@ -106,15 +106,17 @@ class UserController extends Controller
     /** PUT /api/admin/users/{id} */
     public function update(Request $request, string $id)
     {
-        $user  = User::findOrFail($id);
+        $user = User::findOrFail($id);
         $actor = $request->user();
 
         $data = $request->validate([
-            'name'           => 'sometimes|required|string|max:255',
-            'email'          => ['sometimes', 'required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'role'           => ['sometimes', 'required', Rule::in(self::ROLES)],
-            'department'     => 'sometimes|nullable|string|max:255',
-            'sport'          => 'sometimes|nullable|string|max:100',
+            'name' => 'sometimes|required|string|max:255',
+            'email' => ['sometimes', 'required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'role' => ['sometimes', 'required', Rule::in(self::ROLES)],
+            'department' => 'sometimes|nullable|string|max:255',
+            'sport' => 'sometimes|nullable|string|max:100',
+            'sports' => 'sometimes|array',
+            'sports.*' => 'nullable|string|max:100',
             'genderCategory' => 'sometimes|nullable|string|max:50',
         ]);
 
@@ -122,8 +124,18 @@ class UserController extends Controller
             $this->assertRoleChangeAllowed($user, $actor);
         }
 
+        // A coach may hold several sports. Persist the full list and keep the
+        // single `sport` column as the primary for older readers.
+        if (array_key_exists('sports', $data)) {
+            $sports = collect($data['sports'])
+                ->filter(fn ($s) => is_string($s) && trim($s) !== '')
+                ->map(fn ($s) => trim($s))->unique()->values()->all();
+            $data['sports'] = $sports;
+            $data['sport'] = $sports[0] ?? null;
+        }
+
         $columns = ['genderCategory' => 'gender_category'];
-        $mapped  = [];
+        $mapped = [];
         foreach ($data as $key => $value) {
             $value = is_string($value) ? trim($value) : $value;
             $mapped[$columns[$key] ?? $key] = $value === '' ? null : $value;
@@ -137,22 +149,22 @@ class UserController extends Controller
     /** POST /api/admin/users/{id}/active  { active: bool } */
     public function setActive(Request $request, string $id)
     {
-        $user   = User::findOrFail($id);
-        $actor  = $request->user();
+        $user = User::findOrFail($id);
+        $actor = $request->user();
         $active = $request->validate(['active' => 'required|boolean'])['active'];
 
-        if (!$active) {
+        if (! $active) {
             if ($user->id === $actor->id) {
                 throw ValidationException::withMessages(['active' => ['You cannot disable your own account.']]);
             }
-            if ($user->role === 'admin' && !$this->otherActiveAdminsExist($user->id)) {
+            if ($user->role === 'admin' && ! $this->otherActiveAdminsExist($user->id)) {
                 throw ValidationException::withMessages(['active' => ['This is the last active admin.']]);
             }
         }
 
         $user->update(['active' => $active]);
 
-        if (!$active) {
+        if (! $active) {
             $user->tokens()->delete(); // sign the disabled user out everywhere
         }
 
@@ -176,13 +188,13 @@ class UserController extends Controller
     /** DELETE /api/admin/users/{id} */
     public function destroy(Request $request, string $id)
     {
-        $user  = User::findOrFail($id);
+        $user = User::findOrFail($id);
         $actor = $request->user();
 
         if ($user->id === $actor->id) {
             throw ValidationException::withMessages(['user' => ['You cannot delete your own account.']]);
         }
-        if ($user->role === 'admin' && !$this->otherActiveAdminsExist($user->id)) {
+        if ($user->role === 'admin' && ! $this->otherActiveAdminsExist($user->id)) {
             throw ValidationException::withMessages(['user' => ['This is the last admin.']]);
         }
         if ($this->coachDependents($user) > 0) {
@@ -205,7 +217,7 @@ class UserController extends Controller
         if ($user->id === $actor->id) {
             throw ValidationException::withMessages(['role' => ['You cannot change your own role.']]);
         }
-        if ($user->role === 'admin' && !$this->otherActiveAdminsExist($user->id)) {
+        if ($user->role === 'admin' && ! $this->otherActiveAdminsExist($user->id)) {
             throw ValidationException::withMessages(['role' => ['This is the last admin.']]);
         }
         if ($user->role === 'coach' && $this->coachDependents($user) > 0) {
@@ -230,8 +242,14 @@ class UserController extends Controller
             return 0;
         }
 
+        // Every rostered athlete has an `athletes` row (linked to their account
+        // when they have one). Count those, plus any enrolled `users` athlete
+        // that somehow has no roster row yet, without double-counting.
+        $linkedUserIds = Athlete::where('coach_id', $user->id)->whereNotNull('user_id')->pluck('user_id');
+
         return Athlete::where('coach_id', $user->id)->count()
-            + User::where('coach_id', $user->id)->where('role', 'athlete')->count();
+            + User::where('coach_id', $user->id)->where('role', 'athlete')
+                ->whereNotIn('id', $linkedUserIds)->count();
     }
 
     // ── enrichment ─────────────────────────────────────────────────────
@@ -247,7 +265,11 @@ class UserController extends Controller
 
         $athleteCounts = Athlete::whereIn('coach_id', $ids)
             ->selectRaw('coach_id, count(*) as c')->groupBy('coach_id')->pluck('c', 'coach_id');
+        // Enrolled `users` athletes that don't yet have a roster row (defensive —
+        // enrolment now always creates one).
+        $linkedUserIds = Athlete::whereIn('coach_id', $ids)->whereNotNull('user_id')->pluck('user_id');
         $rosterCounts = User::whereIn('coach_id', $ids)->where('role', 'athlete')
+            ->whereNotIn('id', $linkedUserIds)
             ->selectRaw('coach_id, count(*) as c')->groupBy('coach_id')->pluck('c', 'coach_id');
         $scoreCounts = Score::whereIn('judge_id', $ids)
             ->selectRaw('judge_id, count(*) as c')->groupBy('judge_id')->pluck('c', 'judge_id');
@@ -266,13 +288,13 @@ class UserController extends Controller
 
         return $users->map(fn (User $u) => [
             'model' => $u,
-            'row'   => array_merge($u->toApiFormat(), [
+            'row' => array_merge($u->toApiFormat(), [
                 'createdAt' => $u->created_at,
-                'links'     => [
-                    'athleteCount'       => (int) ($athleteCounts[$u->id] ?? 0) + (int) ($rosterCounts[$u->id] ?? 0),
-                    'scoreCount'         => (int) ($scoreCounts[$u->id] ?? 0),
+                'links' => [
+                    'athleteCount' => (int) ($athleteCounts[$u->id] ?? 0) + (int) ($rosterCounts[$u->id] ?? 0),
+                    'scoreCount' => (int) ($scoreCounts[$u->id] ?? 0),
                     'assignedEventCount' => (int) ($eventCounts[$u->id] ?? 0),
-                    'registrationCode'   => optional($codes->get($u->id))->code,
+                    'registrationCode' => optional($codes->get($u->id))->code,
                 ],
             ]),
         ]);

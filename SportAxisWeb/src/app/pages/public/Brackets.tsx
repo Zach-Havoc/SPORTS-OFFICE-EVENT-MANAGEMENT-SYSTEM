@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { useBrackets } from '../../hooks/api';
+import { useBrackets, useCategories } from '../../hooks/api';
 import { useDeptAbbreviator } from '../../utils/departments';
 import Loading from '../../components/Loading';
 import { Trophy, ChevronRight } from 'lucide-react';
@@ -17,17 +17,28 @@ interface BracketRow {
 
 export default function PublicBrackets() {
   const { data, isLoading } = useBrackets();
+  const { data: categoriesData } = useCategories();
   const abbr = useDeptAbbreviator();
+
+  // A racquet line ("Badminton — M Doubles") is grouped under its parent sport.
+  const parentOf = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of (categoriesData ?? []) as Array<{ name: string; parentSport?: string }>) {
+      if (c.parentSport) m.set(c.name, c.parentSport);
+    }
+    return m;
+  }, [categoriesData]);
 
   const bySport = useMemo(() => {
     const rows = ((data ?? []) as BracketRow[]).filter((b) => b.status !== 'draft');
     const map = new Map<string, BracketRow[]>();
     rows.forEach((b) => {
-      if (!map.has(b.sport)) map.set(b.sport, []);
-      map.get(b.sport)!.push(b);
+      const key = parentOf.get(b.sport) ?? b.sport;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(b);
     });
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [data]);
+  }, [data, parentOf]);
 
   if (isLoading) {
     return (

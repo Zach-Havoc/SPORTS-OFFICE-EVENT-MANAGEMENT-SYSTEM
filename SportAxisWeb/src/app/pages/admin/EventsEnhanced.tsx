@@ -13,8 +13,13 @@ import { Badge } from '../../components/ui/badge';
 import {
   Calendar, Edit, Plus, Trash2, Users, QrCode, Search, Filter, Download,
   Clock, ArrowUpDown, Grid3x3, List, Archive, CheckCircle2, AlertCircle, MapPin,
-  UserCheck, Trophy, AlertTriangle
+  UserCheck, Trophy, AlertTriangle, Printer
 } from 'lucide-react';
+import { printScoreSheet } from '../../utils/scoresheet';
+
+const openScoreSheet = (event: any) => {
+  if (!printScoreSheet(event)) toast.error('Allow pop-ups for this site to print the sheet.');
+};
 import { toast } from 'sonner';
 import { Checkbox } from '../../components/ui/checkbox';
 import { QRCodeModal } from '../../components/QRCodeModal';
@@ -598,6 +603,9 @@ export default function AdminEventsEnhanced() {
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedEventForQR(event); setQrModalOpen(true); }}>
                       <QrCode className="h-3 w-3 mr-1" />QR
                     </Button>
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => openScoreSheet(event)} title="Print score sheet">
+                      <Printer className="h-3 w-3 mr-1" />Sheet
+                    </Button>
                   </div>
                   <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700" onClick={() => { setEventToDelete(event); setDeleteConfirmOpen(true); }}>
                     <Trash2 className="h-3 w-3 mr-1" />Delete
@@ -644,6 +652,7 @@ export default function AdminEventsEnhanced() {
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(event)}><Edit className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="sm" onClick={() => { setSelectedEventForQR(event); setQrModalOpen(true); }}><QrCode className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => openScoreSheet(event)} title="Print score sheet"><Printer className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="sm" className="text-red-600" onClick={() => { setEventToDelete(event); setDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for p in \"$CLAUDE_PROJECT_DIR/.claude/hooks/lane-guard.sh\" \"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/lane-guard.sh\"; do [ -x \"$p\" ] && exec \"$p\"; done; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking agent lane"
+          }
+        ]
+      }
+    ]
+  }
+}

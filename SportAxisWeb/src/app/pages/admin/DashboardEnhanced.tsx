@@ -1,254 +1,421 @@
-import { useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router';
-import { useAuth } from '../../context/AuthContext';
-import { useEvents, useDepartments, useLeaderboard, useJudges } from '../../hooks/api';
-import { RefreshStatus } from '../../components/RefreshStatus';
-import SummaryCard from '../../components/admin/SummaryCard';
-import EventTable from '../../components/admin/EventTable';
-import OCRPanel from '../../components/admin/OCRPanel';
-import ActivityLog from '../../components/admin/ActivityLog';
-import QuickActions from '../../components/admin/QuickActions';
-import BarChartComponent from '../../components/admin/charts/BarChartComponent';
-import DonutChartComponent from '../../components/admin/charts/DonutChartComponent';
-import LineChartComponent from '../../components/admin/charts/LineChartComponent';
-import { 
-  Calendar, 
-  Trophy, 
-  Users, 
-  TrendingUp, 
-  CheckCircle2,
-  Clock,
-  Award
-} from 'lucide-react';
-import Loading from '../../components/Loading';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../../context/AuthContext";
+import {
+  useEvents,
+  useDepartments,
+  useCategories,
+  useLeaderboard,
+  useJudges,
+  useCoaches,
+  useVenues,
+  useBrackets,
+  useUsers,
+  useLiveScores,
+} from "../../hooks/api";
+import { RefreshStatus } from "../../components/RefreshStatus";
+import Loading from "../../components/Loading";
+import {
+  DashboardCanvas,
+  Grid,
+  Tile,
+  HeroTile,
+  Metric,
+  IconStat,
+  BareStat,
+  MetricTable,
+  DistBar,
+  RankList,
+  StackedRankBars,
+  RangePicker,
+  dailyCounts,
+  periodDelta,
+  metricRow,
+  tally,
+  STATUS_COLORS,
+  MEDAL_COLORS,
+  CHART_COLORS,
+} from "../../components/dashboard/DashboardKit";
+import { Calendar, GraduationCap, Users, Gavel } from "lucide-react";
 
 export default function DashboardEnhanced() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/login');
-    }
+    if (!user || user.role !== "admin") navigate("/login");
   }, [user, navigate]);
 
-  // Loads once when the page opens; refresh the browser for the latest.
   const eventsQuery = useEvents();
   const departmentsQuery = useDepartments();
+  const categoriesQuery = useCategories();
   const leaderboardQuery = useLeaderboard();
   const judgesQuery = useJudges();
-  const allQueries = [eventsQuery, departmentsQuery, leaderboardQuery, judgesQuery];
+  const coachesQuery = useCoaches();
+  const venuesQuery = useVenues();
+  const bracketsQuery = useBrackets();
+  const usersQuery = useUsers({});
+  const liveScoresQuery = useLiveScores(true);
+
+  const queries = [
+    eventsQuery,
+    departmentsQuery,
+    categoriesQuery,
+    leaderboardQuery,
+    judgesQuery,
+    coachesQuery,
+    venuesQuery,
+    bracketsQuery,
+    usersQuery,
+  ];
 
   const events: any[] = eventsQuery.data ?? [];
+  const departments: any[] = departmentsQuery.data ?? [];
+  const categories: any[] = categoriesQuery.data ?? [];
   const leaderboard: any[] = leaderboardQuery.data ?? [];
-  const departmentsData: any[] = departmentsQuery.data ?? [];
-  const judgesData: any[] = judgesQuery.data ?? [];
+  const judges: any[] = judgesQuery.data ?? [];
+  const coaches: any[] = coachesQuery.data ?? [];
+  const venues: any[] = venuesQuery.data ?? [];
+  const brackets: any[] = bracketsQuery.data ?? [];
+  const users: any[] = usersQuery.data ?? [];
+  const liveScores: any[] = liveScoresQuery.data ?? [];
 
-  const loading = allQueries.some(q => q.isLoading);
-  const fetching = allQueries.some(q => q.isFetching) && !loading;
-  const backgroundError = allQueries.some(q => q.isRefetchError);
-  const retryAll = () => allQueries.forEach(q => q.refetch());
+  const loading = queries.some((q) => q.isLoading);
+  const fetching = queries.some((q) => q.isFetching) && !loading;
+  const backgroundError = queries.some((q) => q.isRefetchError);
+  const retryAll = () => queries.forEach((q) => q.refetch());
 
-  const stats = useMemo(() => {
-    const totalEvents = events.length || 0;
-    const activeEvents = events.filter((e: any) => e.status === 'ongoing').length;
-    const completedEvents = events.filter((e: any) => e.status === 'completed').length;
-    const upcomingEvents = events.filter((e: any) => e.status === 'upcoming').length;
-    const totalPoints = leaderboard.reduce(
-      (acc: number, dept: any) => acc + (dept.totalPoints || dept.total || 0),
-      0,
-    );
-    const totalJudges = judgesData.length || 0;
-    const totalParticipants = departmentsData.reduce(
-      (acc: number, dept: any) => acc + (dept.athleteCount || 0),
-      0,
-    );
-    const scoresSubmitted = totalPoints; // proxy for score submissions
+  const [rangeA, setRangeA] = useState(7);
+  const [rangeB, setRangeB] = useState(7);
+
+  const athleteUsers = useMemo(
+    () => users.filter((u) => u.role === "athlete"),
+    [users],
+  );
+  const coachUsers = useMemo(
+    () => users.filter((u) => u.role === "coach"),
+    [users],
+  );
+
+  const totals = useMemo(() => {
+    const byStatus = (s: string) =>
+      events.filter((e) => (e.status ?? "upcoming") === s).length;
     return {
-      totalEvents,
-      activeEvents,
-      totalJudges,
-      totalParticipants,
-      scoresSubmitted,
-      completedEvents,
-      upcomingEvents,
-      totalPoints,
+      events: events.length,
+      athletes: athleteUsers.length,
+      coaches: coachUsers.length || coaches.length,
+      committee:
+        users.filter((u) => u.role === "judge").length || judges.length,
+      ongoing: byStatus("ongoing"),
+      completed: byStatus("completed"),
+      upcoming: byStatus("upcoming"),
+      liveGames: liveScores.filter((l) => l.status === "in_progress").length,
+      brackets: brackets.length,
+      colleges: departments.length,
+      sports: categories.length,
+      venues: venues.length,
+      activeAccounts: users.filter((u) => u.active !== false).length,
     };
-  }, [events, leaderboard, judgesData, departmentsData]);
+  }, [
+    events,
+    athleteUsers,
+    coachUsers,
+    coaches,
+    judges,
+    users,
+    liveScores,
+    brackets,
+    departments,
+    categories,
+    venues,
+  ]);
 
-  // Transform events for EventTable
-  const transformedEvents = events.map((event: any) => ({
-    id: event.id,
-    name: event.name,
-    category: event.category || 'Uncategorized',
-    status: event.status || 'upcoming',
-    progress: event.status === 'completed' ? 100 : event.status === 'ongoing' ? 50 : 0,
-    judgesAssigned: event.judgeCount || 0,
-    date: event.date || new Date().toISOString().split('T')[0]
-  }));
+  const evCreated = useMemo(
+    () => periodDelta(events, "createdAt", rangeA),
+    [events, rangeA],
+  );
+  const acctCreated = useMemo(
+    () => periodDelta(users, "createdAt", rangeA),
+    [users, rangeA],
+  );
+  const newAthletes = useMemo(
+    () => periodDelta(athleteUsers, "createdAt", rangeB),
+    [athleteUsers, rangeB],
+  );
+  const newCoaches = useMemo(
+    () => periodDelta(coachUsers, "createdAt", rangeB),
+    [coachUsers, rangeB],
+  );
 
-  // Transform leaderboard for BarChart
-  const scoresByParticipant = leaderboard.slice(0, 8).map((dept: any, index: number) => ({
-    id: `dept-${index}`,
-    name: dept.department || `College ${index + 1}`,
-    score: dept.totalPoints || 0
-  }));
-
-  // Calculate submission status from events
-  const totalEventSlots = events.length * 10; // Assuming 10 scores per event
-  const submittedScores = stats.scoresSubmitted;
-  const submissionStatus = [
-    { id: '1', name: 'Submitted', value: submittedScores },
-    { id: '2', name: 'Pending', value: Math.max(0, totalEventSlots - submittedScores) }
+  const statusSegments = [
+    {
+      label: "Upcoming",
+      value: totals.upcoming,
+      color: STATUS_COLORS.upcoming,
+    },
+    { label: "Ongoing", value: totals.ongoing, color: STATUS_COLORS.ongoing },
+    {
+      label: "Completed",
+      value: totals.completed,
+      color: STATUS_COLORS.completed,
+    },
   ];
 
-  // Generate time-based submission data (placeholder - needs real API)
-  const scoreSubmissionsOverTime = [
-    { id: '1', date: 'Today', submissions: stats.scoresSubmitted }
+  const roleSegments = [
+    { label: "Athletes", value: athleteUsers.length, color: CHART_COLORS[0] },
+    { label: "Coaches", value: coachUsers.length, color: CHART_COLORS[1] },
+    {
+      label: "Committee",
+      value: users.filter((u) => u.role === "judge").length,
+      color: CHART_COLORS[4],
+    },
+    {
+      label: "Admins",
+      value: users.filter((u) => u.role === "admin").length,
+      color: CHART_COLORS[3],
+    },
   ];
 
-  // Generate activity log from events (placeholder - needs real API)
-  const activities = events.slice(0, 5).map((event: any, index: number) => ({
-    id: `activity-${index}`,
-    type: 'event' as const,
-    message: `Event "${event.name}" is ${event.status}`,
-    timestamp: event.createdAt || new Date().toISOString(),
-    user: 'System'
-  }));
+  const activityRows = useMemo(
+    () => [
+      metricRow("Events created", events, "createdAt"),
+      metricRow("Accounts created", users, "createdAt"),
+      metricRow("Athletes joined", athleteUsers, "createdAt"),
+      metricRow("Coaches added", coachUsers, "createdAt"),
+      metricRow("Events scheduled", events, "schedule"),
+    ],
+    [events, users, athleteUsers, coachUsers],
+  );
 
-  if (loading) {
-    return <Loading fullScreen={false} message="Loading dashboard..." />;
-  }
+  const pointsByCollege = useMemo(
+    () =>
+      leaderboard
+        .map((r) => ({
+          label: r.department ?? "—",
+          value: Number(r.total ?? 0),
+        }))
+        .filter((r) => r.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8),
+    [leaderboard],
+  );
+
+  const medalsByCollege = useMemo(
+    () =>
+      leaderboard
+        .map((r) => ({
+          name: (r.department ?? "—").split(" ")[0],
+          gold: Number(r.gold ?? 0),
+          silver: Number(r.silver ?? 0),
+          bronze: Number(r.bronze ?? 0),
+        }))
+        .filter((r) => r.gold + r.silver + r.bronze > 0)
+        .sort(
+          (a, b) =>
+            b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze,
+        )
+        .slice(0, 7),
+    [leaderboard],
+  );
+
+  const eventsBySport = useMemo(
+    () =>
+      tally(
+        events.map((e) => e.category),
+        8,
+        "Uncategorised",
+      ),
+    [events],
+  );
+  const athletesByCollege = useMemo(
+    () =>
+      tally(
+        athleteUsers.map((u) => u.department),
+        8,
+      ),
+    [athleteUsers],
+  );
+
+  if (loading)
+    return <Loading fullScreen={false} message="Loading dashboard…" />;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">SportAxisWeb Dashboard</h1>
-          <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
-        </div>
-        <p className="text-gray-500 mt-1">Sports Event Management System</p>
-      </div>
+    <DashboardCanvas
+      title="Admin Dashboard"
+      subtitle="Sports Office — event, roster and results overview"
+      right={
+        <RefreshStatus
+          fetching={fetching}
+          error={backgroundError}
+          onRetry={retryAll}
+        />
+      }
+    >
+      <Grid>
+        {/* Row A */}
+        <Tile title="System Totals" span={3}>
+          <div className="grid grid-cols-2 gap-y-4">
+            <IconStat
+              icon={Calendar}
+              iconClass="text-blue-500"
+              value={totals.events}
+              caption="Events"
+            />
+            <IconStat
+              icon={GraduationCap}
+              iconClass="text-violet-500"
+              value={totals.athletes}
+              caption="Athletes"
+            />
+            <IconStat
+              icon={Users}
+              iconClass="text-cyan-500"
+              value={totals.coaches}
+              caption="Coaches"
+            />
+            <IconStat
+              icon={Gavel}
+              iconClass="text-amber-500"
+              value={totals.committee}
+              caption="Committee"
+            />
+          </div>
+        </Tile>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <SummaryCard
-          icon={Calendar}
-          label="Total Events"
-          value={stats.totalEvents}
-          subtext="All time events"
-          iconColor="text-blue-500"
-          onClick={() => navigate('/admin/events')}
-        />
-        <SummaryCard
-          icon={Trophy}
-          label="Active Events"
-          value={stats.activeEvents}
-          subtext="Currently ongoing"
-          iconColor="text-green-500"
-          accentColor="text-green-600"
-        />
-        <SummaryCard
-          icon={Users}
-          label="Total Committees"
-          value={stats.totalJudges}
-          subtext="Registered committees"
-          iconColor="text-purple-500"
-          accentColor="text-purple-600"
-        />
-        <SummaryCard
-          icon={Users}
-          label="Total Participants"
-          value={stats.totalParticipants}
-          subtext="Across all events"
-          iconColor="text-indigo-500"
-          accentColor="text-indigo-600"
-        />
-        <SummaryCard
-          icon={TrendingUp}
-          label="Scores Submitted"
-          value={stats.scoresSubmitted}
-          subtext="Total submissions"
-          iconColor="text-yellow-500"
-          accentColor="text-yellow-600"
-        />
-        <SummaryCard
-          icon={CheckCircle2}
-          label="Completed Events"
-          value={stats.completedEvents}
-          subtext="Events finished"
-          iconColor="text-gray-500"
-          accentColor="text-gray-600"
-        />
-        <SummaryCard
-          icon={Clock}
-          label="Upcoming Events"
-          value={stats.upcomingEvents}
-          subtext="Scheduled events"
-          iconColor="text-orange-500"
-          accentColor="text-orange-600"
-        />
-        <SummaryCard
-          icon={Award}
-          label="Total Points"
-          value={stats.totalPoints}
-          subtext="Points awarded"
-          iconColor="text-red-500"
-          accentColor="text-red-600"
-        />
-      </div>
+        <HeroTile
+          title="Event & Account Activity"
+          subtitle="New records created in the selected window"
+          span={6}
+          right={<RangePicker value={rangeA} onChange={setRangeA} />}
+        >
+          <Metric
+            label="Events Created"
+            value={evCreated.current.toLocaleString()}
+            pct={evCreated.pct}
+            prev={evCreated.prev.toLocaleString()}
+            spark={dailyCounts(events, "createdAt", rangeA)}
+          />
+          <Metric
+            label="Accounts Created"
+            value={acctCreated.current.toLocaleString()}
+            pct={acctCreated.pct}
+            prev={acctCreated.prev.toLocaleString()}
+            spark={dailyCounts(users, "createdAt", rangeA)}
+          />
+        </HeroTile>
 
-      {/* Event Monitoring */}
-      <div className="mb-8">
-        <EventTable events={transformedEvents} />
-      </div>
+        <Tile title="Live Now" span={3}>
+          <div className="space-y-3">
+            <BareStat value={totals.liveGames} label="Games in progress" />
+            <BareStat value={totals.ongoing} label="Events ongoing" />
+          </div>
+        </Tile>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <BarChartComponent
-          data={scoresByParticipant}
-          title="Scores by College"
-          description="Top 8 departments by points"
-          dataKey="score"
-          xAxisKey="name"
-          color="#DC2626"
-        />
-        <DonutChartComponent
-          data={submissionStatus}
-          title="Submission Status"
-          description="Score submissions overview"
-          dataKey="value"
-          nameKey="name"
-          colors={['#DC2626', '#E5E7EB']}
-        />
-      </div>
+        {/* Row B */}
+        <Tile title="Events by Status" span={3}>
+          <DistBar segments={statusSegments} />
+        </Tile>
 
-      {/* Line Chart */}
-      <div className="mb-8">
-        <LineChartComponent
-          data={scoreSubmissionsOverTime}
-          title="Score Submissions"
-          description="Current submission count"
-          dataKey="submissions"
-          xAxisKey="date"
-          color="#DC2626"
-        />
-      </div>
+        <HeroTile
+          title="New Registrations"
+          subtitle="Accounts joining by role"
+          span={6}
+          right={<RangePicker value={rangeB} onChange={setRangeB} />}
+        >
+          <Metric
+            label="New Athletes"
+            value={newAthletes.current.toLocaleString()}
+            pct={newAthletes.pct}
+            prev={newAthletes.prev.toLocaleString()}
+            spark={dailyCounts(athleteUsers, "createdAt", rangeB)}
+            color={CHART_COLORS[0]}
+          />
+          <Metric
+            label="New Coaches"
+            value={newCoaches.current.toLocaleString()}
+            pct={newCoaches.pct}
+            prev={newCoaches.prev.toLocaleString()}
+            spark={dailyCounts(coachUsers, "createdAt", rangeB)}
+            color={CHART_COLORS[1]}
+          />
+        </HeroTile>
 
-      {/* OCR Panel and Activity Log */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <OCRPanel
-          ocrSubmissions={0}
-          manualSubmissions={stats.scoresSubmitted}
-          averageConfidence={0}
-          lowConfidenceCount={0}
-        />
-        <ActivityLog activities={activities} />
-      </div>
+        <Tile title="Accounts by Role" span={3}>
+          <DistBar segments={roleSegments} />
+        </Tile>
 
-      {/* Quick Actions */}
-      <QuickActions />
+        {/* Row C */}
+        <Tile
+          title="Key Activity Metrics"
+          subtitle="Last 30 days vs previous 30 days"
+          span={8}
+        >
+          <MetricTable rows={activityRows} />
+        </Tile>
+
+        <Tile title="Season Records" span={4}>
+          <div className="grid grid-cols-2 gap-x-6">
+            <RecordLine label="Completed events" value={totals.completed} />
+            <RecordLine label="Brackets" value={totals.brackets} />
+            <RecordLine label="Colleges" value={totals.colleges} />
+            <RecordLine label="Sports" value={totals.sports} />
+            <RecordLine label="Venues" value={totals.venues} />
+            <RecordLine label="Active accounts" value={totals.activeAccounts} />
+          </div>
+        </Tile>
+
+        {/* Row D */}
+        <Tile
+          title="Points by College"
+          subtitle="Team standings from scored events"
+          span={6}
+        >
+          <RankList items={pointsByCollege} />
+        </Tile>
+
+        <Tile
+          title="Medal Tally by College"
+          subtitle="Gold, silver and bronze finishes"
+          span={6}
+        >
+          <StackedRankBars
+            data={medalsByCollege}
+            keys={[
+              { key: "gold", name: "Gold", color: MEDAL_COLORS.gold },
+              { key: "silver", name: "Silver", color: MEDAL_COLORS.silver },
+              { key: "bronze", name: "Bronze", color: MEDAL_COLORS.bronze },
+            ]}
+          />
+        </Tile>
+
+        {/* Row E */}
+        <Tile
+          title="Events by Sport"
+          subtitle="Fixture count per discipline"
+          span={6}
+        >
+          <RankList items={eventsBySport} color={CHART_COLORS[2]} />
+        </Tile>
+
+        <Tile
+          title="Athletes by College"
+          subtitle="Registered athlete accounts"
+          span={6}
+        >
+          <RankList items={athletesByCollege} color={CHART_COLORS[1]} />
+        </Tile>
+      </Grid>
+    </DashboardCanvas>
+  );
+}
+
+function RecordLine({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between border-b border-slate-100 py-2 last:border-0">
+      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-sm font-semibold text-slate-800">
+        {value.toLocaleString()}
+      </span>
     </div>
   );
 }

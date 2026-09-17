@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAthlete, useCreateAthlete, useUpdateAthlete } from '../../hooks/api';
+import { useAthlete, useCreateAthlete, useUpdateAthlete, useDepartments } from '../../hooks/api';
 
 interface AthleteFormData {
   studentId: string;
@@ -56,19 +56,31 @@ export default function AthleteForm() {
   const updateMut = useUpdateAthlete();
   const saving = createMut.isPending || updateMut.isPending;
 
+  // The one source of truth for colleges — the same list admins manage in
+  // Settings and pick from when scheduling events. Stored by name so an
+  // athlete's college matches an event's `departments` exactly.
+  const departmentsQuery = useDepartments();
+  const departments: { id: string; name: string }[] = departmentsQuery.data ?? [];
+
+  // A coach can enter an athlete's details only when first adding them. After
+  // that, identity and personal details belong to the athlete (their account /
+  // the campus record) — the coach can view them and set the roster status.
+  const readOnlyPersonal = isEditMode;
+  const linkedAccount = isEditMode && !!(athleteQuery.data as any)?.userId;
+
   // Prefill the form once the athlete record loads (edit mode).
   useEffect(() => {
     const athlete: any = athleteQuery.data;
     if (!athlete) return;
     setFormData({
-      studentId: athlete.studentId,
-      firstName: athlete.firstName,
-      lastName: athlete.lastName,
-      email: athlete.email,
-      department: athlete.department,
-      yearLevel: athlete.yearLevel,
-      course: athlete.course,
-      status: athlete.status,
+      studentId: athlete.studentId ?? '',
+      firstName: athlete.firstName ?? '',
+      lastName: athlete.lastName ?? '',
+      email: athlete.email ?? '',
+      department: athlete.department ?? '',
+      yearLevel: athlete.yearLevel ?? '1st Year',
+      course: athlete.course ?? '',
+      status: athlete.status ?? 'active',
       emergencyContactName: athlete.emergencyContact?.name ?? '',
       emergencyContactRelationship: athlete.emergencyContact?.relationship ?? '',
       emergencyContactPhone: athlete.emergencyContact?.phone ?? '',
@@ -86,7 +98,22 @@ export default function AthleteForm() {
     e.preventDefault();
     setError('');
 
-    // Validation
+    // In edit mode a coach can only change the roster status — everything else
+    // is the athlete's to manage.
+    if (isEditMode && id) {
+      try {
+        await updateMut.mutateAsync({ id, data: { status: formData.status } });
+        toast.success('Status updated');
+        navigate('/coach/athletes');
+      } catch (err: any) {
+        console.error('Error saving athlete:', err);
+        setError(err.message || 'Failed to save. Please try again.');
+        toast.error(err.message || 'Failed to save');
+      }
+      return;
+    }
+
+    // Validation (add flow only).
     if (!formData.studentId.trim()) {
       setError('Student ID is required');
       return;
@@ -125,13 +152,8 @@ export default function AthleteForm() {
         },
       };
 
-      if (isEditMode && id) {
-        await updateMut.mutateAsync({ id, data: athleteData });
-        toast.success('Athlete updated successfully');
-      } else {
-        await createMut.mutateAsync(athleteData);
-        toast.success('Athlete added successfully');
-      }
+      await createMut.mutateAsync(athleteData);
+      toast.success('Athlete added successfully');
 
       navigate('/coach/athletes');
     } catch (err: any) {
@@ -157,10 +179,10 @@ export default function AthleteForm() {
           </Button>
         </Link>
         <h1 className="text-3xl font-bold text-gray-900">
-          {isEditMode ? 'Edit Athlete' : 'Add New Athlete'}
+          {isEditMode ? 'Athlete Details' : 'Add New Athlete'}
         </h1>
         <p className="text-gray-600 mt-2">
-          {isEditMode ? 'Update athlete information' : 'Add a new athlete to your roster'}
+          {isEditMode ? 'View athlete information and set their roster status' : 'Add a new athlete to your roster'}
         </p>
       </div>
 
@@ -177,14 +199,25 @@ export default function AthleteForm() {
               </Alert>
             )}
 
+            {readOnlyPersonal && (
+              <Alert>
+                <AlertDescription>
+                  Personal details are managed by the athlete on their own account
+                  {linkedAccount ? '' : ' once they register'}. As their coach you can view
+                  them and set the roster status.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="studentId">Student ID *</Label>
+                <Label htmlFor="studentId">SR Code / Student ID *</Label>
                 <Input
                   id="studentId"
-                  placeholder="e.g., 2024-00001"
+                  placeholder="e.g., 23-75760"
                   value={formData.studentId}
                   onChange={(e) => handleChange('studentId', e.target.value)}
+                  disabled={readOnlyPersonal}
                   required
                 />
               </div>
@@ -210,6 +243,7 @@ export default function AthleteForm() {
                   placeholder="John"
                   value={formData.firstName}
                   onChange={(e) => handleChange('firstName', e.target.value)}
+                  disabled={readOnlyPersonal}
                   required
                 />
               </div>
@@ -221,6 +255,7 @@ export default function AthleteForm() {
                   placeholder="Doe"
                   value={formData.lastName}
                   onChange={(e) => handleChange('lastName', e.target.value)}
+                  disabled={readOnlyPersonal}
                   required
                 />
               </div>
@@ -233,9 +268,11 @@ export default function AthleteForm() {
                   placeholder="john.doe@university.edu"
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
+                  disabled={readOnlyPersonal}
                   required
                 />
               </div>
+
             </div>
           </CardContent>
         </Card>
@@ -249,24 +286,30 @@ export default function AthleteForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="department">College *</Label>
-                <Select value={formData.department} onValueChange={(value) => handleChange('department', value)}>
+                <Select value={formData.department || undefined} onValueChange={(value) => handleChange('department', value)} disabled={readOnlyPersonal}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder={departmentsQuery.isLoading ? 'Loading colleges…' : 'Select college'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Computer Science">Computer Science</SelectItem>
-                    <SelectItem value="Engineering">Engineering</SelectItem>
-                    <SelectItem value="Business">Business</SelectItem>
-                    <SelectItem value="Arts & Sciences">Arts & Sciences</SelectItem>
-                    <SelectItem value="Education">Education</SelectItem>
-                    <SelectItem value="Health Sciences">Health Sciences</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                    ))}
+                    {/* Keep a legacy value visible in edit mode if it's no longer in the list */}
+                    {formData.department && !departments.some((d) => d.name === formData.department) && (
+                      <SelectItem value={formData.department}>{formData.department} (unlisted)</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
+                {!departmentsQuery.isLoading && departments.length === 0 && (
+                  <p className="text-xs text-amber-600">
+                    No colleges set up yet — an admin adds them in Settings → Colleges.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="yearLevel">Year Level *</Label>
-                <Select value={formData.yearLevel} onValueChange={(value) => handleChange('yearLevel', value)}>
+                <Select value={formData.yearLevel} onValueChange={(value) => handleChange('yearLevel', value)} disabled={readOnlyPersonal}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -286,6 +329,7 @@ export default function AthleteForm() {
                   placeholder="e.g., BS Computer Science"
                   value={formData.course}
                   onChange={(e) => handleChange('course', e.target.value)}
+                  disabled={readOnlyPersonal}
                   required
                 />
               </div>
@@ -307,6 +351,7 @@ export default function AthleteForm() {
                   placeholder="e.g., Jane Doe"
                   value={formData.emergencyContactName}
                   onChange={(e) => handleChange('emergencyContactName', e.target.value)}
+                  disabled={readOnlyPersonal}
                 />
               </div>
 
@@ -317,6 +362,7 @@ export default function AthleteForm() {
                   placeholder="e.g., Mother"
                   value={formData.emergencyContactRelationship}
                   onChange={(e) => handleChange('emergencyContactRelationship', e.target.value)}
+                  disabled={readOnlyPersonal}
                 />
               </div>
 
@@ -328,6 +374,7 @@ export default function AthleteForm() {
                   placeholder="e.g., +63 912 345 6789"
                   value={formData.emergencyContactPhone}
                   onChange={(e) => handleChange('emergencyContactPhone', e.target.value)}
+                  disabled={readOnlyPersonal}
                 />
               </div>
             </div>
@@ -342,7 +389,7 @@ export default function AthleteForm() {
           </Link>
           <Button type="submit" disabled={saving}>
             <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : isEditMode ? 'Update Athlete' : 'Add Athlete'}
+            {saving ? 'Saving...' : isEditMode ? 'Save Status' : 'Add Athlete'}
           </Button>
         </div>
       </form>

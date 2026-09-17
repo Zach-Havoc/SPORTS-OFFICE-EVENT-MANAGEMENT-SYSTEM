@@ -57,7 +57,7 @@ class AccountTest extends TestCase
 
         $this->putJson('/api/account/password', [
             'currentPassword' => 'wrong',
-            'newPassword'     => 'brand-new-pw',
+            'newPassword' => 'brand-new-pw',
         ])->assertStatus(400)->assertJsonFragment(['error' => 'Current password is incorrect']);
     }
 
@@ -67,7 +67,7 @@ class AccountTest extends TestCase
 
         $this->putJson('/api/account/password', [
             'currentPassword' => 'current-pw-123',
-            'newPassword'     => 'brand-new-pw',
+            'newPassword' => 'brand-new-pw',
         ])->assertOk();
 
         $this->assertTrue(Hash::check('brand-new-pw', $user->fresh()->password));
@@ -79,14 +79,14 @@ class AccountTest extends TestCase
 
         $this->putJson('/api/account/password', [
             'currentPassword' => 'current-pw-123',
-            'newPassword'     => 'short',
+            'newPassword' => 'short',
         ])->assertStatus(422)->assertJsonValidationErrors('newPassword');
     }
 
     public function test_logout_revokes_the_current_token(): void
     {
         // Use a real token (not Sanctum::actingAs) so we can assert it is deleted.
-        $user  = $this->users()->create();
+        $user = $this->users()->create();
         $token = $user->createToken('t')->plainTextToken;
 
         $this->withToken($token)->postJson('/api/logout')->assertOk();

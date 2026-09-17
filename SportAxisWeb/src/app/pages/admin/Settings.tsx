@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { getDepartments, getCategories, createDepartment, updateDepartment, deleteDepartment, createCategory, updateCategory, deleteCategory } from '../../services/api';
+import { getDepartments, getCategories, createDepartment, updateDepartment, deleteDepartment, uploadDepartmentLogo, deleteDepartmentLogo, createCategory, updateCategory, deleteCategory } from '../../services/api';
+import { useCampusStudents, useImportCampusStudents } from '../../hooks/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -10,7 +11,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Plus, Pencil, Trash2, Users, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Tag, GraduationCap, Upload, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Loading from '../../components/Loading';
 
@@ -18,6 +19,7 @@ interface Department {
   id: string;
   name: string;
   abbreviation: string;
+  logoUrl?: string | null;
 }
 
 type SportFormat = 'versus' | 'ranked';
@@ -98,6 +100,36 @@ export default function AdminSettings() {
     } catch (error) {
       console.error('Error saving department:', error);
       toast.error('Failed to save department');
+    }
+  };
+
+  const [logoBusy, setLogoBusy] = useState(false);
+  const handleLogoUpload = async (file: File) => {
+    if (!editingDept) return;
+    setLogoBusy(true);
+    try {
+      const updated = await uploadDepartmentLogo(editingDept.id, file);
+      setEditingDept((d) => (d ? { ...d, logoUrl: updated.logoUrl } : d));
+      toast.success('Logo updated');
+      loadData();
+    } catch (e: any) {
+      toast.error(e.message || 'Could not upload the logo');
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+  const handleLogoRemove = async () => {
+    if (!editingDept) return;
+    setLogoBusy(true);
+    try {
+      await deleteDepartmentLogo(editingDept.id);
+      setEditingDept((d) => (d ? { ...d, logoUrl: null } : d));
+      toast.success('Logo removed');
+      loadData();
+    } catch (e: any) {
+      toast.error(e.message || 'Could not remove the logo');
+    } finally {
+      setLogoBusy(false);
     }
   };
 
@@ -214,7 +246,7 @@ export default function AdminSettings() {
       */}
 
       <Tabs defaultValue="departments" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="departments">
             <Users className="h-4 w-4 mr-2" />
             Colleges
@@ -223,7 +255,15 @@ export default function AdminSettings() {
             <Tag className="h-4 w-4 mr-2" />
             Sports
           </TabsTrigger>
+          <TabsTrigger value="students">
+            <GraduationCap className="h-4 w-4 mr-2" />
+            Students
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="students" className="space-y-4">
+          <CampusStudentsTab />
+        </TabsContent>
 
         {/* Departments Tab */}
         <TabsContent value="departments" className="space-y-4">
@@ -246,12 +286,18 @@ export default function AdminSettings() {
                   <Card key={dept.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Users className="h-4 w-4 text-blue-600" />
-                            <h3 className="font-semibold">{dept.name}</h3>
+                        <div className="flex flex-1 items-center gap-3 min-w-0">
+                          {dept.logoUrl ? (
+                            <img src={dept.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover border border-gray-200" />
+                          ) : (
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50">
+                              <Users className="h-4 w-4 text-blue-600" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h3 className="font-semibold truncate">{dept.name}</h3>
+                            <p className="text-sm text-gray-600">{dept.abbreviation}</p>
                           </div>
-                          <p className="text-sm text-gray-600">{dept.abbreviation}</p>
                         </div>
                         <div className="flex gap-1">
                           <Button
@@ -381,6 +427,43 @@ export default function AdminSettings() {
                 placeholder="e.g., CS"
               />
             </div>
+
+            <div>
+              <Label>Logo</Label>
+              <p className="text-xs text-gray-500 mb-2">Shown on the standings board. Square PNG/JPG works best.</p>
+              {editingDept ? (
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 shrink-0 rounded-full border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+                    {editingDept.logoUrl ? (
+                      <img src={editingDept.logoUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-gray-400">none</span>
+                    )}
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    {logoBusy ? 'Uploading…' : editingDept.logoUrl ? 'Replace' : 'Upload'}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      disabled={logoBusy}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleLogoUpload(f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {editingDept.logoUrl && (
+                    <Button variant="ghost" size="sm" className="text-red-600" disabled={logoBusy} onClick={handleLogoRemove}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">Create the college first, then reopen it to add a logo.</p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeptDialogOpen(false)}>
@@ -454,5 +537,124 @@ export default function AdminSettings() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * The registrar's enrolled-student roster. An athlete can only create an
+ * account if their SR Code + name match a row here.
+ */
+function CampusStudentsTab() {
+  const [search, setSearch] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const listQuery = useCampusStudents(debounced || undefined);
+  const importMut = useImportCampusStudents();
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const onPickFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const r = await importMut.mutateAsync(file);
+      toast.success(`Imported: ${r.added} added, ${r.updated} updated${r.skipped ? `, ${r.skipped} skipped` : ''}. ${r.total} students on file.`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Import failed');
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const students = listQuery.data?.students ?? [];
+  const total = listQuery.data?.total ?? 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle>Campus Students</CardTitle>
+          <p className="text-sm text-gray-600 mt-1">
+            The registrar's list of enrolled students. Athletes can only sign up if their
+            SR Code and name match a row here.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv,text/plain"
+            className="hidden"
+            onChange={(e) => onPickFile(e.target.files?.[0])}
+          />
+          <Button onClick={() => fileRef.current?.click()} disabled={importMut.isPending}>
+            {importMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+            Import CSV
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-gray-600">
+            <span className="font-semibold text-gray-900">{total.toLocaleString()}</span> student{total === 1 ? '' : 's'} on file
+          </div>
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              className="pl-9"
+              placeholder="Search SR Code or name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-500">
+          CSV needs at least <span className="font-medium">SR Code</span> and{' '}
+          <span className="font-medium">Last Name</span> columns. Optional: First Name, Middle Name,
+          Gender, College, Program, Year Level, Email. Re-importing updates rows by SR Code. Export
+          from Excel as CSV.
+        </p>
+
+        {total === 0 && !listQuery.isLoading ? (
+          <div className="text-center py-10 text-gray-500 border rounded-lg">
+            No students imported yet. Click <span className="font-medium">Import CSV</span> to upload the registrar's list.
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50 text-left text-gray-600">
+                  <th className="py-2 px-3 font-semibold">SR Code</th>
+                  <th className="py-2 px-3 font-semibold">Name</th>
+                  <th className="py-2 px-3 font-semibold hidden sm:table-cell">Gender</th>
+                  <th className="py-2 px-3 font-semibold hidden md:table-cell">College</th>
+                  <th className="py-2 px-3 font-semibold hidden lg:table-cell">Year</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s) => (
+                  <tr key={s.srCode} className="border-b last:border-0">
+                    <td className="py-2 px-3 font-mono text-gray-700">{s.srCode}</td>
+                    <td className="py-2 px-3">{[s.lastName, s.firstName].filter(Boolean).join(', ')}{s.middleName ? ` ${s.middleName}` : ''}</td>
+                    <td className="py-2 px-3 hidden sm:table-cell text-gray-600">{s.gender || '—'}</td>
+                    <td className="py-2 px-3 hidden md:table-cell text-gray-600">{s.college || '—'}</td>
+                    <td className="py-2 px-3 hidden lg:table-cell text-gray-600">{s.yearLevel || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {students.length === 0 && debounced && (
+              <div className="text-center py-6 text-gray-500">No match for “{debounced}”.</div>
+            )}
+            {students.length >= 100 && (
+              <div className="text-center py-2 text-xs text-gray-400 border-t">Showing the first 100 — narrow with search.</div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

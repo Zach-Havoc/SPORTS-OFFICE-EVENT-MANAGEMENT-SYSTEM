@@ -1,12 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { CheckCircle, XCircle, Clock, Users, Search } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
+import {
+  Users, Search, AlertTriangle,
+  CalendarDays, Trash2, Plus, Check, Loader2, Pencil,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { useAthletes, useEvents, useMarkAttendance } from '../../hooks/api';
+import {
+  useAthletes, useAttendanceRecords, useAttendanceSessions, useAttendanceSession,
+  useCreateAttendanceSession, useUpdateAttendanceSession, useDeleteAttendanceSession,
+  useSaveSessionRecords,
+} from '../../hooks/api';
+import type { AttendanceSession } from '../../services/api';
 import { RefreshStatus } from '../../components/RefreshStatus';
+
+type Status = 'present' | 'absent' | 'late' | 'excused';
 
 interface Athlete {
   id: string;
@@ -14,321 +29,411 @@ interface Athlete {
   lastName: string;
   studentId: string;
   department: string;
-  status: string;
 }
 
-interface Event {
-  id: string;
-  name: string;
-  sport: string;
-  schedule: string;
-  venue: string;
+const today = () => new Date().toISOString().split('T')[0];
+const fmtDate = (d: string) =>
+  new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+/** Present + late count as attended; excused is neutral (out of the denominator). */
+function rateOf(recs: { status: Status }[]) {
+  const attended = recs.filter((r) => r.status === 'present' || r.status === 'late').length;
+  const denom = attended + recs.filter((r) => r.status === 'absent').length;
+  return { attended, denom, pct: denom ? attended / denom : null };
 }
+
+const inputCls =
+  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
+
+// ── Page ────────────────────────────────────────────────────────────────────
 
 export default function CoachAttendance() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedEvent, setSelectedEvent] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent' | 'late' | 'excused'>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!user || user.role !== 'coach') navigate('/login');
   }, [user, navigate]);
 
-  const athletesQuery = useAthletes();
-  const eventsQuery = useEvents();
-  const markAtt = useMarkAttendance();
+  const sessionsQ = useAttendanceSessions();
+  const athletesQ = useAthletes();
+  const recordsQ = useAttendanceRecords();
+  const createMut = useCreateAttendanceSession();
+  const deleteMut = useDeleteAttendanceSession();
 
-  const athletes: Athlete[] = athletesQuery.data ?? [];
-  const events: Event[] = useMemo(
-    () => (eventsQuery.data ?? []).filter((e: Event) => e.sport),
-    [eventsQuery.data],
-  );
-  const loading = athletesQuery.isLoading || eventsQuery.isLoading;
-  const fetching = (athletesQuery.isFetching || eventsQuery.isFetching) && !loading;
-  const backgroundError = athletesQuery.isRefetchError || eventsQuery.isRefetchError;
-  const retryAll = () => {
-    athletesQuery.refetch();
-    eventsQuery.refetch();
-  };
-  const saving = markAtt.isPending;
+  const sessions = sessionsQ.data ?? [];
+  const athletes = (athletesQ.data ?? []) as Athlete[];
 
-  // Default any not-yet-tracked athlete to "present".
-  useEffect(() => {
-    if (!athletes.length) return;
-    setAttendance(prev => {
-      let changed = false;
-      const next = { ...prev };
-      for (const a of athletes) {
-        if (!(a.id in next)) {
-          next[a.id] = 'present';
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [athletes]);
-
-  const handleMarkAttendance = (athleteId: string, status: 'present' | 'absent' | 'late' | 'excused') => {
-    setAttendance(prev => ({ ...prev, [athleteId]: status }));
-  };
-
-  const handleSaveAttendance = async () => {
-    if (!selectedEvent && !selectedDate) {
-      toast.error('Please select an event or date');
-      return;
+  const historyByAthlete = useMemo(() => {
+    const m = new Map<string, { status: Status }[]>();
+    for (const r of (recordsQ.data ?? []) as { athleteId: string; status: Status }[]) {
+      m.set(r.athleteId, [...(m.get(r.athleteId) ?? []), r]);
     }
+    return m;
+  }, [recordsQ.data]);
 
-    try {
-      const records = Object.entries(attendance).map(([athleteId, status]) => ({
-        athleteId,
-        eventId: selectedEvent || 'training',
-        date: selectedDate,
-        status,
-        notes: notes[athleteId] || ''
-      }));
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState(today());
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<AttendanceSession | null>(null);
 
-      await markAtt.mutateAsync(records);
-      toast.success('Attendance marked successfully');
+  const openSession = sessions.find((s) => s.id === openId) ?? null;
 
-      // Reset to 'present' for all
-      const resetAttendance: Record<string, 'present' | 'absent' | 'late' | 'excused'> = {};
-      athletes.forEach((athlete) => {
-        resetAttendance[athlete.id] = 'present';
-      });
-      setAttendance(resetAttendance);
-      setNotes({});
-    } catch (error: any) {
-      console.error('Error saving attendance:', error);
-      toast.error(error.message || 'Failed to save attendance');
-    }
+  const create = () => {
+    if (!title.trim()) return toast.error('Give the session a title.');
+    createMut.mutate(
+      { title: title.trim(), date },
+      {
+        onSuccess: (s) => {
+          setTitle('');
+          setDate(today());
+          setOpenId(s.id);
+        },
+        onError: (e: any) => toast.error(e?.message || 'Could not create the session.'),
+      },
+    );
   };
 
-  const filteredAthletes = athletes.filter(athlete =>
-    athlete.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    athlete.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    athlete.studentId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const stats = {
-    present: Object.values(attendance).filter(s => s === 'present').length,
-    absent: Object.values(attendance).filter(s => s === 'absent').length,
-    late: Object.values(attendance).filter(s => s === 'late').length,
-    excused: Object.values(attendance).filter(s => s === 'excused').length,
-  };
+  const loading = sessionsQ.isLoading || athletesQ.isLoading;
 
   if (!user) return null;
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">Mark Attendance</h1>
-          <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
-        </div>
-        <p className="text-gray-600 mt-2">Track athlete attendance for training and events</p>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold text-gray-900">Attendance</h1>
+        <RefreshStatus
+          fetching={(sessionsQ.isFetching || athletesQ.isFetching) && !loading}
+          error={sessionsQ.isRefetchError || athletesQ.isRefetchError}
+          onRetry={() => { sessionsQ.refetch(); athletesQ.refetch(); }}
+        />
       </div>
 
-      {/* Selection Controls */}
+      {/* New session */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Attendance Details</CardTitle>
-          <CardDescription>Select event and date to mark attendance</CardDescription>
+          <CardTitle>New session</CardTitle>
+          <CardDescription>Create a session for a training, meeting, or match call.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Event (Optional)</label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={selectedEvent}
-                onChange={(e) => setSelectedEvent(e.target.value)}
-              >
-                <option value="">Training Session</option>
-                {events.map(event => (
-                  <option key={event.id} value={event.id}>
-                    {event.name} - {event.sport}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date *</label>
-              <input
-                type="date"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Present</p>
-                <p className="text-2xl font-bold text-green-600">{stats.present}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Absent</p>
-                <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
-              </div>
-              <XCircle className="h-8 w-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Late</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Excused</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.excused}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3">
             <input
-              type="text"
-              placeholder="Search athletes..."
-              className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              className={inputCls}
+              placeholder="e.g. Morning training"
+              value={title}
+              maxLength={120}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && create()}
             />
+            <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
+            <Button onClick={create} disabled={createMut.isPending}>
+              <Plus className="h-4 w-4 mr-1" />
+              {createMut.isPending ? 'Creating…' : 'Create'}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Attendance List */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Athletes ({filteredAthletes.length})</CardTitle>
-          <CardDescription>Mark attendance status for each athlete</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading athletes...</div>
-          ) : filteredAthletes.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-500">No athletes found</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredAthletes.map(athlete => (
-                <div key={athlete.id} className="border rounded-lg p-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-semibold">
-                        {athlete.firstName} {athlete.lastName}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {athlete.studentId} • {athlete.department}
+      {/* Sessions */}
+      {loading ? (
+        <div className="py-16 text-center text-sm text-gray-500">Loading sessions…</div>
+      ) : sessions.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-300 py-14 text-center">
+          <CalendarDays className="h-8 w-8 mx-auto text-gray-300" />
+          <p className="mt-3 text-sm font-medium text-gray-700">No sessions yet</p>
+          <p className="mt-1 text-sm text-gray-500">Create one above to start taking attendance.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sessions.map((s) => {
+            const pct = s.rosterCount ? Math.round((s.markedCount / s.rosterCount) * 100) : 0;
+            return (
+              <Card key={s.id} className="cursor-pointer transition-colors hover:border-red-200" onClick={() => setOpenId(s.id)}>
+                <CardContent className="pt-6 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{s.title}</p>
+                      <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {fmtDate(s.date)}
                       </p>
                     </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant={attendance[athlete.id] === 'present' ? 'default' : 'outline'}
-                        onClick={() => handleMarkAttendance(athlete.id, 'present')}
-                        className={attendance[athlete.id] === 'present' ? 'bg-green-600 hover:bg-green-700' : ''}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Present
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={attendance[athlete.id] === 'late' ? 'default' : 'outline'}
-                        onClick={() => handleMarkAttendance(athlete.id, 'late')}
-                        className={attendance[athlete.id] === 'late' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
-                      >
-                        <Clock className="h-4 w-4 mr-1" />
-                        Late
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={attendance[athlete.id] === 'excused' ? 'default' : 'outline'}
-                        onClick={() => handleMarkAttendance(athlete.id, 'excused')}
-                        className={attendance[athlete.id] === 'excused' ? 'bg-blue-600 hover:bg-blue-700' : ''}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Excused
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={attendance[athlete.id] === 'absent' ? 'default' : 'outline'}
-                        onClick={() => handleMarkAttendance(athlete.id, 'absent')}
-                        className={attendance[athlete.id] === 'absent' ? 'bg-red-600 hover:bg-red-700' : ''}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Absent
-                      </Button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setToDelete(s); }}
+                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      aria-label="Delete session"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
 
-                  {(attendance[athlete.id] === 'late' || attendance[athlete.id] === 'excused' || attendance[athlete.id] === 'absent') && (
-                    <div className="mt-3">
-                      <input
-                        type="text"
-                        placeholder="Add notes (optional)"
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={notes[athlete.id] || ''}
-                        onChange={(e) => setNotes(prev => ({ ...prev, [athlete.id]: e.target.value }))}
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="text-gray-500">{s.markedCount} / {s.rosterCount} marked</span>
+                      {s.complete ? (
+                        <span className="inline-flex items-center gap-1 font-medium text-green-700">
+                          <Check className="h-3.5 w-3.5" /> Complete
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className={`h-full rounded-full ${s.complete ? 'bg-green-500' : 'bg-red-600'}`}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={handleSaveAttendance} disabled={saving || filteredAthletes.length === 0} size="lg">
-          {saving ? 'Saving...' : 'Save Attendance'}
-        </Button>
-      </div>
+      {openSession && (
+        <SessionDialog
+          key={openSession.id}
+          session={openSession}
+          athletes={athletes}
+          history={historyByAthlete}
+          onClose={() => setOpenId(null)}
+        />
+      )}
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete “{toDelete?.title}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the session and all attendance recorded in it. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!toDelete) return;
+                deleteMut.mutate(toDelete.id, {
+                  onSuccess: () => { if (openId === toDelete.id) setOpenId(null); setToDelete(null); },
+                  onError: (e: any) => toast.error(e?.message || 'Could not delete.'),
+                });
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+// ── Session dialog ──────────────────────────────────────────────────────────
+
+const STATUS_OPTIONS: { value: Status; label: string }[] = [
+  { value: 'present', label: 'Present' },
+  { value: 'late', label: 'Late' },
+  { value: 'excused', label: 'Excused' },
+  { value: 'absent', label: 'Absent' },
+];
+const STATUS_TEXT: Record<Status, string> = {
+  present: 'text-green-700',
+  late: 'text-yellow-700',
+  excused: 'text-blue-700',
+  absent: 'text-red-700',
+};
+
+function SessionDialog({
+  session,
+  athletes,
+  history,
+  onClose,
+}: {
+  session: AttendanceSession;
+  athletes: Athlete[];
+  history: Map<string, { status: Status }[]>;
+  onClose: () => void;
+}) {
+  const detailQ = useAttendanceSession(session.id);
+  const saveMut = useSaveSessionRecords();
+  const updateMut = useUpdateAttendanceSession();
+
+  const [attendance, setAttendance] = useState<Record<string, Status>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const dirty = useRef<Set<string>>(new Set());
+
+  const [editMeta, setEditMeta] = useState(false);
+  const [title, setTitle] = useState(session.title);
+  const [date, setDate] = useState(session.date);
+
+  // Hydrate from what's saved for this session.
+  useEffect(() => {
+    const recs = (detailQ.data?.records ?? []) as { athleteId: string; status: Status; notes: string | null }[];
+    const a: Record<string, Status> = {};
+    const n: Record<string, string> = {};
+    for (const r of recs) {
+      a[r.athleteId] = r.status;
+      if (r.notes) n[r.athleteId] = r.notes;
+    }
+    setAttendance(a);
+    setNotes(n);
+    dirty.current.clear();
+  }, [detailQ.data]);
+
+  // Debounced auto-save of whatever changed.
+  useEffect(() => {
+    if (dirty.current.size === 0) return;
+    const t = setTimeout(() => {
+      const ids = [...dirty.current];
+      dirty.current.clear();
+      const records = ids
+        .filter((id) => attendance[id])
+        .map((id) => ({ athleteId: id, status: attendance[id], notes: notes[id] || '' }));
+      if (!records.length) return;
+      setSaveState('saving');
+      saveMut.mutate(
+        { id: session.id, records },
+        {
+          onSuccess: () => setSaveState('saved'),
+          onError: () => { setSaveState('error'); ids.forEach((id) => dirty.current.add(id)); },
+        },
+      );
+    }, 600);
+    return () => clearTimeout(t);
+  }, [attendance, notes, session.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const mark = (id: string, status: Status) => {
+    setAttendance((p) => ({ ...p, [id]: status }));
+    dirty.current.add(id);
+  };
+  const setNote = (id: string, v: string) => {
+    setNotes((p) => ({ ...p, [id]: v }));
+    dirty.current.add(id);
+  };
+
+  const saveMeta = () => {
+    if (!title.trim()) return toast.error('Title is required.');
+    updateMut.mutate(
+      { id: session.id, patch: { title: title.trim(), date } },
+      { onSuccess: () => setEditMeta(false), onError: (e: any) => toast.error(e?.message || 'Could not update.') },
+    );
+  };
+
+  const q = search.toLowerCase();
+  const roster = athletes.filter(
+    (a) =>
+      `${a.firstName} ${a.lastName}`.toLowerCase().includes(q) ||
+      a.studentId.toLowerCase().includes(q),
+  );
+  const markedCount = athletes.filter((a) => attendance[a.id]).length;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          {editMeta ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input className={inputCls} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} />
+              <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
+              <Button size="sm" onClick={saveMeta} disabled={updateMut.isPending}>Save</Button>
+              <Button size="sm" variant="outline" onClick={() => { setEditMeta(false); setTitle(session.title); setDate(session.date); }}>Cancel</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <DialogTitle className="text-left">{session.title}</DialogTitle>
+              <button onClick={() => setEditMeta(true)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Edit session">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-1 text-gray-500">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {fmtDate(session.date)}
+            </span>
+            <SaveIndicator state={saveState} count={markedCount} total={athletes.length} />
+          </div>
+        </DialogHeader>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            className={`${inputCls} pl-10`}
+            placeholder="Search athletes…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {detailQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-gray-500">Loading…</p>
+        ) : roster.length === 0 ? (
+          <div className="py-8 text-center">
+            <Users className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+            <p className="text-sm text-gray-500">{athletes.length === 0 ? 'No athletes on your roster yet.' : 'No athletes match.'}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {roster.map((a) => {
+              const { attended, denom, pct } = rateOf(history.get(a.id) ?? []);
+              const low = pct !== null && pct < 0.75;
+              const current = attendance[a.id];
+              return (
+                <div key={a.id} className="rounded-lg border p-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{a.firstName} {a.lastName}</span>
+                        {pct !== null && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                              low ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
+                            }`}
+                            title={`${attended} of ${denom} sessions attended`}
+                          >
+                            {low && <AlertTriangle className="h-3 w-3" />}
+                            {attended}/{denom} · {Math.round(pct * 100)}%
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">{a.studentId} • {a.department}</p>
+                    </div>
+                    <select
+                      className={`h-9 w-40 shrink-0 rounded-md border border-input bg-background px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        current ? STATUS_TEXT[current] : 'text-gray-400'
+                      }`}
+                      value={current ?? ''}
+                      onChange={(e) => e.target.value && mark(a.id, e.target.value as Status)}
+                    >
+                      <option value="" disabled>Not marked</option>
+                      {STATUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value} className="text-gray-900">{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {(current === 'late' || current === 'excused' || current === 'absent') && (
+                    <input
+                      className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      placeholder="Add a note (optional)"
+                      value={notes[a.id] || ''}
+                      onChange={(e) => setNote(a.id, e.target.value)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SaveIndicator({ state, count, total }: { state: string; count: number; total: number }) {
+  if (state === 'saving') return <span className="flex items-center gap-1 text-gray-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</span>;
+  if (state === 'error') return <span className="text-red-600">Save failed — change a status to retry</span>;
+  if (state === 'saved') return <span className="flex items-center gap-1 text-green-700"><Check className="h-3.5 w-3.5" /> Saved · {count}/{total}</span>;
+  return <span className="text-gray-500">{count}/{total} marked</span>;
 }

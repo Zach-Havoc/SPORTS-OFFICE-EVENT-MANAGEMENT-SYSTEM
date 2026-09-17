@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -21,9 +20,9 @@ class LoginTest extends TestCase
     public function test_login_with_correct_credentials_returns_a_token(): void
     {
         $this->users()->create([
-            'email'    => 'user@example.com',
+            'email' => 'user@example.com',
             'password' => Hash::make('correct-horse'),
-            'role'     => 'coach',
+            'role' => 'coach',
         ]);
 
         $this->postJson('/api/login', ['email' => 'user@example.com', 'password' => 'correct-horse'])
@@ -35,7 +34,7 @@ class LoginTest extends TestCase
     public function test_login_with_wrong_password_is_rejected(): void
     {
         $this->users()->create([
-            'email'    => 'user@example.com',
+            'email' => 'user@example.com',
             'password' => Hash::make('correct-horse'),
         ]);
 
@@ -60,7 +59,7 @@ class LoginTest extends TestCase
     public function test_logging_in_again_revokes_previous_tokens(): void
     {
         $user = $this->users()->create([
-            'email'    => 'user@example.com',
+            'email' => 'user@example.com',
             'password' => Hash::make('pw12345678'),
         ]);
         $user->createToken('old');
@@ -76,7 +75,7 @@ class LoginTest extends TestCase
     public function test_a_disabled_account_cannot_log_in_even_with_the_right_password(): void
     {
         $this->users()->inactive()->create([
-            'email'    => 'benched@example.com',
+            'email' => 'benched@example.com',
             'password' => Hash::make('pw12345678'),
         ]);
 
@@ -88,7 +87,7 @@ class LoginTest extends TestCase
     public function test_login_is_rate_limited_to_5_attempts_per_email_and_ip(): void
     {
         $this->users()->create([
-            'email'    => 'user@example.com',
+            'email' => 'user@example.com',
             'password' => Hash::make('pw12345678'),
         ]);
 

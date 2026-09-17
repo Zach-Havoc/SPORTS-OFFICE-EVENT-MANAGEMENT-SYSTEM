@@ -57,7 +57,7 @@ export default function Root() {
                 {isPublicRoute && (
                   <>
                     <Link to="/">
-                      <Button variant="ghost">Live Events</Button>
+                      <Button variant="ghost">Match Schedule</Button>
                     </Link>
                     <Link to="/leaderboard">
                       <Button variant="ghost">Leaderboard</Button>
@@ -115,7 +115,7 @@ export default function Root() {
                 {isPublicRoute && (
                   <>
                     <Link to="/" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full justify-start">Live Events</Button>
+                      <Button variant="ghost" className="w-full justify-start">Match Schedule</Button>
                     </Link>
                     <Link to="/leaderboard" onClick={() => setMobileMenuOpen(false)}>
                       <Button variant="ghost" className="w-full justify-start">Leaderboard</Button>

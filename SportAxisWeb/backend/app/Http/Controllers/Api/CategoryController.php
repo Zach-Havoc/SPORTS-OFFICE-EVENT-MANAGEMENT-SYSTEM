@@ -17,16 +17,20 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'        => 'required|string|unique:categories,name',
+            'name' => 'required|string|unique:categories,name',
             'description' => 'nullable|string',
-            'format'      => 'nullable|in:versus,ranked',
+            'format' => 'nullable|in:versus,ranked',
+            'parent_sport' => 'nullable|string',
+            'division' => 'nullable|string',
         ]);
 
         $category = Category::create([
-            'id'          => Str::uuid(),
-            'name'        => $request->name,
+            'id' => Str::uuid(),
+            'name' => $request->name,
             'description' => $request->description,
-            'format'      => $request->format ?: 'versus',
+            'format' => $request->format ?: 'versus',
+            'parent_sport' => $request->parent_sport,
+            'division' => $request->division,
         ]);
 
         return response()->json($category, 201);
@@ -37,18 +41,22 @@ class CategoryController extends Controller
         $category = Category::findOrFail($id);
 
         $request->validate([
-            'name'        => 'required|string|unique:categories,name,' . $id . ',id',
+            'name' => 'required|string|unique:categories,name,'.$id.',id',
             'description' => 'nullable|string',
-            'format'      => 'nullable|in:versus,ranked',
+            'format' => 'nullable|in:versus,ranked',
+            'parent_sport' => 'nullable|string',
+            'division' => 'nullable|string',
         ]);
 
-        $category->update($request->only('name', 'description', 'format'));
+        $category->update($request->only('name', 'description', 'format', 'parent_sport', 'division'));
+
         return response()->json($category);
     }
 
     public function destroy(string $id)
     {
         Category::findOrFail($id)->delete();
+
         return response()->json(['message' => 'Category deleted']);
     }
 }

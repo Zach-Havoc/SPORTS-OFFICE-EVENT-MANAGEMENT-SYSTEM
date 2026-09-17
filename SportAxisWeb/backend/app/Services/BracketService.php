@@ -53,19 +53,20 @@ class BracketService
             throw ValidationException::withMessages(['participants' => ['Select at least 2 participants.']]);
         }
 
-        $format   = $cfg['format'] ?? 'single_elimination';
-        $sport    = $cfg['sport'];
+        $format = $cfg['format'] ?? 'single_elimination';
+        $sport = $cfg['sport'];
         $settings = [
-            'startDate'     => $cfg['startDate'] ?? now()->toDateString(),
-            'startTime'     => $cfg['startTime'] ?? '09:00',
+            'startDate' => $cfg['startDate'] ?? now()->toDateString(),
+            'startTime' => $cfg['startTime'] ?? '09:00',
             'matchDuration' => (int) ($cfg['matchDuration'] ?? 60),
             'breakDuration' => (int) ($cfg['breakDuration'] ?? 15),
-            'venueId'       => $cfg['venueId'] ?? null,
+            'venueId' => $cfg['venueId'] ?? null,
         ];
 
         // How the field is ordered before the standard serpentine slotting:
         //   standings — best record first (#1 vs the lowest seed)
-        //   random    — shuffled draw
+        //   random    — the draw the admin already previewed and shuffled
+        //               client-side; the backend trusts that order as-is
         //   manual    — the order the admin chose them in (default)
         $method = $cfg['drawMethod'] ?? (! empty($cfg['seedFromStandings']) ? 'standings' : 'manual');
         $seeded = false;
@@ -73,19 +74,20 @@ class BracketService
             if ($method === 'standings') {
                 $participants = $this->orderBySeed($participants, $sport);
                 $seeded = true;
-            } elseif ($method === 'random') {
-                shuffle($participants);
             }
+            // 'random' and 'manual' both fall through unchanged: re-shuffling
+            // here would create a bracket different from the one the admin
+            // previewed and approved on the frontend.
         }
 
         $bracket = Bracket::create([
-            'id'         => (string) Str::uuid(),
-            'sport'      => $sport,
-            'format'     => $format,
-            'name'       => "{$sport} — " . ($format === 'round_robin' ? 'Round Robin' : 'Elimination'),
-            'status'     => 'draft',
-            'seeded'     => $seeded,
-            'settings'   => $settings,
+            'id' => (string) Str::uuid(),
+            'sport' => $sport,
+            'format' => $format,
+            'name' => "{$sport} — ".($format === 'round_robin' ? 'Round Robin' : 'Elimination'),
+            'status' => 'draft',
+            'seeded' => $seeded,
+            'settings' => $settings,
             'created_by' => $userId,
         ]);
 
@@ -115,7 +117,7 @@ class BracketService
         );
 
         $cursor = $this->startCursor($settings);
-        $step   = ($settings['matchDuration'] + $settings['breakDuration']);
+        $step = ($settings['matchDuration'] + $settings['breakDuration']);
 
         // Create every node first (so parents exist for wiring), round by round.
         $byRound = [];
@@ -132,19 +134,19 @@ class BracketService
                 }
 
                 $bm = BracketMatch::create([
-                    'id'             => (string) Str::uuid(),
-                    'bracket_id'     => $bracket->id,
-                    'round'          => $round,
-                    'slot'           => $slot,
-                    'stage_label'    => $this->stageLabel($round, $rounds),
-                    'home_team'      => $home,
-                    'away_team'      => $away,
-                    'is_bye'         => $isBye,
-                    'status'         => 'pending',
+                    'id' => (string) Str::uuid(),
+                    'bracket_id' => $bracket->id,
+                    'round' => $round,
+                    'slot' => $slot,
+                    'stage_label' => $this->stageLabel($round, $rounds),
+                    'home_team' => $home,
+                    'away_team' => $away,
+                    'is_bye' => $isBye,
+                    'status' => 'pending',
                     'scheduled_date' => $cursor->toDateString(),
                     'scheduled_time' => $cursor->format('H:i'),
-                    'venue_id'       => $settings['venueId'],
-                    'venue_name'     => $this->venueName($settings['venueId']),
+                    'venue_id' => $settings['venueId'],
+                    'venue_name' => $this->venueName($settings['venueId']),
                 ]);
 
                 $byRound[$round][$slot] = $bm;
@@ -158,7 +160,7 @@ class BracketService
             foreach ($slots2 as $slot => $bm) {
                 if ($round < $rounds) {
                     $parent = $byRound[$round + 1][intdiv($slot, 2)];
-                    $bm->next_match_id   = $parent->id;
+                    $bm->next_match_id = $parent->id;
                     $bm->next_match_slot = $slot % 2 === 0 ? 'home' : 'away';
                 }
                 if ($round > 1) {
@@ -181,27 +183,27 @@ class BracketService
     private function buildRoundRobin(Bracket $bracket, array $participants, array $settings): void
     {
         $cursor = $this->startCursor($settings);
-        $step   = ($settings['matchDuration'] + $settings['breakDuration']);
+        $step = ($settings['matchDuration'] + $settings['breakDuration']);
         [$sh, $sm] = array_map('intval', explode(':', $settings['startTime']));
         $round = 1;
-        $slot  = 0;
+        $slot = 0;
         $n = count($participants);
 
         for ($i = 0; $i < $n; $i++) {
             for ($j = $i + 1; $j < $n; $j++) {
                 BracketMatch::create([
-                    'id'             => (string) Str::uuid(),
-                    'bracket_id'     => $bracket->id,
-                    'round'          => $round,
-                    'slot'           => $slot++,
-                    'stage_label'    => "Round {$round}",
-                    'home_team'      => $participants[$i],
-                    'away_team'      => $participants[$j],
-                    'status'         => 'ready',
+                    'id' => (string) Str::uuid(),
+                    'bracket_id' => $bracket->id,
+                    'round' => $round,
+                    'slot' => $slot++,
+                    'stage_label' => "Round {$round}",
+                    'home_team' => $participants[$i],
+                    'away_team' => $participants[$j],
+                    'status' => 'ready',
                     'scheduled_date' => $cursor->toDateString(),
                     'scheduled_time' => $cursor->format('H:i'),
-                    'venue_id'       => $settings['venueId'],
-                    'venue_name'     => $this->venueName($settings['venueId']),
+                    'venue_id' => $settings['venueId'],
+                    'venue_name' => $this->venueName($settings['venueId']),
                 ]);
 
                 $cursor = $cursor->copy()->addMinutes($step);
@@ -217,7 +219,7 @@ class BracketService
     // ── Publish: turn every match into a scheduled Event ─────────────────
 
     /**
-     * @return array{conflicts: array<int, array<string,mixed>>}  empty conflicts = published
+     * @return array{conflicts: array<int, array<string,mixed>>} empty conflicts = published
      */
     public function publish(Bracket $bracket): array
     {
@@ -254,23 +256,23 @@ class BracketService
     private function syncEvent(Bracket $bracket, BracketMatch $bm): void
     {
         $payload = [
-            'name'        => $this->eventName($bracket, $bm),
-            'category'    => $bracket->sport,
-            'schedule'    => $bm->scheduled_date,
-            'start_time'  => $bm->scheduled_time,
-            'end_time'    => $this->endTime($bm->scheduled_time, $bracket->settings['matchDuration'] ?? 60),
-            'venue_id'    => $bm->venue_id,
-            'venue_name'  => $bm->venue_name,
+            'name' => $this->eventName($bracket, $bm),
+            'category' => $bracket->sport,
+            'schedule' => $bm->scheduled_date,
+            'start_time' => $bm->scheduled_time,
+            'end_time' => $this->endTime($bm->scheduled_time, $bracket->settings['matchDuration'] ?? 60),
+            'venue_id' => $bm->venue_id,
+            'venue_name' => $bm->venue_name,
             'departments' => array_values(array_filter([$bm->home_team, $bm->away_team])),
-            'criteria'    => [],
-            'status'      => 'upcoming',
+            'criteria' => [],
+            'status' => 'upcoming',
         ];
 
         if ($bm->event_id && ($event = Event::find($bm->event_id))) {
             $event->update($payload);
         } else {
             $event = Event::create($payload + [
-                'id'       => (string) Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'qr_token' => Str::random(32),
             ]);
             $bm->event_id = $event->id;
@@ -298,7 +300,7 @@ class BracketService
         }
 
         $bm->winner = $winner;
-        $bm->loser  = $winner === $bm->home_team ? $bm->away_team : $bm->home_team;
+        $bm->loser = $winner === $bm->home_team ? $bm->away_team : $bm->home_team;
         $bm->save();
 
         // Rebuild the whole tree from the decided matches. Deterministic — a
@@ -309,6 +311,33 @@ class BracketService
     }
 
     /**
+     * A bracket match's scheduled Event just got a final result — advance the
+     * bracket automatically. Called from the scoring / live-score paths. Silent
+     * and idempotent: no linked bracket match, an unplayable state, or a result
+     * that's already recorded → nothing happens.
+     */
+    public function advanceFromEvent(string $eventId): void
+    {
+        $bm = BracketMatch::where('event_id', $eventId)->first();
+        if (! $bm || $bm->is_bye || ! $bm->bothTeamsKnown()) {
+            return;
+        }
+
+        try {
+            $winner = $this->resolveWinner($bm);
+            if (! in_array($winner, [$bm->home_team, $bm->away_team], true)) {
+                return; // no usable result yet (e.g. a draw)
+            }
+            if ($bm->status === 'completed' && $bm->winner === $winner) {
+                return; // already advanced with this result
+            }
+            $this->advance($bm, $winner, force: true);
+        } catch (\Throwable $e) {
+            \Log::warning('Bracket auto-advance skipped: '.$e->getMessage(), ['event_id' => $eventId]);
+        }
+    }
+
+    /**
      * Recompute every derived slot, every match status, and the champion from
      * the set of matches that currently have a `winner`. Safe to call after any
      * change (a first result, a correction, or a re-publish).
@@ -316,8 +345,8 @@ class BracketService
     public function resolve(Bracket $bracket): void
     {
         $bracket->load('matches');
-        $matches   = $bracket->matches->keyBy('id');
-        $maxRound  = (int) ($matches->max('round') ?? 0);
+        $matches = $bracket->matches->keyBy('id');
+        $maxRound = (int) ($matches->max('round') ?? 0);
 
         // Pass 1: clear derived (round > 1) team slots; settle byes.
         foreach ($matches as $m) {
@@ -327,7 +356,7 @@ class BracketService
             }
             if ($m->is_bye) {
                 $m->winner = $m->home_team ?? $m->away_team;
-                $m->loser  = null;
+                $m->loser = null;
                 $m->status = 'completed';
             }
         }
@@ -337,14 +366,14 @@ class BracketService
             foreach ($matches->where('round', $r)->sortBy('slot') as $m) {
                 if (! $m->is_bye) {
                     $bothKnown = $m->home_team !== null && $m->away_team !== null;
-                    $decided   = $bothKnown && in_array($m->winner, [$m->home_team, $m->away_team], true);
+                    $decided = $bothKnown && in_array($m->winner, [$m->home_team, $m->away_team], true);
 
                     if ($decided) {
-                        $m->loser  = $m->winner === $m->home_team ? $m->away_team : $m->home_team;
+                        $m->loser = $m->winner === $m->home_team ? $m->away_team : $m->home_team;
                         $m->status = 'completed';
                     } else {
                         $m->winner = null;
-                        $m->loser  = null;
+                        $m->loser = null;
                         $m->status = $bothKnown
                             ? ($m->event_id ? 'scheduled' : 'ready')
                             : 'pending';
@@ -370,7 +399,7 @@ class BracketService
 
             if ($m->event_id && ($event = Event::find($m->event_id))) {
                 $event->update([
-                    'name'        => $this->eventName($bracket, $m),
+                    'name' => $this->eventName($bracket, $m),
                     'departments' => array_values(array_filter([$m->home_team, $m->away_team])),
                 ]);
             }
@@ -382,7 +411,7 @@ class BracketService
 
         $bracket->update([
             'champion' => $champion,
-            'status'   => $champion ? 'completed' : ($bracket->status === 'draft' ? 'draft' : 'active'),
+            'status' => $champion ? 'completed' : ($bracket->status === 'draft' ? 'draft' : 'active'),
         ]);
     }
 

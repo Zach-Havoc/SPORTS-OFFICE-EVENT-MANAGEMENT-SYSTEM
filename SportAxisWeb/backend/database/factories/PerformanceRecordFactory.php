@@ -14,17 +14,17 @@ class PerformanceRecordFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'             => (string) Str::uuid(),
-            'athlete_id'     => (string) Str::uuid(),
-            'athlete_name'   => fake()->name(),
-            'event_id'       => null,
-            'event_name'     => null,
-            'sport'          => 'Basketball',
-            'metrics'        => ['points' => 10],
+            'id' => (string) Str::uuid(),
+            'athlete_id' => (string) Str::uuid(),
+            'athlete_name' => fake()->name(),
+            'event_id' => null,
+            'event_name' => null,
+            'sport' => 'Basketball',
+            'metrics' => ['points' => 10],
             'overall_rating' => 7,
-            'coach_notes'    => fake()->sentence(),
-            'recorded_by'    => (string) Str::uuid(),
-            'recorded_at'    => now(),
+            'coach_notes' => fake()->sentence(),
+            'recorded_by' => (string) Str::uuid(),
+            'recorded_at' => now(),
         ];
     }
 }

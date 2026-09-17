@@ -14,8 +14,8 @@ class CategoryFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'          => (string) Str::uuid(),
-            'name'        => fake()->unique()->randomElement(['Basketball', 'Volleyball', 'Badminton', 'Football', 'Swimming', 'Chess']),
+            'id' => (string) Str::uuid(),
+            'name' => fake()->unique()->randomElement(['Basketball', 'Volleyball', 'Badminton', 'Football', 'Swimming', 'Chess']),
             'description' => fake()->sentence(),
         ];
     }

@@ -24,7 +24,7 @@ class ScoreRankingTest extends TestCase
     private function scorePayload(string $eventId, array $overrides = []): array
     {
         return array_merge([
-            'eventId'    => $eventId,
+            'eventId' => $eventId,
             'department' => 'College of Engineering',
             'totalScore' => 85,
         ], $overrides);
@@ -58,9 +58,9 @@ class ScoreRankingTest extends TestCase
             ->assertJsonFragment(['message' => 'Score submitted successfully.']);
 
         $this->assertDatabaseHas('scores', [
-            'event_id'   => $event->id,
+            'event_id' => $event->id,
             'department' => 'College of Engineering',
-            'judge_id'   => $judge->id,     // taken from the token
+            'judge_id' => $judge->id,     // taken from the token
             'judge_name' => 'Judge Judy',   // defaulted from the user
         ]);
     }
@@ -71,7 +71,7 @@ class ScoreRankingTest extends TestCase
         $event = $this->events()->ongoing()->create();
 
         $this->postJson('/api/scores', $this->scorePayload($event->id, [
-            'judgeId'   => 'some-other-judge-id',
+            'judgeId' => 'some-other-judge-id',
             'judgeName' => 'Fake Name',
         ]))->assertCreated();
 

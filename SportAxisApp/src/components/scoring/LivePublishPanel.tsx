@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../ui/Icon';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
@@ -21,7 +21,11 @@ interface Props {
 type Sync = 'idle' | 'saving' | 'saved' | 'offline' | 'error';
 
 export function LivePublishPanel({ event }: Props) {
-  const accent = getSportConfigFromEvent(event.category, event.name).color;
+  const sportCfg = getSportConfigFromEvent(event.category, event.name);
+  const accent = sportCfg.color;
+  // Table Tennis / Tennis are scored as GAMES WON; the Committee sets Best-of-2
+  // / -3. Badminton keeps the plain running-score panel.
+  const isRacquet = sportCfg.type === 'table-tennis' || sportCfg.type === 'tennis';
   const abbr = useDeptAbbreviator();
   const { isConnected } = useNetwork();
 
@@ -36,8 +40,11 @@ export function LivePublishPanel({ event }: Props) {
   const [version, setVersion] = useState(0);
   const [sync, setSync]       = useState<Sync>('idle');
   const [loaded, setLoaded]   = useState(false);
+  // Best-of default: a Final is BO3, anything else BO2 — Committee can change it.
+  const [bestOf, setBestOf]   = useState<2 | 3>(/final/i.test(event.name ?? '') ? 3 : 2);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailRef = useRef<Record<string, unknown>>({});
 
   const adopt = useCallback((ls: LiveScore) => {
     setHome(ls.homeScore);
@@ -45,6 +52,9 @@ export function LivePublishPanel({ event }: Props) {
     setPeriod(ls.period ?? '');
     setStatus(ls.status);
     setVersion(ls.version);
+    detailRef.current = ls.detail ?? {};
+    const b = (ls.detail as any)?.bestOf;
+    if (b === 2 || b === 3) setBestOf(b);
   }, []);
 
   // Load any existing live score once.
@@ -80,6 +90,7 @@ export function LivePublishPanel({ event }: Props) {
           period: next.period || null,
           status: next.status,
           version,
+          ...(isRacquet ? { detail: { ...detailRef.current, bestOf } } : {}),
         });
         adopt(ls);
         setSync('saved');
@@ -96,8 +107,14 @@ export function LivePublishPanel({ event }: Props) {
         }
       }
     },
-    [event.id, homeTeam, awayTeam, version, isConnected, adopt],
+    [event.id, homeTeam, awayTeam, version, isConnected, adopt, isRacquet, bestOf],
   );
+
+  const changeBestOf = (v: 2 | 3) => {
+    setBestOf(v);
+    detailRef.current = { ...detailRef.current, bestOf: v };
+    if (status !== 'scheduled') push({ home, away, period, status });
+  };
 
   const scheduleSave = useCallback(
     (h: number, a: number, p: string, s: LiveStatus) => {
@@ -193,10 +210,31 @@ export function LivePublishPanel({ event }: Props) {
 
       {/* Score */}
       <View style={styles.scoreRow}>
-        <ScoreBlock team={abbr(homeTeam)} value={home} accent={accent} locked={locked} onBump={(d) => bump('home', d)} />
+        <ScoreBlock team={abbr(homeTeam)} value={home} accent={accent} locked={locked} onBump={(d) => bump('home', d)} caption={isRacquet ? 'GAMES' : undefined} />
         <Text style={styles.dash}>–</Text>
-        <ScoreBlock team={abbr(awayTeam)} value={away} accent={accent} locked={locked} onBump={(d) => bump('away', d)} />
+        <ScoreBlock team={abbr(awayTeam)} value={away} accent={accent} locked={locked} onBump={(d) => bump('away', d)} caption={isRacquet ? 'GAMES' : undefined} />
       </View>
+
+      {/* Best-of (Table Tennis / Tennis) — Committee sets the match length */}
+      {isRacquet && (
+        <View style={styles.bestOfRow}>
+          <Text style={styles.periodLabel}>Best of</Text>
+          <View style={styles.segment}>
+            {([2, 3] as const).map((v) => (
+              <TouchableOpacity
+                key={v}
+                disabled={locked}
+                onPress={() => changeBestOf(v)}
+                style={[styles.segmentBtn, bestOf === v && { backgroundColor: accent }]}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.segmentText, bestOf === v && { color: '#fff' }]}>BO{v}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.bestOfHint}>First to 2 games wins</Text>
+        </View>
+      )}
 
       {/* Period + actions */}
       {!locked && (
@@ -215,14 +253,14 @@ export function LivePublishPanel({ event }: Props) {
 
       {status === 'scheduled' && (
         <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: accent }]} onPress={start} activeOpacity={0.85}>
-          <Ionicons name="play" size={18} color="#fff" />
+          <Icon name="play" size={18} color="#fff" />
           <Text style={styles.primaryBtnText}>Start Live</Text>
         </TouchableOpacity>
       )}
 
       {status === 'in_progress' && (
         <TouchableOpacity style={[styles.outlineBtn, { borderColor: accent }]} onPress={finalize} activeOpacity={0.85}>
-          <Ionicons name="flag" size={16} color={accent} />
+          <Icon name="flag" size={16} color={accent} />
           <Text style={[styles.outlineBtnText, { color: accent }]}>Finalize Game</Text>
         </TouchableOpacity>
       )}
@@ -246,21 +284,22 @@ export function LivePublishPanel({ event }: Props) {
 }
 
 function ScoreBlock({
-  team, value, accent, locked, onBump,
+  team, value, accent, locked, onBump, caption,
 }: {
-  team: string; value: number; accent: string; locked: boolean; onBump: (d: number) => void;
+  team: string; value: number; accent: string; locked: boolean; onBump: (d: number) => void; caption?: string;
 }) {
   return (
     <View style={styles.block}>
       <Text style={styles.blockTeam} numberOfLines={1}>{team}</Text>
+      {caption && <Text style={styles.blockCaption}>{caption}</Text>}
       <Text style={[styles.blockScore, { color: accent }]}>{value}</Text>
       {!locked && (
         <View style={styles.stepRow}>
           <TouchableOpacity style={[styles.stepBtn, { borderColor: `${accent}40` }]} onPress={() => onBump(-1)} accessibilityLabel={`${team} minus one`}>
-            <Ionicons name="remove" size={18} color={accent} />
+            <Icon name="minus" size={18} color={accent} strokeWidth={2.6} />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.stepBtn, { borderColor: `${accent}40` }]} onPress={() => onBump(1)} accessibilityLabel={`${team} plus one`}>
-            <Ionicons name="add" size={18} color={accent} />
+            <Icon name="plus" size={18} color={accent} strokeWidth={2.6} />
           </TouchableOpacity>
         </View>
       )}
@@ -275,7 +314,7 @@ function SyncChip({ sync, onRetry }: { sync: Sync; onRetry: () => void }) {
   if (sync === 'error') return <Text style={[styles.syncMuted, { color: COLORS.error }]}>Save failed</Text>;
   return (
     <TouchableOpacity onPress={onRetry} style={styles.retryChip}>
-      <Ionicons name="cloud-offline-outline" size={12} color={COLORS.warning} />
+      <Icon name="cloud-off" size={12} color={COLORS.warning} strokeWidth={2.2} />
       <Text style={styles.retryText}>Offline · Retry</Text>
     </TouchableOpacity>
   );
@@ -320,6 +359,13 @@ const styles = StyleSheet.create({
 
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   periodLabel: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textSecondary, textTransform: 'uppercase' },
+  blockCaption: { fontSize: 9, fontWeight: FONT_WEIGHT.bold, color: COLORS.textMuted, letterSpacing: 0.6 },
+
+  bestOfRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  segment: { flexDirection: 'row', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, overflow: 'hidden' },
+  segmentBtn: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, backgroundColor: COLORS.surface },
+  segmentText: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textSecondary },
+  bestOfHint: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, flex: 1 },
   periodInput: {
     flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, fontSize: FONT_SIZE.sm,

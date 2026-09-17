@@ -14,17 +14,17 @@ class RequirementFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'           => (string) Str::uuid(),
-            'athlete_id'   => (string) Str::uuid(),
+            'id' => (string) Str::uuid(),
+            'athlete_id' => (string) Str::uuid(),
             'athlete_name' => fake()->name(),
-            'type'         => 'waiver',
-            'name'         => 'Signed Waiver',
-            'description'  => fake()->sentence(),
-            'file_url'     => '/storage/requirements/' . Str::uuid() . '.pdf',
-            'status'       => 'pending',
-            'notes'        => null,
-            'reviewed_by'  => null,
-            'reviewed_at'  => null,
+            'type' => 'waiver',
+            'name' => 'Signed Waiver',
+            'description' => fake()->sentence(),
+            'file_url' => '/storage/requirements/'.Str::uuid().'.pdf',
+            'status' => 'pending',
+            'notes' => null,
+            'reviewed_by' => null,
+            'reviewed_at' => null,
             'submitted_at' => now(),
         ];
     }

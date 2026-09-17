@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Venue extends Model
 {
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -15,7 +16,7 @@ class Venue extends Model
     ];
 
     protected $casts = [
-        'sports'   => 'array',
+        'sports' => 'array',
         'capacity' => 'integer',
     ];
 }

@@ -16,6 +16,7 @@ class SiteSlide extends Model
     protected $table = 'site_slides';
 
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -24,7 +25,7 @@ class SiteSlide extends Model
     ];
 
     protected $casts = [
-        'active'     => 'boolean',
+        'active' => 'boolean',
         'sort_order' => 'integer',
     ];
 
@@ -37,14 +38,14 @@ class SiteSlide extends Model
     public function toApiFormat(): array
     {
         return [
-            'id'        => $this->id,
-            'type'      => $this->type,
-            'title'     => $this->title,
-            'caption'   => $this->caption,
-            'imageUrl'  => $this->imageUrl(),
-            'linkUrl'   => $this->link_url,
+            'id' => $this->id,
+            'type' => $this->type,
+            'title' => $this->title,
+            'caption' => $this->caption,
+            'imageUrl' => $this->imageUrl(),
+            'linkUrl' => $this->link_url,
             'sortOrder' => $this->sort_order,
-            'active'    => $this->active,
+            'active' => $this->active,
             'createdAt' => $this->created_at,
         ];
     }

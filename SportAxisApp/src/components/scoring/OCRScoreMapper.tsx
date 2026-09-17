@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../ui/Icon';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
@@ -22,17 +22,21 @@ import { Button } from '../ui/Button';
 
 interface OCRScoreMapperProps {
   onConfirm: (totalScore: number, imageUri: string) => void;
-  onCancel:  () => void;
+  // A photo may already be captured and stored server-side even when the
+  // judge backs out to manual entry (OCR misread it, or they just prefer to
+  // type it themselves) — pass it along so that evidence isn't discarded.
+  onCancel:  (imageUri?: string | null) => void;
 }
 
 type OcrStep = 'capture' | 'processing' | 'review' | 'error';
 
 export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
-  const [step,         setStep]         = useState<OcrStep>('capture');
-  const [imageUri,     setImageUri]     = useState<string | null>(null);
-  const [ocrResult,    setOcrResult]    = useState<OcrResult | null>(null);
-  const [editedScore,  setEditedScore]  = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [step,            setStep]            = useState<OcrStep>('capture');
+  const [imageUri,        setImageUri]        = useState<string | null>(null);
+  const [serverImageUrl,  setServerImageUrl]  = useState<string | null>(null);
+  const [ocrResult,       setOcrResult]       = useState<OcrResult | null>(null);
+  const [editedScore,     setEditedScore]     = useState('');
+  const [errorMessage,    setErrorMessage]    = useState<string | null>(null);
 
   const processImage = async (asset: ImagePicker.ImagePickerAsset) => {
     setImageUri(asset.uri);
@@ -43,12 +47,17 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
 
       const ocrData = await ocrService.extractScore(imagePayload);
       setOcrResult(ocrData);
+      setServerImageUrl(ocrData.image_url ?? null);
 
       const clamped = Math.max(0, Math.min(100, ocrData.total_score));
       setEditedScore(String(clamped));
       setStep('review');
     } catch (error: any) {
       console.error('OCR extraction error:', error);
+      // The photo is still stored server-side even when OCR can't read a
+      // score from it (see OcrController) — keep that reference so it isn't
+      // orphaned if the judge falls back to entering the score manually.
+      setServerImageUrl(error.response?.data?.image_url ?? null);
       setErrorMessage(error.response?.data?.error ?? error.message ?? 'OCR extraction failed. Please try again.');
       setStep('error');
     }
@@ -98,7 +107,7 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
       Alert.alert('Invalid Score', 'Enter a number from 0 to 100.');
       return;
     }
-    onConfirm(value, imageUri);
+    onConfirm(value, serverImageUrl ?? imageUri);
   };
 
   const confidenceColor =
@@ -114,7 +123,7 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Ionicons name="camera" size={24} color={COLORS.ocr} style={{ marginRight: 8 }} />
+            <Icon name="camera" size={22} color={COLORS.ocr} />
             <Text style={styles.title}>OCR Score Capture</Text>
           </View>
           <Text style={styles.subtitle}>
@@ -123,14 +132,14 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
         </View>
 
         <View style={styles.cameraPlaceholder}>
-          <Ionicons name="aperture" size={64} color={COLORS.ocr} />
+          <Icon name="camera" size={56} color={COLORS.ocr} strokeWidth={1.6} />
           <Text style={styles.cameraHint}>Position score sheet in frame</Text>
         </View>
 
         <View style={styles.actions}>
           <Button label="Capture with Camera" onPress={handleCapture} variant="ocr" size="lg" fullWidth />
           <Button label="Choose from Gallery" onPress={handlePickGallery} variant="secondary" size="md" fullWidth />
-          <Button label="Cancel" onPress={onCancel} variant="ghost" size="md" fullWidth />
+          <Button label="Cancel" onPress={() => onCancel()} variant="ghost" size="md" fullWidth />
         </View>
       </View>
     );
@@ -139,7 +148,7 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
   if (step === 'processing') {
     return (
       <View style={styles.processingContainer}>
-        <Ionicons name="search" size={64} color={COLORS.ocr} />
+        <Icon name="search" size={56} color={COLORS.ocr} strokeWidth={1.6} />
         <Text style={styles.processingTitle}>Extracting Score...</Text>
         <Text style={styles.processingSubtitle}>Analysing image with OCR</Text>
         {imageUri && (
@@ -153,13 +162,13 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
     return (
       <View style={styles.container}>
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle" size={40} color={COLORS.error} />
+          <Icon name="alert-circle" size={36} color={COLORS.error} strokeWidth={2} />
           <Text style={styles.errorTitle}>OCR Failed</Text>
           <Text style={styles.errorMessage}>{errorMessage}</Text>
         </View>
         <View style={styles.actions}>
           <Button label="Try Again" onPress={() => setStep('capture')} variant="primary" size="lg" fullWidth />
-          <Button label="Enter Manually" onPress={onCancel} variant="ghost" size="md" fullWidth />
+          <Button label="Enter Manually" onPress={() => onCancel(serverImageUrl)} variant="ghost" size="md" fullWidth />
         </View>
       </View>
     );
@@ -186,7 +195,7 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
       )}
 
       <View style={styles.editHint}>
-        <Ionicons name="pencil" size={14} color={COLORS.ocr} style={{ marginRight: 4 }} />
+        <Icon name="pencil" size={13} color={COLORS.ocr} />
         <Text style={styles.editHintText}>Tap the score box to adjust the extracted value</Text>
       </View>
 
@@ -206,7 +215,7 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
       <View style={styles.actions}>
         <Button label="Confirm & Use This Score" onPress={handleConfirm} variant="primary" size="lg" fullWidth />
         <Button label="Recapture Image" onPress={() => setStep('capture')} variant="secondary" size="md" fullWidth />
-        <Button label="Enter Manually Instead" onPress={onCancel} variant="ghost" size="md" fullWidth />
+        <Button label="Enter Manually Instead" onPress={() => onCancel(serverImageUrl)} variant="ghost" size="md" fullWidth />
       </View>
     </ScrollView>
   );

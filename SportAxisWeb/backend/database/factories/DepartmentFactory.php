@@ -13,11 +13,11 @@ class DepartmentFactory extends Factory
 
     public function definition(): array
     {
-        $name = 'College of ' . fake()->unique()->word();
+        $name = 'College of '.fake()->unique()->word();
 
         return [
-            'id'           => (string) Str::uuid(),
-            'name'         => ucwords($name),
+            'id' => (string) Str::uuid(),
+            'name' => ucwords($name),
             'abbreviation' => strtoupper(Str::substr(str_replace(' ', '', $name), 0, 4)),
         ];
     }

@@ -27,9 +27,9 @@ return [
     |
     */
 
-    'api_per_minute'       => (int) env('API_RATE_LIMIT', 600),
-    'login_per_minute'     => (int) env('LOGIN_RATE_LIMIT', 5),
-    'login_ip_per_minute'  => (int) env('LOGIN_IP_RATE_LIMIT', 20),
+    'api_per_minute' => (int) env('API_RATE_LIMIT', 600),
+    'login_per_minute' => (int) env('LOGIN_RATE_LIMIT', 5),
+    'login_ip_per_minute' => (int) env('LOGIN_IP_RATE_LIMIT', 20),
     'sensitive_per_minute' => (int) env('SENSITIVE_RATE_LIMIT', 10),
 
 ];

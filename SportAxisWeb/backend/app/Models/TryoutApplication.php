@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class TryoutApplication extends Model
 {
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [

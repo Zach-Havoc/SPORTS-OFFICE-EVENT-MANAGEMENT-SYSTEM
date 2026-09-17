@@ -28,6 +28,8 @@ interface BMatch {
   eventId: string | null;
   homeScore: number | null;
   awayScore: number | null;
+  homeLabel?: string | null;
+  awayLabel?: string | null;
   scored: boolean;
   nextMatchId: string | null;
 }
@@ -131,8 +133,8 @@ function MatchCard({ m, onAdvance, busy }: { m: BMatch; onAdvance: Advance; busy
         </div>
 
         <div className="space-y-1 text-sm">
-          <TeamRow name={m.homeTeam} label={short(m.homeTeam)} isWinner={!!m.winner && m.winner === m.homeTeam} score={m.homeScore} />
-          <TeamRow name={m.awayTeam} label={short(m.awayTeam)} isWinner={!!m.winner && m.winner === m.awayTeam} score={m.awayScore} />
+          <TeamRow name={m.homeTeam} label={m.homeLabel || short(m.homeTeam)} isWinner={!!m.winner && m.winner === m.homeTeam} score={m.homeScore} />
+          <TeamRow name={m.awayTeam} label={m.awayLabel || short(m.awayTeam)} isWinner={!!m.winner && m.winner === m.awayTeam} score={m.awayScore} />
         </div>
 
         {m.status === 'completed' && !m.isBye && !m.scored && m.homeScore === null && (

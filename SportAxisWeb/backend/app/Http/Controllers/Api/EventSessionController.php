@@ -25,33 +25,37 @@ class EventSessionController extends Controller
     {
         $event = Event::where('qr_token', $qrToken)->first();
 
-        if (!$event) {
+        if (! $event) {
             return response()->json([
                 'error' => 'Invalid QR code. No event found for this token.',
-                'code'  => 'INVALID_QR_TOKEN',
+                'code' => 'INVALID_QR_TOKEN',
             ], 404);
         }
 
         if ($event->status === 'completed') {
             return response()->json([
                 'error' => 'This event has already been completed.',
-                'code'  => 'EVENT_COMPLETED',
+                'code' => 'EVENT_COMPLETED',
             ], 422);
         }
 
         return response()->json([
             'event' => [
-                'id'          => $event->id,
-                'name'        => $event->name,
-                'category'    => $event->category,
-                'schedule'    => $event->schedule,
-                'startTime'   => $event->start_time,
-                'endTime'     => $event->end_time,
-                'venueName'   => $event->venue_name,
+                'id' => $event->id,
+                'name' => $event->name,
+                'category' => $event->category,
+                'schedule' => $event->schedule,
+                'startTime' => $event->start_time,
+                'endTime' => $event->end_time,
+                'venueName' => $event->venue_name,
                 'departments' => $event->departments ?? [],
-                'judges'      => $event->judges ?? [],
-                'status'      => $event->status,
-                'qrToken'     => $event->qr_token,
+                // Public endpoint: expose only what the scoring screen needs to
+                // show, never a judge's contact details.
+                'judges' => collect($event->judges ?? [])
+                    ->map(fn ($j) => ['id' => $j['id'] ?? null, 'name' => $j['name'] ?? null])
+                    ->values(),
+                'status' => $event->status,
+                'qrToken' => $event->qr_token,
             ],
         ]);
     }

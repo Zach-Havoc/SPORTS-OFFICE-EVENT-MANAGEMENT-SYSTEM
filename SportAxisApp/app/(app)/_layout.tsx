@@ -1,170 +1,127 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '../../constants/theme';
+import { COLORS, SPACING, TYPE } from '../../constants/theme';
+import { Icon, type IconName } from '../../src/components/ui/Icon';
 import { useNetwork } from '../../src/hooks/use-network';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOfflineStore } from '../../src/store/offline.store';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// App Layout — BatStateU red tab bar, connection indicator, offline pill
+// App Layout — white tab bar + header, BatStateU-red active state.
 // ─────────────────────────────────────────────────────────────────────────────
 
+function TabIcon({ name, focused }: { name: IconName; focused: boolean }) {
+  return (
+    <View style={styles.tabIcon}>
+      <Icon
+        name={name}
+        size={24}
+        color={focused ? COLORS.primary : COLORS.textMuted}
+        strokeWidth={focused ? 2.4 : 1.9}
+      />
+      <View style={[styles.tabDot, focused && styles.tabDotOn]} />
+    </View>
+  );
+}
+
+function Brand() {
+  return (
+    <View style={styles.brand}>
+      <View style={styles.brandDot} />
+      <Text style={styles.brandText}>SportAxis</Text>
+    </View>
+  );
+}
+
 export default function AppLayout() {
-  const router     = useRouter();
-  const token      = useAuthStore((s) => s.token);
+  const router = useRouter();
+  const token = useAuthStore((s) => s.token);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const { isConnected } = useNetwork();
-  const pendingCount    = useOfflineStore((s) =>
-    s.queue.filter((i) => i.status === 'pending').length,
-  );
+  const pendingCount = useOfflineStore((s) => s.queue.filter((i) => i.status === 'pending').length);
 
   useEffect(() => {
-    if (isHydrated && !token) {
-      router.replace('/(auth)/login');
-    }
+    if (isHydrated && !token) router.replace('/(auth)/login');
   }, [isHydrated, token]);
 
   return (
     <Tabs
       screenOptions={{
-        headerShown:          true,
-        // White header with red tint — matches web top nav
-        headerStyle:          { backgroundColor: COLORS.surface },
-        headerTintColor:      COLORS.primary,
-        headerTitleStyle:     {
-          fontWeight: FONT_WEIGHT.bold,
-          fontSize:   FONT_SIZE.lg,
-          color:      COLORS.textPrimary,
-        },
-        // White tab bar — matches web card backgrounds
-        tabBarStyle:          styles.tabBar,
-        tabBarActiveTintColor:   COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarLabelStyle:     styles.tabLabel,
-        // Header left — BatStateU branding
-        headerLeft: () => (
-          <View style={styles.headerBrand}>
-            <Ionicons name="trophy" size={20} color={COLORS.primary} />
-          </View>
-        ),
-        // Header right — connection indicator + offline queue pill
+        headerShown: true,
+        headerStyle: styles.header,
+        headerShadowVisible: false,
+        // The big in-screen title carries the screen name; the top bar is just
+        // the brand mark + a connection dot.
+        headerTitle: () => null,
+        sceneStyle: { backgroundColor: COLORS.background },
+        tabBarStyle: styles.tabBar,
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarItemStyle: { paddingVertical: 8 },
+        headerLeft: () => <Brand />,
         headerRight: () => (
           <View style={styles.headerRight}>
             {pendingCount > 0 && (
-              <View style={styles.offlinePill}>
-                <Text style={styles.offlinePillText}>{pendingCount} queued</Text>
+              <View style={styles.queuePill}>
+                <Icon name="cloud-off" size={12} color={COLORS.warning} strokeWidth={2.2} />
+                <Text style={styles.queueText}>{pendingCount}</Text>
               </View>
             )}
-            <View
-              style={[
-                styles.connDot,
-                { backgroundColor: isConnected ? COLORS.online : COLORS.offline },
-              ]}
-            />
+            <View style={[styles.connDot, { backgroundColor: isConnected ? COLORS.online : COLORS.offline }]} />
           </View>
         ),
       }}
     >
       <Tabs.Screen
         name="events"
-        options={{
-          title: 'Events',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="calendar" size={22} color={focused ? COLORS.primary : COLORS.textSecondary} />
-          ),
-        }}
+        options={{ title: 'Events', tabBarIcon: ({ focused }) => <TabIcon name="calendar" focused={focused} /> }}
       />
       <Tabs.Screen
         name="scanner"
-        options={{
-          title: 'Scan QR',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="camera" size={22} color={focused ? COLORS.primary : COLORS.textSecondary} />
-          ),
-        }}
+        options={{ title: 'Scan QR', tabBarIcon: ({ focused }) => <TabIcon name="scan" focused={focused} /> }}
       />
-      <Tabs.Screen
-        name="scoring/[eventId]"
-        options={{
-          title: 'Score',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="bar-chart" size={22} color={focused ? COLORS.primary : COLORS.textSecondary} />
-          ),
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="scoring/confirm"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="scoring/[eventId]" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="scoring/confirm" options={{ href: null, headerShown: false }} />
       <Tabs.Screen
         name="history"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="list" size={22} color={focused ? COLORS.primary : COLORS.textSecondary} />
-          ),
-        }}
+        options={{ title: 'History', tabBarIcon: ({ focused }) => <TabIcon name="history" focused={focused} /> }}
       />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  // Tab bar — clean white, top red border like web
+  header: { backgroundColor: COLORS.surface },
+  headerTitle: { ...TYPE.heading, color: COLORS.textPrimary },
+
+  brand: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, paddingLeft: SPACING.lg },
+  brandDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary },
+  brandText: { ...TYPE.subhead, color: COLORS.textPrimary, fontWeight: '800' },
+
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingRight: SPACING.lg },
+  connDot: { width: 9, height: 9, borderRadius: 5 },
+  queuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.warningLight,
+    borderRadius: 999,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+  },
+  queueText: { ...TYPE.caption, color: COLORS.warning },
+
   tabBar: {
     backgroundColor: COLORS.surface,
-    borderTopWidth:  2,
-    borderTopColor:  COLORS.primary,
-    height:          64,
-    paddingBottom:   8,
-    paddingTop:      4,
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: -2 },
-    shadowOpacity:   0.06,
-    shadowRadius:    4,
-    elevation:       8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.hairline,
+    height: 66,
+    elevation: 0,
+    shadowOpacity: 0,
   },
-  tabLabel: {
-    fontSize:   FONT_SIZE.xs,
-    fontWeight: FONT_WEIGHT.semibold,
-  },
-
-  // Header brand
-  headerBrand: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    paddingLeft:    SPACING.md,
-    gap:            SPACING.xs,
-  },
-
-  // Header right
-  headerRight: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           SPACING.sm,
-    paddingRight:  SPACING.md,
-  },
-  connDot: {
-    width:        10,
-    height:       10,
-    borderRadius: 5,
-  },
-  offlinePill: {
-    backgroundColor:   COLORS.warningLight,
-    borderRadius:      RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical:   2,
-    borderWidth:       1,
-    borderColor:       COLORS.warning,
-  },
-  offlinePillText: {
-    fontSize:   FONT_SIZE.xs,
-    color:      COLORS.warning,
-    fontWeight: FONT_WEIGHT.semibold,
-  },
+  tabIcon: { alignItems: 'center', gap: 5 },
+  tabDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'transparent' },
+  tabDotOn: { backgroundColor: COLORS.primary },
 });

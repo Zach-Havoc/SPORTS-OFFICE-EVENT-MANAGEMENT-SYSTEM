@@ -29,7 +29,7 @@ class PasswordResetTest extends TestCase
     public function test_known_email_gets_a_new_temporary_password(): void
     {
         $user = $this->users()->create([
-            'email'    => 'victim@example.com',
+            'email' => 'victim@example.com',
             'password' => Hash::make('original-password'),
         ]);
         $originalHash = $user->password;

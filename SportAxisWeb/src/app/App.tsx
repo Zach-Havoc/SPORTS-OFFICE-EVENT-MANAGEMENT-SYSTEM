@@ -4,13 +4,10 @@ import "/src/suppress-recharts-warnings";
 // Import warning suppression FIRST, before anything else
 import "./utils/suppressWarnings";
 
-import {
-  RouterProvider,
-  createBrowserRouter,
-} from "react-router";
+import { RouterProvider, createBrowserRouter, Navigate } from "react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "./components/ui/sonner";
 import { useEffect, useMemo } from "react";
 import { startWarmup } from "./services/api";
@@ -34,30 +31,56 @@ import AdminBracketing from "./pages/admin/Bracketing";
 import AdminBracketDetail from "./pages/admin/BracketDetail";
 import AdminCoaches from "./pages/admin/Coaches";
 import AdminUsers from "./pages/admin/Users";
+import AdminTrash from "./pages/admin/Trash";
+import AdminSeasons from "./pages/admin/Seasons";
+import AdminProtests from "./pages/admin/Protests";
 import JudgeDashboard from "./pages/judge/Dashboard";
 import JudgeScoring from "./pages/judge/Scoring";
 import CoachDashboard from "./pages/coach/Dashboard";
 import CoachAthletes from "./pages/coach/Athletes";
+import CoachLineup from "./pages/coach/Lineup";
 import CoachAthleteForm from "./pages/coach/AthleteForm";
 import CoachAthleteDetail from "./pages/coach/AthleteDetail";
 import CoachAnnouncements from "./pages/coach/Announcements";
 import CoachAttendance from "./pages/coach/Attendance";
+import CoachSchedule from "./pages/coach/Schedule";
 import CoachPerformance from "./pages/coach/Performance";
 import CoachRequirements from "./pages/coach/Requirements";
+import CoachProtests from "./pages/coach/Protests";
 import AthleteDashboard from "./pages/athlete/Dashboard";
 import AthleteSchedule from "./pages/athlete/Schedule";
 import AthletePerformance from "./pages/athlete/Performance";
 import AthleteRequirements from "./pages/athlete/Requirements";
+import AthleteAttendance from "./pages/athlete/Attendance";
+import AthleteTeam from "./pages/athlete/Team";
 import AccountSettings from "./pages/settings/AccountSettings";
 import PublicViewer from "./pages/public/Viewer";
 import PublicLeaderboard from "./pages/public/Leaderboard";
 import PublicHistory from "./pages/public/History";
 import PublicLiveBoard from "./pages/public/LiveBoard";
+import StandingsBoard from "./pages/public/StandingsBoard";
 import PublicAnnouncements from "./pages/public/Announcements";
 import PublicBrackets from "./pages/public/Brackets";
 import PublicBracket from "./pages/public/Bracket";
 import JudgeQRScoring from "./pages/JudgeQRScoring";
 import NotFound from "./pages/NotFound";
+
+// The root URL is the public Match Schedule for visitors; a signed-in user
+// landing here (e.g. a hard refresh at "/") is sent to their own home so they
+// don't get the admin shell wrapped around the public page.
+const ROLE_HOME: Record<string, string> = {
+  admin: "/admin",
+  coach: "/coach",
+  athlete: "/athlete",
+  judge: "/judge",
+};
+
+function HomeRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const home = user ? ROLE_HOME[user.role] : undefined;
+  return home ? <Navigate to={home} replace /> : <PublicViewer />;
+}
 
 // Standalone wrapper for QR code page (no auth needed)
 function QRCodePage() {
@@ -82,7 +105,7 @@ export default function App() {
             </AuthProvider>
           ),
           children: [
-            { index: true, Component: PublicViewer },
+            { index: true, Component: HomeRoute },
             { path: "login", Component: Login },
             {
               path: "leaderboard",
@@ -132,6 +155,9 @@ export default function App() {
             },
             { path: "admin/coaches", Component: AdminCoaches },
             { path: "admin/users", Component: AdminUsers },
+            { path: "admin/seasons", Component: AdminSeasons },
+            { path: "admin/protests", Component: AdminProtests },
+            { path: "admin/trash", Component: AdminTrash },
 
             // Judge routes
             { path: "judge", Component: JudgeDashboard },
@@ -150,6 +176,7 @@ export default function App() {
               path: "coach/athletes",
               Component: CoachAthletes,
             },
+            { path: "coach/lineup", Component: CoachLineup },
             {
               path: "coach/athletes/new",
               Component: CoachAthleteForm,
@@ -163,6 +190,10 @@ export default function App() {
               Component: CoachAthleteForm,
             },
             {
+              path: "coach/schedule",
+              Component: CoachSchedule,
+            },
+            {
               path: "coach/attendance",
               Component: CoachAttendance,
             },
@@ -173,6 +204,10 @@ export default function App() {
             {
               path: "coach/requirements",
               Component: CoachRequirements,
+            },
+            {
+              path: "coach/protests",
+              Component: CoachProtests,
             },
             {
               path: "coach/announcements",
@@ -197,6 +232,14 @@ export default function App() {
               path: "athlete/requirements",
               Component: AthleteRequirements,
             },
+            {
+              path: "athlete/attendance",
+              Component: AthleteAttendance,
+            },
+            {
+              path: "athlete/team",
+              Component: AthleteTeam,
+            },
 
             // Shared account settings (coach, athlete, judge)
             { path: "settings/account", Component: AccountSettings },
@@ -208,6 +251,11 @@ export default function App() {
         {
           path: "/judge-qr/:eventId/:token",
           Component: QRCodePage,
+        },
+        // Full-screen standings board for a venue TV — no app chrome.
+        {
+          path: "/standings",
+          Component: StandingsBoard,
         },
       ]),
     [],

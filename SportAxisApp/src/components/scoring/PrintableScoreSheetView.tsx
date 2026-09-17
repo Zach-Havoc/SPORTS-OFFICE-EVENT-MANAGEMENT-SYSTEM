@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../ui/Icon';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import React from 'react';
@@ -728,14 +728,14 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <View style={[styles.header, { backgroundColor: accentColor }]}>
         <View style={styles.headerLeft}>
-          <Ionicons name={sportConfig.icon as any} size={22} color="#fff" style={{ marginRight: 8 }} />
+          <Icon name={sportConfig.icon as IconName} size={22} color="#fff" strokeWidth={2.2} />
           <View>
             <Text style={styles.headerTitle}>Score Sheet</Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>{event.name}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-          <Ionicons name="close" size={22} color="#fff" />
+          <Icon name="close" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -743,7 +743,7 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
 
         {/* ── Sport Badge ──────────────────────────────────────────────────── */}
         <View style={[styles.sportBadge, { backgroundColor: `${accentColor}12`, borderColor: `${accentColor}30` }]}>
-          <Ionicons name={sportConfig.icon as any} size={18} color={accentColor} />
+          <Icon name={sportConfig.icon as IconName} size={18} color={accentColor} strokeWidth={2.2} />
           <Text style={[styles.sportBadgeText, { color: accentColor }]}>
             {sportConfig.label} — {sportConfig.layout === 'scoreboard' ? 'Scoreboard Form' :
              sportConfig.layout === 'set-game' ? 'Set/Game Form' :
@@ -755,19 +755,19 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
         {/* ── Event Details Card ───────────────────────────────────────────── */}
         <Card variant="elevated" style={styles.detailsCard}>
           <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={14} color={COLORS.textSecondary} />
+            <Icon name="calendar" size={14} color={COLORS.textSecondary} />
             <Text style={styles.detailText}>
               {event.schedule ? new Date(event.schedule).toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'TBD'}
             </Text>
           </View>
           {event.venueName && (
             <View style={styles.detailRow}>
-              <Ionicons name="location-outline" size={14} color={COLORS.textSecondary} />
+              <Icon name="location" size={14} color={COLORS.textSecondary} />
               <Text style={styles.detailText}>{event.venueName}</Text>
             </View>
           )}
           <View style={styles.detailRow}>
-            <Ionicons name="people-outline" size={14} color={COLORS.textSecondary} />
+            <Icon name="users" size={14} color={COLORS.textSecondary} />
             <Text style={styles.detailText} numberOfLines={2}>
               {(event.departments || []).join(' vs. ') || 'No departments assigned'}
             </Text>
@@ -776,7 +776,7 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
 
         {/* ── Info Banner ──────────────────────────────────────────────────── */}
         <View style={[styles.infoBanner, { backgroundColor: `${accentColor}08`, borderColor: `${accentColor}25` }]}>
-          <Ionicons name="print-outline" size={16} color={accentColor} />
+          <Icon name="print" size={16} color={accentColor} />
           <Text style={[styles.infoText, { color: accentColor }]}>
             The printed form contains the full {sportConfig.label} score sheet with all sections. Hand it to the committee before the event starts.
           </Text>
@@ -790,7 +790,7 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
             variant="primary"
             size="lg"
             fullWidth
-            icon={<Ionicons name="print-outline" size={18} color="#fff" />}
+            icon={<Icon name="print" size={18} color="#fff" />}
           />
           <Button
             label="Share as PDF"
@@ -798,7 +798,7 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
             variant="secondary"
             size="lg"
             fullWidth
-            icon={<Ionicons name="share-outline" size={18} color={accentColor} />}
+            icon={<Icon name="share" size={18} color={accentColor} />}
           />
         </View>
 

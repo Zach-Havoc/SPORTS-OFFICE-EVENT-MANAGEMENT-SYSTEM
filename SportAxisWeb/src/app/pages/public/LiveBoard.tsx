@@ -93,7 +93,7 @@ export default function PublicLiveBoard() {
   if (isLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Loading fullScreen={false} message="Loading live games..." />
+        <Loading fullScreen={false} message="Loading live scores..." />
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default function PublicLiveBoard() {
         <div>
           <h1 className="flex items-center gap-2.5 text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
             <Radio className="h-6 w-6 text-red-600" />
-            Live Games
+            Live Scores
           </h1>
           <p className="mt-1.5 text-sm text-gray-500">
             Scores update automatically every few seconds

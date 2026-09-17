@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\ResolvesSeason;
 use App\Http\Controllers\Controller;
 use App\Models\Bracket;
 use App\Models\Category;
+use App\Models\Department;
+use App\Models\Event;
 use App\Models\Ranking;
 use App\Models\Score;
-use App\Models\Event;
-use App\Models\Department;
 use App\Models\TeamMatch;
 use Illuminate\Http\Request;
 
 class RankingController extends Controller
 {
+    use ResolvesSeason;
+
     public function show(string $eventId)
     {
         if (Ranking::where('event_id', $eventId)->count() === 0 && Score::where('event_id', $eventId)->exists()) {
@@ -21,6 +24,7 @@ class RankingController extends Controller
         }
 
         $rankings = Ranking::where('event_id', $eventId)->orderBy('rank')->get();
+
         return response()->json($rankings);
     }
 
@@ -39,8 +43,20 @@ class RankingController extends Controller
     {
         $category = $request->query('category');
 
+        // A parent sport ("Badminton") rolls up its line categories
+        // ("Badminton — M Singles A" …) so their brackets/medals combine.
+        $parentSport = $request->query('parentSport');
+        $parentNames = $parentSport
+            ? Category::where('parent_sport', $parentSport)->pluck('name')->all()
+            : [];
+
+        // Default to the active edition; ?season=all or ?season=<id> overrides.
+        $seasonId = $this->seasonScope($request);
+
         $events = Event::query()
+            ->when($seasonId, fn ($q) => $q->where('season_id', $seasonId))
             ->when($category, fn ($q) => $q->where('category', $category))
+            ->when($parentSport, fn ($q) => $q->whereIn('category', $parentNames))
             ->get(['id', 'category']);
         $eventIds = $events->pluck('id');
 
@@ -77,16 +93,18 @@ class RankingController extends Controller
                 continue;
             }
             $ensure($deptName);
-            $rows[$deptName]['total']      += (float) $deptRankings->sum('total_score');
+            $rows[$deptName]['total'] += (float) $deptRankings->sum('total_score');
             $rows[$deptName]['event_count'] += $deptRankings->pluck('event_id')->unique()->count();
-            $rows[$deptName]['gold']        += $deptRankings->where('rank', 1)->count();
-            $rows[$deptName]['silver']      += $deptRankings->where('rank', 2)->count();
-            $rows[$deptName]['bronze']      += $deptRankings->where('rank', 3)->count();
+            $rows[$deptName]['gold'] += $deptRankings->where('rank', 1)->count();
+            $rows[$deptName]['silver'] += $deptRankings->where('rank', 2)->count();
+            $rows[$deptName]['bronze'] += $deptRankings->where('rank', 3)->count();
         }
 
         // ── Versus sports: the podium of the finished tournament ───────────
         $brackets = Bracket::query()
+            ->when($seasonId, fn ($q) => $q->where('season_id', $seasonId))
             ->when($category, fn ($q) => $q->where('sport', $category))
+            ->when($parentSport, fn ($q) => $q->whereIn('sport', $parentNames))
             ->with('matches')
             ->get();
 
@@ -129,9 +147,9 @@ class RankingController extends Controller
             if ($bracket->status !== 'completed' || ! $bracket->champion) {
                 return $empty;
             }
-            $matches  = $bracket->matches;
+            $matches = $bracket->matches;
             $maxRound = (int) $matches->max('round');
-            $final    = $matches->firstWhere('round', $maxRound);
+            $final = $matches->firstWhere('round', $maxRound);
 
             $silver = $final?->loser
                 ?: ($final && $final->winner
@@ -150,8 +168,9 @@ class RankingController extends Controller
                 return $empty;
             }
             $standings = TeamMatch::standings($bracket->sport);
+
             return [
-                'gold'   => $standings[0]['department'] ?? null,
+                'gold' => $standings[0]['department'] ?? null,
                 'silver' => $standings[1]['department'] ?? null,
                 'bronze' => isset($standings[2]) ? [$standings[2]['department']] : [],
             ];

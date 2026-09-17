@@ -73,15 +73,15 @@ class UserManagementTest extends TestCase
         $user = $this->users()->judge()->create();
 
         $this->putJson("/api/admin/users/{$user->id}", [
-            'name'       => 'Renamed Person',
-            'email'      => 'renamed@example.com',
+            'name' => 'Renamed Person',
+            'email' => 'renamed@example.com',
             'department' => 'College of Science',
         ])->assertOk()->assertJsonPath('name', 'Renamed Person');
 
         $this->assertDatabaseHas('users', [
-            'id'         => $user->id,
-            'name'       => 'Renamed Person',
-            'email'      => 'renamed@example.com',
+            'id' => $user->id,
+            'name' => 'Renamed Person',
+            'email' => 'renamed@example.com',
             'department' => 'College of Science',
         ]);
     }

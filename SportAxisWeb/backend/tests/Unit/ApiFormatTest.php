@@ -16,8 +16,8 @@ class ApiFormatTest extends TestCase
     {
         $user = new User([
             'email' => 'x@example.com',
-            'name'  => 'Test',
-            'role'  => 'coach',
+            'name' => 'Test',
+            'role' => 'coach',
         ]);
         $user->password = 'super-secret-hash';
 
@@ -25,12 +25,12 @@ class ApiFormatTest extends TestCase
 
         $this->assertArrayNotHasKey('password', $payload);
         $this->assertSame(
-            ['id', 'email', 'name', 'role', 'active', 'sport', 'sports', 'department', 'genderCategory', 'enrollmentCode', 'coachId', 'coachName', 'enrolledAt'],
+            ['id', 'email', 'name', 'role', 'active', 'sport', 'sports', 'department', 'genderCategory', 'srCode', 'gender', 'studentVerifiedAt', 'yearLevel', 'course', 'phone', 'emergencyContact', 'enrollmentCode', 'coachId', 'coachName', 'enrolledAt'],
             array_keys($payload),
         );
     }
 
-    public function test_user_hidden_attribute_keeps_password_out_of_toArray(): void
+    public function test_user_hidden_attribute_keeps_password_out_of_to_array(): void
     {
         $user = new User(['email' => 'x@example.com', 'name' => 'T', 'role' => 'athlete']);
         $user->password = 'hash';
@@ -41,15 +41,15 @@ class ApiFormatTest extends TestCase
     public function test_event_to_api_format_has_the_expected_shape(): void
     {
         $event = new Event([
-            'id'          => 'evt-1',
-            'name'        => 'Finals',
-            'category'    => 'Basketball',
-            'schedule'    => '2026-09-01',
-            'start_time'  => '09:00',
-            'end_time'    => '11:00',
+            'id' => 'evt-1',
+            'name' => 'Finals',
+            'category' => 'Basketball',
+            'schedule' => '2026-09-01',
+            'start_time' => '09:00',
+            'end_time' => '11:00',
             'departments' => ['A', 'B'],
-            'status'      => 'upcoming',
-            'qr_token'    => 'tok',
+            'status' => 'upcoming',
+            'qr_token' => 'tok',
         ]);
 
         $payload = $event->toApiFormat();

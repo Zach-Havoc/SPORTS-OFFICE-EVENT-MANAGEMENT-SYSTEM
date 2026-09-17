@@ -14,14 +14,14 @@ class VenueFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'         => (string) Str::uuid(),
-            'name'       => fake()->company() . ' Gym',
-            'type'       => fake()->randomElement(['indoor', 'outdoor', 'open']),
-            'capacity'   => fake()->numberBetween(50, 5000),
-            'sports'     => ['Basketball', 'Volleyball'],
-            'location'   => fake()->address(),
+            'id' => (string) Str::uuid(),
+            'name' => fake()->company().' Gym',
+            'type' => fake()->randomElement(['indoor', 'outdoor', 'open']),
+            'capacity' => fake()->numberBetween(50, 5000),
+            'sports' => ['Basketball', 'Volleyball'],
+            'location' => fake()->address(),
             'facilities' => 'Locker rooms, scoreboard',
-            'status'     => 'available',
+            'status' => 'available',
         ];
     }
 }

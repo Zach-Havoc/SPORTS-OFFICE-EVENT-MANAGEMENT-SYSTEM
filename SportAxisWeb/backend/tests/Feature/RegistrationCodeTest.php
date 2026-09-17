@@ -30,15 +30,15 @@ class RegistrationCodeTest extends TestCase
         $admin = $this->actingAsRole('admin');
 
         $res = $this->postJson('/api/registration-codes', [
-            'role'  => 'judge',
+            'role' => 'judge',
             'label' => 'Judge batch 1',
         ])->assertCreated();
 
         $code = $res->json('code'); // model is returned directly
         $this->assertDatabaseHas('registration_codes', [
-            'code'       => $code,
-            'role'       => 'judge',
-            'used'       => false,
+            'code' => $code,
+            'role' => 'judge',
+            'used' => false,
             'created_by' => $admin->id,
         ]);
     }
@@ -48,7 +48,7 @@ class RegistrationCodeTest extends TestCase
         $this->actingAsRole('admin');
 
         $res = $this->postJson('/api/registration-codes', [
-            'role'          => 'coach',
+            'role' => 'coach',
             'expiresInDays' => 7,
         ])->assertCreated();
 

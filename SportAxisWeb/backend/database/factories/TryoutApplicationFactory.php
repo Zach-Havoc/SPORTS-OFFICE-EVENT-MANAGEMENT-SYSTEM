@@ -14,19 +14,19 @@ class TryoutApplicationFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'              => (string) Str::uuid(),
+            'id' => (string) Str::uuid(),
             'announcement_id' => null,
-            'sport'           => 'Basketball',
-            'coach_id'        => null,
-            'first_name'      => fake()->firstName(),
-            'last_name'       => fake()->lastName(),
-            'email'           => fake()->unique()->safeEmail(),
-            'student_id'      => fake()->numerify('##-#####'),
-            'department'      => 'College of Engineering',
-            'phone'           => fake()->numerify('###########'),
-            'year_level'      => '1st Year',
-            'status'          => 'pending',
-            'applied_at'      => now(),
+            'sport' => 'Basketball',
+            'coach_id' => null,
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
+            'email' => fake()->unique()->safeEmail(),
+            'student_id' => fake()->numerify('##-#####'),
+            'department' => 'College of Engineering',
+            'phone' => fake()->numerify('###########'),
+            'year_level' => '1st Year',
+            'status' => 'pending',
+            'applied_at' => now(),
         ];
     }
 }

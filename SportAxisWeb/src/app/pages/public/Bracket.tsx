@@ -21,6 +21,8 @@ interface BMatch {
   status: string;
   homeScore: number | null;
   awayScore: number | null;
+  homeLabel?: string | null;
+  awayLabel?: string | null;
   nextMatchId: string | null;
 }
 
@@ -92,16 +94,16 @@ export default function PublicBracket() {
                 <div key={m.id} className="w-60 rounded-lg border border-gray-200 bg-white p-3">
                   <div className="space-y-1 text-sm">
                     {[
-                      { name: m.homeTeam, score: m.homeScore },
-                      { name: m.awayTeam, score: m.awayScore },
+                      { name: m.homeTeam, label: m.homeLabel, score: m.homeScore },
+                      { name: m.awayTeam, label: m.awayLabel, score: m.awayScore },
                     ].map((p, i) => (
                       <div
                         key={i}
                         className={`flex items-center gap-1.5 ${m.winner && m.winner === p.name ? 'font-semibold text-gray-900' : 'text-gray-600'}`}
-                        title={p.name ?? undefined}
+                        title={p.label || p.name || undefined}
                       >
                         {m.winner && m.winner === p.name && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
-                        <span className="min-w-0 flex-1 truncate">{p.name ? abbr(p.name) : 'TBD'}</span>
+                        <span className="min-w-0 flex-1 truncate">{p.label || (p.name ? abbr(p.name) : 'TBD')}</span>
                         {p.score !== null && <span className="shrink-0 tabular-nums text-gray-500">{p.score}</span>}
                       </div>
                     ))}

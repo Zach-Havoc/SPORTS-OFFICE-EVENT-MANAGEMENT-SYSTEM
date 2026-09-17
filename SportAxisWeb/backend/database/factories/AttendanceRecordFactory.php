@@ -14,13 +14,13 @@ class AttendanceRecordFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'          => (string) Str::uuid(),
-            'athlete_id'  => (string) Str::uuid(),
-            'event_id'    => null,
-            'date'        => now()->toDateString(),
-            'status'      => 'present',
-            'notes'       => null,
-            'recorded_by' => (string) Str::uuid(),
+            'id' => (string) Str::uuid(),
+            'athlete_id' => (string) Str::uuid(),
+            'event_id' => 'training',
+            'date' => now()->toDateString(),
+            'status' => 'present',
+            'notes' => null,
+            'recorded_by' => UserFactory::new()->coach()->create()->id,
             'recorded_at' => now(),
         ];
     }

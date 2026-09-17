@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../ui/Icon';
 import React, { useState } from 'react';
 import {
     StyleSheet,
@@ -52,7 +52,7 @@ export function LiveScoreTracker({ event, embedded = false }: LiveScoreTrackerPr
     <View style={[styles.trackerCard, { borderColor: `${accentColor}30` }]}>
       <View style={[styles.trackerBanner, { backgroundColor: accentColor }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Ionicons name={sportConfig.icon as any} size={16} color="#fff" />
+          <Icon name={sportConfig.icon as IconName} size={16} color="#fff" strokeWidth={2.2} />
           <Text style={styles.trackerBannerText}>{event.name.toUpperCase()}</Text>
         </View>
         <Text style={styles.trackerBannerSub}>{sportConfig.label} · App sheet · Not submitted</Text>
@@ -75,15 +75,11 @@ export function LiveScoreTracker({ event, embedded = false }: LiveScoreTrackerPr
           <View style={[styles.sectionDot, { backgroundColor: accentColor }]} />
           <Text style={styles.sectionTitle}>LIVE SCORE TRACKER</Text>
           <View style={[styles.sectionBadge, { backgroundColor: `${accentColor}15`, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-            <Ionicons name={sportConfig.icon as any} size={12} color={accentColor} />
+            <Icon name={sportConfig.icon as IconName} size={12} color={accentColor} strokeWidth={2.2} />
             <Text style={[styles.sectionBadgeText, { color: accentColor }]}>{sportConfig.label}</Text>
           </View>
         </View>
-        <Ionicons
-          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={accentColor}
-        />
+        <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={accentColor} />
       </TouchableOpacity>
 
       {isExpanded && card}
@@ -621,7 +617,7 @@ function FoulCounter({ label, value, onChange, accentColor }: {
           style={[styles.foulBtn, { borderColor: `${accentColor}50` }]}
           onPress={() => onChange(Math.max(0, value - 1))}
         >
-          <Ionicons name="remove" size={18} color={accentColor} />
+          <Icon name="minus" size={18} color={accentColor} strokeWidth={2.6} />
         </TouchableOpacity>
         <View style={[styles.foulDisplay, { borderColor: accentColor, backgroundColor: value >= 4 ? '#fff5f5' : COLORS.background }]}>
           <Text style={[styles.foulValue, { color: value >= 4 ? COLORS.destructive : accentColor }]}>{value}</Text>
@@ -630,7 +626,7 @@ function FoulCounter({ label, value, onChange, accentColor }: {
           style={[styles.foulBtn, { borderColor: `${accentColor}50` }]}
           onPress={() => onChange(value + 1)}
         >
-          <Ionicons name="add" size={18} color={accentColor} />
+          <Icon name="plus" size={18} color={accentColor} strokeWidth={2.6} />
         </TouchableOpacity>
       </View>
       {/* Foul pips */}

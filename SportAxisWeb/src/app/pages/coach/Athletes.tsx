@@ -30,6 +30,7 @@ const SPORTS = [
 
 interface Athlete {
   id: string;
+  userId?: string | null;
   studentId: string;
   firstName: string;
   lastName: string;

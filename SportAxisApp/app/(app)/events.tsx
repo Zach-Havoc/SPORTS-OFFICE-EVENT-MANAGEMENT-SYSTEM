@@ -1,29 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../constants/theme';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
+import { Screen, ScreenHeader } from '../../src/components/ui/Screen';
 import { Card } from '../../src/components/ui/Card';
-import { Badge } from '../../src/components/ui/Badge';
+import { Icon, type IconName } from '../../src/components/ui/Icon';
+import { EmptyState, ErrorState, LoadingState } from '../../src/components/ui/States';
 import { eventService } from '../../src/services/event.service';
+import { useEventStore } from '../../src/store/event.store';
 import type { EventSummary } from '../../src/types';
 import { useNetwork } from '../../src/hooks/use-network';
 import { useDeptAbbreviator } from '../../src/hooks/use-dept-abbr';
+import { getSportConfigFromEvent } from '../../src/utils/sport-config';
+
+const STATUS_DOT = { ongoing: COLORS.success, completed: COLORS.textMuted, upcoming: COLORS.warning } as const;
 
 export default function EventsScreen() {
+  const router = useRouter();
+  const abbr = useDeptAbbreviator();
+  const { isConnected } = useNetwork();
+  const loadEvent = useEventStore((s) => s.loadByQrToken);
+
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isConnected } = useNetwork();
-  const abbr = useDeptAbbreviator();
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   const fetchEvents = async () => {
     try {
       setError(null);
-      const data = await eventService.getEvents();
-      setEvents(data);
+      setEvents(await eventService.getEvents());
     } catch (err: any) {
-      setError(err.message || 'Failed to load events');
+      setError(err.message || 'Failed to load events.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -31,11 +40,10 @@ export default function EventsScreen() {
   };
 
   useEffect(() => {
-    if (isConnected) {
-      fetchEvents();
-    } else {
+    if (isConnected) fetchEvents();
+    else {
       setLoading(false);
-      setError('No internet connection. Please connect to view events.');
+      setError('No connection.');
     }
   }, [isConnected]);
 
@@ -45,180 +53,87 @@ export default function EventsScreen() {
     fetchEvents();
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ongoing': return 'info';
-      case 'completed': return 'success';
-      case 'upcoming':
-      default: return 'warning';
+  const openEvent = async (item: EventSummary) => {
+    if (openingId) return;
+    setOpeningId(item.id);
+    try {
+      await loadEvent(item.qrToken);
+      const id = useEventStore.getState().event?.id;
+      if (id) router.push(`/(app)/scoring/${id}`);
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not open that event.');
+    } finally {
+      setOpeningId(null);
     }
   };
 
   const renderEvent = ({ item }: { item: EventSummary }) => {
+    const sport = getSportConfigFromEvent(item.category, item.name);
+    const depts = item.departments ?? [];
+    const opening = openingId === item.id;
     return (
-      <Card style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.eventName}>{item.name}</Text>
-            <Text style={styles.categoryName}>{item.category}</Text>
-          </View>
-          <Badge label={item.status.toUpperCase()} variant={getStatusColor(item.status)} />
+      <Card style={[styles.card, opening && styles.cardOpening]} onPress={() => openEvent(item)}>
+        <View style={[styles.tile, { backgroundColor: sport.colorLight }]}>
+          <Icon name={sport.icon as IconName} size={20} color={sport.color} strokeWidth={2.2} />
         </View>
 
-        <View style={styles.detailsContainer}>
-          <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.detailText}>
-              {new Date(item.schedule).toLocaleDateString()}
-            </Text>
+        <View style={styles.body}>
+          <Text style={styles.name} numberOfLines={1}>{abbr(item.name)}</Text>
+          <View style={styles.meta}>
+            <Icon name="calendar" size={12} color={COLORS.textMuted} />
+            <Text style={styles.metaText}>{new Date(item.schedule).toLocaleDateString()}</Text>
+            <Icon name="clock" size={12} color={COLORS.textMuted} />
+            <Text style={styles.metaText}>{item.startTime}</Text>
+            {depts.length > 0 && (
+              <>
+                <Icon name="users" size={12} color={COLORS.textMuted} />
+                <Text style={styles.metaText}>{depts.length}</Text>
+              </>
+            )}
           </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="time-outline" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.detailText}>
-              {item.startTime} - {item.endTime}
-            </Text>
-          </View>
-          {item.venueName && (
-            <View style={styles.detailRow}>
-              <Ionicons name="location-outline" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.detailText}>{item.venueName}</Text>
-            </View>
-          )}
         </View>
 
-        {item.departments.length > 0 && (
-          <View style={styles.departmentsContainer}>
-            <Text style={styles.departmentsText}>
-              {item.departments.slice(0, 3).map((d) => abbr(d)).join(' · ')}
-              {item.departments.length > 3 && ` +${item.departments.length - 3} more`}
-            </Text>
-          </View>
-        )}
+        <View style={[styles.dot, { backgroundColor: STATUS_DOT[item.status] }]} />
+        <Icon name="chevron-right" size={18} color={COLORS.textMuted} />
       </Card>
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading Events...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      {error && !events.length ? (
-        <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={COLORS.destructive} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
+    <Screen padded={false}>
+      <View style={styles.headerPad}>
+        <ScreenHeader title="Events" />
+      </View>
+
+      {loading ? (
+        <LoadingState label="Loading…" />
+      ) : error && !events.length ? (
+        <ErrorState message={error} onRetry={isConnected ? fetchEvents : undefined} />
       ) : (
         <FlatList
           data={events}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(e) => e.id}
           renderItem={renderEvent}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary]}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={48} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>No events available</Text>
-            </View>
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+          ListEmptyComponent={<EmptyState icon="calendar" title="No events" />}
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  loadingText: {
-    marginTop: SPACING.md,
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textSecondary,
-  },
-  errorText: {
-    marginTop: SPACING.md,
-    fontSize: FONT_SIZE.md,
-    color: COLORS.destructive,
-    textAlign: 'center',
-  },
-  listContent: {
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  card: {
-    gap: SPACING.md,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  titleContainer: {
-    flex: 1,
-    marginRight: SPACING.sm,
-  },
-  eventName: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  categoryName: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.primary,
-    fontWeight: FONT_WEIGHT.medium,
-  },
-  detailsContainer: {
-    gap: SPACING.xs,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  detailText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-  },
-  departmentsContainer: {
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  departmentsText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.xxl,
-  },
-  emptyText: {
-    marginTop: SPACING.md,
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textMuted,
-  },
+  headerPad: { paddingHorizontal: SPACING.lg },
+  list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl, gap: SPACING.sm },
+
+  card: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.md },
+  cardOpening: { opacity: 0.55 },
+  tile: { width: 44, height: 44, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center' },
+  body: { flex: 1, gap: 3 },
+  name: { ...TYPE.subhead, color: COLORS.textPrimary },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { ...TYPE.caption, textTransform: 'none', color: COLORS.textMuted, marginRight: SPACING.xs },
+  dot: { width: 7, height: 7, borderRadius: 4 },
 });

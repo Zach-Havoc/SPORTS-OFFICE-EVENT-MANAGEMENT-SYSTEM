@@ -14,14 +14,14 @@ class SiteSlideFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'         => (string) Str::uuid(),
-            'type'       => 'carousel',
-            'title'      => fake()->sentence(3),
-            'caption'    => fake()->sentence(8),
-            'image_path' => 'site_slides/' . Str::uuid() . '.jpg',
-            'link_url'   => null,
+            'id' => (string) Str::uuid(),
+            'type' => 'carousel',
+            'title' => fake()->sentence(3),
+            'caption' => fake()->sentence(8),
+            'image_path' => 'site_slides/'.Str::uuid().'.jpg',
+            'link_url' => null,
             'sort_order' => 0,
-            'active'     => true,
+            'active' => true,
             'created_by' => null,
         ];
     }

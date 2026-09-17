@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class RegistrationCode extends Model
 {
     protected $primaryKey = 'code';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -15,8 +17,8 @@ class RegistrationCode extends Model
     ];
 
     protected $casts = [
-        'used'       => 'boolean',
-        'used_at'    => 'datetime',
+        'used' => 'boolean',
+        'used_at' => 'datetime',
         'expires_at' => 'datetime',
     ];
 }

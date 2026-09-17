@@ -6,8 +6,11 @@ use App\Models\User;
 use Database\Factories\AnnouncementFactory;
 use Database\Factories\AthleteFactory;
 use Database\Factories\AttendanceRecordFactory;
+use Database\Factories\AttendanceSessionFactory;
+use Database\Factories\CampusStudentFactory;
 use Database\Factories\CategoryFactory;
 use Database\Factories\DepartmentFactory;
+use Database\Factories\DisciplineEntryFactory;
 use Database\Factories\EmailVerificationFactory;
 use Database\Factories\EventFactory;
 use Database\Factories\LiveScoreFactory;
@@ -40,23 +43,105 @@ abstract class TestCase extends BaseTestCase
     // The app models don't use the HasFactory trait, so we invoke the
     // factory classes directly instead of Model::factory().
 
-    protected function users(): UserFactory { return UserFactory::new(); }
-    protected function departments(): DepartmentFactory { return DepartmentFactory::new(); }
-    protected function categories(): CategoryFactory { return CategoryFactory::new(); }
-    protected function venues(): VenueFactory { return VenueFactory::new(); }
-    protected function events(): EventFactory { return EventFactory::new(); }
-    protected function liveScores(): LiveScoreFactory { return LiveScoreFactory::new(); }
-    protected function regCodes(): RegistrationCodeFactory { return RegistrationCodeFactory::new(); }
-    protected function athletes(): AthleteFactory { return AthleteFactory::new(); }
-    protected function announcements(): AnnouncementFactory { return AnnouncementFactory::new(); }
-    protected function scores(): ScoreFactory { return ScoreFactory::new(); }
-    protected function siteSlides(): SiteSlideFactory { return SiteSlideFactory::new(); }
-    protected function teamMatches(): TeamMatchFactory { return TeamMatchFactory::new(); }
-    protected function requirements(): RequirementFactory { return RequirementFactory::new(); }
-    protected function tryouts(): TryoutApplicationFactory { return TryoutApplicationFactory::new(); }
-    protected function attendance(): AttendanceRecordFactory { return AttendanceRecordFactory::new(); }
-    protected function performance(): PerformanceRecordFactory { return PerformanceRecordFactory::new(); }
-    protected function emailVerifications(): EmailVerificationFactory { return EmailVerificationFactory::new(); }
+    protected function users(): UserFactory
+    {
+        return UserFactory::new();
+    }
+
+    protected function departments(): DepartmentFactory
+    {
+        return DepartmentFactory::new();
+    }
+
+    protected function categories(): CategoryFactory
+    {
+        return CategoryFactory::new();
+    }
+
+    protected function disciplineEntries(): DisciplineEntryFactory
+    {
+        return DisciplineEntryFactory::new();
+    }
+
+    protected function venues(): VenueFactory
+    {
+        return VenueFactory::new();
+    }
+
+    protected function events(): EventFactory
+    {
+        return EventFactory::new();
+    }
+
+    protected function liveScores(): LiveScoreFactory
+    {
+        return LiveScoreFactory::new();
+    }
+
+    protected function regCodes(): RegistrationCodeFactory
+    {
+        return RegistrationCodeFactory::new();
+    }
+
+    protected function campusStudents(): CampusStudentFactory
+    {
+        return CampusStudentFactory::new();
+    }
+
+    protected function athletes(): AthleteFactory
+    {
+        return AthleteFactory::new();
+    }
+
+    protected function announcements(): AnnouncementFactory
+    {
+        return AnnouncementFactory::new();
+    }
+
+    protected function scores(): ScoreFactory
+    {
+        return ScoreFactory::new();
+    }
+
+    protected function siteSlides(): SiteSlideFactory
+    {
+        return SiteSlideFactory::new();
+    }
+
+    protected function teamMatches(): TeamMatchFactory
+    {
+        return TeamMatchFactory::new();
+    }
+
+    protected function requirements(): RequirementFactory
+    {
+        return RequirementFactory::new();
+    }
+
+    protected function tryouts(): TryoutApplicationFactory
+    {
+        return TryoutApplicationFactory::new();
+    }
+
+    protected function attendance(): AttendanceRecordFactory
+    {
+        return AttendanceRecordFactory::new();
+    }
+
+    protected function attendanceSessions(): AttendanceSessionFactory
+    {
+        return AttendanceSessionFactory::new();
+    }
+
+    protected function performance(): PerformanceRecordFactory
+    {
+        return PerformanceRecordFactory::new();
+    }
+
+    protected function emailVerifications(): EmailVerificationFactory
+    {
+        return EmailVerificationFactory::new();
+    }
 
     // ── Auth helpers ────────────────────────────────────────────────────
 

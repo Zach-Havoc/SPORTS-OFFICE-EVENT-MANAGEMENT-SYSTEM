@@ -1,15 +1,201 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useAuth } from '../../context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { Textarea } from '../../components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { CheckCircle, XCircle, Clock, Download, Eye } from 'lucide-react';
-import { toast } from 'sonner';
-import { useRequirements, useUpdateRequirementStatus } from '../../hooks/api';
-import { RefreshStatus } from '../../components/RefreshStatus';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../../context/AuthContext";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  Download,
+  Eye,
+  ClipboardList,
+  Plus,
+  Trash2,
+  Search,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  useRequirements,
+  useUpdateRequirementStatus,
+  useAllRequirementTypes,
+  useCreateRequirementType,
+  useUpdateRequirementType,
+  useDeleteRequirementType,
+} from "../../hooks/api";
+import { RefreshStatus } from "../../components/RefreshStatus";
+
+function RequirementTypeManager() {
+  const typesQuery = useAllRequirementTypes();
+  const create = useCreateRequirementType();
+  const update = useUpdateRequirementType();
+  const remove = useDeleteRequirementType();
+
+  const [name, setName] = useState("");
+  const [sport, setSport] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const types = typesQuery.data ?? [];
+
+  const onAdd = () => {
+    if (!name.trim()) return toast.error("Give the document a name");
+    create.mutate(
+      { name: name.trim(), sport: sport.trim() || null },
+      {
+        onSuccess: () => {
+          toast.success("Added to the checklist");
+          setName("");
+          setSport("");
+        },
+        onError: (e: any) => toast.error(e?.message || "Could not add it"),
+      },
+    );
+  };
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ClipboardList className="h-5 w-5 text-gray-400" />
+          Required Documents
+        </CardTitle>
+        <CardDescription>
+          The checklist athletes see. Leave sport blank to apply it to every
+          athlete you coach.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+          <Input
+            placeholder="Document name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="flex-1"
+          />
+          <Input
+            placeholder="Sport (optional)"
+            value={sport}
+            onChange={(e) => setSport(e.target.value)}
+            className="sm:w-48"
+          />
+          <Button onClick={onAdd} disabled={create.isPending}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add
+          </Button>
+        </div>
+
+        {types.length === 0 ? (
+          <p className="py-4 text-center text-sm text-gray-400">
+            No checklist items yet.
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {types.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p
+                    className={`font-medium ${t.active ? "text-gray-900" : "text-gray-400 line-through"}`}
+                  >
+                    {t.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {t.sport ?? "All sports"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      update.mutate({
+                        id: t.id,
+                        data: { required: !t.required },
+                      })
+                    }
+                    disabled={update.isPending}
+                  >
+                    {t.required ? "Required" : "Optional"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      update.mutate({ id: t.id, data: { active: !t.active } })
+                    }
+                    disabled={update.isPending}
+                  >
+                    {t.active ? "Active" : "Hidden"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-50"
+                    onClick={() => setRemoveTarget({ id: t.id, name: t.name })}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove "{removeTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This takes it off the checklist athletes see. Documents already submitted
+              against it are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (removeTarget) remove.mutate(removeTarget.id);
+                setRemoveTarget(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  );
+}
 
 interface Requirement {
   id: string;
@@ -19,7 +205,7 @@ interface Requirement {
   name: string;
   description: string;
   fileUrl: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   submittedAt: string;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -29,29 +215,36 @@ interface Requirement {
 export default function CoachRequirements() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
+  const [selectedRequirement, setSelectedRequirement] =
+    useState<Requirement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [reviewNotes, setReviewNotes] = useState('');
+  const [reviewNotes, setReviewNotes] = useState("");
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') navigate('/login');
+    if (!user || user.role !== "coach") navigate("/login");
   }, [user, navigate]);
 
   const requirementsQuery = useRequirements();
   const updateStatus = useUpdateRequirementStatus();
+  const [search, setSearch] = useState("");
 
-  const requirements: Requirement[] = requirementsQuery.data ?? [];
+  const requirements: Requirement[] = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const all: Requirement[] = requirementsQuery.data ?? [];
+    if (!q) return all;
+    return all.filter((r) => r.athleteName.toLowerCase().includes(q));
+  }, [requirementsQuery.data, search]);
   const loading = requirementsQuery.isLoading;
   const fetching = requirementsQuery.isFetching && !loading;
   const processing = updateStatus.isPending;
 
   const handleViewRequirement = (requirement: Requirement) => {
     setSelectedRequirement(requirement);
-    setReviewNotes(requirement.notes || '');
+    setReviewNotes(requirement.notes || "");
     setDialogOpen(true);
   };
 
-  const handleReview = async (status: 'approved' | 'rejected') => {
+  const handleReview = async (status: "approved" | "rejected") => {
     if (!selectedRequirement) return;
 
     try {
@@ -60,46 +253,60 @@ export default function CoachRequirements() {
         data: { status, notes: reviewNotes },
       });
 
-      toast.success(`Requirement ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
+      toast.success(
+        `Requirement ${status === "approved" ? "approved" : "rejected"} successfully`,
+      );
       setDialogOpen(false);
       setSelectedRequirement(null);
-      setReviewNotes('');
+      setReviewNotes("");
     } catch (error: any) {
-      console.error('Error updating requirement:', error);
-      toast.error(error.message || 'Failed to update requirement');
+      console.error("Error updating requirement:", error);
+      toast.error(error.message || "Failed to update requirement");
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800 border-green-300';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-300';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+      case "approved":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "rejected":
+        return "bg-red-100 text-red-800 border-red-300";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4" />;
-      case 'rejected': return <XCircle className="h-4 w-4" />;
-      case 'pending': return <Clock className="h-4 w-4" />;
-      default: return null;
+      case "approved":
+        return <CheckCircle className="h-4 w-4" />;
+      case "rejected":
+        return <XCircle className="h-4 w-4" />;
+      case "pending":
+        return <Clock className="h-4 w-4" />;
+      default:
+        return null;
     }
   };
 
-  const pendingRequirements = requirements.filter(r => r.status === 'pending');
-  const reviewedRequirements = requirements.filter(r => r.status !== 'pending');
+  const pendingRequirements = requirements.filter(
+    (r) => r.status === "pending",
+  );
+  const reviewedRequirements = requirements.filter(
+    (r) => r.status !== "pending",
+  );
 
   if (!user) return null;
 
@@ -107,21 +314,29 @@ export default function CoachRequirements() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">Requirements Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Requirements Management
+          </h1>
           <RefreshStatus
             fetching={fetching}
             error={requirementsQuery.isRefetchError}
             onRetry={() => requirementsQuery.refetch()}
           />
         </div>
-        <p className="text-gray-600 mt-2">Review and approve athlete document submissions</p>
+        <p className="text-gray-600 mt-2">
+          Review and approve athlete document submissions
+        </p>
       </div>
+
+      <RequirementTypeManager />
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Submissions</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Submissions
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{requirements.length}</div>
@@ -130,34 +345,52 @@ export default function CoachRequirements() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Pending
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">{pendingRequirements.length}</div>
+            <div className="text-3xl font-bold text-yellow-600">
+              {pendingRequirements.length}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Approved</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Approved
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {requirements.filter(r => r.status === 'approved').length}
+              {requirements.filter((r) => r.status === "approved").length}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Rejected</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Rejected
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-red-600">
-              {requirements.filter(r => r.status === 'rejected').length}
+              {requirements.filter((r) => r.status === "rejected").length}
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Input
+          placeholder="Search by athlete name…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10 max-w-sm"
+        />
       </div>
 
       {/* Pending Requirements */}
@@ -168,29 +401,46 @@ export default function CoachRequirements() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading requirements...</div>
+            <div className="text-center py-12 text-gray-500">
+              Loading requirements...
+            </div>
           ) : pendingRequirements.length === 0 ? (
             <div className="text-center py-12">
               <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-500">All caught up! No pending requirements</p>
+              <p className="text-gray-500">
+                All caught up! No pending requirements
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {pendingRequirements.map(req => (
-                <div key={req.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+              {pendingRequirements.map((req) => (
+                <div
+                  key={req.id}
+                  className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold text-lg">{req.athleteName}</h4>
+                        <h4 className="font-semibold text-lg">
+                          {req.athleteName}
+                        </h4>
                         <Badge className={getStatusColor(req.status)}>
                           {getStatusIcon(req.status)}
                           <span className="ml-1">{req.status}</span>
                         </Badge>
                       </div>
                       <div className="space-y-1 text-sm text-gray-600">
-                        <p><strong>Type:</strong> {req.type}</p>
-                        <p><strong>Document:</strong> {req.name}</p>
-                        {req.description && <p><strong>Description:</strong> {req.description}</p>}
+                        <p>
+                          <strong>Type:</strong> {req.type}
+                        </p>
+                        <p>
+                          <strong>Document:</strong> {req.name}
+                        </p>
+                        {req.description && (
+                          <p>
+                            <strong>Description:</strong> {req.description}
+                          </p>
+                        )}
                         {req.fileUrl && (
                           <div className="mt-2">
                             <a
@@ -204,7 +454,9 @@ export default function CoachRequirements() {
                             </a>
                           </div>
                         )}
-                        <p className="text-xs text-gray-500">Submitted {formatDate(req.submittedAt)}</p>
+                        <p className="text-xs text-gray-500">
+                          Submitted {formatDate(req.submittedAt)}
+                        </p>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -234,7 +486,7 @@ export default function CoachRequirements() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {reviewedRequirements.map(req => (
+              {reviewedRequirements.map((req) => (
                 <div key={req.id} className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
@@ -246,7 +498,9 @@ export default function CoachRequirements() {
                         </Badge>
                       </div>
                       <div className="space-y-1 text-sm text-gray-600">
-                        <p><strong>Type:</strong> {req.type} - {req.name}</p>
+                        <p>
+                          <strong>Type:</strong> {req.type} - {req.name}
+                        </p>
                         {req.fileUrl && (
                           <a
                             href={req.fileUrl}
@@ -259,11 +513,14 @@ export default function CoachRequirements() {
                           </a>
                         )}
                         <p className="text-xs text-gray-500">
-                          Reviewed {req.reviewedAt ? formatDate(req.reviewedAt) : 'N/A'}
+                          Reviewed{" "}
+                          {req.reviewedAt ? formatDate(req.reviewedAt) : "N/A"}
                         </p>
                         {req.notes && (
                           <div className="mt-2 bg-white rounded p-2">
-                            <p className="text-xs font-medium text-gray-700">Review Notes:</p>
+                            <p className="text-xs font-medium text-gray-700">
+                              Review Notes:
+                            </p>
                             <p className="text-sm text-gray-600">{req.notes}</p>
                           </div>
                         )}
@@ -293,7 +550,9 @@ export default function CoachRequirements() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="font-medium text-gray-700">Athlete</p>
-                    <p className="text-gray-900">{selectedRequirement.athleteName}</p>
+                    <p className="text-gray-900">
+                      {selectedRequirement.athleteName}
+                    </p>
                   </div>
                   <div>
                     <p className="font-medium text-gray-700">Type</p>
@@ -306,12 +565,16 @@ export default function CoachRequirements() {
                   {selectedRequirement.description && (
                     <div className="col-span-2">
                       <p className="font-medium text-gray-700">Description</p>
-                      <p className="text-gray-900">{selectedRequirement.description}</p>
+                      <p className="text-gray-900">
+                        {selectedRequirement.description}
+                      </p>
                     </div>
                   )}
                   <div className="col-span-2">
                     <p className="font-medium text-gray-700">Submitted</p>
-                    <p className="text-gray-900">{formatDate(selectedRequirement.submittedAt)}</p>
+                    <p className="text-gray-900">
+                      {formatDate(selectedRequirement.submittedAt)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -328,7 +591,9 @@ export default function CoachRequirements() {
 
               {selectedRequirement.fileUrl && (
                 <div className="border rounded-lg p-4 bg-gray-50">
-                  <p className="font-medium text-gray-700 mb-2">Uploaded File</p>
+                  <p className="font-medium text-gray-700 mb-2">
+                    Uploaded File
+                  </p>
                   <a
                     href={selectedRequirement.fileUrl}
                     target="_blank"
@@ -355,7 +620,7 @@ export default function CoachRequirements() {
               type="button"
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
-              onClick={() => handleReview('rejected')}
+              onClick={() => handleReview("rejected")}
               disabled={processing}
             >
               <XCircle className="h-4 w-4 mr-2" />
@@ -363,12 +628,12 @@ export default function CoachRequirements() {
             </Button>
             <Button
               type="button"
-              onClick={() => handleReview('approved')}
+              onClick={() => handleReview("approved")}
               disabled={processing}
               className="bg-green-600 hover:bg-green-700"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              {processing ? 'Processing...' : 'Approve'}
+              {processing ? "Processing..." : "Approve"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -24,10 +24,10 @@ interface RegistrationCode {
   label: string;
   used: boolean;
   usedBy: string | null;
-  usedAt: number | null;
+  usedAt: string | null;
   createdBy: string;
-  createdAt: number;
-  expiresAt: number | null;
+  createdAt: string;
+  expiresAt: string | null;
 }
 
 export default function AdminRegistrationCodes() {
@@ -53,7 +53,7 @@ export default function AdminRegistrationCodes() {
     () =>
       [...((codesQuery.data as RegistrationCode[]) ?? [])].sort((a, b) => {
         if (a.used !== b.used) return a.used ? 1 : -1;
-        return b.createdAt - a.createdAt;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }),
     [codesQuery.data],
   );
@@ -96,7 +96,7 @@ export default function AdminRegistrationCodes() {
     }
   };
 
-  const formatDate = (timestamp: number) => {
+  const formatDate = (timestamp: string) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -106,9 +106,9 @@ export default function AdminRegistrationCodes() {
     });
   };
 
-  const isExpired = (expiresAt: number | null) => {
+  const isExpired = (expiresAt: string | null) => {
     if (!expiresAt) return false;
-    return expiresAt < Date.now();
+    return new Date(expiresAt).getTime() < Date.now();
   };
 
   if (loading) {

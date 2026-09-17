@@ -11,6 +11,7 @@ import {
   Settings,
   QrCode,
   UserCog,
+  MonitorPlay,
   Image as ImageIcon
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ interface QuickAction {
   icon: any;
   path: string;
   variant?: 'default' | 'outline' | 'ghost' | 'destructive';
+  newTab?: boolean;
 }
 
 interface QuickActionsProps {
@@ -36,6 +38,7 @@ const defaultActions: QuickAction[] = [
   { label: 'Site Content', icon: ImageIcon, path: '/admin/carousel', variant: 'outline' },
   { label: 'System Settings', icon: Settings, path: '/admin/settings', variant: 'outline' },
   { label: 'View Leaderboard', icon: Award, path: '/leaderboard', variant: 'outline' },
+  { label: 'Standings Board (TV)', icon: MonitorPlay, path: '/standings', variant: 'outline', newTab: true },
 ];
 
 export default function QuickActions({ actions = defaultActions }: QuickActionsProps) {
@@ -50,9 +53,13 @@ export default function QuickActions({ actions = defaultActions }: QuickActionsP
           {actions.map((action) => {
             const Icon = action.icon;
             return (
-              <Link key={action.path} to={action.path}>
-                <Button 
-                  variant={action.variant || 'outline'} 
+              <Link
+                key={action.label}
+                to={action.path}
+                {...(action.newTab ? { target: '_blank', rel: 'noreferrer' } : {})}
+              >
+                <Button
+                  variant={action.variant || 'outline'}
                   className="w-full justify-start"
                 >
                   <Icon className="h-4 w-4 mr-2" />

@@ -13,7 +13,7 @@ class Ranking extends Model
     protected $casts = [
         'total_score' => 'decimal:4',
         'judge_count' => 'integer',
-        'rank'        => 'integer',
+        'rank' => 'integer',
     ];
 
     public function event()

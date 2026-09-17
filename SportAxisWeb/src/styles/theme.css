@@ -1,7 +1,9 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --font-size: 16px;
+  /* Root size the whole app scales from (all rem-based text + spacing follow it).
+     Raised from 16px for low-vision readability — tune 17-19px to taste. */
+  --font-size: 18px;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;

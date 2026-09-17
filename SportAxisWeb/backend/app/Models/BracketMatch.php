@@ -13,6 +13,7 @@ class BracketMatch extends Model
     protected $table = 'bracket_matches';
 
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -26,8 +27,8 @@ class BracketMatch extends Model
     ];
 
     protected $casts = [
-        'round'  => 'integer',
-        'slot'   => 'integer',
+        'round' => 'integer',
+        'slot' => 'integer',
         'is_bye' => 'boolean',
     ];
 
@@ -50,25 +51,25 @@ class BracketMatch extends Model
     public function toApiFormat(): array
     {
         return [
-            'id'                => $this->id,
-            'round'             => $this->round,
-            'slot'              => $this->slot,
-            'stageLabel'        => $this->stage_label,
-            'homeTeam'          => $this->home_team,
-            'awayTeam'          => $this->away_team,
+            'id' => $this->id,
+            'round' => $this->round,
+            'slot' => $this->slot,
+            'stageLabel' => $this->stage_label,
+            'homeTeam' => $this->home_team,
+            'awayTeam' => $this->away_team,
             'homeSourceMatchId' => $this->home_source_match_id,
             'awaySourceMatchId' => $this->away_source_match_id,
-            'nextMatchId'       => $this->next_match_id,
-            'nextMatchSlot'     => $this->next_match_slot,
-            'scheduledDate'     => $this->scheduled_date,
-            'scheduledTime'     => $this->scheduled_time,
-            'venueId'           => $this->venue_id,
-            'venueName'         => $this->venue_name,
-            'eventId'           => $this->event_id,
-            'winner'            => $this->winner,
-            'loser'             => $this->loser,
-            'isBye'             => $this->is_bye,
-            'status'            => $this->status,
+            'nextMatchId' => $this->next_match_id,
+            'nextMatchSlot' => $this->next_match_slot,
+            'scheduledDate' => $this->scheduled_date,
+            'scheduledTime' => $this->scheduled_time,
+            'venueId' => $this->venue_id,
+            'venueName' => $this->venue_name,
+            'eventId' => $this->event_id,
+            'winner' => $this->winner,
+            'loser' => $this->loser,
+            'isBye' => $this->is_bye,
+            'status' => $this->status,
         ];
     }
 }

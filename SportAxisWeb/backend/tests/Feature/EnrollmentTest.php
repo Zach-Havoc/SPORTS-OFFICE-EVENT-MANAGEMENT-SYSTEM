@@ -27,8 +27,8 @@ class EnrollmentTest extends TestCase
     {
         $coach = $this->users()->coach()->create([
             'enrollment_code' => 'JOINME01',
-            'sport'           => 'Football',
-            'department'      => 'College of Engineering',
+            'sport' => 'Football',
+            'department' => 'College of Engineering',
         ]);
         // Athlete already registered under the same department.
         $athlete = $this->actingAsRole('athlete', ['department' => 'College of Engineering']);
@@ -47,7 +47,7 @@ class EnrollmentTest extends TestCase
     {
         $this->users()->coach()->create([
             'enrollment_code' => 'JOINME01',
-            'department'      => 'College of Business',
+            'department' => 'College of Business',
         ]);
         $athlete = $this->actingAsRole('athlete'); // no department set at signup
 
@@ -62,7 +62,7 @@ class EnrollmentTest extends TestCase
     {
         $this->users()->coach()->create([
             'enrollment_code' => 'JOINME01',
-            'department'      => 'College of Engineering',
+            'department' => 'College of Engineering',
         ]);
         $athlete = $this->actingAsRole('athlete', ['department' => 'College of Business']);
 
@@ -76,10 +76,10 @@ class EnrollmentTest extends TestCase
     public function test_enroll_fails_when_the_coach_has_no_department(): void
     {
         $this->users()->create([
-            'role'            => 'coach',
+            'role' => 'coach',
             'enrollment_code' => 'JOINME01',
-            'sports'          => ['Chess'],
-            'department'      => null,
+            'sports' => ['Chess'],
+            'department' => null,
         ]);
         $this->actingAsRole('athlete', ['department' => 'College of Engineering']);
 

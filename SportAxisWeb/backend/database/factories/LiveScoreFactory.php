@@ -14,17 +14,17 @@ class LiveScoreFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'         => (string) Str::uuid(),
-            'event_id'   => (string) Str::uuid(),
-            'sport'      => 'Basketball',
-            'home_team'  => 'College of Engineering',
-            'away_team'  => 'College of Business',
+            'id' => (string) Str::uuid(),
+            'event_id' => (string) Str::uuid(),
+            'sport' => 'Basketball',
+            'home_team' => 'College of Engineering',
+            'away_team' => 'College of Business',
             'home_score' => fake()->numberBetween(0, 90),
             'away_score' => fake()->numberBetween(0, 90),
-            'period'     => 'Q2',
-            'detail'     => [],
-            'status'     => 'in_progress',
-            'version'    => 1,
+            'period' => 'Q2',
+            'detail' => [],
+            'status' => 'in_progress',
+            'version' => 1,
             'started_at' => now(),
         ];
     }

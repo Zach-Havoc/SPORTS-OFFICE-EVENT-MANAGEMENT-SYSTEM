@@ -14,19 +14,19 @@ class EventFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'          => (string) Str::uuid(),
-            'name'        => fake()->sentence(3),
-            'category'    => 'Basketball',
-            'schedule'    => now()->addDays(fake()->numberBetween(1, 30))->toDateString(),
-            'start_time'  => '09:00',
-            'end_time'    => '11:00',
-            'venue_id'    => null,
-            'venue_name'  => 'Main Gym',
+            'id' => (string) Str::uuid(),
+            'name' => fake()->sentence(3),
+            'category' => 'Basketball',
+            'schedule' => now()->addDays(fake()->numberBetween(1, 30))->toDateString(),
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'venue_id' => null,
+            'venue_name' => 'Main Gym',
             'departments' => ['College of Engineering', 'College of Business'],
-            'judges'      => [],
-            'criteria'    => [],
-            'status'      => 'upcoming',
-            'qr_token'    => Str::random(32),
+            'judges' => [],
+            'criteria' => [],
+            'status' => 'upcoming',
+            'qr_token' => Str::random(32),
         ];
     }
 

@@ -52,8 +52,8 @@ class AthleteIdorTest extends TestCase
         $this->postJson('/api/athletes', [
             'studentId' => '24-00001',
             'firstName' => 'Sam',
-            'lastName'  => 'Cruz',
-            'email'     => 'sam@example.com',
+            'lastName' => 'Cruz',
+            'email' => 'sam@example.com',
         ])->assertCreated();
 
         $this->assertDatabaseHas('athletes', ['student_id' => '24-00001', 'coach_id' => $coach->id]);
@@ -69,18 +69,18 @@ class AthleteIdorTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('studentId');
     }
 
-    public function test_a_coach_cannot_VIEW_another_coachs_athlete(): void
+    public function test_a_coach_cannot_vie_w_another_coachs_athlete(): void
     {
-        $coachA  = $this->users()->coach()->create();
+        $coachA = $this->users()->coach()->create();
         $athlete = $this->athletes()->create(['coach_id' => $coachA->id]);
 
         $this->actingAsRole('coach'); // coach B
         $this->getJson("/api/athletes/{$athlete->id}")->assertNotFound();
     }
 
-    public function test_a_coach_CAN_view_their_own_athlete(): void
+    public function test_a_coach_ca_n_view_their_own_athlete(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
 
         $this->getJson("/api/athletes/{$athlete->id}")
@@ -88,9 +88,9 @@ class AthleteIdorTest extends TestCase
             ->assertJsonFragment(['id' => $athlete->id]);
     }
 
-    public function test_a_coach_cannot_UPDATE_another_coachs_athlete(): void
+    public function test_a_coach_cannot_updat_e_another_coachs_athlete(): void
     {
-        $coachA  = $this->users()->coach()->create();
+        $coachA = $this->users()->coach()->create();
         $athlete = $this->athletes()->create(['coach_id' => $coachA->id, 'first_name' => 'Original']);
 
         $this->actingAsRole('coach'); // coach B
@@ -99,9 +99,9 @@ class AthleteIdorTest extends TestCase
         $this->assertSame('Original', $athlete->fresh()->first_name);
     }
 
-    public function test_a_coach_cannot_DELETE_another_coachs_athlete(): void
+    public function test_a_coach_cannot_delet_e_another_coachs_athlete(): void
     {
-        $coachA  = $this->users()->coach()->create();
+        $coachA = $this->users()->coach()->create();
         $athlete = $this->athletes()->create(['coach_id' => $coachA->id]);
 
         $this->actingAsRole('coach'); // coach B
@@ -110,9 +110,9 @@ class AthleteIdorTest extends TestCase
         $this->assertDatabaseHas('athletes', ['id' => $athlete->id]);
     }
 
-    public function test_a_coach_cannot_REMOVE_another_coachs_athlete_from_roster(): void
+    public function test_a_coach_cannot_remov_e_another_coachs_athlete_from_roster(): void
     {
-        $coachA  = $this->users()->coach()->create();
+        $coachA = $this->users()->coach()->create();
         $athlete = $this->athletes()->create(['coach_id' => $coachA->id]);
 
         $this->actingAsRole('coach'); // coach B
@@ -121,25 +121,45 @@ class AthleteIdorTest extends TestCase
         $this->assertSame($coachA->id, $athlete->fresh()->coach_id);
     }
 
-    public function test_a_coach_can_update_and_remove_their_own_athlete(): void
+    public function test_a_coach_can_set_status_and_remove_their_own_athlete(): void
     {
-        $coach   = $this->actingAsRole('coach');
-        $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
+        $coach = $this->actingAsRole('coach');
+        $athlete = $this->athletes()->create(['coach_id' => $coach->id, 'status' => 'active']);
 
-        $this->putJson("/api/athletes/{$athlete->id}", ['firstName' => 'Updated'])->assertOk();
-        $this->assertSame('Updated', $athlete->fresh()->first_name);
+        $this->putJson("/api/athletes/{$athlete->id}", ['status' => 'injured'])->assertOk();
+        $this->assertSame('injured', $athlete->fresh()->status);
 
         $this->deleteJson("/api/athletes/{$athlete->id}/remove")->assertOk();
         $this->assertNull($athlete->fresh()->coach_id);
     }
 
-    public function test_update_rejects_an_invalid_email(): void
+    public function test_update_ignores_personal_fields_and_only_touches_status(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
+        $athlete = $this->athletes()->create([
+            'coach_id' => $coach->id, 'first_name' => 'Real', 'email' => 'real@student.edu',
+        ]);
+
+        $this->putJson("/api/athletes/{$athlete->id}", [
+            'firstName' => 'Hacked',
+            'email' => 'not-an-email',
+            'department' => 'Somewhere Else',
+            'status' => 'inactive',
+        ])->assertOk();
+
+        $fresh = $athlete->fresh();
+        $this->assertSame('Real', $fresh->first_name);
+        $this->assertSame('real@student.edu', $fresh->email);
+        $this->assertSame('inactive', $fresh->status);
+    }
+
+    public function test_update_rejects_an_invalid_status(): void
+    {
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
 
-        $this->putJson("/api/athletes/{$athlete->id}", ['email' => 'not-an-email'])
+        $this->putJson("/api/athletes/{$athlete->id}", ['status' => 'bogus'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('email');
+            ->assertJsonValidationErrors('status');
     }
 }

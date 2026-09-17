@@ -18,6 +18,13 @@ class EventTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->venues()->create(['id' => 'gym-1', 'name' => 'Joson Gym']);
+        $this->venues()->create(['id' => 'pool-1', 'name' => 'Aquatic Center']);
+    }
+
     public function test_event_list_is_public_and_sorted_by_schedule(): void
     {
         $this->events()->create(['name' => 'Later',  'schedule' => now()->addDays(10)->toDateString()]);
@@ -34,7 +41,7 @@ class EventTest extends TestCase
         $this->events()->create(['name' => 'On target', 'schedule' => $target]);
         $this->events()->create(['name' => 'Other day', 'schedule' => now()->addDays(6)->toDateString()]);
 
-        $this->getJson('/api/events?date=' . $target)
+        $this->getJson('/api/events?date='.$target)
             ->assertOk()
             ->assertJsonCount(1)
             ->assertJsonFragment(['name' => 'On target']);
@@ -47,6 +54,40 @@ class EventTest extends TestCase
         $this->getJson("/api/events/{$event->id}")
             ->assertOk()
             ->assertJsonStructure(['id', 'name', 'category', 'schedule', 'startTime', 'endTime', 'departments', 'status', 'qrToken']);
+    }
+
+    public function test_public_event_endpoints_never_expose_a_judges_email(): void
+    {
+        $event = $this->events()->create([
+            'judges' => [
+                ['id' => 'j1', 'name' => 'Judge One', 'email' => 'judge-one@example.com'],
+                ['id' => 'j2', 'name' => 'Judge Two', 'email' => 'judge-two@example.com'],
+            ],
+        ]);
+
+        $list = $this->getJson('/api/events')->assertOk();
+        $show = $this->getJson("/api/events/{$event->id}")->assertOk();
+
+        $listJudges = $list->json('0.judges');
+        $this->assertNotEmpty($listJudges);
+        foreach ($listJudges as $judge) {
+            $this->assertArrayHasKey('id', $judge);
+            $this->assertArrayHasKey('name', $judge);
+            $this->assertArrayNotHasKey('email', $judge);
+        }
+
+        $showJudges = $show->json('judges');
+        $this->assertNotEmpty($showJudges);
+        foreach ($showJudges as $judge) {
+            $this->assertArrayHasKey('id', $judge);
+            $this->assertArrayHasKey('name', $judge);
+            $this->assertArrayNotHasKey('email', $judge);
+        }
+
+        $this->assertStringNotContainsString('judge-one@example.com', $list->getContent());
+        $this->assertStringNotContainsString('judge-two@example.com', $list->getContent());
+        $this->assertStringNotContainsString('judge-one@example.com', $show->getContent());
+        $this->assertStringNotContainsString('judge-two@example.com', $show->getContent());
     }
 
     public function test_showing_a_missing_event_returns_404(): void
@@ -72,11 +113,11 @@ class EventTest extends TestCase
         $this->actingAsRole('admin');
 
         $res = $this->postJson('/api/events', [
-            'name'        => 'Finals',
-            'category'    => 'Basketball',
-            'schedule'    => now()->addDay()->toDateString(),
-            'startTime'   => '09:00',
-            'endTime'     => '11:00',
+            'name' => 'Finals',
+            'category' => 'Basketball',
+            'schedule' => now()->addDay()->toDateString(),
+            'startTime' => '09:00',
+            'endTime' => '11:00',
             'departments' => ['College of Engineering', 'College of Business'],
         ])->assertCreated();
 
@@ -89,11 +130,11 @@ class EventTest extends TestCase
     private function eventPayload(array $over = []): array
     {
         return array_merge([
-            'name'        => 'Game',
-            'category'    => 'Basketball',
-            'schedule'    => now()->addDay()->toDateString(),
-            'startTime'   => '09:00',
-            'endTime'     => '11:00',
+            'name' => 'Game',
+            'category' => 'Basketball',
+            'schedule' => now()->addDay()->toDateString(),
+            'startTime' => '09:00',
+            'endTime' => '11:00',
             'departments' => ['CET', 'CICS'],
         ], $over);
     }
@@ -132,7 +173,7 @@ class EventTest extends TestCase
         $this->categories()->create(['name' => 'Swimming 50m Free', 'format' => 'ranked']);
 
         $this->postJson('/api/events', $this->eventPayload([
-            'category'    => 'Swimming 50m Free',
+            'category' => 'Swimming 50m Free',
             'departments' => ['CET', 'CICS', 'CABEIHM', 'CAS'],
         ]))->assertCreated();
     }
@@ -174,7 +215,66 @@ class EventTest extends TestCase
         $this->assertDatabaseHas('events', ['id' => $event->id, 'status' => 'ongoing']);
 
         $this->deleteJson("/api/events/{$event->id}")->assertOk();
-        $this->assertDatabaseMissing('events', ['id' => $event->id]);
+        $this->assertSoftDeleted('events', ['id' => $event->id]);
+        $this->getJson("/api/events/{$event->id}")->assertNotFound();
+
+        $this->postJson("/api/events/{$event->id}/restore")->assertOk();
+        $this->assertNotSoftDeleted('events', ['id' => $event->id]);
+    }
+
+    // ── Time window and venue resolution on update ────────────────────────
+
+    public function test_updating_an_event_cannot_invert_its_time_window(): void
+    {
+        $this->actingAsRole('admin');
+        $event = $this->events()->create([
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+        ]);
+
+        // Sending only endTime is still checked against the stored startTime.
+        $this->putJson("/api/events/{$event->id}", ['endTime' => '08:00'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('endTime');
+
+        // …and sending only startTime against the stored endTime.
+        $this->putJson("/api/events/{$event->id}", ['startTime' => '12:00'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('startTime');
+
+        // Equal start and end is a zero-length event, also rejected.
+        $this->putJson("/api/events/{$event->id}", ['startTime' => '10:00', 'endTime' => '10:00'])
+            ->assertStatus(422);
+
+        // A valid pair still goes through.
+        $this->putJson("/api/events/{$event->id}", ['startTime' => '13:00', 'endTime' => '15:00'])
+            ->assertOk();
+        $this->assertDatabaseHas('events', [
+            'id' => $event->id, 'start_time' => '13:00', 'end_time' => '15:00',
+        ]);
+    }
+
+    public function test_updating_an_event_with_an_unknown_venue_id_does_not_500(): void
+    {
+        $this->actingAsRole('admin');
+        $event = $this->events()->create(['venue_id' => 'gym-1', 'venue_name' => 'Joson Gym']);
+
+        // events.venue_id is a foreign key: an id that resolves to nothing must
+        // be stored as null rather than written raw.
+        $this->putJson("/api/events/{$event->id}", ['venueId' => 'no-such-venue'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('events', ['id' => $event->id, 'venue_id' => null]);
+    }
+
+    public function test_updating_an_event_to_a_real_venue_still_works(): void
+    {
+        $this->actingAsRole('admin');
+        $event = $this->events()->create(['venue_id' => 'gym-1', 'venue_name' => 'Joson Gym']);
+
+        $this->putJson("/api/events/{$event->id}", ['venueId' => 'pool-1'])->assertOk();
+
+        $this->assertDatabaseHas('events', ['id' => $event->id, 'venue_id' => 'pool-1']);
     }
 
     // ── Venue double-booking ──────────────────────────────────────────────
@@ -195,8 +295,8 @@ class EventTest extends TestCase
         ])
             ->assertStatus(422)
             ->assertJsonPath('conflicts.0.name', 'Basketball R1')
-            ->assertJsonFragment(['error' => \App\Models\Event::conflictMessage(
-                \App\Models\Event::where('name', 'Basketball R1')->first()
+            ->assertJsonFragment(['error' => Event::conflictMessage(
+                Event::where('name', 'Basketball R1')->first()
             )]);
 
         $this->assertDatabaseMissing('events', ['name' => 'Volleyball R1']);
@@ -287,8 +387,10 @@ class EventTest extends TestCase
             ->assertOk()
             ->assertJsonPath('deleted', 2);
 
-        $this->assertDatabaseMissing('events', ['id' => $a->id]);
-        $this->assertDatabaseHas('events', ['id' => $keep->id]);
+        $this->assertSoftDeleted('events', ['id' => $a->id]);
+        $this->assertSoftDeleted('events', ['id' => $b->id]);
+        $this->assertNotSoftDeleted('events', ['id' => $keep->id]);
+        $this->assertSame(1, Event::count());
     }
 
     public function test_admin_can_bulk_change_status(): void

@@ -22,8 +22,8 @@ class CoachTest extends TestCase
     private function profile(array $overrides = []): array
     {
         return array_merge([
-            'sports'         => ['Basketball'],
-            'department'     => 'College of Engineering',
+            'sports' => ['Basketball'],
+            'department' => 'College of Engineering',
             'genderCategory' => 'Men',
         ], $overrides);
     }
@@ -39,9 +39,9 @@ class CoachTest extends TestCase
     public function test_coach_can_read_their_profile(): void
     {
         $this->actingAsRole('coach', [
-            'email'      => 'coach@x.com',
-            'sport'      => 'Volleyball',
-            'sports'     => ['Volleyball', 'Badminton'],
+            'email' => 'coach@x.com',
+            'sport' => 'Volleyball',
+            'sports' => ['Volleyball', 'Badminton'],
             'department' => 'College of Business',
         ]);
 
@@ -67,8 +67,8 @@ class CoachTest extends TestCase
         $coach->refresh();
         $this->assertNotNull($coach->enrollment_code);
         $this->assertDatabaseHas('registration_codes', [
-            'code'       => $coach->enrollment_code,
-            'role'       => 'athlete',
+            'code' => $coach->enrollment_code,
+            'role' => 'athlete',
             'created_by' => $coach->id,
         ]);
     }
@@ -124,20 +124,20 @@ class CoachTest extends TestCase
         // Coach A already runs Basketball for College of Engineering.
         $this->users()->coach()->create([
             'department' => 'College of Engineering',
-            'sport'      => 'Basketball',
-            'sports'     => ['Basketball'],
+            'sport' => 'Basketball',
+            'sports' => ['Basketball'],
         ]);
 
         // Coach B (same department) tries to claim Basketball too.
         $this->actingAsRole('coach', ['enrollment_code' => 'HASCODE1']);
         $this->putJson('/api/coach/profile', $this->profile([
-            'sports'     => ['Basketball', 'Volleyball'],
+            'sports' => ['Basketball', 'Volleyball'],
             'department' => 'College of Engineering',
         ]))->assertStatus(422)->assertJsonValidationErrors('sports');
 
         // But a sport that's still free in that department is fine.
         $this->putJson('/api/coach/profile', $this->profile([
-            'sports'     => ['Volleyball'],
+            'sports' => ['Volleyball'],
             'department' => 'College of Engineering',
         ]))->assertOk();
     }
@@ -146,12 +146,12 @@ class CoachTest extends TestCase
     {
         $this->users()->coach()->create([
             'department' => 'College of Engineering',
-            'sports'     => ['Basketball'],
+            'sports' => ['Basketball'],
         ]);
 
         $this->actingAsRole('coach', ['enrollment_code' => 'HASCODE1']);
         $this->putJson('/api/coach/profile', $this->profile([
-            'sports'     => ['Basketball'],
+            'sports' => ['Basketball'],
             'department' => 'College of Business',
         ]))->assertOk();
     }

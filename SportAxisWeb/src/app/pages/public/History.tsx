@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useEvents } from "../../hooks/api";
+import { useEvents, useSeasons } from "../../hooks/api";
 import {
   Card,
   CardDescription,
@@ -34,7 +34,13 @@ interface Event {
 export default function PublicHistory() {
   // Cached events show immediately; a background refetch runs on mount and
   // whenever the tab regains focus or the network reconnects.
-  const { data, isLoading, isFetching, isRefetchError, refetch } = useEvents();
+  // '' = the active edition; otherwise a specific season id.
+  const [season, setSeason] = useState("");
+  const { data: seasonsData } = useSeasons();
+  const seasons = seasonsData ?? [];
+  const { data, isLoading, isFetching, isRefetchError, refetch } = useEvents(
+    season || undefined,
+  );
   const abbr = useDeptAbbreviator();
 
   const events = useMemo<Event[]>(
@@ -80,8 +86,7 @@ export default function PublicHistory() {
     }
 
     return [...filtered].sort(
-      (a, b) =>
-        new Date(b.schedule).getTime() - new Date(a.schedule).getTime(),
+      (a, b) => new Date(b.schedule).getTime() - new Date(a.schedule).getTime(),
     );
   }, [events, searchTerm, categoryFilter, statusFilter]);
 
@@ -127,6 +132,28 @@ export default function PublicHistory() {
         <p className="text-gray-500 text-sm mt-1.5">
           Browse completed, ongoing, and upcoming events across all sports.
         </p>
+        {seasons.length > 1 && (
+          <select
+            value={season}
+            onChange={(e) => setSeason(e.target.value)}
+            className="mt-3 rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700"
+            aria-label="Season"
+          >
+            <option value="">
+              Active season
+              {seasons.find((s) => s.isActive)
+                ? ` — ${seasons.find((s) => s.isActive)!.name}`
+                : ""}
+            </option>
+            {seasons
+              .filter((s) => !s.isActive)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+          </select>
+        )}
       </header>
 
       {/* Filters */}
@@ -157,7 +184,10 @@ export default function PublicHistory() {
           {/* Secondary filters — fixed width, wrap on mobile */}
           <div className="flex gap-3">
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Filter by sport">
+              <SelectTrigger
+                className="h-10 w-full sm:w-44"
+                aria-label="Filter by sport"
+              >
                 <SelectValue placeholder="All sports" />
               </SelectTrigger>
               <SelectContent>
@@ -171,7 +201,10 @@ export default function PublicHistory() {
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 w-full sm:w-40" aria-label="Filter by status">
+              <SelectTrigger
+                className="h-10 w-full sm:w-40"
+                aria-label="Filter by status"
+              >
                 <SelectValue placeholder="Any status" />
               </SelectTrigger>
               <SelectContent>
@@ -187,7 +220,11 @@ export default function PublicHistory() {
         {/* Result count + clear */}
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
           <p className="text-xs text-gray-500">
-            Showing <span className="font-medium text-gray-700">{filteredEvents.length}</span> of {events.length} events
+            Showing{" "}
+            <span className="font-medium text-gray-700">
+              {filteredEvents.length}
+            </span>{" "}
+            of {events.length} events
           </p>
           {hasActiveFilters && (
             <button
@@ -206,8 +243,12 @@ export default function PublicHistory() {
       {filteredEvents.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <Calendar className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-3 text-sm font-medium text-gray-700">No events match your filters</p>
-          <p className="mt-1 text-sm text-gray-500">Try a different search term or status.</p>
+          <p className="mt-3 text-sm font-medium text-gray-700">
+            No events match your filters
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Try a different search term or status.
+          </p>
           {hasActiveFilters && (
             <button
               type="button"
@@ -235,7 +276,10 @@ export default function PublicHistory() {
                       >
                         {event.status}
                       </span>
-                      <Badge variant="outline" className="font-normal text-gray-600">
+                      <Badge
+                        variant="outline"
+                        className="font-normal text-gray-600"
+                      >
                         {event.category}
                       </Badge>
                     </div>
@@ -245,9 +289,7 @@ export default function PublicHistory() {
                     <CardDescription className="mt-2 space-y-1">
                       <div className="flex items-center text-sm">
                         <Calendar className="h-4 w-4 mr-2" />
-                        {new Date(
-                          event.schedule,
-                        ).toLocaleDateString("en-US", {
+                        {new Date(event.schedule).toLocaleDateString("en-US", {
                           weekday: "long",
                           year: "numeric",
                           month: "long",

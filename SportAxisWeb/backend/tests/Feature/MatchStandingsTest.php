@@ -25,9 +25,9 @@ class MatchStandingsTest extends TestCase
         $event = $this->events()->ongoing()->create(['category' => 'Basketball']);
 
         $this->postJson('/api/scores', [
-            'eventId'    => $event->id,
+            'eventId' => $event->id,
             'department' => 'CICS',
-            'scores'     => ['pts' => 1],
+            'scores' => ['pts' => 1],
             'totalScore' => 78,
         ])->assertCreated();
 
@@ -36,9 +36,9 @@ class MatchStandingsTest extends TestCase
 
         $this->actingAsRole('judge');
         $this->postJson('/api/scores', [
-            'eventId'    => $event->id,
+            'eventId' => $event->id,
             'department' => 'CABEIHM',
-            'scores'     => ['pts' => 1],
+            'scores' => ['pts' => 1],
             'totalScore' => 65,
         ])->assertCreated();
 

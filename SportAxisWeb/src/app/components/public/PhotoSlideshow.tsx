@@ -3,9 +3,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSiteSlides } from '../../hooks/api';
 
 /**
- * The public photo slideshow shown on the Live Events page.
+ * The public photo slideshow shown on the Match Schedule page.
  *
- * Slides are 100% admin-controlled (Admin › Site Content › Live Events
+ * Slides are 100% admin-controlled (Admin › Site Content › Match Schedule
  * Slideshow). If the admin hasn't added any, this renders nothing so the
  * page just starts at the schedule.
  */

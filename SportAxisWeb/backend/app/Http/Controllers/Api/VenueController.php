@@ -17,22 +17,22 @@ class VenueController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'     => 'required|string',
-            'type'     => 'required|string',
+            'name' => 'required|string',
+            'type' => 'required|string',
             'capacity' => 'required|integer|min:1',
             'location' => 'required|string',
-            'status'   => 'in:available,unavailable,maintenance',
+            'status' => 'in:available,unavailable,maintenance',
         ]);
 
         $venue = Venue::create([
-            'id'         => Str::uuid(),
-            'name'       => $request->name,
-            'type'       => $request->type,
-            'capacity'   => $request->capacity,
-            'sports'     => $request->sports ?? [],
-            'location'   => $request->location,
+            'id' => Str::uuid(),
+            'name' => $request->name,
+            'type' => $request->type,
+            'capacity' => $request->capacity,
+            'sports' => $request->sports ?? [],
+            'location' => $request->location,
             'facilities' => $request->facilities,
-            'status'     => $request->status ?? 'available',
+            'status' => $request->status ?? 'available',
             'created_by' => auth()->id(),
         ]);
 
@@ -43,15 +43,25 @@ class VenueController extends Controller
     {
         $venue = Venue::findOrFail($id);
 
+        $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'type' => 'sometimes|required|string|max:100',
+            'capacity' => 'sometimes|required|integer|min:1',
+            'location' => 'sometimes|required|string|max:255',
+            'sports' => 'sometimes|array',
+            'facilities' => 'sometimes|nullable|string',
+            'status' => 'sometimes|required|in:available,unavailable,maintenance',
+        ]);
+
         $venue->update(array_filter([
-            'name'       => $request->name,
-            'type'       => $request->type,
-            'capacity'   => $request->capacity,
-            'sports'     => $request->sports,
-            'location'   => $request->location,
+            'name' => $request->name,
+            'type' => $request->type,
+            'capacity' => $request->capacity,
+            'sports' => $request->sports,
+            'location' => $request->location,
             'facilities' => $request->facilities,
-            'status'     => $request->status,
-        ], fn($v) => !is_null($v)));
+            'status' => $request->status,
+        ], fn ($v) => ! is_null($v)));
 
         return response()->json($venue->fresh());
     }
@@ -59,6 +69,7 @@ class VenueController extends Controller
     public function destroy(string $id)
     {
         Venue::findOrFail($id)->delete();
+
         return response()->json(['message' => 'Venue deleted']);
     }
 }

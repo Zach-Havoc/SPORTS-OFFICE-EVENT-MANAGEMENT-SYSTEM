@@ -120,9 +120,9 @@ export interface ScoreSubmissionResponse {
 export interface OcrResult {
   total_score: number;
   confidence: number;
-  image_url?: string | null;
+  image_url: string | null;
   raw_text?: string;
-  is_mock?: boolean;
+  is_mock: boolean;
 }
 
 // ── Offline Queue ─────────────────────────────────────────────────────────────

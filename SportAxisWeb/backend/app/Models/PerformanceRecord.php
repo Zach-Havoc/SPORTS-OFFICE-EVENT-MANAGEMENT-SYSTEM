@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PerformanceRecord extends Model
 {
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -15,7 +16,7 @@ class PerformanceRecord extends Model
     ];
 
     protected $casts = [
-        'metrics'     => 'array',
+        'metrics' => 'array',
         'recorded_at' => 'datetime',
     ];
 }

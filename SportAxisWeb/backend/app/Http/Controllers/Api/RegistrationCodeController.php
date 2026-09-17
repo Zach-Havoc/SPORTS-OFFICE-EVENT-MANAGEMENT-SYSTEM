@@ -17,15 +17,15 @@ class RegistrationCodeController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'role'          => 'required|in:admin,coach,athlete,judge',
-            'label'         => 'nullable|string|max:255',
+            'role' => 'required|in:admin,coach,athlete,judge',
+            'label' => 'nullable|string|max:255',
             'expiresInDays' => 'nullable|integer|min:1',
         ]);
 
         $code = RegistrationCode::create([
-            'code'       => strtoupper(Str::random(8)),
-            'role'       => $request->role,
-            'label'      => $request->label,
+            'code' => strtoupper(Str::random(8)),
+            'role' => $request->role,
+            'label' => $request->label,
             'created_by' => auth()->id(),
             'expires_at' => $request->expiresInDays
                 ? now()->addDays($request->expiresInDays)
@@ -38,6 +38,7 @@ class RegistrationCodeController extends Controller
     public function destroy(string $code)
     {
         RegistrationCode::where('code', $code)->firstOrFail()->delete();
+
         return response()->json(['message' => 'Code revoked']);
     }
 }

@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\TryoutApplication;
 use App\Models\EmailVerification;
+use App\Models\TryoutApplication;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class TryoutController extends Controller
 {
@@ -35,7 +36,7 @@ class TryoutController extends Controller
             );
             $mailSent = true;
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Tryout verification email failed to send: ' . $e->getMessage());
+            Log::error('Tryout verification email failed to send: '.$e->getMessage());
         }
 
         $response = ['message' => 'Verification code sent'];
@@ -54,22 +55,27 @@ class TryoutController extends Controller
     /** POST /api/tryouts/apply (public) */
     public function apply(Request $request)
     {
+        // Normalize before validating: the frontend counts digits only, so a
+        // formatted number like "0912-345-6789" must not fail here just
+        // because it wasn't stripped of punctuation first.
+        $request->merge(['phone' => preg_replace('/\D/', '', (string) $request->phone)]);
+
         $request->validate([
-            'firstName'        => 'required|string',
-            'lastName'         => 'required|string',
-            'email'            => 'required|email',
-            'studentId'        => 'required|string',
-            'department'       => 'required|string',
-            'phone'            => 'required|string',
-            'yearLevel'        => 'nullable|string',
-            'sport'            => 'nullable|string',
-            'verificationCode' => 'required|string',
+            'firstName' => 'required|string|max:255',
+            'lastName' => 'required|string|max:255',
+            'email' => ['required', 'email', 'max:255', 'regex:/@([a-z0-9-]+\.)?batstate-u\.edu\.ph$/i'],
+            'studentId' => 'required|string|regex:/^\d{2}-\d{5}$/',
+            'department' => 'required|string|max:255|exists:departments,name',
+            'phone' => 'required|string|regex:/^\d{11}$/',
+            'yearLevel' => 'nullable|string|max:255',
+            'sport' => 'nullable|string|max:255',
+            'verificationCode' => 'required|string|max:10',
         ]);
 
         // Validate verification code
         $verification = EmailVerification::where('email', $request->email)->first();
 
-        if (!$verification || (string) $verification->code !== (string) trim($request->verificationCode)) {
+        if (! $verification || (string) $verification->code !== (string) trim($request->verificationCode)) {
             return response()->json(['message' => 'Invalid verification code.'], 422);
         }
 
@@ -81,18 +87,18 @@ class TryoutController extends Controller
         $verification->delete();
 
         $app = TryoutApplication::create([
-            'id'              => Str::uuid(),
+            'id' => Str::uuid(),
             'announcement_id' => $request->announcementId,
-            'sport'           => $request->sport,
-            'coach_id'        => $request->coachId,
-            'first_name'      => $request->firstName,
-            'last_name'       => $request->lastName,
-            'email'           => $request->email,
-            'student_id'      => $request->studentId,
-            'department'      => $request->department,
-            'phone'           => $request->phone,
-            'year_level'      => $request->yearLevel ?? '1st Year',
-            'applied_at'      => now(),
+            'sport' => $request->sport,
+            'coach_id' => $request->coachId,
+            'first_name' => $request->firstName,
+            'last_name' => $request->lastName,
+            'email' => $request->email,
+            'student_id' => $request->studentId,
+            'department' => $request->department,
+            'phone' => $request->phone,
+            'year_level' => $request->yearLevel ?? '1st Year',
+            'applied_at' => now(),
         ]);
 
         return response()->json($app, 201);

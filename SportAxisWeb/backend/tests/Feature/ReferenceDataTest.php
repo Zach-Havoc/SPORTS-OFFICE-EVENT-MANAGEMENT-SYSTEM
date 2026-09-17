@@ -109,8 +109,8 @@ class ReferenceDataTest extends TestCase
         $this->actingAsRole('admin');
 
         $this->postJson('/api/venues', [
-            'name'     => 'Main Gym',
-            'type'     => 'indoor',
+            'name' => 'Main Gym',
+            'type' => 'indoor',
             'capacity' => 500,
             'location' => 'Building A',
         ])->assertCreated();
@@ -123,8 +123,8 @@ class ReferenceDataTest extends TestCase
         $this->actingAsRole('admin');
 
         $this->postJson('/api/venues', [
-            'name'     => 'Bad Venue',
-            'type'     => 'indoor',
+            'name' => 'Bad Venue',
+            'type' => 'indoor',
             'capacity' => 0,
             'location' => 'Nowhere',
         ])->assertStatus(422)->assertJsonValidationErrors('capacity');

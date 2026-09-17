@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Trophy, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -22,6 +22,7 @@ export default function Login() {
   const [name, setName] = useState('');
   const [role, setRole] = useState<'admin' | 'coach' | 'athlete' | 'judge'>('athlete');
   const [registrationCode, setRegistrationCode] = useState('');
+  const [srCode, setSrCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -71,15 +72,20 @@ export default function Login() {
           throw new Error('Password must be at least 8 characters long');
         }
 
+        if (role === 'athlete' && !srCode.trim()) {
+          throw new Error('Enter your SR Code so we can verify you as an enrolled student.');
+        }
+
         console.log('Attempting signup for:', email);
-        await signup(email, password, name, role, registrationCode);
+        await signup(email, password, name, role, registrationCode, srCode.trim());
         toast.success('Account created successfully! You can now log in.');
-        
+
         // Switch to login mode after successful signup
         setMode('login');
         setPassword('');
         setConfirmPassword('');
         setName('');
+        setSrCode('');
       } else if (mode === 'reset') {
         console.log('Requesting password reset for:', email);
         await resetPassword(email);
@@ -103,6 +109,7 @@ export default function Login() {
     setName('');
     setRole('judge');
     setRegistrationCode('');
+    setSrCode('');
     setError('');
     setResetSent(false);
   };
@@ -117,7 +124,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <Trophy className="h-12 w-12 text-[#C8102E]" />
+            <img src="/batstateu-seal.png" alt="Batangas State University" className="h-16 w-16 object-contain" />
           </div>
           <CardTitle>
             {mode === 'login' && 'Welcome Back'}
@@ -200,6 +207,24 @@ export default function Login() {
                   {role === 'coach' && 'Coaches can manage athletes, track attendance, and record performance'}
                   {role === 'judge' && 'Committees can view and score assigned events'}
                   {role === 'admin' && 'Admins can manage events, users, and view all data'}
+                </p>
+              </div>
+            )}
+
+            {/* SR Code — athletes are verified against the campus registry */}
+            {mode === 'signup' && role === 'athlete' && (
+              <div className="space-y-2">
+                <Label htmlFor="srCode">SR Code *</Label>
+                <Input
+                  id="srCode"
+                  type="text"
+                  placeholder="e.g., 23-75760"
+                  value={srCode}
+                  onChange={(e) => setSrCode(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-gray-500">
+                  Your name and SR Code must match your college registrar's records.
                 </p>
               </div>
             )}

@@ -13,6 +13,7 @@ class TeamMatch extends Model
     protected $table = 'team_matches';
 
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -24,8 +25,8 @@ class TeamMatch extends Model
     protected $casts = [
         'home_score' => 'decimal:2',
         'away_score' => 'decimal:2',
-        'is_draw'    => 'boolean',
-        'played_at'  => 'datetime',
+        'is_draw' => 'boolean',
+        'played_at' => 'datetime',
     ];
 
     public function event()
@@ -61,9 +62,9 @@ class TeamMatch extends Model
 
             $rows[$m->home_team]['played']++;
             $rows[$m->away_team]['played']++;
-            $rows[$m->home_team]['points_for']     += (float) $m->home_score;
+            $rows[$m->home_team]['points_for'] += (float) $m->home_score;
             $rows[$m->home_team]['points_against'] += (float) $m->away_score;
-            $rows[$m->away_team]['points_for']     += (float) $m->away_score;
+            $rows[$m->away_team]['points_for'] += (float) $m->away_score;
             $rows[$m->away_team]['points_against'] += (float) $m->home_score;
 
             if ($m->is_draw) {
@@ -80,7 +81,7 @@ class TeamMatch extends Model
 
         $table = collect($rows)->map(function ($r) {
             $r['point_diff'] = round($r['points_for'] - $r['points_against'], 2);
-            $r['win_pct']    = $r['played'] ? round($r['wins'] / $r['played'], 3) : 0.0;
+            $r['win_pct'] = $r['played'] ? round($r['wins'] / $r['played'], 3) : 0.0;
 
             return $r;
         })->values()->all();

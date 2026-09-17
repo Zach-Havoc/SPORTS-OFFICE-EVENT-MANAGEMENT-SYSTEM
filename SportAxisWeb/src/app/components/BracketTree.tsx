@@ -16,6 +16,9 @@ export interface BracketTreeMatch {
   nextMatchId: string | null;
   homeScore?: number | null;
   awayScore?: number | null;
+  // Racquet disciplines: "Santos (CET)" shown instead of the bare college.
+  homeLabel?: string | null;
+  awayLabel?: string | null;
 }
 
 /**
@@ -73,14 +76,14 @@ export default function BracketTree({
     participants: [
       {
         id: m.homeTeam ?? `tbd-h-${m.id}`,
-        name: m.homeTeam ? short(m.homeTeam) : m.isBye ? 'BYE' : 'TBD',
+        name: m.homeLabel || (m.homeTeam ? short(m.homeTeam) : m.isBye ? 'BYE' : 'TBD'),
         isWinner: !!m.winner && m.winner === m.homeTeam,
         status: null,
         resultText: m.homeScore != null ? String(m.homeScore) : '',
       },
       {
         id: m.awayTeam ?? `tbd-a-${m.id}`,
-        name: m.awayTeam ? short(m.awayTeam) : m.isBye ? 'BYE' : 'TBD',
+        name: m.awayLabel || (m.awayTeam ? short(m.awayTeam) : m.isBye ? 'BYE' : 'TBD'),
         isWinner: !!m.winner && m.winner === m.awayTeam,
         status: null,
         resultText: m.awayScore != null ? String(m.awayScore) : '',

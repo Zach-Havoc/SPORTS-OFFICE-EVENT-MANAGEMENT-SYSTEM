@@ -92,16 +92,16 @@ class RequirementTest extends TestCase
 
     public function test_coach_can_review_a_requirement_for_their_own_roster(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
-        $req     = $this->requirements()->create(['athlete_id' => $athlete->id]);
+        $req = $this->requirements()->create(['athlete_id' => $athlete->id]);
 
         $this->putJson("/api/requirements/{$req->id}/status", ['status' => 'approved', 'notes' => 'Looks good'])
             ->assertOk();
 
         $this->assertDatabaseHas('requirements', [
-            'id'          => $req->id,
-            'status'      => 'approved',
+            'id' => $req->id,
+            'status' => 'approved',
             'reviewed_by' => $coach->id,
         ]);
     }
@@ -110,8 +110,8 @@ class RequirementTest extends TestCase
     {
         $this->actingAsRole('coach');
         $otherCoach = $this->users()->coach()->create();
-        $athlete    = $this->athletes()->create(['coach_id' => $otherCoach->id]);
-        $req        = $this->requirements()->create(['athlete_id' => $athlete->id, 'status' => 'pending']);
+        $athlete = $this->athletes()->create(['coach_id' => $otherCoach->id]);
+        $req = $this->requirements()->create(['athlete_id' => $athlete->id, 'status' => 'pending']);
 
         $this->putJson("/api/requirements/{$req->id}/status", ['status' => 'approved'])
             ->assertNotFound();
@@ -121,9 +121,9 @@ class RequirementTest extends TestCase
 
     public function test_review_status_must_be_valid(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
-        $req     = $this->requirements()->create(['athlete_id' => $athlete->id]);
+        $req = $this->requirements()->create(['athlete_id' => $athlete->id]);
 
         $this->putJson("/api/requirements/{$req->id}/status", ['status' => 'maybe'])
             ->assertStatus(422)

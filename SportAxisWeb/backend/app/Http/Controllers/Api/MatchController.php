@@ -41,26 +41,26 @@ class MatchController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'sport'      => 'required|string',
-            'stage'      => 'sometimes|string',
-            'eventId'    => 'sometimes|nullable|string',
-            'homeTeam'   => 'required|string',
-            'awayTeam'   => 'required|string|different:homeTeam',
-            'homeScore'  => 'sometimes|nullable|numeric|min:0',
-            'awayScore'  => 'sometimes|nullable|numeric|min:0',
-            'status'     => 'sometimes|in:scheduled,completed,forfeit',
+            'sport' => 'required|string',
+            'stage' => 'sometimes|string',
+            'eventId' => 'sometimes|nullable|string',
+            'homeTeam' => 'required|string',
+            'awayTeam' => 'required|string|different:homeTeam',
+            'homeScore' => 'sometimes|nullable|numeric|min:0',
+            'awayScore' => 'sometimes|nullable|numeric|min:0',
+            'status' => 'sometimes|in:scheduled,completed,forfeit',
         ]);
 
         $match = new TeamMatch([
-            'id'          => (string) Str::uuid(),
-            'sport'       => $data['sport'],
-            'stage'       => $data['stage'] ?? 'elimination',
-            'event_id'    => $data['eventId'] ?? null,
-            'home_team'   => $data['homeTeam'],
-            'away_team'   => $data['awayTeam'],
-            'home_score'  => $data['homeScore'] ?? null,
-            'away_score'  => $data['awayScore'] ?? null,
-            'status'      => $data['status'] ?? (isset($data['homeScore'], $data['awayScore']) ? 'completed' : 'scheduled'),
+            'id' => (string) Str::uuid(),
+            'sport' => $data['sport'],
+            'stage' => $data['stage'] ?? 'elimination',
+            'event_id' => $data['eventId'] ?? null,
+            'home_team' => $data['homeTeam'],
+            'away_team' => $data['awayTeam'],
+            'home_score' => $data['homeScore'] ?? null,
+            'away_score' => $data['awayScore'] ?? null,
+            'status' => $data['status'] ?? (isset($data['homeScore'], $data['awayScore']) ? 'completed' : 'scheduled'),
             'recorded_by' => $request->user()?->id,
         ]);
 
@@ -78,16 +78,24 @@ class MatchController extends Controller
         $match = TeamMatch::findOrFail($id);
 
         $data = $request->validate([
-            'stage'     => 'sometimes|string',
+            'stage' => 'sometimes|string',
             'homeScore' => 'sometimes|nullable|numeric|min:0',
             'awayScore' => 'sometimes|nullable|numeric|min:0',
-            'status'    => 'sometimes|in:scheduled,completed,forfeit',
+            'status' => 'sometimes|in:scheduled,completed,forfeit',
         ]);
 
-        if (array_key_exists('stage', $data)) $match->stage = $data['stage'];
-        if (array_key_exists('homeScore', $data)) $match->home_score = $data['homeScore'];
-        if (array_key_exists('awayScore', $data)) $match->away_score = $data['awayScore'];
-        if (array_key_exists('status', $data)) $match->status = $data['status'];
+        if (array_key_exists('stage', $data)) {
+            $match->stage = $data['stage'];
+        }
+        if (array_key_exists('homeScore', $data)) {
+            $match->home_score = $data['homeScore'];
+        }
+        if (array_key_exists('awayScore', $data)) {
+            $match->away_score = $data['awayScore'];
+        }
+        if (array_key_exists('status', $data)) {
+            $match->status = $data['status'];
+        }
 
         if ($match->status !== 'scheduled' && ! $match->played_at) {
             $match->played_at = now();

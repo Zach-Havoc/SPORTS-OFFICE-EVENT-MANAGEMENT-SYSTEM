@@ -8,8 +8,8 @@ import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDepartments, getVenues, getStandings, createBracket, publishBracket } from '../../services/api';
-import { useBrackets } from '../../hooks/api';
+import { getStandings } from '../../services/api';
+import { useBrackets, useCategories, useDepartments, useVenues, useCreateBracket, usePublishBracket } from '../../hooks/api';
 import { Badge } from '../../components/ui/badge';
 import { SingleEliminationBracket, Match as BracketMatch } from '@g-loot/react-tournament-brackets';
 import { seededSlotOrder } from '../../utils/bracket';
@@ -60,10 +60,15 @@ interface Bracket {
   rounds: number;
 }
 
-/** Saved (persisted) brackets for the chosen sport, with progression links. */
+/** Saved (persisted) brackets for the chosen sport, with progression links.
+ *  For a racquet parent ("Badminton") this also covers its line brackets
+ *  ("Badminton — M Singles A", …). */
 function SavedBrackets({ sport }: { sport: string }) {
-  const { data } = useBrackets(sport || undefined);
-  const list = (data ?? []) as Array<{ id: string; name: string; status: string; champion: string | null; matchCount: number }>;
+  const { data } = useBrackets();
+  const all = (data ?? []) as Array<{ id: string; sport: string; name: string; status: string; champion: string | null; matchCount: number }>;
+  const list = sport
+    ? all.filter((b) => b.sport === sport || b.sport.startsWith(`${sport} — `))
+    : all;
   if (list.length === 0) return null;
 
   const dot: Record<string, string> = {
@@ -95,15 +100,31 @@ function SavedBrackets({ sport }: { sport: string }) {
 export default function AdminBracketing() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [venues, setVenues] = useState<Venue[]>([]);
+  const departmentsQuery = useDepartments();
+  const venuesQuery = useVenues();
+  const createBracketMut = useCreateBracket();
+  const publishBracketMut = usePublishBracket();
+  const departments = useMemo(
+    () => (departmentsQuery.data ?? []) as Department[],
+    [departmentsQuery.data],
+  );
+  const venues = useMemo<Venue[]>(() => {
+    const normalizedVenues: Venue[] = ((venuesQuery.data ?? []) as any[]).map((v: any) => ({
+      ...v,
+      sports: v.sports ?? [],
+    }));
+    return normalizedVenues.filter((v) => v.status === 'available');
+  }, [venuesQuery.data]);
   const abbr = useMemo(() => makeAbbreviator(departments), [departments]);
   // Compact label for tight bracket boxes — keeps 'TBD' / 'BYE' as-is.
   const shortTeam = (name?: string | null) =>
     !name || name === 'TBD' || name === 'BYE' ? (name ?? '') : shortDeptLabel(abbr, name);
   const [bracket, setBracket] = useState<Bracket | null>(null);
+  // The exact participant order actually shown in the last generated preview
+  // (post-shuffle/seed for single-elimination). Saving must use this, not the
+  // raw admin selection order, so the saved bracket matches what was approved.
+  const [previewedOrder, setPreviewedOrder] = useState<string[] | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bracketZoom, setBracketZoom] = useState(1);
   const [bracketFullscreen, setBracketFullscreen] = useState(false);
@@ -134,7 +155,32 @@ export default function AdminBracketing() {
     matchDuration: 60, // minutes
     breakDuration: 15, // minutes between matches
     drawMethod: 'random' as 'random' | 'standings' | 'manual',
+    // Racquet sports (Badminton, Table Tennis): the sport picker holds the
+    // PARENT name; the admin then picks a division and which lines to generate.
+    division: 'M' as 'M' | 'W',
+    lines: ['A', 'B', 'CD'] as Array<'A' | 'B' | 'CD'>,
   });
+
+  const { data: categoriesData } = useCategories();
+  const categories = (categoriesData ?? []) as Array<{ name: string; parentSport?: string; division?: string }>;
+  const plainSports = categories.filter((c) => !c.parentSport).map((c) => c.name);
+  // Racquet parents show as a SINGLE entry ("Badminton"), not 6 line entries.
+  const racquetParents = [...new Set(categories.filter((c) => c.parentSport).map((c) => c.parentSport as string))].sort();
+  const isRacquet = racquetParents.includes(config.sport);
+
+  const LINE_DEFS: Array<{ slot: 'A' | 'B' | 'CD'; label: string; test: (d: string) => boolean }> = [
+    { slot: 'A', label: 'Singles A', test: (d) => d.endsWith('Singles A') },
+    { slot: 'B', label: 'Singles B', test: (d) => d.endsWith('Singles B') },
+    { slot: 'CD', label: 'Doubles', test: (d) => d.includes('Doubles') },
+  ];
+  const lineCategory = (slot: 'A' | 'B' | 'CD'): string | undefined => {
+    const def = LINE_DEFS.find((l) => l.slot === slot)!;
+    return categories.find(
+      (c) => c.parentSport === config.sport && (c.division ?? '').startsWith(config.division) && def.test(c.division ?? ''),
+    )?.name;
+  };
+  const targetLineCategories = (): string[] =>
+    config.lines.map(lineCategory).filter((n): n is string => !!n);
 
   // Standings for the selected sport (wins / point differential), used to seed.
   const [standings, setStandings] = useState<any[]>([]);
@@ -153,7 +199,6 @@ export default function AdminBracketing() {
       navigate('/login');
       return;
     }
-    loadData();
   }, [user, navigate]);
 
   // Pull standings whenever the sport changes so we can seed / preview.
@@ -167,27 +212,6 @@ export default function AdminBracketing() {
       .finally(() => { if (!cancelled) setStandingsLoading(false); });
     return () => { cancelled = true; };
   }, [config.sport]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [depts, vens] = await Promise.all([
-        getDepartments(),
-        getVenues()
-      ]);
-      setDepartments(depts || []);
-      const normalizedVenues = (vens || []).map((v: any) => ({
-        ...v,
-        sports: v.sports ?? [],
-      }));
-      setVenues(normalizedVenues.filter((v: Venue) => v.status === 'available'));
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleParticipant = (deptName: string) => {
     setConfig(prev => ({
@@ -426,6 +450,7 @@ export default function AdminBracketing() {
 
     try {
       let seededOrder: (string | null)[] | undefined;
+      let orderedForSave: string[] | null = null;
 
       if (config.format === 'single-elimination') {
         let ordered = [...config.participants];
@@ -444,6 +469,7 @@ export default function AdminBracketing() {
         }
         // 'manual' → keep the order the admin selected them in.
 
+        orderedForSave = ordered;
         seededOrder = seededSlotOrder(ordered);
       }
 
@@ -452,6 +478,7 @@ export default function AdminBracketing() {
         : generateRoundRobinBracket();
 
       setBracket(newBracket);
+      setPreviewedOrder(orderedForSave);
       const drawNote =
         config.format !== 'single-elimination' ? '' :
         config.drawMethod === 'standings' ? ' · seeded from standings' :
@@ -484,10 +511,9 @@ export default function AdminBracketing() {
       setSaveConflict(null);
       setGenerating(true);
 
-      const payload = {
-        sport: config.sport,
+      const basePayload = {
         format: config.format === 'single-elimination' ? 'single_elimination' : 'round_robin',
-        participants: config.participants,
+        participants: previewedOrder ?? config.participants,
         drawMethod: config.format === 'single-elimination' ? config.drawMethod : 'manual',
         startDate: config.startDate,
         startTime: config.startTime,
@@ -496,20 +522,66 @@ export default function AdminBracketing() {
         venueId: config.venueId || null,
       };
 
-      const created = await createBracket(payload);
-
-      try {
-        await publishBracket(created.id);
-      } catch (e: any) {
-        setSaveConflict(e?.message || 'Venue already scheduled for one or more matches.');
-        toast.error('Saved as draft — resolve the venue clash, then publish.');
-        navigate(`/admin/bracketing/${created.id}`);
+      // Racquet sport → one bracket per selected line of the chosen division.
+      const targets = isRacquet ? targetLineCategories() : [config.sport];
+      if (isRacquet && targets.length === 0) {
+        toast.error('Pick at least one line.');
+        setGenerating(false);
         return;
       }
 
-      toast.success('Bracket saved and events created.');
+      const addDays = (iso: string, n: number) => {
+        const d = new Date(`${iso}T00:00:00`);
+        d.setDate(d.getDate() + n);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      };
+
+      const createdIds: string[] = [];
+      const failed: string[] = [];
+      const drafted: string[] = [];
+
+      for (let i = 0; i < targets.length; i++) {
+        const sport = targets[i];
+        // Stagger each line by a day so 3 brackets on one court/time don't clash.
+        const startDate = targets.length > 1 ? addDays(config.startDate, i) : config.startDate;
+        // Resolve the actual venue for THIS bracket's sport — matches what the
+        // preview showed, instead of always sending the raw config.venueId
+        // (which is null/'' when the admin left it on "Auto").
+        const resolvedVenueId = config.venueId || assignVenueForMatch(sport)?.id || null;
+        try {
+          const created = await createBracketMut.mutateAsync({ ...basePayload, sport, startDate, venueId: resolvedVenueId });
+          createdIds.push(created.id);
+          try {
+            await publishBracketMut.mutateAsync(created.id);
+          } catch {
+            drafted.push(sport);
+          }
+        } catch (e: any) {
+          console.error(`Bracket create failed for ${sport}:`, e);
+          failed.push(sport);
+        }
+      }
+
+      if (failed.length) {
+        toast.error(`Could not create: ${failed.map((s) => s.split('—').pop()?.trim()).join(', ')}.`);
+      }
+      if (drafted.length) {
+        setSaveConflict(`Saved as draft (venue clash): ${drafted.map((s) => s.split('—').pop()?.trim()).join(', ')}. Open each and publish.`);
+        toast.warning(`${drafted.length} line(s) saved as draft — venue clash.`);
+      }
+      if (!failed.length && !drafted.length) {
+        toast.success(
+          targets.length > 1
+            ? `${targets.length} line brackets created and scheduled.`
+            : 'Bracket saved and events created.',
+        );
+      }
+
       setBracket(null);
-      navigate(`/admin/bracketing/${created.id}`);
+      setPreviewedOrder(null);
+      if (createdIds.length) {
+        navigate(targets.length > 1 ? '/admin/bracketing' : `/admin/bracketing/${createdIds[0]}`);
+      }
     } catch (error: any) {
       console.error('Error saving bracket:', error);
       toast.error(error.message || 'Failed to save bracket.');
@@ -678,10 +750,58 @@ export default function AdminBracketing() {
                 onChange={(e) => setConfig({ ...config, sport: e.target.value })}
               >
                 <option value="">Select sport</option>
-                {sportsList.map(sport => (
-                  <option key={sport} value={sport}>{sport}</option>
-                ))}
+                {[...new Set([...(plainSports.length ? plainSports : sportsList), ...racquetParents])]
+                  .sort((a, b) => a.localeCompare(b))
+                  .map((sport) => (
+                    <option key={sport} value={sport}>{sport}</option>
+                  ))}
               </select>
+
+              {isRacquet && (
+                <div className="mt-2 space-y-2 rounded-md border border-red-100 bg-red-50/60 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Division</span>
+                    <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
+                      {(['M', 'W'] as const).map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => setConfig({ ...config, division: g })}
+                          className={`px-3 py-1 text-sm ${config.division === g ? 'bg-red-700 text-white' : 'bg-white text-gray-700'}`}
+                        >
+                          {g === 'M' ? 'Men' : 'Women'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Lines to generate</span>
+                    <div className="mt-1 flex flex-wrap gap-3">
+                      {LINE_DEFS.map((l) => (
+                        <label key={l.slot} className="flex items-center gap-1.5 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={config.lines.includes(l.slot)}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                lines: e.target.checked
+                                  ? [...config.lines, l.slot]
+                                  : config.lines.filter((s) => s !== l.slot),
+                              })
+                            }
+                          />
+                          {l.label}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Each line is its own bracket over the colleges you pick below. Multiple lines are
+                      scheduled a day apart so they don't clash on one court — adjust dates on each bracket after.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -746,8 +866,8 @@ export default function AdminBracketing() {
                           <td className="px-3 py-1.5 tabular-nums text-gray-500">{r.seed}</td>
                           <td className="px-3 py-1.5 font-medium text-gray-800">{r.department}</td>
                           <td className="px-2 py-1.5 text-center tabular-nums">{r.wins}‑{r.losses}</td>
-                          <td className={`px-2 py-1.5 text-right tabular-nums ${Number(r.point_diff) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                            {Number(r.point_diff) > 0 ? '+' : ''}{r.point_diff}
+                          <td className={`px-2 py-1.5 text-right tabular-nums ${Number(r.pointDiff) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {Number(r.pointDiff) > 0 ? '+' : ''}{r.pointDiff}
                           </td>
                         </tr>
                       ))}
@@ -994,11 +1114,15 @@ export default function AdminBracketing() {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button onClick={() => { setBracket(null); setSaveConflict(null); }} variant="outline" className="flex-1">
+                  <Button onClick={() => { setBracket(null); setPreviewedOrder(null); setSaveConflict(null); }} variant="outline" className="flex-1">
                     Clear Bracket
                   </Button>
                   <Button onClick={handleSaveBracket} disabled={generating} className="flex-1">
-                    {generating ? 'Saving…' : 'Save & Publish'}
+                    {generating
+                      ? 'Saving…'
+                      : isRacquet
+                        ? `Save & Publish ${targetLineCategories().length} line${targetLineCategories().length === 1 ? '' : 's'}`
+                        : 'Save & Publish'}
                   </Button>
                 </div>
                 <p className="text-xs text-gray-400 text-center">

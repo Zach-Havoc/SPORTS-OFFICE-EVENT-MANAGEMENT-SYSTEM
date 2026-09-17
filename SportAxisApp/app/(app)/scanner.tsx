@@ -1,53 +1,39 @@
-import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-    Alert,
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import {
-    COLORS,
-    FONT_SIZE, FONT_WEIGHT, RADIUS, SHADOWS,
-    SPACING,
-} from '../../constants/theme';
+import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../constants/theme';
+import { Button } from '../../src/components/ui/Button';
+import { Icon } from '../../src/components/ui/Icon';
+import { EmptyState } from '../../src/components/ui/States';
 import { useNetwork } from '../../src/hooks/use-network';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useEventStore } from '../../src/store/event.store';
 import { extractToken, parseQrCode } from '../../src/utils/qr-parser';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Scanner Screen — BatStateU red-and-white QR scanner
-// ─────────────────────────────────────────────────────────────────────────────
+const FRAME = 248;
 
 export default function ScannerScreen() {
-  const router    = useRouter();
-  const logout    = useAuthStore((s) => s.logout);
-  const user      = useAuthStore((s) => s.user);
+  const router = useRouter();
+  const logout = useAuthStore((s) => s.logout);
   const loadEvent = useEventStore((s) => s.loadByQrToken);
   const loadCache = useEventStore((s) => s.loadFromCache);
-  const event     = useEventStore((s) => s.event);
+  const event = useEventStore((s) => s.event);
   const isLoading = useEventStore((s) => s.isLoading);
   const { isConnected } = useNetwork();
 
-  const [permission,   requestPermission] = useCameraPermissions();
-  const [scanned,      setScanned]        = useState(false);
-  const [scanError,    setScanError]      = useState<string | null>(null);
-  const [cameraActive, setCameraActive]   = useState(true);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [cameraActive, setCameraActive] = useState(true);
 
-  const scanLineY  = useRef(new Animated.Value(0)).current;
+  const scanLineY = useRef(new Animated.Value(0)).current;
 
-
-  // Animated red scan line
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(scanLineY, { toValue: 220, duration: 1600, useNativeDriver: true }),
-        Animated.timing(scanLineY, { toValue: 0,   duration: 1600, useNativeDriver: true }),
+        Animated.timing(scanLineY, { toValue: FRAME - 8, duration: 1600, useNativeDriver: true }),
+        Animated.timing(scanLineY, { toValue: 0, duration: 1600, useNativeDriver: true }),
       ]),
     ).start();
   }, []);
@@ -59,27 +45,23 @@ export default function ScannerScreen() {
     setScanned(true);
     setCameraActive(false);
     setScanError(null);
-
     try {
-      const payload = parseQrCode(data);
-      const token   = extractToken(payload);
+      const token = extractToken(parseQrCode(data));
       await loadEvent(token);
-      const eventId = useEventStore.getState().event?.id;
-      if (eventId) {
-        router.push(`/(app)/scoring/${eventId}`);
-      }
+      const id = useEventStore.getState().event?.id;
+      if (id) router.push(`/(app)/scoring/${id}`);
     } catch (error: any) {
-      setScanError(error.message ?? 'Invalid QR code. Please try again.');
+      setScanError(error.message ?? 'Invalid QR code. Try again.');
       setScanned(false);
       setCameraActive(true);
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+  const handleLogout = () => {
+    Alert.alert('Sign out', 'Sign out of SportAxis?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign Out',
+        text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
           await logout();
@@ -89,29 +71,24 @@ export default function ScannerScreen() {
     ]);
   };
 
-  // ── Permission not granted ────────────────────────────────────────────────
-  if (!permission) return <View style={styles.container} />;
+  if (!permission) return <View style={styles.black} />;
 
   if (!permission.granted) {
     return (
-      <View style={styles.permContainer}>
-        <View style={styles.permIconBox}>
-          <Ionicons name="camera-outline" size={36} color={COLORS.primary} />
-        </View>
-        <Text style={styles.permTitle}>Camera Access Required</Text>
-        <Text style={styles.permBody}>
-          SportAxis needs camera access to scan QR codes for event sessions.
-        </Text>
-        <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
-          <Text style={styles.permBtnText}>Grant Camera Access</Text>
-        </TouchableOpacity>
+      <View style={styles.permWrap}>
+        <EmptyState
+          icon="camera-off"
+          title="Camera access needed"
+          hint="SportAxis scans the event QR code to open its score sheet."
+          actionLabel="Allow camera"
+          onAction={requestPermission}
+        />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Camera */}
+    <View style={styles.black}>
       {cameraActive && (
         <CameraView
           style={StyleSheet.absoluteFill}
@@ -120,294 +97,134 @@ export default function ScannerScreen() {
         />
       )}
 
-      {/* Overlay */}
       <View style={styles.overlay}>
-
-        {/* Top bar */}
-        <View style={styles.topBar}>
+        <View style={styles.top}>
           <View style={styles.brandPill}>
-            <Ionicons name="trophy" size={16} color={COLORS.textInverse} style={{ marginRight: 4 }} />
-            <Text style={styles.brandPillText}>BatStateU Committee</Text>
+            <View style={styles.brandDot} />
+            <Text style={styles.brandText}>SportAxis · Committee</Text>
           </View>
           {!isConnected && (
-            <View style={styles.offlineBadge}>
-              <Ionicons name="wifi-outline" size={14} color={COLORS.textInverse} style={{ marginRight: 4 }} />
-              <Text style={styles.offlineBadgeText}>Offline</Text>
+            <View style={styles.offlinePill}>
+              <Icon name="wifi-off" size={13} color="#fff" strokeWidth={2.4} />
+              <Text style={styles.offlineText}>Offline</Text>
             </View>
           )}
         </View>
 
-        {/* Scan frame area */}
         <View style={styles.frameSection}>
-          <Text style={styles.scanInstructions}>
-            Point camera at QR code
-          </Text>
-
-          <View style={styles.scanFrame}>
-            {/* Corner markers */}
-            <View style={[styles.corner, styles.cornerTL]} />
-            <View style={[styles.corner, styles.cornerTR]} />
-            <View style={[styles.corner, styles.cornerBL]} />
-            <View style={[styles.corner, styles.cornerBR]} />
-
-            {/* Animated scan line */}
-            <Animated.View
-              style={[styles.scanLine, { transform: [{ translateY: scanLineY }] }]}
-            />
+          <Text style={styles.hint}>Scan the event QR</Text>
+          <View style={styles.frame}>
+            <View style={[styles.corner, styles.tl]} />
+            <View style={[styles.corner, styles.tr]} />
+            <View style={[styles.corner, styles.bl]} />
+            <View style={[styles.corner, styles.br]} />
+            <Animated.View style={[styles.scanLine, { transform: [{ translateY: scanLineY }] }]} />
           </View>
-
           {isLoading && (
             <View style={styles.statusChip}>
-              <Text style={styles.statusChipText}>Loading event…</Text>
+              <Text style={styles.statusText}>Loading event…</Text>
             </View>
           )}
           {!!scanError && (
-            <View style={[styles.statusChip, styles.errorChip]}>
-              <Text style={styles.errorChipText}>{scanError}</Text>
+            <View style={[styles.statusChip, styles.errChip]}>
+              <Icon name="alert-circle" size={14} color={COLORS.destructive} strokeWidth={2.2} />
+              <Text style={styles.errText}>{scanError}</Text>
             </View>
           )}
         </View>
 
-        {/* Bottom panel */}
-        <View style={styles.bottomPanel}>
-          {/* Cached event shortcut */}
+        <View style={styles.sheet}>
           {event && !isLoading && (
-            <TouchableOpacity
-              style={styles.resumeCard}
-              onPress={() => router.push(`/(app)/scoring/${event.id}`)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="document-text" size={20} color={COLORS.primary} />
-              <View style={styles.resumeRight}>
-                <Text style={styles.resumeName} numberOfLines={1}>{event.name}</Text>
-                <Text style={styles.resumeHint}>Tap to continue</Text>
+            <Pressable style={styles.resume} onPress={() => router.push(`/(app)/scoring/${event.id}`)}>
+              <View style={styles.resumeTile}>
+                <Icon name="file-text" size={18} color={COLORS.primary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
-            </TouchableOpacity>
+              <View style={styles.resumeText}>
+                <Text style={styles.resumeName} numberOfLines={1}>{event.name}</Text>
+                <Text style={styles.resumeHint}>Resume scoring</Text>
+              </View>
+              <Icon name="chevron-right" size={18} color={COLORS.primary} />
+            </Pressable>
           )}
 
-          {/* Rescan */}
           {scanned && !isLoading && (
-            <TouchableOpacity
-              style={styles.rescanBtn}
+            <Button
+              label="Scan again"
+              variant="secondary"
+              fullWidth
               onPress={() => { setScanned(false); setScanError(null); setCameraActive(true); }}
-            >
-              <Text style={styles.rescanBtnText}>Scan Again</Text>
-            </TouchableOpacity>
+              icon={<Icon name="scan" size={16} color={COLORS.textPrimary} />}
+            />
           )}
 
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutBtnText}>Sign Out</Text>
-          </TouchableOpacity>
+          <Pressable style={styles.logout} onPress={handleLogout} hitSlop={8}>
+            <Icon name="logout" size={15} color={COLORS.textSecondary} />
+            <Text style={styles.logoutText}>Sign out</Text>
+          </Pressable>
         </View>
       </View>
     </View>
   );
 }
 
-const FRAME_SIZE = 250;
-
 const styles = StyleSheet.create({
-  container: {
-    flex:            1,
-    backgroundColor: '#000',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-  },
+  black: { flex: 1, backgroundColor: '#000' },
+  permWrap: { flex: 1, backgroundColor: COLORS.background },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between' },
 
-  // Top bar
-  topBar: {
-    paddingTop:        SPACING.xl,
-    paddingHorizontal: SPACING.md,
-    gap:               SPACING.sm,
-    alignItems:        'center',
-  },
+  top: { paddingTop: SPACING.xxl, paddingHorizontal: SPACING.lg, alignItems: 'center', gap: SPACING.sm },
   brandPill: {
-    alignSelf:         'center',
-    backgroundColor:   'rgba(0,0,0,0.6)',
-    borderRadius:      RADIUS.full,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical:   SPACING.xs + 2,
-    flexDirection:     'row',
-    alignItems:        'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999,
+    paddingHorizontal: SPACING.md, paddingVertical: 6,
   },
-  brandPillText: {
-    color:      COLORS.textInverse,
-    fontWeight: FONT_WEIGHT.semibold,
-    fontSize:   FONT_SIZE.sm,
+  brandDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.primaryLighter },
+  brandText: { ...TYPE.label, color: '#fff' },
+  offlinePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(217,119,6,0.9)', borderRadius: 999,
+    paddingHorizontal: SPACING.sm, paddingVertical: 4,
   },
-  offlineBadge: {
-    backgroundColor:   'rgba(217,119,6,0.85)',
-    borderRadius:      RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical:   SPACING.xs,
-    flexDirection:     'row',
-    alignItems:        'center',
-  },
-  offlineBadgeText: {
-    color:      '#fff',
-    fontSize:   FONT_SIZE.xs,
-    fontWeight: FONT_WEIGHT.semibold,
-  },
+  offlineText: { ...TYPE.caption, textTransform: 'none', color: '#fff' },
 
-  // Scan frame
-  frameSection: {
-    alignItems: 'center',
-    gap:        SPACING.md,
-  },
-  scanInstructions: {
-    color:      'rgba(255,255,255,0.90)',
-    fontSize:   FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.medium,
-    textAlign:  'center',
-    paddingHorizontal: SPACING.xl,
-    marginBottom: SPACING.lg,
-  },
-  scanFrame: {
-    width:    FRAME_SIZE,
-    height:   FRAME_SIZE,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  corner: {
-    position:    'absolute',
-    width:       28,
-    height:      28,
-    borderColor: COLORS.primary,
-    borderWidth: 3,
-  },
-  cornerTL: { top: 0, left: 0,  borderBottomWidth: 0, borderRightWidth: 0 },
-  cornerTR: { top: 0, right: 0, borderBottomWidth: 0, borderLeftWidth:  0 },
-  cornerBL: { bottom: 0, left: 0,  borderTopWidth: 0, borderRightWidth: 0 },
-  cornerBR: { bottom: 0, right: 0, borderTopWidth: 0, borderLeftWidth:  0 },
+  frameSection: { alignItems: 'center', gap: SPACING.lg },
+  hint: { ...TYPE.body, color: 'rgba(255,255,255,0.92)', textAlign: 'center', paddingHorizontal: SPACING.xl },
+  frame: { width: FRAME, height: FRAME, overflow: 'hidden' },
+  corner: { position: 'absolute', width: 26, height: 26, borderColor: COLORS.primaryLighter, borderWidth: 3, borderRadius: 3 },
+  tl: { top: 0, left: 0, borderBottomWidth: 0, borderRightWidth: 0 },
+  tr: { top: 0, right: 0, borderBottomWidth: 0, borderLeftWidth: 0 },
+  bl: { bottom: 0, left: 0, borderTopWidth: 0, borderRightWidth: 0 },
+  br: { bottom: 0, right: 0, borderTopWidth: 0, borderLeftWidth: 0 },
   scanLine: {
-    position:        'absolute',
-    left:            0,
-    right:           0,
-    height:          2,
-    backgroundColor: COLORS.primary,
-    shadowColor:     COLORS.primary,
-    shadowRadius:    6,
-    shadowOpacity:   0.8,
+    position: 'absolute', left: 6, right: 6, height: 2, borderRadius: 2,
+    backgroundColor: COLORS.primaryLighter, shadowColor: COLORS.primary, shadowRadius: 8, shadowOpacity: 0.9,
   },
   statusChip: {
-    backgroundColor:   'rgba(255,255,255,0.95)',
-    borderRadius:      RADIUS.md,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical:   SPACING.sm,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
   },
-  statusChipText: {
-    color:      COLORS.textPrimary,
-    fontSize:   FONT_SIZE.sm,
-    fontWeight: FONT_WEIGHT.medium,
-    textAlign: 'center',
-  },
-  errorChip: {
-    backgroundColor: COLORS.primaryPale,
-    borderWidth:     1,
-    borderColor:     COLORS.primary,
-  },
-  errorChipText: {
-    color:      COLORS.primaryDark,
-    fontSize:   FONT_SIZE.sm,
-    fontWeight: FONT_WEIGHT.semibold,
-  },
+  statusText: { ...TYPE.bodySm, color: COLORS.textPrimary },
+  errChip: { backgroundColor: COLORS.errorLight },
+  errText: { ...TYPE.bodySm, color: COLORS.destructive, flexShrink: 1 },
 
-  // Bottom panel — white card
-  bottomPanel: {
-    backgroundColor:     COLORS.surface,
+  sheet: {
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: RADIUS.xxl,
     borderTopRightRadius: RADIUS.xxl,
-    padding:             SPACING.lg,
-    gap:                 SPACING.sm,
-    borderTopWidth:      3,
-    borderTopColor:      COLORS.primary,
-    ...SHADOWS.md,
-  },
-  resumeCard: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: COLORS.primarySubtle,
-    borderRadius:    RADIUS.lg,
-    borderWidth:     1,
-    borderColor:     COLORS.primaryPale,
-    padding:         SPACING.md,
-    gap:              SPACING.md,
-  },
-  resumeRight: { flex: 1, gap: 2 },
-  resumeName: {
-    fontSize:   FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.bold,
-    color:      COLORS.textPrimary,
-  },
-  resumeHint: {
-    fontSize: FONT_SIZE.xs,
-    color:    COLORS.textSecondary,
-  },
-  rescanBtn: {
-    backgroundColor: COLORS.surface,
-    borderRadius:    RADIUS.md,
-    paddingVertical: SPACING.md,
-    alignItems:      'center',
-    borderWidth:     1,
-    borderColor:     COLORS.border,
-  },
-  rescanBtnText: {
-    color:      COLORS.textPrimary,
-    fontWeight: FONT_WEIGHT.semibold,
-    fontSize:   FONT_SIZE.md,
-  },
-  logoutBtn: {
-    alignItems:      'center',
-    paddingVertical: SPACING.sm,
-  },
-  logoutBtnText: {
-    color:    COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-  },
-
-  // Permission screen
-  permContainer: {
-    flex:            1,
-    backgroundColor: COLORS.background,
-    alignItems:      'center',
-    justifyContent:  'center',
-    padding:         SPACING.xl,
-    gap:             SPACING.lg,
-  },
-  permIconBox: {
-    width:           80,
-    height:          80,
-    borderRadius:    RADIUS.full,
-    backgroundColor: COLORS.primaryPale,
-    alignItems:      'center',
-    justifyContent:  'center',
-    borderWidth:     2,
-    borderColor:     COLORS.primaryLighter,
-  },
-  permTitle: {
-    fontSize:   FONT_SIZE.xxl,
-    fontWeight: FONT_WEIGHT.bold,
-    color:      COLORS.textPrimary,
-    textAlign:  'center',
-  },
-  permBody: {
-    fontSize:  FONT_SIZE.md,
-    color:     COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  permBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius:    RADIUS.md,
-    paddingVertical:   SPACING.md,
-    paddingHorizontal: SPACING.xl,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xl,
+    gap: SPACING.sm,
     ...SHADOWS.lg,
   },
-  permBtnText: {
-    color:      COLORS.textInverse,
-    fontWeight: FONT_WEIGHT.bold,
-    fontSize:   FONT_SIZE.md,
+  resume: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+    backgroundColor: COLORS.primaryTint, borderRadius: RADIUS.xl, padding: SPACING.md,
   },
+  resumeTile: { width: 40, height: 40, borderRadius: RADIUS.lg, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  resumeText: { flex: 1, gap: 2 },
+  resumeName: { ...TYPE.subhead, color: COLORS.textPrimary },
+  resumeHint: { ...TYPE.bodySm, color: COLORS.textSecondary },
+  logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: SPACING.sm },
+  logoutText: { ...TYPE.bodySm, color: COLORS.textSecondary },
 });

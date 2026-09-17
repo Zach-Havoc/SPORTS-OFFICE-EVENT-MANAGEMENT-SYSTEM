@@ -14,13 +14,13 @@ class RegistrationCodeFactory extends Factory
     public function definition(): array
     {
         return [
-            'code'       => strtoupper(Str::random(8)),
-            'role'       => 'athlete',
-            'label'      => 'Test code',
-            'used'       => false,
-            'used_by'    => null,
+            'code' => strtoupper(Str::random(8)),
+            'role' => 'athlete',
+            'label' => 'Test code',
+            'used' => false,
+            'used_by' => null,
             'created_by' => null,
-            'used_at'    => null,
+            'used_at' => null,
             'expires_at' => null,
         ];
     }

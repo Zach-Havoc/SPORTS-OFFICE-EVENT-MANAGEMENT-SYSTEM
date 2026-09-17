@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\LiveScoreCleared;
+use App\Events\LiveScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\LiveScore;
 use App\Models\TeamMatch;
+use App\Services\BracketService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -44,7 +48,7 @@ class LiveScoreController extends Controller
     public function show(string $eventId)
     {
         $event = Event::findOrFail($eventId);
-        $live  = LiveScore::where('event_id', $eventId)->first();
+        $live = LiveScore::where('event_id', $eventId)->first();
 
         return response()->json(['live' => $live?->toApiFormat($event)]);
     }
@@ -55,14 +59,14 @@ class LiveScoreController extends Controller
         $event = Event::findOrFail($eventId);
 
         $data = $request->validate([
-            'homeTeam'  => 'sometimes|nullable|string|max:255',
-            'awayTeam'  => 'sometimes|nullable|string|max:255',
+            'homeTeam' => 'sometimes|nullable|string|max:255',
+            'awayTeam' => 'sometimes|nullable|string|max:255',
             'homeScore' => 'sometimes|integer|min:0|max:9999',
             'awayScore' => 'sometimes|integer|min:0|max:9999',
-            'period'    => 'sometimes|nullable|string|max:40',
-            'detail'    => 'sometimes|nullable|array',
-            'status'    => 'sometimes|in:scheduled,in_progress,final',
-            'version'   => 'sometimes|integer|min:0',
+            'period' => 'sometimes|nullable|string|max:40',
+            'detail' => 'sometimes|nullable|array',
+            'status' => 'sometimes|in:scheduled,in_progress,final',
+            'version' => 'sometimes|integer|min:0',
         ]);
 
         $live = LiveScore::firstOrNew(['event_id' => $eventId]);
@@ -71,7 +75,7 @@ class LiveScoreController extends Controller
         if ($live->exists && isset($data['version']) && $data['version'] < $live->version) {
             return response()->json([
                 'error' => 'This game was updated elsewhere.',
-                'live'  => $live->toApiFormat($event),
+                'live' => $live->toApiFormat($event),
             ], 409);
         }
 
@@ -79,18 +83,18 @@ class LiveScoreController extends Controller
             ?? ($live->status && $live->status !== 'scheduled' ? $live->status : 'in_progress');
 
         $live->fill([
-            'id'         => $live->id ?: (string) Str::uuid(),
-            'event_id'   => $eventId,
-            'sport'      => $event->category,
-            'home_team'  => $data['homeTeam']  ?? $live->home_team  ?? ($event->departments[0] ?? null),
-            'away_team'  => $data['awayTeam']  ?? $live->away_team  ?? ($event->departments[1] ?? null),
+            'id' => $live->id ?: (string) Str::uuid(),
+            'event_id' => $eventId,
+            'sport' => $event->category,
+            'home_team' => $data['homeTeam'] ?? $live->home_team ?? ($event->departments[0] ?? null),
+            'away_team' => $data['awayTeam'] ?? $live->away_team ?? ($event->departments[1] ?? null),
             'home_score' => $data['homeScore'] ?? $live->home_score ?? 0,
             'away_score' => $data['awayScore'] ?? $live->away_score ?? 0,
-            'period'     => array_key_exists('period', $data) ? $data['period'] : $live->period,
-            'detail'     => array_key_exists('detail', $data) ? $data['detail'] : $live->detail,
-            'status'     => $newStatus,
+            'period' => array_key_exists('period', $data) ? $data['period'] : $live->period,
+            'detail' => array_key_exists('detail', $data) ? $data['detail'] : $live->detail,
+            'status' => $newStatus,
             'updated_by' => $request->user()->id,
-            'version'    => (int) ($live->version ?? 0) + 1,
+            'version' => (int) ($live->version ?? 0) + 1,
         ]);
 
         if ($newStatus === 'in_progress' && ! $live->started_at) {
@@ -113,15 +117,33 @@ class LiveScoreController extends Controller
             $this->recordHeadToHead($live, $event);
         }
 
-        return response()->json(['live' => $live->fresh()->toApiFormat($event)]);
+        $payload = $live->fresh()->toApiFormat($event);
+        $this->push(fn () => new LiveScoreUpdated($payload));
+
+        return response()->json(['live' => $payload]);
     }
 
     /** DELETE /api/events/{id}/live */
     public function destroy(string $eventId)
     {
         LiveScore::where('event_id', $eventId)->delete();
+        $this->push(fn () => new LiveScoreCleared($eventId));
 
         return response()->json(['message' => 'Live score cleared']);
+    }
+
+    /**
+     * Broadcast a live-score event, but never let a socket-server hiccup break
+     * the scorer's write. If the push fails the client still has the HTTP
+     * response and its polling fallback.
+     */
+    private function push(callable $makeEvent): void
+    {
+        try {
+            broadcast($makeEvent());
+        } catch (\Throwable $e) {
+            Log::warning('Live score broadcast failed: '.$e->getMessage());
+        }
     }
 
     /**
@@ -141,17 +163,20 @@ class LiveScoreController extends Controller
         }
 
         $match->fill([
-            'sport'       => $event->category,
-            'stage'       => $match->stage ?: 'elimination',
-            'home_team'   => $live->home_team,
-            'away_team'   => $live->away_team,
-            'home_score'  => $live->home_score,
-            'away_score'  => $live->away_score,
-            'status'      => 'completed',
-            'played_at'   => $match->played_at ?? now(),
+            'sport' => $event->category,
+            'stage' => $match->stage ?: 'elimination',
+            'home_team' => $live->home_team,
+            'away_team' => $live->away_team,
+            'home_score' => $live->home_score,
+            'away_score' => $live->away_score,
+            'status' => 'completed',
+            'played_at' => $match->played_at ?? now(),
             'recorded_by' => $live->updated_by,
         ]);
         $match->resolveOutcome();
         $match->save();
+
+        // If this event is a bracket match, feed the winner into the next round.
+        app(BracketService::class)->advanceFromEvent($event->id);
     }
 }

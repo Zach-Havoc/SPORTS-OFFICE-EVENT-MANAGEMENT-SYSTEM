@@ -21,11 +21,16 @@ class RankingCalculationTest extends TestCase
     public function test_department_score_is_the_average_of_its_judges(): void
     {
         $event = $this->events()->create();
+        [$j1, $j2, $j3] = [
+            $this->users()->judge()->create()->id,
+            $this->users()->judge()->create()->id,
+            $this->users()->judge()->create()->id,
+        ];
 
         // Team A: two judges (80 and 90 => average 85). Team B: one judge (70).
-        $this->scores()->create(['event_id' => $event->id, 'department' => 'Team A', 'judge_id' => 'j1', 'total_score' => 80]);
-        $this->scores()->create(['event_id' => $event->id, 'department' => 'Team A', 'judge_id' => 'j2', 'total_score' => 90]);
-        $this->scores()->create(['event_id' => $event->id, 'department' => 'Team B', 'judge_id' => 'j3', 'total_score' => 70]);
+        $this->scores()->create(['event_id' => $event->id, 'department' => 'Team A', 'judge_id' => $j1, 'total_score' => 80]);
+        $this->scores()->create(['event_id' => $event->id, 'department' => 'Team A', 'judge_id' => $j2, 'total_score' => 90]);
+        $this->scores()->create(['event_id' => $event->id, 'department' => 'Team B', 'judge_id' => $j3, 'total_score' => 70]);
 
         ScoreController::recalculateRankings($event->id);
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\SiteSlide;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -62,13 +63,13 @@ class SiteSlideController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'type'    => ['required', Rule::in(self::TYPES)],
-            'title'   => 'nullable|string|max:255',
+            'type' => ['required', Rule::in(self::TYPES)],
+            'title' => 'nullable|string|max:255',
             'caption' => 'nullable|string|max:2000',
             'linkUrl' => 'nullable|url|max:2000',
-            'active'  => 'sometimes|boolean',
+            'active' => 'sometimes|boolean',
             // Images only — never let arbitrary/script content onto the public disk.
-            'image'   => 'required|file|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'image' => 'required|file|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
         $path = $this->storeImage($request->file('image'));
@@ -77,14 +78,14 @@ class SiteSlideController extends Controller
         }
 
         $slide = SiteSlide::create([
-            'id'         => (string) Str::uuid(),
-            'type'       => $data['type'],
-            'title'      => $data['title'] ?? null,
-            'caption'    => $data['caption'] ?? null,
+            'id' => (string) Str::uuid(),
+            'type' => $data['type'],
+            'title' => $data['title'] ?? null,
+            'caption' => $data['caption'] ?? null,
             'image_path' => $path,
-            'link_url'   => $data['linkUrl'] ?? null,
+            'link_url' => $data['linkUrl'] ?? null,
             'sort_order' => (int) SiteSlide::where('type', $data['type'])->max('sort_order') + 1,
-            'active'     => $request->boolean('active', true),
+            'active' => $request->boolean('active', true),
             'created_by' => $request->user()->id,
         ]);
 
@@ -97,12 +98,12 @@ class SiteSlideController extends Controller
         $slide = SiteSlide::findOrFail($id);
 
         $data = $request->validate([
-            'title'     => 'sometimes|nullable|string|max:255',
-            'caption'   => 'sometimes|nullable|string|max:2000',
-            'linkUrl'   => 'sometimes|nullable|url|max:2000',
-            'active'    => 'sometimes|boolean',
+            'title' => 'sometimes|nullable|string|max:255',
+            'caption' => 'sometimes|nullable|string|max:2000',
+            'linkUrl' => 'sometimes|nullable|url|max:2000',
+            'active' => 'sometimes|boolean',
             'sortOrder' => 'sometimes|integer|min:0',
-            'image'     => 'sometimes|file|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'image' => 'sometimes|file|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
         if ($request->hasFile('image')) {
@@ -115,9 +116,9 @@ class SiteSlideController extends Controller
         }
 
         foreach ([
-            'title'     => 'title',
-            'caption'   => 'caption',
-            'linkUrl'   => 'link_url',
+            'title' => 'title',
+            'caption' => 'caption',
+            'linkUrl' => 'link_url',
             'sortOrder' => 'sort_order',
         ] as $input => $column) {
             if ($request->exists($input)) {
@@ -148,8 +149,8 @@ class SiteSlideController extends Controller
     public function reorder(Request $request)
     {
         $data = $request->validate([
-            'type'    => ['required', Rule::in(self::TYPES)],
-            'order'   => 'required|array',
+            'type' => ['required', Rule::in(self::TYPES)],
+            'order' => 'required|array',
             'order.*' => 'string',
         ]);
 
@@ -171,7 +172,7 @@ class SiteSlideController extends Controller
      *
      * @return string|null relative path, or null if the bytes are not an image
      */
-    private function storeImage(\Illuminate\Http\UploadedFile $file): ?string
+    private function storeImage(UploadedFile $file): ?string
     {
         $info = @getimagesizefromstring((string) file_get_contents($file->getRealPath()));
         $allowed = [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP];
@@ -181,7 +182,7 @@ class SiteSlideController extends Controller
         }
 
         $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
-        $name = 'site_slides/' . Str::uuid() . '.' . $ext;
+        $name = 'site_slides/'.Str::uuid().'.'.$ext;
 
         Storage::disk('public')->put($name, file_get_contents($file->getRealPath()));
 

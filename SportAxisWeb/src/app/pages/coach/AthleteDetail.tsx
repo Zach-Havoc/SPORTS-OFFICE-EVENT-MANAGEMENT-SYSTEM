@@ -1,13 +1,50 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { ArrowLeft, Edit, Mail, Phone, User, Calendar, BookOpen, Building, AlertCircle, TrendingUp, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, Phone, User, Calendar, BookOpen, Building, AlertCircle, TrendingUp, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAthlete } from '../../hooks/api';
+import { useAthlete, useAttendanceRecords, usePerformanceRecords, useRequirements } from '../../hooks/api';
 import { RefreshStatus } from '../../components/RefreshStatus';
+
+interface PerformanceRecord {
+  id: string;
+  athleteId: string;
+  eventName: string;
+  sport: string;
+  metrics: Record<string, any>;
+  overallRating: number;
+  coachNotes: string;
+  recordedAt: string;
+}
+
+interface RequirementRow {
+  id: string;
+  athleteId: string;
+  type: string;
+  name: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+}
+
+interface AttendanceRow {
+  athleteId: string;
+  status: 'present' | 'absent' | 'late' | 'excused';
+  date: string;
+}
+
+const REQ_STATUS_STYLE: Record<RequirementRow['status'], string> = {
+  approved: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+};
+const REQ_STATUS_ICON: Record<RequirementRow['status'], React.ReactNode> = {
+  approved: <CheckCircle className="h-3 w-3" />,
+  rejected: <XCircle className="h-3 w-3" />,
+  pending: <Clock className="h-3 w-3" />,
+};
 
 interface Athlete {
   id: string;
@@ -42,12 +79,53 @@ export default function AthleteDetail() {
   const athlete: Athlete | null = (athleteQuery.data as Athlete | undefined) ?? null;
   const loading = athleteQuery.isLoading;
 
+  const attendanceQuery = useAttendanceRecords();
+  const performanceQuery = usePerformanceRecords();
+  const requirementsQuery = useRequirements();
+
   useEffect(() => {
     if (athleteQuery.isLoadingError) {
       toast.error('Failed to load athlete details');
       navigate('/coach/athletes');
     }
   }, [athleteQuery.isLoadingError, navigate]);
+
+  const attendance = useMemo(
+    () => ((attendanceQuery.data ?? []) as AttendanceRow[]).filter((r) => r.athleteId === id),
+    [attendanceQuery.data, id],
+  );
+  const performances = useMemo(
+    () =>
+      ((performanceQuery.data ?? []) as PerformanceRecord[])
+        .filter((r) => r.athleteId === id)
+        .sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : -1)),
+    [performanceQuery.data, id],
+  );
+  const requirements = useMemo(
+    () =>
+      ((requirementsQuery.data ?? []) as RequirementRow[])
+        .filter((r) => r.athleteId === id)
+        .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1)),
+    [requirementsQuery.data, id],
+  );
+
+  const attendanceRate = useMemo(() => {
+    const cutoff = Date.now() - 30 * 86_400_000;
+    const recent = attendance.filter((r) => new Date(r.date).getTime() >= cutoff);
+    const attended = recent.filter((r) => r.status === 'present' || r.status === 'late').length;
+    const denom = attended + recent.filter((r) => r.status === 'absent').length;
+    return denom ? Math.round((attended / denom) * 100) : null;
+  }, [attendance]);
+
+  const avgRating = useMemo(() => {
+    if (!performances.length) return null;
+    return (performances.reduce((s, p) => s + Number(p.overallRating || 0), 0) / performances.length).toFixed(1);
+  }, [performances]);
+
+  const approvedRequirements = requirements.filter((r) => r.status === 'approved').length;
+
+  const formatDate = (s: string) =>
+    new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -222,7 +300,7 @@ export default function AthleteDetail() {
             <CardTitle className="text-lg">Attendance Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0%</div>
+            <div className="text-3xl font-bold">{attendanceRate == null ? '—' : `${attendanceRate}%`}</div>
             <p className="text-sm text-gray-500 mt-1">Last 30 days</p>
           </CardContent>
         </Card>
@@ -232,7 +310,7 @@ export default function AthleteDetail() {
             <CardTitle className="text-lg">Performance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">-</div>
+            <div className="text-3xl font-bold">{avgRating == null ? '-' : `${avgRating}/10`}</div>
             <p className="text-sm text-gray-500 mt-1">Average rating</p>
           </CardContent>
         </Card>
@@ -242,8 +320,8 @@ export default function AthleteDetail() {
             <CardTitle className="text-lg">Requirements</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0/0</div>
-            <p className="text-sm text-gray-500 mt-1">Completed</p>
+            <div className="text-3xl font-bold">{approvedRequirements}/{requirements.length}</div>
+            <p className="text-sm text-gray-500 mt-1">Approved</p>
           </CardContent>
         </Card>
       </div>
@@ -259,11 +337,30 @@ export default function AthleteDetail() {
             <CardDescription>Latest performance records</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-gray-500">
-              <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>No performance records yet</p>
-              <p className="text-sm mt-2">Performance data will appear after events</p>
-            </div>
+            {performances.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p>No performance records yet</p>
+                <p className="text-sm mt-2">Performance data will appear after events</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {performances.slice(0, 5).map((p) => (
+                  <div key={p.id} className="border rounded-lg p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-sm">{p.eventName}</p>
+                        <p className="text-xs text-gray-500">
+                          {p.sport} &middot; {formatDate(p.recordedAt)}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">{p.overallRating}/10</Badge>
+                    </div>
+                    {p.coachNotes && <p className="text-xs text-gray-600 mt-2">{p.coachNotes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -276,11 +373,30 @@ export default function AthleteDetail() {
             <CardDescription>Document submissions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>No requirements submitted</p>
-              <p className="text-sm mt-2">Required documents will appear here</p>
-            </div>
+            {requirements.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p>No requirements submitted</p>
+                <p className="text-sm mt-2">Required documents will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {requirements.slice(0, 5).map((r) => (
+                  <div key={r.id} className="border rounded-lg p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-sm">{r.name}</p>
+                        <p className="text-xs text-gray-500">{formatDate(r.submittedAt)}</p>
+                      </div>
+                      <Badge className={`text-[11px] gap-1 ${REQ_STATUS_STYLE[r.status]}`}>
+                        {REQ_STATUS_ICON[r.status]}
+                        {r.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

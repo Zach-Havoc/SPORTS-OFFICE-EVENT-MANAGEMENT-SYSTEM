@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('sessions')) {
+        if (! Schema::hasTable('sessions')) {
             Schema::create('sessions', function (Blueprint $table) {
                 $table->string('id')->primary();
                 $table->foreignId('user_id')->nullable()->index();
@@ -22,7 +22,7 @@ return new class extends Migration
             });
         }
 
-        if (!Schema::hasTable('cache')) {
+        if (! Schema::hasTable('cache')) {
             Schema::create('cache', function (Blueprint $table) {
                 $table->string('key')->primary();
                 $table->mediumText('value');
@@ -30,7 +30,7 @@ return new class extends Migration
             });
         }
 
-        if (!Schema::hasTable('cache_locks')) {
+        if (! Schema::hasTable('cache_locks')) {
             Schema::create('cache_locks', function (Blueprint $table) {
                 $table->string('key')->primary();
                 $table->string('owner');

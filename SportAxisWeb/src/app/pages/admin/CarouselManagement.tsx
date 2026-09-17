@@ -280,7 +280,7 @@ function SlideManager({ type }: { type: SlideType }) {
         <p className="text-sm text-gray-500">
           {type === 'popup'
             ? 'Shown once per visit when someone opens the public site. If several are visible, the top one is used.'
-            : 'The photo slideshow at the top of the public Live Events page. Drag order with the arrows.'}
+            : 'The photo slideshow at the top of the public Match Schedule page. Drag order with the arrows.'}
         </p>
         {!adding && (
           <Button size="sm" onClick={() => setAdding(true)}>
@@ -401,7 +401,7 @@ export default function CarouselManagement() {
 
       <Tabs defaultValue="carousel" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="carousel">Live Events Slideshow</TabsTrigger>
+          <TabsTrigger value="carousel">Match Schedule Slideshow</TabsTrigger>
           <TabsTrigger value="popup">Welcome Popup</TabsTrigger>
         </TabsList>
         <TabsContent value="carousel" className="mt-6">

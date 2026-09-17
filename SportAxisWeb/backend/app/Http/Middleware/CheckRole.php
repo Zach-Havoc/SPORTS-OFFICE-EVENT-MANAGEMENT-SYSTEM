@@ -16,13 +16,13 @@ class CheckRole
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
 
-        if (!in_array($user->role, $roles)) {
+        if (! in_array($user->role, $roles)) {
             return response()->json([
-                'error' => 'Forbidden: requires role ' . implode(' or ', $roles),
+                'error' => 'Forbidden: requires role '.implode(' or ', $roles),
             ], 403);
         }
 

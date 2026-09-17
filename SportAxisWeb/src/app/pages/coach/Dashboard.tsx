@@ -1,25 +1,53 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import { useAuth } from '../../context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { RefreshStatus } from '../../components/RefreshStatus';
-import { Badge } from '../../components/ui/badge';
-import { Users, Calendar, TrendingUp, FileCheck, UserPlus, Mail, Phone } from 'lucide-react';
-import { useTryoutApplications, useAthletes } from '../../hooks/api';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, Link } from "react-router";
+import { useAuth } from "../../context/AuthContext";
+import {
+  useAthletes,
+  useCoachSchedule,
+  useAttendanceRecords,
+  usePerformanceRecords,
+  useRequirements,
+  useTryoutApplications,
+} from "../../hooks/api";
+import { RefreshStatus } from "../../components/RefreshStatus";
+import { Badge } from "../../components/ui/badge";
+import Loading from "../../components/Loading";
+import {
+  DashboardCanvas,
+  Grid,
+  Tile,
+  HeroTile,
+  Metric,
+  IconStat,
+  BareStat,
+  MetricTable,
+  DistBar,
+  RankList,
+  RangePicker,
+  Empty,
+  dailyCounts,
+  periodDelta,
+  metricRow,
+  tally,
+  ATTENDANCE_COLORS,
+  REQUIREMENT_COLORS,
+  CHART_COLORS,
+} from "../../components/dashboard/DashboardKit";
+import {
+  Users,
+  CalendarClock,
+  ClipboardCheck,
+  UserPlus,
+  MapPin,
+} from "lucide-react";
 
 interface TryoutApplication {
   id: string;
-  announcementId: string;
   sport: string;
-  coachId: string;
   firstName: string;
   lastName: string;
-  email: string;
-  studentId: string;
   department: string;
-  phone: string;
   yearLevel: string;
-  status: string;
   appliedAt: string;
 }
 
@@ -28,178 +56,347 @@ export default function CoachDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user || user.role !== 'coach') {
-      navigate('/login');
-    }
+    if (!user || user.role !== "coach") navigate("/login");
   }, [user, navigate]);
 
-  const tryoutsQuery = useTryoutApplications();
   const athletesQuery = useAthletes();
+  const scheduleQuery = useCoachSchedule();
+  const attendanceQuery = useAttendanceRecords();
+  const performanceQuery = usePerformanceRecords();
+  const requirementsQuery = useRequirements();
+  const tryoutsQuery = useTryoutApplications();
 
-  const tryoutApplications: TryoutApplication[] = tryoutsQuery.data ?? [];
+  const queries = [
+    athletesQuery,
+    scheduleQuery,
+    attendanceQuery,
+    performanceQuery,
+    requirementsQuery,
+    tryoutsQuery,
+  ];
+
   const athletes: any[] = athletesQuery.data ?? [];
-  const loading = tryoutsQuery.isLoading || athletesQuery.isLoading;
-  const fetching =
-    (tryoutsQuery.isFetching || athletesQuery.isFetching) && !loading;
-  const backgroundError = tryoutsQuery.isRefetchError || athletesQuery.isRefetchError;
-  const retryAll = () => {
-    tryoutsQuery.refetch();
-    athletesQuery.refetch();
-  };
+  const scheduleEvents: any[] = scheduleQuery.data?.events ?? [];
+  const attendance: any[] = attendanceQuery.data ?? [];
+  const performance: any[] = performanceQuery.data ?? [];
+  const requirements: any[] = requirementsQuery.data ?? [];
+  const tryouts: TryoutApplication[] = tryoutsQuery.data ?? [];
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const loading = queries.some((q) => q.isLoading);
+  const fetching = queries.some((q) => q.isFetching) && !loading;
+  const backgroundError = queries.some((q) => q.isRefetchError);
+  const retryAll = () => queries.forEach((q) => q.refetch());
+
+  const [rangeA, setRangeA] = useState(7);
+  const [rangeB, setRangeB] = useState(7);
+
+  const now = Date.now();
+
+  const upcomingGames = useMemo(
+    () =>
+      scheduleEvents
+        .filter((e) => e.status !== "completed")
+        .filter((e) => {
+          const t = new Date(e.schedule).getTime();
+          return isNaN(t) || t >= now - 86_400_000;
+        })
+        .sort((a, b) => (a.schedule < b.schedule ? -1 : 1)),
+    [scheduleEvents, now],
+  );
+
+  const attendanceRate = useMemo(() => {
+    if (!attendance.length) return null;
+    const present = attendance.filter(
+      (a) => a.status === "present" || a.status === "late",
+    ).length;
+    return Math.round((present / attendance.length) * 100);
+  }, [attendance]);
+
+  const avgRating = useMemo(() => {
+    const rated = performance
+      .map((p) => Number(p.overallRating ?? p.overall_rating))
+      .filter((n) => n > 0);
+    if (!rated.length) return null;
+    return (rated.reduce((s, n) => s + n, 0) / rated.length).toFixed(1);
+  }, [performance]);
+
+  const pendingRequirements = requirements.filter(
+    (r) => r.status === "pending",
+  ).length;
+  const approvedRequirements = requirements.filter(
+    (r) => r.status === "approved",
+  ).length;
+
+  const attMarks = useMemo(
+    () => periodDelta(attendance, "date", rangeA),
+    [attendance, rangeA],
+  );
+  const perfRecs = useMemo(
+    () => periodDelta(performance, "recordedAt", rangeA),
+    [performance, rangeA],
+  );
+  const reqSubmitted = useMemo(
+    () => periodDelta(requirements, "submittedAt", rangeB),
+    [requirements, rangeB],
+  );
+
+  const rosterBySport = useMemo(
+    () =>
+      tally(
+        athletes.map((a) => a.sport),
+        8,
+        "Unassigned",
+      ),
+    [athletes],
+  );
+
+  const attendanceSegments = useMemo(
+    () =>
+      (["present", "late", "excused", "absent"] as const)
+        .map((k) => ({
+          label: k[0].toUpperCase() + k.slice(1),
+          value: attendance.filter((a) => a.status === k).length,
+          color: ATTENDANCE_COLORS[k],
+        }))
+        .filter((s) => s.value > 0),
+    [attendance],
+  );
+
+  const requirementSegments = useMemo(
+    () =>
+      (["approved", "pending", "rejected"] as const).map((k) => ({
+        label: k[0].toUpperCase() + k.slice(1),
+        value: requirements.filter((r) => r.status === k).length,
+        color: REQUIREMENT_COLORS[k],
+      })),
+    [requirements],
+  );
+
+  const activityRows = useMemo(
+    () => [
+      metricRow("Attendance marks", attendance, "date"),
+      metricRow("Performance records", performance, "recordedAt"),
+      metricRow("Requirements submitted", requirements, "submittedAt"),
+      metricRow("Athletes joined", athletes, "createdAt"),
+    ],
+    [attendance, performance, requirements, athletes],
+  );
+
+  const fmtDay = (s: string) =>
+    new Date(s).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
     });
-  };
 
   if (!user) return null;
+  if (loading)
+    return <Loading fullScreen={false} message="Loading dashboard…" />;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-          <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
-        </div>
-        <p className="text-gray-600 mt-2">Welcome back, {user.name}!</p>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">My Athletes</CardTitle>
-            <Users className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{athletes.length}</div>
-            <p className="text-xs text-gray-500 mt-1">Total athletes</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Games</CardTitle>
-            <Calendar className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-gray-500 mt-1">This week</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0%</div>
-            <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Tryout Applications</CardTitle>
-            <UserPlus className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{tryoutApplications.length}</div>
-            <p className="text-xs text-gray-500 mt-1">Pending review</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tryout Applications */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Recent Tryout Applications</CardTitle>
-          <CardDescription>Students who applied for tryouts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">
-              Loading applications...
-            </div>
-          ) : tryoutApplications.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <UserPlus className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>No tryout applications yet</p>
-              <p className="text-sm mt-2">Applications will appear here when students apply through announcements</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {tryoutApplications.slice(0, 5).map((application) => (
-                <div key={application.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold text-lg">
-                          {application.firstName} {application.lastName}
-                        </h4>
-                        {application.sport && (
-                          <Badge variant="secondary">{application.sport}</Badge>
-                        )}
-                        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                          Pending
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          {application.studentId} • {application.yearLevel}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <FileCheck className="h-4 w-4" />
-                          {application.department}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          {application.email}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          {application.phone}
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Applied {formatDate(application.appliedAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {tryoutApplications.length > 5 && (
-                <div className="text-center pt-4 border-t">
-                  <p className="text-sm text-gray-500">
-                    Showing 5 of {tryoutApplications.length} applications
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest updates from your athletes</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-gray-500">
-            <p>No recent activity</p>
-            <p className="text-sm mt-2">Activity will appear here once you start managing athletes</p>
+    <DashboardCanvas
+      title="Coach Dashboard"
+      subtitle={`Welcome back, ${user.name}`}
+      right={
+        <RefreshStatus
+          fetching={fetching}
+          error={backgroundError}
+          onRetry={retryAll}
+        />
+      }
+    >
+      <Grid>
+        {/* Row A */}
+        <Tile title="Team Totals" span={3}>
+          <div className="grid grid-cols-2 gap-y-4">
+            <IconStat
+              icon={Users}
+              iconClass="text-blue-500"
+              value={athletes.length}
+              caption="Athletes"
+            />
+            <IconStat
+              icon={CalendarClock}
+              iconClass="text-violet-500"
+              value={upcomingGames.length}
+              caption="Upcoming"
+            />
+            <IconStat
+              icon={ClipboardCheck}
+              iconClass="text-rose-500"
+              value={pendingRequirements}
+              caption="Pending reqs"
+            />
+            <IconStat
+              icon={UserPlus}
+              iconClass="text-cyan-500"
+              value={tryouts.length}
+              caption="Tryouts"
+            />
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </Tile>
+
+        <HeroTile
+          title="Session Activity"
+          subtitle="Records logged in the selected window"
+          span={6}
+          right={<RangePicker value={rangeA} onChange={setRangeA} />}
+        >
+          <Metric
+            label="Attendance Marks"
+            value={attMarks.current.toLocaleString()}
+            pct={attMarks.pct}
+            prev={attMarks.prev.toLocaleString()}
+            spark={dailyCounts(attendance, "date", rangeA)}
+            color={CHART_COLORS[0]}
+          />
+          <Metric
+            label="Performance Records"
+            value={perfRecs.current.toLocaleString()}
+            pct={perfRecs.pct}
+            prev={perfRecs.prev.toLocaleString()}
+            spark={dailyCounts(performance, "recordedAt", rangeA)}
+            color={CHART_COLORS[3]}
+          />
+        </HeroTile>
+
+        <Tile title="Team Health" span={3}>
+          <div className="space-y-3">
+            <BareStat
+              value={attendanceRate == null ? "—" : `${attendanceRate}%`}
+              label="Attendance rate (all marks)"
+            />
+            <BareStat
+              value={avgRating == null ? "—" : `${avgRating}/10`}
+              label="Average performance rating"
+            />
+          </div>
+        </Tile>
+
+        {/* Row B */}
+        <Tile title="Requirements by Status" span={3}>
+          <DistBar segments={requirementSegments} />
+        </Tile>
+
+        <HeroTile
+          title="Requirements Review"
+          subtitle="Documents from your athletes"
+          span={6}
+          right={<RangePicker value={rangeB} onChange={setRangeB} />}
+        >
+          <Metric
+            label="Submitted"
+            value={reqSubmitted.current.toLocaleString()}
+            pct={reqSubmitted.pct}
+            prev={reqSubmitted.prev.toLocaleString()}
+            spark={dailyCounts(requirements, "submittedAt", rangeB)}
+            color={CHART_COLORS[4]}
+          />
+          <Metric
+            label="Approved"
+            value={approvedRequirements.toLocaleString()}
+          />
+        </HeroTile>
+
+        <Tile title="Roster by Sport" span={3}>
+          <RankList items={rosterBySport} unit="" />
+        </Tile>
+
+        {/* Row C */}
+        <Tile
+          title="Roster Activity Metrics"
+          subtitle="Last 30 days vs previous 30 days"
+          span={8}
+        >
+          <MetricTable rows={activityRows} />
+        </Tile>
+
+        <Tile
+          title="Attendance Breakdown"
+          subtitle="Every mark you have recorded"
+          span={4}
+        >
+          <DistBar segments={attendanceSegments} />
+        </Tile>
+
+        {/* Row D */}
+        <Tile title="Upcoming Games" subtitle="Your next fixtures" span={6}>
+          {upcomingGames.length === 0 ? (
+            <Empty h={180} msg="No upcoming games scheduled" />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {upcomingGames.slice(0, 6).map((e) => (
+                <li
+                  key={e.id}
+                  className="flex items-center justify-between gap-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">
+                      {e.name}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-400">
+                      <span>{e.category}</span>
+                      {e.venueName && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {e.venueName}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-medium text-slate-600">
+                      {fmtDay(e.schedule)}
+                    </p>
+                    {e.startTime && (
+                      <p className="text-[11px] text-slate-400">
+                        {e.startTime}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Tile>
+
+        <Tile
+          title="Recent Tryout Applications"
+          subtitle="Students applying through your announcements"
+          span={6}
+        >
+          {tryouts.length === 0 ? (
+            <Empty h={180} msg="No tryout applications yet" />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {tryouts.slice(0, 6).map((a) => (
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between gap-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">
+                      {a.firstName} {a.lastName}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      {a.department} &middot; {a.yearLevel}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {a.sport && <Badge variant="secondary">{a.sport}</Badge>}
+                    <Link
+                      to="/coach/athletes"
+                      className="text-[11px] font-medium text-primary hover:underline"
+                    >
+                      Review
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Tile>
+      </Grid>
+    </DashboardCanvas>
   );
 }

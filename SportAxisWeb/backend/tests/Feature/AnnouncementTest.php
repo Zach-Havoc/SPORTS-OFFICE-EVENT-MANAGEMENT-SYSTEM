@@ -36,14 +36,14 @@ class AnnouncementTest extends TestCase
         $coach = $this->actingAsRole('coach', ['name' => 'Coach K']);
 
         $this->postJson('/api/announcements', [
-            'title'    => 'Volleyball tryouts',
-            'content'  => 'Come to the gym at 5pm',
+            'title' => 'Volleyball tryouts',
+            'content' => 'Come to the gym at 5pm',
             'isTryout' => true,
         ])->assertCreated();
 
         $this->assertDatabaseHas('announcements', [
-            'title'      => 'Volleyball tryouts',
-            'coach_id'   => $coach->id,
+            'title' => 'Volleyball tryouts',
+            'coach_id' => $coach->id,
             'coach_name' => 'Coach K',
         ]);
     }
@@ -60,7 +60,7 @@ class AnnouncementTest extends TestCase
     public function test_a_coach_cannot_edit_another_coachs_announcement(): void
     {
         $coachA = $this->users()->coach()->create();
-        $ann    = $this->announcements()->create(['coach_id' => $coachA->id, 'title' => 'Original']);
+        $ann = $this->announcements()->create(['coach_id' => $coachA->id, 'title' => 'Original']);
 
         $this->actingAsRole('coach'); // coach B
         $this->putJson("/api/announcements/{$ann->id}", ['title' => 'Hijacked'])
@@ -72,7 +72,7 @@ class AnnouncementTest extends TestCase
     public function test_a_coach_cannot_delete_another_coachs_announcement(): void
     {
         $coachA = $this->users()->coach()->create();
-        $ann    = $this->announcements()->create(['coach_id' => $coachA->id]);
+        $ann = $this->announcements()->create(['coach_id' => $coachA->id]);
 
         $this->actingAsRole('coach'); // coach B
         $this->deleteJson("/api/announcements/{$ann->id}")->assertForbidden();
@@ -83,12 +83,16 @@ class AnnouncementTest extends TestCase
     public function test_a_coach_can_edit_and_delete_their_own_announcement(): void
     {
         $coach = $this->actingAsRole('coach');
-        $ann   = $this->announcements()->create(['coach_id' => $coach->id]);
+        $ann = $this->announcements()->create(['coach_id' => $coach->id]);
 
         $this->putJson("/api/announcements/{$ann->id}", ['title' => 'Updated'])->assertOk();
         $this->assertSame('Updated', $ann->fresh()->title);
 
         $this->deleteJson("/api/announcements/{$ann->id}")->assertOk();
-        $this->assertDatabaseMissing('announcements', ['id' => $ann->id]);
+        $this->assertSoftDeleted('announcements', ['id' => $ann->id]);
+
+        // ...and the owning coach can restore it.
+        $this->postJson("/api/announcements/{$ann->id}/restore")->assertOk();
+        $this->assertNotSoftDeleted('announcements', ['id' => $ann->id]);
     }
 }

@@ -28,30 +28,30 @@ class AttendancePerformanceTest extends TestCase
 
     public function test_coach_can_mark_attendance_for_their_roster(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
 
         $this->postJson('/api/attendance', [
             'records' => [[
                 'athleteId' => $athlete->id,
-                'date'      => now()->toDateString(),
-                'status'    => 'present',
+                'date' => now()->toDateString(),
+                'status' => 'present',
             ]],
         ])->assertCreated();
 
         $this->assertDatabaseHas('attendance_records', [
-            'athlete_id'  => $athlete->id,
-            'status'      => 'present',
+            'athlete_id' => $athlete->id,
+            'status' => 'present',
             'recorded_by' => $coach->id,
         ]);
     }
 
     public function test_attendance_for_an_off_roster_athlete_is_skipped(): void
     {
-        $coach       = $this->actingAsRole('coach');
-        $mine        = $this->athletes()->create(['coach_id' => $coach->id]);
-        $otherCoach  = $this->users()->coach()->create();
-        $notMine     = $this->athletes()->create(['coach_id' => $otherCoach->id]);
+        $coach = $this->actingAsRole('coach');
+        $mine = $this->athletes()->create(['coach_id' => $coach->id]);
+        $otherCoach = $this->users()->coach()->create();
+        $notMine = $this->athletes()->create(['coach_id' => $otherCoach->id]);
 
         $this->postJson('/api/attendance', [
             'records' => [
@@ -66,7 +66,7 @@ class AttendancePerformanceTest extends TestCase
 
     public function test_attendance_status_must_be_a_valid_value(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
 
         $this->postJson('/api/attendance', [
@@ -76,10 +76,10 @@ class AttendancePerformanceTest extends TestCase
 
     public function test_attendance_index_is_scoped_to_the_coachs_athletes(): void
     {
-        $coach      = $this->actingAsRole('coach');
-        $mine       = $this->athletes()->create(['coach_id' => $coach->id]);
+        $coach = $this->actingAsRole('coach');
+        $mine = $this->athletes()->create(['coach_id' => $coach->id]);
         $otherCoach = $this->users()->coach()->create();
-        $notMine    = $this->athletes()->create(['coach_id' => $otherCoach->id]);
+        $notMine = $this->athletes()->create(['coach_id' => $otherCoach->id]);
 
         $this->attendance()->create(['athlete_id' => $mine->id, 'notes' => 'keep']);
         $this->attendance()->create(['athlete_id' => $notMine->id, 'notes' => 'hide']);
@@ -88,6 +88,82 @@ class AttendancePerformanceTest extends TestCase
             ->assertOk()
             ->assertJsonFragment(['notes' => 'keep'])
             ->assertJsonMissing(['notes' => 'hide']);
+    }
+
+    public function test_re_marking_the_same_session_updates_in_place(): void
+    {
+        $coach = $this->actingAsRole('coach');
+        $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
+        $day = now()->toDateString();
+
+        $this->postJson('/api/attendance', [
+            'records' => [['athleteId' => $athlete->id, 'date' => $day, 'status' => 'present']],
+        ])->assertCreated()->assertJsonPath('saved', 1);
+
+        $this->postJson('/api/attendance', [
+            'records' => [['athleteId' => $athlete->id, 'date' => $day, 'status' => 'absent', 'notes' => 'sick']],
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('attendance_records', 1);
+        $this->assertDatabaseHas('attendance_records', ['athlete_id' => $athlete->id, 'status' => 'absent', 'notes' => 'sick']);
+    }
+
+    public function test_training_and_an_event_on_the_same_day_are_separate_records(): void
+    {
+        $coach = $this->actingAsRole('coach');
+        $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
+        $event = $this->events()->create();
+        $day = now()->toDateString();
+
+        $this->postJson('/api/attendance', [
+            'records' => [['athleteId' => $athlete->id, 'date' => $day, 'status' => 'present']], // training
+        ])->assertCreated();
+
+        $this->postJson('/api/attendance', [
+            'records' => [['athleteId' => $athlete->id, 'date' => $day, 'status' => 'late', 'eventId' => $event->id]],
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('attendance_records', 2);
+        $this->assertDatabaseHas('attendance_records', ['athlete_id' => $athlete->id, 'event_id' => 'training', 'status' => 'present']);
+        $this->assertDatabaseHas('attendance_records', ['athlete_id' => $athlete->id, 'event_id' => $event->id, 'status' => 'late']);
+    }
+
+    public function test_two_named_training_sessions_on_one_day_are_separate(): void
+    {
+        $coach = $this->actingAsRole('coach');
+        $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
+        $day = now()->toDateString();
+
+        $this->postJson('/api/attendance', [
+            'records' => [[
+                'athleteId' => $athlete->id, 'date' => $day, 'status' => 'present',
+                'eventId' => 'training:morning-drills', 'sessionLabel' => 'Morning drills',
+            ]],
+        ])->assertCreated();
+
+        $this->postJson('/api/attendance', [
+            'records' => [[
+                'athleteId' => $athlete->id, 'date' => $day, 'status' => 'absent',
+                'eventId' => 'training:scrimmage', 'sessionLabel' => 'Scrimmage',
+            ]],
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('attendance_records', 2);
+        $this->assertDatabaseHas('attendance_records', ['event_id' => 'training:morning-drills', 'session_label' => 'Morning drills', 'status' => 'present']);
+        $this->assertDatabaseHas('attendance_records', ['event_id' => 'training:scrimmage', 'session_label' => 'Scrimmage', 'status' => 'absent']);
+    }
+
+    public function test_attendance_index_filters_by_date(): void
+    {
+        $coach = $this->actingAsRole('coach');
+        $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
+        $this->attendance()->create(['athlete_id' => $athlete->id, 'date' => '2026-05-01', 'notes' => 'may']);
+        $this->attendance()->create(['athlete_id' => $athlete->id, 'date' => '2026-06-01', 'notes' => 'jun']);
+
+        $this->getJson('/api/attendance?date=2026-05-01')
+            ->assertOk()
+            ->assertJsonFragment(['notes' => 'may'])
+            ->assertJsonMissing(['notes' => 'jun']);
     }
 
     // ── Performance ─────────────────────────────────────────────────────
@@ -102,17 +178,17 @@ class AttendancePerformanceTest extends TestCase
 
     public function test_coach_can_record_performance_for_a_roster_athlete(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
 
         $this->postJson('/api/performance', [
-            'athleteId'     => $athlete->id,
-            'athleteName'   => 'Sam Cruz',
+            'athleteId' => $athlete->id,
+            'athleteName' => 'Sam Cruz',
             'overallRating' => 8,
         ])->assertCreated();
 
         $this->assertDatabaseHas('performance_records', [
-            'athlete_id'  => $athlete->id,
+            'athlete_id' => $athlete->id,
             'recorded_by' => $coach->id,
         ]);
     }
@@ -121,20 +197,20 @@ class AttendancePerformanceTest extends TestCase
     {
         $this->actingAsRole('coach');
         $otherCoach = $this->users()->coach()->create();
-        $notMine    = $this->athletes()->create(['coach_id' => $otherCoach->id]);
+        $notMine = $this->athletes()->create(['coach_id' => $otherCoach->id]);
 
         $this->postJson('/api/performance', [
-            'athleteId'   => $notMine->id,
+            'athleteId' => $notMine->id,
             'athleteName' => 'Not Mine',
         ])->assertForbidden()
-          ->assertJsonFragment(['error' => 'Athlete is not on your roster']);
+            ->assertJsonFragment(['error' => 'Athlete is not on your roster']);
 
         $this->assertDatabaseCount('performance_records', 0);
     }
 
     public function test_overall_rating_must_be_between_1_and_10(): void
     {
-        $coach   = $this->actingAsRole('coach');
+        $coach = $this->actingAsRole('coach');
         $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
 
         $this->postJson('/api/performance', [

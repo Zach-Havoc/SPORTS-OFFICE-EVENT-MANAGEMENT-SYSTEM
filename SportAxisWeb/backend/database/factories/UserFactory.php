@@ -25,12 +25,12 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'id'       => (string) Str::uuid(),
-            'name'     => fake()->name(),
-            'email'    => fake()->unique()->safeEmail(),
+            'id' => (string) Str::uuid(),
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
-            'role'     => 'athlete',
-            'active'   => true,
+            'role' => 'athlete',
+            'active' => true,
         ];
     }
 
@@ -47,10 +47,10 @@ class UserFactory extends Factory
     public function coach(): static
     {
         return $this->state(fn () => [
-            'role'            => 'coach',
-            'sport'           => 'Basketball',
-            'sports'          => ['Basketball'],
-            'department'      => 'College of Engineering',
+            'role' => 'coach',
+            'sport' => 'Basketball',
+            'sports' => ['Basketball'],
+            'department' => 'College of Engineering',
             'gender_category' => 'Men',
             'enrollment_code' => strtoupper(Str::random(8)),
         ]);

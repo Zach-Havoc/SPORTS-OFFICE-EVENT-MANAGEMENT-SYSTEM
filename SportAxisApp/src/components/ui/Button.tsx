@@ -1,125 +1,113 @@
 import React from 'react';
 import {
-  TouchableOpacity,
-  Text,
   ActivityIndicator,
+  Pressable,
   StyleSheet,
-  ViewStyle,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
-import { COLORS, RADIUS, FONT_SIZE, FONT_WEIGHT, SHADOWS, SPACING } from '../../../constants/theme';
+import * as Haptics from 'expo-haptics';
+import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../../constants/theme';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Button — BatStateU red-and-white variants
+// Button — BatStateU red-and-white. Pressable with a pressed wash; light haptic
+// on the loud variants.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'ocr';
-type Size    = 'sm' | 'md' | 'lg';
+type Variant = 'primary' | 'secondary' | 'tonal' | 'danger' | 'ghost' | 'ocr';
+type Size = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
-  label:     string;
-  onPress:   () => void;
-  variant?:  Variant;
-  size?:     Size;
-  loading?:  boolean;
+  label: string;
+  onPress: () => void;
+  variant?: Variant;
+  size?: Size;
+  loading?: boolean;
   disabled?: boolean;
-  style?:    ViewStyle;
-  icon?:     React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  icon?: React.ReactNode;
   fullWidth?: boolean;
 }
+
+const HAPTIC: Variant[] = ['primary', 'danger'];
 
 export function Button({
   label,
   onPress,
-  variant   = 'primary',
-  size      = 'md',
-  loading   = false,
-  disabled  = false,
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  disabled = false,
   style,
   icon,
   fullWidth = false,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const spinnerColor =
+    variant === 'ghost' || variant === 'secondary' || variant === 'tonal'
+      ? COLORS.primary
+      : '#fff';
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
+    <Pressable
+      onPress={() => {
+        if (HAPTIC.includes(variant)) Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
       disabled={isDisabled}
-      activeOpacity={0.80}
-      style={[
+      style={({ pressed }) => [
         styles.base,
         styles[variant],
         styles[size],
         fullWidth && styles.fullWidth,
+        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'ghost' || variant === 'secondary' ? COLORS.primary : '#fff'}
-        />
+        <ActivityIndicator size="small" color={spinnerColor} />
       ) : (
-        <>
+        <View style={styles.row}>
           {icon}
-          <Text style={[styles.label, styles[`${variant}Label` as keyof typeof styles]]}>
-            {label}
-          </Text>
-        </>
+          <Text style={[styles.label, styles[`${variant}Label` as keyof typeof styles]]}>{label}</Text>
+        </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    flexDirection:  'row',
-    alignItems:     'center',
+    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius:   RADIUS.md,
-    gap:            SPACING.xs,
+    borderRadius: RADIUS.lg,
   },
+  row: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   fullWidth: { width: '100%' },
+  pressed: { opacity: 0.92, transform: [{ scale: 0.985 }] },
+  disabled: { opacity: 0.4 },
 
-  // ── Variants — matches web colour tokens ─────────────────────────────────
-  primary: {
-    backgroundColor: COLORS.primary,        // #B91C1C
-    ...SHADOWS.lg,
-  },
-  secondary: {
-    backgroundColor: COLORS.surface,
-    borderWidth:     1.5,
-    borderColor:     COLORS.borderStrong,
-  },
-  danger: {
-    backgroundColor: COLORS.destructive,    // #DC2626
-    ...SHADOWS.sm,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-    borderWidth:     1.5,
-    borderColor:     COLORS.primary,
-  },
-  ocr: {
-    backgroundColor: COLORS.ocr,
-    ...SHADOWS.sm,
-  },
+  // ── Variants ────────────────────────────────────────────────────────────
+  primary:   { backgroundColor: COLORS.primary, ...SHADOWS.sm },
+  secondary: { backgroundColor: COLORS.surface, borderWidth: 1.5, borderColor: COLORS.borderStrong },
+  tonal:     { backgroundColor: COLORS.primaryTint },
+  danger:    { backgroundColor: COLORS.destructive, ...SHADOWS.sm },
+  ghost:     { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.primary },
+  ocr:       { backgroundColor: COLORS.ocr, ...SHADOWS.sm },
 
-  // ── Sizes ────────────────────────────────────────────────────────────────
-  sm: { paddingVertical: SPACING.xs,     paddingHorizontal: SPACING.md,  minHeight: 36 },
-  md: { paddingVertical: SPACING.sm + 4, paddingHorizontal: SPACING.lg,  minHeight: 48 },
-  lg: { paddingVertical: SPACING.md,     paddingHorizontal: SPACING.xl,  minHeight: 56 },
+  // ── Sizes (a11y min heights) ────────────────────────────────────────────
+  sm: { paddingVertical: SPACING.xs + 2, paddingHorizontal: SPACING.md, minHeight: 40 },
+  md: { paddingVertical: SPACING.sm + 3, paddingHorizontal: SPACING.lg, minHeight: 48 },
+  lg: { paddingVertical: SPACING.md + 1, paddingHorizontal: SPACING.xl, minHeight: 56 },
 
-  disabled: { opacity: 0.45 },
-
-  // ── Labels ───────────────────────────────────────────────────────────────
-  label: {
-    fontSize:   FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.medium,   // web --font-weight-medium: 500
-    color:      COLORS.textInverse,
-  },
+  // ── Labels ──────────────────────────────────────────────────────────────
+  label: { ...TYPE.label, fontSize: 14, letterSpacing: 0.2 },
   primaryLabel:   { color: COLORS.textInverse },
   secondaryLabel: { color: COLORS.textPrimary },
+  tonalLabel:     { color: COLORS.primary },
   dangerLabel:    { color: COLORS.textInverse },
   ghostLabel:     { color: COLORS.primary },
   ocrLabel:       { color: COLORS.textInverse },

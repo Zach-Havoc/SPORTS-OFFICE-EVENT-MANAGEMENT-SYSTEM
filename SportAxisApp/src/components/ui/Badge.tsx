@@ -1,71 +1,67 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { COLORS, RADIUS, FONT_SIZE, FONT_WEIGHT, SPACING } from '../../../constants/theme';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { COLORS, RADIUS, SPACING, TYPE } from '../../../constants/theme';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Badge — status pill inheriting web chart/accent colors
+// Badge — uppercase status pill; optional leading status dot.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type BadgeVariant = 'default' | 'success' | 'error' | 'warning' | 'ocr' | 'offline' | 'info' | 'red';
 
 interface BadgeProps {
-  label:    string;
+  label: string;
   variant?: BadgeVariant;
-  style?:   ViewStyle;
+  dot?: boolean;
+  style?: ViewStyle;
 }
 
-export function Badge({ label, variant = 'default', style }: BadgeProps) {
+const DOT: Record<BadgeVariant, string> = {
+  default: COLORS.textMuted,
+  success: COLORS.success,
+  error: COLORS.destructive,
+  warning: COLORS.warning,
+  ocr: COLORS.ocr,
+  offline: COLORS.warning,
+  info: COLORS.info,
+  red: COLORS.primary,
+};
+
+export function Badge({ label, variant = 'default', dot = false, style }: BadgeProps) {
   return (
     <View style={[styles.badge, styles[variant], style]}>
-      <Text style={[styles.label, styles[`${variant}Label` as keyof typeof styles]]}>
-        {label}
-      </Text>
+      {dot ? <View style={[styles.dot, { backgroundColor: DOT[variant] }]} /> : null}
+      <Text style={[styles.label, styles[`${variant}Label` as keyof typeof styles]]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: SPACING.sm,
-    paddingVertical:   3,
-    borderRadius:      RADIUS.full,
-    alignSelf:         'flex-start',
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    alignSelf: 'flex-start',
   },
-  label: {
-    fontSize:      FONT_SIZE.xs,
-    fontWeight:    FONT_WEIGHT.semibold,
-    letterSpacing: 0.3,
-  },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  label: { ...TYPE.caption, textTransform: 'uppercase' },
 
-  // default — muted gray
   default:      { backgroundColor: COLORS.surfaceAlt },
   defaultLabel: { color: COLORS.textSecondary },
-
-  // success — green
   success:      { backgroundColor: COLORS.successLight },
   successLabel: { color: COLORS.success },
-
-  // error — red (matches web --destructive)
   error:        { backgroundColor: COLORS.errorLight },
   errorLabel:   { color: COLORS.destructive },
-
-  // warning — amber
   warning:      { backgroundColor: COLORS.warningLight },
   warningLabel: { color: COLORS.warning },
-
-  // ocr — purple accent
   ocr:          { backgroundColor: COLORS.ocrLight },
   ocrLabel:     { color: COLORS.ocr },
-
-  // offline — amber
   offline:      { backgroundColor: COLORS.warningLight },
   offlineLabel: { color: COLORS.warning },
-
-  // info — blue
   info:         { backgroundColor: COLORS.infoLight },
   infoLabel:    { color: COLORS.info },
-
-  // red — BatStateU primary (for brand highlights)
   red:          { backgroundColor: COLORS.primaryPale },
   redLabel:     { color: COLORS.primary },
 });

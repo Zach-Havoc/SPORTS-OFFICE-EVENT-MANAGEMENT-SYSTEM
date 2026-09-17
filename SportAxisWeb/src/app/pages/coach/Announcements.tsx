@@ -9,6 +9,10 @@ import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
 import { Switch } from '../../components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
 import { Plus, Edit, Trash2, Megaphone, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -36,6 +40,7 @@ export default function CoachAnnouncements() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -93,14 +98,12 @@ export default function CoachAnnouncements() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) {
-      return;
-    }
-
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteMut.mutateAsync(id);
+      await deleteMut.mutateAsync(deleteTarget.id);
       toast.success('Announcement deleted successfully');
+      setDeleteTarget(null);
     } catch (error) {
       console.error('Error deleting announcement:', error);
       toast.error('Failed to delete announcement');
@@ -198,7 +201,7 @@ export default function CoachAnnouncements() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(announcement.id, announcement.title)}
+                      onClick={() => setDeleteTarget(announcement)}
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
@@ -283,6 +286,22 @@ export default function CoachAnnouncements() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the announcement for good. Athletes who already applied for a
+              linked tryout keep their application.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

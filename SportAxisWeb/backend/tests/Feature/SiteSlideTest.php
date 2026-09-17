@@ -81,10 +81,10 @@ class SiteSlideTest extends TestCase
         $this->actingAsRole('admin');
 
         $res = $this->post('/api/admin/site-slides', [
-            'type'    => 'carousel',
-            'title'   => 'Opening Ceremony',
+            'type' => 'carousel',
+            'title' => 'Opening Ceremony',
             'caption' => 'Intramurals 2026',
-            'image'   => $this->pngUpload(),
+            'image' => $this->pngUpload(),
         ])->assertCreated()->assertJsonPath('title', 'Opening Ceremony');
 
         $slide = SiteSlide::firstOrFail();
@@ -99,7 +99,7 @@ class SiteSlideTest extends TestCase
         $this->actingAsRole('admin');
 
         $this->post('/api/admin/site-slides', [
-            'type'  => 'carousel',
+            'type' => 'carousel',
             'image' => UploadedFile::fake()->create('payload.pdf', 12, 'application/pdf'),
         ])->assertStatus(422)->assertJsonValidationErrors('image');
     }
@@ -157,7 +157,7 @@ class SiteSlideTest extends TestCase
         // multipart PUT → POST + _method spoof
         $this->post("/api/admin/site-slides/{$created->json('id')}", [
             '_method' => 'PUT',
-            'image'   => $this->pngUpload('new.png'),
+            'image' => $this->pngUpload('new.png'),
         ])->assertOk();
 
         Storage::disk('public')->assertMissing($oldPath);
@@ -184,7 +184,7 @@ class SiteSlideTest extends TestCase
         $c = $this->siteSlides()->create(['type' => 'carousel', 'title' => 'C', 'sort_order' => 2]);
 
         $this->postJson('/api/admin/site-slides/reorder', [
-            'type'  => 'carousel',
+            'type' => 'carousel',
             'order' => [$c->id, $a->id, $b->id],
         ])->assertOk();
 
