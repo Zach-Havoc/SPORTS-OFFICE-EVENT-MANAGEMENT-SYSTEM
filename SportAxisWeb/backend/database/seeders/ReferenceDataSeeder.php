@@ -27,9 +27,53 @@ class ReferenceDataSeeder extends Seeder
 {
     public function run(): void
     {
+        // Order matters: the snapshot (if present) carries its own specific
+        // UUIDs for categories/requirement_types/seasons, cross-referenced
+        // by its own events/discipline_entries/etc. Loading it FIRST lets
+        // the three methods below correctly detect "already seeded" (they
+        // each check-before-insert) and skip — loading it last would
+        // instead race them: their fresh random UUIDs would claim the same
+        // `categories.name` unique slot first, silently blocking the
+        // snapshot's own rows via INSERT IGNORE and leaving its events
+        // pointing at category_ids that were never created.
+        //
+        // NOT run during tests: tests/TestCase.php sets this class as the
+        // seeder for every RefreshDatabase test, which is meant to apply
+        // only the small baseline (a dozen categories, 4 requirement types,
+        // 1 season) — loading 48 users/34 events/etc. on top broke ~45
+        // tests that assert specific row counts the moment this was tried.
+        if (! app()->environment('testing')) {
+            $this->seedLocalSnapshot();
+        }
         $this->seedRacquetDisciplines();
         $this->seedDefaultRequirementTypes();
         $this->seedDefaultSeason();
+    }
+
+    /**
+     * Optional: loads database/seeders/data/dev_snapshot.sql if present —
+     * a full data export (accounts, events, brackets, scores, etc.) from an
+     * existing working database, so a fresh install doesn't start empty.
+     *
+     * Not committed by default (see database/seeders/data/README.md for how
+     * to generate one) — silently does nothing if the file doesn't exist,
+     * so this never breaks a fresh clone or CI, which have no such file.
+     *
+     * Wrapped with FOREIGN_KEY_CHECKS off: a phpMyAdmin export lists tables
+     * alphabetically, not in dependency order, so inserting athletes before
+     * users (etc.) would otherwise fail on the foreign key.
+     */
+    private function seedLocalSnapshot(): void
+    {
+        $path = database_path('seeders/data/dev_snapshot.sql');
+
+        if (! file_exists($path)) {
+            return;
+        }
+
+        DB::unprepared('SET FOREIGN_KEY_CHECKS=0');
+        DB::unprepared(file_get_contents($path));
+        DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
     }
 
     /**

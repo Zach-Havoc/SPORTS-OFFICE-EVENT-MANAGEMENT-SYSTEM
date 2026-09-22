@@ -122,7 +122,7 @@ username, password shown there — they go into `env.php` in Step 4.
 
 ## 📁 Step 3: One-time manual uploads (never touched by CI, on purpose)
 
-Three things need to exist on the server *before* the first automated
+Things that need to exist on the server *before* the first automated
 deploy, and CI is deliberately configured to never overwrite them (see the
 `exclude:` lists in `.github/workflows/deploy-web-infinityfree.yml`):
 
@@ -139,6 +139,14 @@ deploy, and CI is deliberately configured to never overwrite them (see the
    real values (APP_KEY, DB credentials from Step 2, MIGRATION_TOKEN, your
    web app's domain for CORS_ALLOWED_ORIGINS, OCR_SERVICE_URL once that's
    hosted), upload it to `htdocs/core/env.php`.
+4. **(Optional) `dev_snapshot.sql`** — if you want the database seeded with
+   real existing data (accounts, events, scores) instead of starting empty,
+   generate it per `SportAxisWeb/backend/database/seeders/data/README.md`
+   and upload to `htdocs/core/database/seeders/data/dev_snapshot.sql`. Never
+   commit this file — it contains real phone numbers and emergency
+   contacts. `ReferenceDataSeeder` picks it up automatically on the next
+   `&seed=1&class=Database\Seeders\ReferenceDataSeeder` run if present, and
+   does nothing if it's absent.
 
 Generate `APP_KEY` locally: `cd SportAxisWeb/backend && php artisan key:generate --show`.
 
