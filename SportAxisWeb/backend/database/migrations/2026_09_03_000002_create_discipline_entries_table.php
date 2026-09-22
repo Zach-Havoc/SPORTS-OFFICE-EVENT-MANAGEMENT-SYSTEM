@@ -22,9 +22,17 @@ return new class extends Migration
     {
         Schema::create('discipline_entries', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->string('category');                // discipline category name, e.g. "Badminton — M Doubles"
-            $table->string('department');              // college name
-            $table->string('athlete_id');
+            // Explicit shorter lengths (not the default 191): category +
+            // department together form both a unique constraint and a plain
+            // index below — at utf8mb4's 4 bytes/char, 191+191 alone already
+            // exceeds InfinityFree's MySQL 1000-byte index key limit
+            // (confirmed empirically against the real deploy). 80 chars is
+            // still generous for either value ("Badminton — M Doubles" is
+            // ~22 chars; college names are shorter still), and athlete_id
+            // only ever holds a 36-char UUID (see this file's docblock).
+            $table->string('category', 80);            // discipline category name, e.g. "Badminton — M Doubles"
+            $table->string('department', 80);          // college name
+            $table->string('athlete_id', 36);
             $table->string('athlete_name');
             $table->string('coach_id');
             $table->string('pair_slot')->nullable();   // 'C' | 'D' for doubles; null for singles

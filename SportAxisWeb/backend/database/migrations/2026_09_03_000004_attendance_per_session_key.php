@@ -21,7 +21,14 @@ return new class extends Migration
         DB::table('attendance_records')->whereNull('event_id')->update(['event_id' => 'training']);
 
         Schema::table('attendance_records', function (Blueprint $table) {
-            $table->string('event_id')->default('training')->nullable(false)->change();
+            // Explicit shorter lengths, not the default 191: these two
+            // (plus `date`) form the composite unique below — at utf8mb4's
+            // 4 bytes/char, 191+191 exceeds InfinityFree's MySQL 1000-byte
+            // index key limit (confirmed empirically). Both only ever hold
+            // a 36-char UUID (event_id's other value, the literal sentinel
+            // 'training', easily fits too).
+            $table->string('athlete_id', 36)->change();
+            $table->string('event_id', 36)->default('training')->nullable(false)->change();
             $table->unique(['athlete_id', 'date', 'event_id'], 'attendance_athlete_date_session_unique');
         });
     }

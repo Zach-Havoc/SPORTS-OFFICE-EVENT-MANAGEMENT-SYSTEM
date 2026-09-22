@@ -35,9 +35,14 @@ return new class extends Migration
     {
         Schema::create('requirement_types', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->string('name');
+            // Explicit shorter lengths, not the default 191: these two form
+            // a unique constraint below — at utf8mb4's 4 bytes/char, 191+191
+            // exceeds InfinityFree's MySQL 1000-byte index key limit
+            // (confirmed empirically). Both comfortably fit real values
+            // ("Certificate of Enrollment", "Badminton — M Doubles").
+            $table->string('name', 150);
             $table->text('description')->nullable();
-            $table->string('sport')->nullable();
+            $table->string('sport', 80)->nullable();
             $table->boolean('required')->default(true);
             $table->boolean('active')->default(true);
             $table->string('created_by')->nullable();
