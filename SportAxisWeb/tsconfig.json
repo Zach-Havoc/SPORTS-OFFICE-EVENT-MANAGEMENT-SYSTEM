@@ -24,11 +24,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "/src/*": ["./src/*"],
-      "/utils/*": ["./utils/*"],
-      "/supabase/*": ["./supabase/*"]
+      "/src/*": ["./src/*"]
     }
   },
-  "include": ["src", "utils", "supabase"],
+  "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
