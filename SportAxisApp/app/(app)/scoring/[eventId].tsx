@@ -21,6 +21,7 @@ import { OCRScoreMapper } from "../../../src/components/scoring/OCRScoreMapper";
 import { PrintableScoreSheetView } from "../../../src/components/scoring/PrintableScoreSheetView";
 import { Badge } from "../../../src/components/ui/Badge";
 import { Button } from "../../../src/components/ui/Button";
+import { Card } from "../../../src/components/ui/Card";
 import { Icon, type IconName } from "../../../src/components/ui/Icon";
 import { useDeptAbbreviator } from "../../../src/hooks/use-dept-abbr";
 import { useNetwork } from "../../../src/hooks/use-network";
@@ -104,15 +105,17 @@ export default function ScoringScreen() {
   );
 
   const handleOcrConfirm = useCallback(
-    (totalScore: number, imageUri: string) => {
-      if (!department) return;
-      setDepartmentScores((prev) => ({ ...prev, [department]: String(totalScore) }));
+    (scores: Record<string, number>, imageUri: string) => {
+      setDepartmentScores((prev) => ({
+        ...prev,
+        ...Object.fromEntries(Object.entries(scores).map(([d, s]) => [d, String(s)])),
+      }));
       setOcrImageUri(imageUri);
       setMethod("ocr");
       setShowOCR(false);
       setTab("score");
     },
-    [department],
+    [],
   );
 
   // ── Submit every scored college in one go ────────────────────────────────
@@ -266,11 +269,7 @@ export default function ScoringScreen() {
               </View>
             </View>
             <View style={styles.headerRight}>
-              {!isConnected && (
-                <View style={styles.offChip}>
-                  <Icon name="cloud-off" size={13} color="#fff" strokeWidth={2.4} />
-                </View>
-              )}
+              {!isConnected && <Badge label="Offline" variant="offline" dot />}
               <Badge
                 label={event.status}
                 variant={event.status === "ongoing" ? "success" : event.status === "completed" ? "default" : "warning"}
@@ -383,12 +382,7 @@ export default function ScoringScreen() {
                     </Pressable>
                   </View>
                   <Text style={styles.scoreScale}>out of 100</Text>
-                  {ocrImageUri && (
-                    <View style={styles.ocrChip}>
-                      <Icon name="scan" size={12} color={COLORS.ocr} />
-                      <Text style={styles.ocrChipText}>From scanned sheet</Text>
-                    </View>
-                  )}
+                  {ocrImageUri && <Badge label="From scanned sheet" variant="ocr" style={styles.ocrBadge} />}
                 </View>
 
                 <Button
@@ -455,7 +449,7 @@ export default function ScoringScreen() {
             <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
               <Text style={styles.section}>Tools</Text>
 
-              <Pressable style={({ pressed }) => [styles.toolCard, pressed && styles.deptPressed]} onPress={() => setShowOCR(true)}>
+              <Card variant="tint" onPress={() => setShowOCR(true)} style={styles.toolCard}>
                 <View style={[styles.toolIcon, { backgroundColor: COLORS.ocrLight }]}>
                   <Icon name="scan" size={18} color={COLORS.ocr} />
                 </View>
@@ -464,9 +458,9 @@ export default function ScoringScreen() {
                   <Text style={styles.toolDesc}>Read the total from a photo.</Text>
                 </View>
                 <Icon name="chevron-right" size={18} color={COLORS.textMuted} />
-              </Pressable>
+              </Card>
 
-              <Pressable style={({ pressed }) => [styles.toolCard, pressed && styles.deptPressed]} onPress={() => setShowPrintableForm(true)}>
+              <Card variant="tint" onPress={() => setShowPrintableForm(true)} style={styles.toolCard}>
                 <View style={[styles.toolIcon, { backgroundColor: `${accent}15` }]}>
                   <Icon name="file-text" size={18} color={accent} />
                 </View>
@@ -475,7 +469,7 @@ export default function ScoringScreen() {
                   <Text style={styles.toolDesc}>Preview, print or share.</Text>
                 </View>
                 <Icon name="chevron-right" size={18} color={COLORS.textMuted} />
-              </Pressable>
+              </Card>
 
               {event.status === "ongoing" && (
                 <View style={styles.dangerCard}>
@@ -507,6 +501,7 @@ export default function ScoringScreen() {
 
       <Modal visible={showOCR} animationType="slide" onRequestClose={() => setShowOCR(false)}>
         <OCRScoreMapper
+          departments={depts}
           onConfirm={handleOcrConfirm}
           onCancel={(imageUri) => {
             // A photo may already be captured/stored even though the judge
@@ -548,7 +543,6 @@ const styles = StyleSheet.create({
   headerTitle: { ...TYPE.subhead, color: "#fff" },
   headerSub: { ...TYPE.caption, textTransform: "none", color: "rgba(255,255,255,0.8)", marginTop: 1 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
-  offChip: { width: 24, height: 24, borderRadius: RADIUS.full, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
 
   // Segmented tabs
   tabWrap: { backgroundColor: COLORS.surface, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
@@ -604,8 +598,7 @@ const styles = StyleSheet.create({
   stepBtn: { width: 46, height: 46, borderRadius: RADIUS.md, borderWidth: 1.5, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.surface },
   scoreInput: { minWidth: 120, textAlign: "center", fontSize: 44, fontWeight: "800", paddingVertical: SPACING.xs },
   scoreScale: { ...TYPE.bodySm, color: COLORS.textMuted },
-  ocrChip: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, backgroundColor: COLORS.ocrLight, paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.full },
-  ocrChipText: { ...TYPE.caption, textTransform: "none", color: COLORS.ocr },
+  ocrBadge: { alignSelf: "center" },
 
   submit: { marginTop: SPACING.lg },
   submitHint: { ...TYPE.bodySm, color: COLORS.textMuted, textAlign: "center", marginTop: SPACING.xs },

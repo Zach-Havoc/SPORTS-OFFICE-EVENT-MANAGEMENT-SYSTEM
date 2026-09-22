@@ -1,9 +1,9 @@
 import api from './api';
 import { storage, STORAGE_KEYS } from '../storage/async-storage';
-import type { User } from '../types';
+import type { SignupPayload, User } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Auth Service — Login, Logout, Token Management
+// Auth Service — Login, Signup, Password Reset/Change, Profile, Token Management
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface LoginResponse {
@@ -25,6 +25,61 @@ export const authService = {
     await storage.setJSON(STORAGE_KEYS.AUTH_USER, user);
 
     return { token, user };
+  },
+
+  /**
+   * POST /api/signup
+   * Registration-code + (for athletes) SR-code verified account creation.
+   * Returns the same shape as login and logs the new account straight in.
+   */
+  async signup(payload: SignupPayload): Promise<LoginResponse> {
+    const response = await api.post<LoginResponse>('/signup', payload);
+    const { token, user } = response.data;
+
+    await storage.set(STORAGE_KEYS.AUTH_TOKEN, token);
+    await storage.setJSON(STORAGE_KEYS.AUTH_USER, user);
+
+    return { token, user };
+  },
+
+  /**
+   * POST /api/reset-password
+   * Public, email-only. The backend always returns a generic success message
+   * (it never reveals whether the email exists) and, if it does, mails a
+   * temporary password.
+   */
+  async resetPassword(email: string): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>('/reset-password', { email });
+    return response.data;
+  },
+
+  /**
+   * PUT /api/account/profile
+   * Authenticated self-service profile edit; updates the locally cached user too.
+   */
+  async updateProfile(patch: {
+    name?: string;
+    yearLevel?: string | null;
+    course?: string | null;
+    phone?: string | null;
+    emergencyContact?: Record<string, unknown> | null;
+  }): Promise<User> {
+    const response = await api.put<{ user: User }>('/account/profile', patch);
+    const user = response.data.user;
+    await storage.setJSON(STORAGE_KEYS.AUTH_USER, user);
+    return user;
+  },
+
+  /**
+   * PUT /api/account/password
+   * Authenticated password change — requires the current password.
+   */
+  async updatePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    const response = await api.put<{ message: string }>('/account/password', {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
   },
 
   /**

@@ -1,11 +1,11 @@
 import React from 'react';
 import {
-  Activity, ArrowLeft, BadgeCheck, Calendar, Camera, CameraOff, ChartColumn, Check,
+  Activity, ArrowLeft, BadgeCheck, Bell, Calendar, Camera, CameraOff, ChartColumn, Check,
   CheckCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleAlert, CircleCheck, CircleCheckBig,
-  CircleDot, Clock, CloudOff, Dumbbell, Eye, EyeOff, Feather, FileText, Flag, Goal,
+  CircleDot, CircleHelp, Clock, CloudOff, Dumbbell, Eye, EyeOff, Feather, FileText, Flag, Goal,
   Info, List, ListRestart, LoaderCircle, Lock, LogIn, LogOut, Mail, MapPin, Minus,
-  Music, Pencil, Play, Plus, Printer, QrCode, RefreshCw, RotateCcw, ScanLine, Search,
-  Settings, Share2, Table, Target, Timer, TriangleAlert, Trophy, Users, Volleyball,
+  Music, Pencil, Phone, Play, Plus, Printer, QrCode, RefreshCw, RotateCcw, ScanLine, Search,
+  Settings, Share2, SlidersHorizontal, Table, Target, Timer, TriangleAlert, Trophy, Users, Volleyball,
   WavesLadder, Wifi, WifiOff, X, Zap,
   type LucideProps,
 } from 'lucide-react-native';
@@ -73,6 +73,10 @@ const MAP = {
   logout: LogOut,
   trophy: Trophy,
   target: Target,
+  bell: Bell,
+  'help-circle': CircleHelp,
+  phone: Phone,
+  sliders: SlidersHorizontal,
 
   // sport glyphs (nearest lucide) — see sport-config.ts
   'circle-dot': CircleDot,

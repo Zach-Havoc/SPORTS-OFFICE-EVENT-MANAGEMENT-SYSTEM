@@ -1,0 +1,28 @@
+# systemd unit for running the PaddleOCR service as a persistent background
+# process — needed once this runs on a real server (e.g. the Oracle Always
+# Free VM) instead of a dev machine, so it survives reboots/crashes/logout.
+# See the "Deploying to a real server" section in README.md for install steps.
+#
+# Adjust User / the two path lines below to match where you cloned the repo
+# and which user owns it (the default Ubuntu cloud image user is "ubuntu").
+
+[Unit]
+Description=SportsAxis PaddleOCR service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/SPORTS-OFFICE-EVENT-MANAGEMENT-SYSTEM/OCR
+Environment=OCR_SERVICE_HOST=0.0.0.0
+Environment=OCR_SERVICE_PORT=5001
+# Required once this is reachable from outside localhost — generate with
+# `openssl rand -hex 32`, set the same value as OCR_API_KEY in the Laravel
+# backend's .env, and only then uncomment this line.
+# Environment=OCR_API_KEY=REPLACE_WITH_A_LONG_RANDOM_SECRET
+ExecStart=/home/ubuntu/SPORTS-OFFICE-EVENT-MANAGEMENT-SYSTEM/OCR/paddleocr-env/bin/python3 service.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

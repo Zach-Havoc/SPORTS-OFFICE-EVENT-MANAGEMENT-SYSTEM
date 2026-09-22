@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '../../components/ui/badge';
 import {
   Calendar, Edit, Plus, Trash2, Users, QrCode, Search, Filter, Download,
-  Clock, ArrowUpDown, Grid3x3, List, Archive, CheckCircle2, AlertCircle, MapPin,
+  Clock, ArrowUpDown, Grid3x3, List, Archive, CheckCircle2, MapPin,
   UserCheck, Trophy, AlertTriangle, Printer
 } from 'lucide-react';
 import { printScoreSheet } from '../../utils/scoresheet';
@@ -557,7 +557,7 @@ export default function AdminEventsEnhanced() {
                 <div className="flex items-start gap-2">
                   <Checkbox checked={selectedEvents.has(event.id)} onCheckedChange={() => {
                     const n = new Set(selectedEvents);
-                    n.has(event.id) ? n.delete(event.id) : n.add(event.id);
+                    if (n.has(event.id)) { n.delete(event.id); } else { n.add(event.id); }
                     setSelectedEvents(n);
                   }} />
                   <div className="flex-1 min-w-0">
@@ -624,7 +624,7 @@ export default function AdminEventsEnhanced() {
                   <div className="flex items-center gap-4">
                     <Checkbox checked={selectedEvents.has(event.id)} onCheckedChange={() => {
                       const n = new Set(selectedEvents);
-                      n.has(event.id) ? n.delete(event.id) : n.add(event.id);
+                      if (n.has(event.id)) { n.delete(event.id); } else { n.add(event.id); }
                       setSelectedEvents(n);
                     }} />
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-3 text-sm">

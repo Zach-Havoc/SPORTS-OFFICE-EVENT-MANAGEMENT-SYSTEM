@@ -2,9 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 /**
  * Turns "requirements" from an ad-hoc upload box into a real eligibility
@@ -25,8 +23,11 @@ use Illuminate\Support\Str;
  *                          thread instead of two unrelated submissions. The
  *                          old row is never deleted.
  *
- * Four default types are seeded once, matching the checklist that used to be
- * hardcoded into the athlete Requirements page.
+ * The four default types (matching the checklist that used to be hardcoded
+ * into the athlete Requirements page) are seeded by
+ * `Database\Seeders\ReferenceDataSeeder`, not here — inline data-seeding in a
+ * migration breaks `php artisan schema:dump`'s fast-install path, which only
+ * snapshots schema + the migrations table.
  */
 return new class extends Migration
 {
@@ -64,28 +65,6 @@ return new class extends Migration
             $table->foreign('supersedes_id')->references('id')->on('requirements')->nullOnDelete();
             $table->index('requirement_type_id');
         });
-
-        $defaults = [
-            ['name' => 'Waiver Form', 'description' => 'Signed liability waiver.'],
-            ['name' => 'Certificate of Enrollment', 'description' => 'Current semester, from the registrar.'],
-            ['name' => 'Medical Clearance', 'description' => 'Fit-to-play certificate from a physician.'],
-            ['name' => 'Parental Consent', 'description' => 'Required for athletes under 18.'],
-        ];
-
-        if (DB::table('requirement_types')->count() === 0) {
-            $now = now();
-            DB::table('requirement_types')->insert(array_map(fn ($d) => [
-                'id' => (string) Str::uuid(),
-                'name' => $d['name'],
-                'description' => $d['description'],
-                'sport' => null,
-                'required' => true,
-                'active' => true,
-                'created_by' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ], $defaults));
-        }
     }
 
     public function down(): void

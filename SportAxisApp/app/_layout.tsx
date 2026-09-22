@@ -15,6 +15,7 @@ import { useOfflineStore } from '../src/store/offline.store';
 import { useOfflineSync } from '../src/hooks/use-offline-sync';
 import { setUnauthorizedHandler } from '../src/services/api';
 import { applyTextDefaults } from '../src/utils/text-defaults';
+import { ToastHost } from '../src/components/ui/Toast';
 import { COLORS } from '../constants/theme';
 
 // Inter everywhere + low-vision size bump (patches <Text>/<TextInput>).
@@ -62,7 +63,6 @@ export default function RootLayout() {
     // Only set timer if user is logged in
     if (token) {
       timeoutRef.current = setTimeout(() => {
-        console.log('User inactive for 5 minutes. Logging out.');
         logout();
       }, INACTIVITY_TIMEOUT_MS);
     }
@@ -99,7 +99,6 @@ export default function RootLayout() {
         // App has come to the foreground, check if 5 minutes passed
         const now = Date.now();
         if (token && now - lastInteractionRef.current >= INACTIVITY_TIMEOUT_MS) {
-          console.log('User was inactive in background for 5 minutes. Logging out.');
           logout();
         } else {
           resetTimer();
@@ -135,9 +134,11 @@ export default function RootLayout() {
     <View style={{ flex: 1, backgroundColor: COLORS.background }} onLayout={onLayout} {...panResponder.panHandlers}>
       <StatusBar style="dark" backgroundColor={COLORS.surface} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(app)" />
       </Stack>
+      <ToastHost />
     </View>
   );
 }

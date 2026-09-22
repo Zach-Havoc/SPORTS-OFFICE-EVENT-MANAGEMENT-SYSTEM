@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import { useAuthStore } from '../../src/store/auth.store';
 import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
 import { Icon } from '../../src/components/ui/Icon';
 import { Button } from '../../src/components/ui/Button';
+import { Input } from '../../src/components/ui/Input';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Login — white page, BatStateU-red lockup, inline errors.
@@ -28,7 +28,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [focus, setFocus] = useState<'email' | 'password' | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -46,7 +45,7 @@ export default function LoginScreen() {
     if (!validate()) return;
     try {
       await login(email.trim().toLowerCase(), password);
-      router.replace('/(app)/scanner');
+      router.replace('/(app)/events');
     } catch (error: any) {
       const code = error?.code;
       setFormError(
@@ -68,7 +67,7 @@ export default function LoginScreen() {
             <View style={styles.crest}>
               <Icon name="trophy" size={34} color={COLORS.textInverse} strokeWidth={2.2} />
             </View>
-            <Text style={styles.appName}>SportAxis</Text>
+            <Text style={styles.appName}>SportsAxis</Text>
             <Text style={styles.appSub}>Committee Portal</Text>
           </View>
 
@@ -81,7 +80,7 @@ export default function LoginScreen() {
               </View>
             ) : null}
 
-            <Field
+            <Input
               label="Email"
               icon="mail"
               value={email}
@@ -91,13 +90,10 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="next"
-              focused={focus === 'email'}
-              onFocus={() => setFocus('email')}
-              onBlur={() => setFocus(null)}
               error={fieldErrors.email}
             />
 
-            <Field
+            <Input
               label="Password"
               icon="lock"
               value={password}
@@ -106,16 +102,23 @@ export default function LoginScreen() {
               secureTextEntry={!showPass}
               returnKeyType="done"
               onSubmitEditing={handleLogin}
-              focused={focus === 'password'}
-              onFocus={() => setFocus('password')}
-              onBlur={() => setFocus(null)}
               error={fieldErrors.password}
               trailing={
-                <Pressable onPress={() => setShowPass((p) => !p)} hitSlop={8} style={styles.eye}>
+                <Pressable
+                  onPress={() => setShowPass((p) => !p)}
+                  hitSlop={8}
+                  style={styles.eye}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
+                >
                   <Icon name={showPass ? 'eye-off' : 'eye'} size={18} color={COLORS.textMuted} />
                 </Pressable>
               }
             />
+
+            <Pressable onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8} style={styles.forgotLink}>
+              <Text style={styles.linkText}>Forgot password?</Text>
+            </Pressable>
 
             <Button
               label={isLoading ? 'Signing in…' : 'Sign in'}
@@ -128,44 +131,16 @@ export default function LoginScreen() {
             />
           </View>
 
-          <Text style={styles.copy}>© 2026 Batangas State University</Text>
+          <Pressable onPress={() => router.push('/(auth)/signup')} hitSlop={8} style={styles.signupRow}>
+            <Text style={styles.signupText}>
+              New here? <Text style={styles.linkTextStrong}>Create an account</Text>
+            </Text>
+          </Pressable>
+
+          <Text style={styles.copy}>© 2026 SportsAxis</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-// ── Field ───────────────────────────────────────────────────────────────────
-
-interface FieldProps extends React.ComponentProps<typeof TextInput> {
-  label: string;
-  icon: 'mail' | 'lock';
-  focused: boolean;
-  error?: string;
-  trailing?: React.ReactNode;
-}
-
-function Field({ label, icon, focused, error, trailing, ...input }: FieldProps) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View
-        style={[
-          styles.inputWrap,
-          focused && styles.inputWrapFocused,
-          error && styles.inputWrapError,
-        ]}
-      >
-        <Icon name={icon} size={18} color={focused ? COLORS.primary : COLORS.textMuted} />
-        <TextInput
-          style={styles.input}
-          placeholderTextColor={COLORS.textMuted}
-          {...input}
-        />
-        {trailing}
-      </View>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-    </View>
   );
 }
 
@@ -199,25 +174,14 @@ const styles = StyleSheet.create({
   },
   formErrorText: { ...TYPE.bodySm, color: COLORS.destructive, flex: 1 },
 
-  field: { gap: 6 },
-  fieldLabel: { ...TYPE.label, color: COLORS.textSecondary },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    paddingHorizontal: SPACING.md,
-    minHeight: 54,
-  },
-  inputWrapFocused: { borderColor: COLORS.primary },
-  inputWrapError: { borderColor: COLORS.destructive },
-  input: { flex: 1, ...TYPE.body, color: COLORS.textPrimary, paddingVertical: SPACING.md },
   eye: { padding: 2 },
-  fieldError: { ...TYPE.bodySm, color: COLORS.destructive },
+
+  forgotLink: { alignSelf: 'flex-end', marginTop: -SPACING.sm },
+  linkText: { ...TYPE.label, color: COLORS.primary },
+  linkTextStrong: { ...TYPE.label, color: COLORS.primary, fontWeight: '800' },
 
   submit: { marginTop: SPACING.xs },
-  copy: { ...TYPE.caption, textTransform: 'none', color: COLORS.textMuted, textAlign: 'center', marginTop: SPACING.xxl },
+  signupRow: { alignSelf: 'center', marginTop: SPACING.xl },
+  signupText: { ...TYPE.bodySm, color: COLORS.textSecondary },
+  copy: { ...TYPE.caption, textTransform: 'none', color: COLORS.textMuted, textAlign: 'center', marginTop: SPACING.xl },
 });

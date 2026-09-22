@@ -1,13 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../constants/theme';
 import { Button } from '../../src/components/ui/Button';
 import { Icon } from '../../src/components/ui/Icon';
 import { EmptyState } from '../../src/components/ui/States';
 import { useNetwork } from '../../src/hooks/use-network';
-import { useAuthStore } from '../../src/store/auth.store';
 import { useEventStore } from '../../src/store/event.store';
 import { extractToken, parseQrCode } from '../../src/utils/qr-parser';
 
@@ -15,7 +14,6 @@ const FRAME = 248;
 
 export default function ScannerScreen() {
   const router = useRouter();
-  const logout = useAuthStore((s) => s.logout);
   const loadEvent = useEventStore((s) => s.loadByQrToken);
   const loadCache = useEventStore((s) => s.loadFromCache);
   const event = useEventStore((s) => s.event);
@@ -57,20 +55,6 @@ export default function ScannerScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Sign out', 'Sign out of SportAxis?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
-  };
-
   if (!permission) return <View style={styles.black} />;
 
   if (!permission.granted) {
@@ -79,7 +63,7 @@ export default function ScannerScreen() {
         <EmptyState
           icon="camera-off"
           title="Camera access needed"
-          hint="SportAxis scans the event QR code to open its score sheet."
+          hint="SportsAxis scans the event QR code to open its score sheet."
           actionLabel="Allow camera"
           onAction={requestPermission}
         />
@@ -101,7 +85,7 @@ export default function ScannerScreen() {
         <View style={styles.top}>
           <View style={styles.brandPill}>
             <View style={styles.brandDot} />
-            <Text style={styles.brandText}>SportAxis · Committee</Text>
+            <Text style={styles.brandText}>SportsAxis · Committee</Text>
           </View>
           {!isConnected && (
             <View style={styles.offlinePill}>
@@ -156,11 +140,6 @@ export default function ScannerScreen() {
               icon={<Icon name="scan" size={16} color={COLORS.textPrimary} />}
             />
           )}
-
-          <Pressable style={styles.logout} onPress={handleLogout} hitSlop={8}>
-            <Icon name="logout" size={15} color={COLORS.textSecondary} />
-            <Text style={styles.logoutText}>Sign out</Text>
-          </Pressable>
         </View>
       </View>
     </View>
@@ -225,6 +204,4 @@ const styles = StyleSheet.create({
   resumeText: { flex: 1, gap: 2 },
   resumeName: { ...TYPE.subhead, color: COLORS.textPrimary },
   resumeHint: { ...TYPE.bodySm, color: COLORS.textSecondary },
-  logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: SPACING.sm },
-  logoutText: { ...TYPE.bodySm, color: COLORS.textSecondary },
 });

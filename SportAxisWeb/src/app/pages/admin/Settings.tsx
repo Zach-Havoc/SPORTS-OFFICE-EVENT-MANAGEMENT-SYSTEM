@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { getDepartments, getCategories, createDepartment, updateDepartment, deleteDepartment, uploadDepartmentLogo, deleteDepartmentLogo, createCategory, updateCategory, deleteCategory } from '../../services/api';
 import { useCampusStudents, useImportCampusStudents } from '../../hooks/api';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Plus, Pencil, Trash2, Users, Tag, GraduationCap, Upload, Search, Loader2 } from 'lucide-react';
@@ -48,7 +47,6 @@ export default function AdminSettings() {
   const [catFormData, setCatFormData] = useState<{ name: string; description: string; format: SportFormat }>({ name: '', description: '', format: 'versus' });
   
   const [loading, setLoading] = useState(true);
-  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -201,49 +199,6 @@ export default function AdminSettings() {
           <p className="text-gray-600 mt-2">Manage colleges and sports</p>
         </div>
       </div>
-
-      {/* System Health & Reset Section - Hidden but functionality retained */}
-      {/*
-      <Card className="mb-6 border-amber-200 bg-amber-50">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <CardTitle className="text-amber-900">System Health & Data Management</CardTitle>
-          </div>
-          <CardDescription className="text-amber-800">
-            Reset demo data if you encounter "Event not found" errors or want fresh demo data
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="bg-white p-4 rounded-lg border border-amber-200">
-              <h4 className="font-semibold text-gray-900 mb-2">⚠️ Reset Demo Data</h4>
-              <p className="text-sm text-gray-600 mb-4">
-                This will delete ALL existing data (events, scores, rankings, departments, categories) and create fresh demo data with new events. Use this if you're seeing "Event not found" errors.
-              </p>
-              <Button
-                onClick={handleResetDemoData}
-                disabled={resetting}
-                variant="destructive"
-                className="w-full sm:w-auto"
-              >
-                {resetting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Resetting...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Reset Demo Data
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      */}
 
       <Tabs defaultValue="departments" className="w-full">
         <TabsList className="grid w-full max-w-2xl grid-cols-3">

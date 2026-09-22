@@ -439,7 +439,15 @@ export const useJudges = (opts?: QueryOpts<any[]>) =>
 
 const LIVE_FALLBACK_POLL = 60_000;
 
-/** Merge one pushed live score into every cached live-scores list + its detail. */
+/**
+ * Merge one pushed live score into every cached live-scores list + its detail.
+ *
+ * Two committee-scoring PUTs can broadcast out of order relative to each
+ * other (independent PHP-FPM workers, no shared lock — see
+ * LiveScoreController::upsert), so a push can arrive after a newer one. Drop
+ * any push whose version is behind what's already cached instead of letting
+ * it regress the visible score until the next fallback poll.
+ */
 function applyLiveUpdate(qc: QueryClient, live: api.LiveScore): void {
   for (const activeOnly of [true, false]) {
     qc.setQueryData<api.LiveScore[]>(qk.liveScores(activeOnly), (prev) => {
@@ -447,12 +455,17 @@ function applyLiveUpdate(qc: QueryClient, live: api.LiveScore): void {
       const i = list.findIndex((l) => l.eventId === live.eventId);
       const keep = !activeOnly || live.status === "in_progress";
       if (!keep) return i >= 0 ? list.filter((_, x) => x !== i) : list;
-      if (i >= 0) list[i] = live;
-      else list.unshift(live);
+      if (i >= 0) {
+        if (live.version < list[i].version) return list;
+        list[i] = live;
+      } else list.unshift(live);
       return list;
     });
   }
-  qc.setQueryData(qk.eventLiveScore(live.eventId), { live });
+  qc.setQueryData<{ live: api.LiveScore | null }>(
+    qk.eventLiveScore(live.eventId),
+    (prev) => (prev?.live && live.version < prev.live.version ? prev : { live }),
+  );
 }
 
 function applyLiveClear(qc: QueryClient, eventId: string): void {
@@ -498,6 +511,10 @@ export const useLiveScores = (
     staleTime: 0,
     refetchInterval: LIVE_FALLBACK_POLL,
     refetchIntervalInBackground: false,
+    // Browsers routinely suspend the WebSocket on a backgrounded tab, so
+    // "switched away and came back" can go stale even with Reverb running —
+    // catch that moment on refocus instead of waiting out the fallback poll.
+    refetchOnWindowFocus: true,
     ...opts,
   });
 };
@@ -513,6 +530,7 @@ export const useEventLiveScore = (
     enabled: !!eventId,
     staleTime: 0,
     refetchInterval: LIVE_FALLBACK_POLL,
+    refetchOnWindowFocus: true,
     ...opts,
   });
 };

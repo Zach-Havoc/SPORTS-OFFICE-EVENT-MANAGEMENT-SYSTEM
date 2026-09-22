@@ -29,9 +29,9 @@ export function timeRangesOverlap(
   bStart: string | null | undefined,
   bEnd: string | null | undefined,
 ): boolean {
-  let as = toMinutes(aStart);
+  const as = toMinutes(aStart);
   let ae = toMinutes(aEnd);
-  let bs = toMinutes(bStart);
+  const bs = toMinutes(bStart);
   let be = toMinutes(bEnd);
   if (as === null || ae === null || bs === null || be === null) return false;
   if (ae <= as) ae = as + 1;

@@ -67,4 +67,5 @@ export const STORAGE_KEYS = {
   EVENT_SESSION:  'event_session',
   OFFLINE_QUEUE:  'offline_queue',
   LAST_SYNC:      'last_sync',
+  ONBOARDING_SEEN: 'onboarding_seen',
 } as const;

@@ -1,4 +1,5 @@
 import { Icon } from '../ui/Icon';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
@@ -17,11 +18,15 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OCRScoreMapper — Capture image → Extract overall score → Edit → Confirm
+// OCRScoreMapper — Capture image → Extract every competing college's score →
+// Edit → Confirm
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface OCRScoreMapperProps {
-  onConfirm: (totalScore: number, imageUri: string) => void;
+  // The exact competing-college name strings for this event. Drives both the
+  // request to the backend and the per-department rows in the review step.
+  departments: string[];
+  onConfirm: (scores: Record<string, number>, imageUri: string) => void;
   // A photo may already be captured and stored server-side even when the
   // judge backs out to manual entry (OCR misread it, or they just prefer to
   // type it themselves) — pass it along so that evidence isn't discarded.
@@ -30,27 +35,71 @@ interface OCRScoreMapperProps {
 
 type OcrStep = 'capture' | 'processing' | 'review' | 'error';
 
-export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
-  const [step,            setStep]            = useState<OcrStep>('capture');
-  const [imageUri,        setImageUri]        = useState<string | null>(null);
-  const [serverImageUrl,  setServerImageUrl]  = useState<string | null>(null);
-  const [ocrResult,       setOcrResult]       = useState<OcrResult | null>(null);
-  const [editedScore,     setEditedScore]     = useState('');
-  const [errorMessage,    setErrorMessage]    = useState<string | null>(null);
+// A modern phone camera easily captures 12MP+ (4000x3000) photos — base64
+// that and it can exceed PHP's default post_max_size (commonly 8MB), which
+// makes the dev server drop the request with no response at all (surfaces
+// as a plain "can't reach the server" network error, not a real API error).
+// PaddleOCR doesn't need more than this to read printed/handwritten text, so
+// downscale before sending regardless of what the server happens to allow.
+const OCR_MAX_DIMENSION = 1600;
+
+const confidenceColor = (confidence: number | undefined) => {
+  if (confidence === undefined) return COLORS.textMuted;
+  if (confidence >= 0.8) return COLORS.success;
+  if (confidence >= 0.5) return COLORS.primaryLighter;
+  return COLORS.error;
+};
+
+const isRowValid = (raw: string | undefined) => {
+  if (raw === undefined || raw.trim() === '') return false;
+  const value = Number(raw);
+  return !Number.isNaN(value) && value >= 0 && value <= 100;
+};
+
+export function OCRScoreMapper({ departments, onConfirm, onCancel }: OCRScoreMapperProps) {
+  const [step,           setStep]           = useState<OcrStep>('capture');
+  const [imageUri,       setImageUri]       = useState<string | null>(null);
+  const [serverImageUrl, setServerImageUrl] = useState<string | null>(null);
+  const [ocrResult,      setOcrResult]      = useState<OcrResult | null>(null);
+  const [editedScores,   setEditedScores]   = useState<Record<string, string>>({});
+  const [errorMessage,   setErrorMessage]   = useState<string | null>(null);
 
   const processImage = async (asset: ImagePicker.ImagePickerAsset) => {
     setImageUri(asset.uri);
     setStep('processing');
 
     try {
-      const imagePayload = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+      const longEdge = Math.max(asset.width, asset.height);
+      const resized = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        longEdge > OCR_MAX_DIMENSION
+          ? [{
+              resize: asset.width >= asset.height
+                ? { width: OCR_MAX_DIMENSION }
+                : { height: OCR_MAX_DIMENSION },
+            }]
+          : [],
+        { base64: true, compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
+      );
 
-      const ocrData = await ocrService.extractScore(imagePayload);
+      const imagePayload = resized.base64
+        ? `data:image/jpeg;base64,${resized.base64}`
+        : resized.uri;
+
+      const ocrData = await ocrService.extractScore(imagePayload, departments);
       setOcrResult(ocrData);
       setServerImageUrl(ocrData.image_url ?? null);
 
-      const clamped = Math.max(0, Math.min(100, ocrData.total_score));
-      setEditedScore(String(clamped));
+      // Build the initial editable state from the event's departments, not
+      // from whatever the model returned. Any department the model couldn't
+      // read is left blank rather than defaulted to 0 — the judge must type
+      // it in themselves.
+      const initialScores: Record<string, string> = {};
+      for (const dept of departments) {
+        const match = ocrData.scores.find((s) => s.department === dept);
+        initialScores[dept] = match ? String(Math.max(0, Math.min(100, match.score))) : '';
+      }
+      setEditedScores(initialScores);
       setStep('review');
     } catch (error: any) {
       console.error('OCR extraction error:', error);
@@ -99,23 +148,23 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
     await processImage(result.assets[0]);
   };
 
-  // ── Confirm and pass the score to the parent ────────────────────────────
+  // ── Confirm and pass every department's score to the parent ────────────
   const handleConfirm = () => {
     if (!imageUri) return;
-    const value = Number(editedScore);
-    if (Number.isNaN(value) || value < 0 || value > 100) {
-      Alert.alert('Invalid Score', 'Enter a number from 0 to 100.');
-      return;
+
+    const scores: Record<string, number> = {};
+    for (const dept of departments) {
+      const raw = editedScores[dept];
+      if (!isRowValid(raw)) {
+        Alert.alert('Invalid Score', `Enter a number from 0 to 100 for ${dept}.`);
+        return;
+      }
+      scores[dept] = Number(raw);
     }
-    onConfirm(value, serverImageUrl ?? imageUri);
+    onConfirm(scores, serverImageUrl ?? imageUri);
   };
 
-  const confidenceColor =
-    (ocrResult?.confidence ?? 0) >= 0.8
-      ? COLORS.success
-      : (ocrResult?.confidence ?? 0) >= 0.5
-        ? COLORS.primaryLighter
-        : COLORS.error;
+  const allRowsValid = departments.length > 0 && departments.every((d) => isRowValid(editedScores[d]));
 
   // ── Render ───────────────────────────────────────────────────────────────
   if (step === 'capture') {
@@ -127,7 +176,7 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
             <Text style={styles.title}>OCR Score Capture</Text>
           </View>
           <Text style={styles.subtitle}>
-            Photograph or upload the physical score sheet. The overall score will be read automatically.
+            Photograph or upload the physical score sheet. Every competing college&apos;s score will be read automatically.
           </Text>
         </View>
 
@@ -149,8 +198,8 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
     return (
       <View style={styles.processingContainer}>
         <Icon name="search" size={56} color={COLORS.ocr} strokeWidth={1.6} />
-        <Text style={styles.processingTitle}>Extracting Score...</Text>
-        <Text style={styles.processingSubtitle}>Analysing image with OCR</Text>
+        <Text style={styles.processingTitle}>Extracting Scores...</Text>
+        <Text style={styles.processingSubtitle}>This can take up to a minute — please don't close the app.</Text>
         {imageUri && (
           <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="cover" />
         )}
@@ -178,16 +227,13 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.reviewContent}>
       <View style={styles.reviewHeader}>
-        <Text style={styles.title}>Review Extracted Score</Text>
-        <View style={styles.confidenceRow}>
-          <Text style={styles.confidenceLabel}>Confidence:</Text>
-          <Text style={[styles.confidenceValue, { color: confidenceColor }]}>
-            {Math.round((ocrResult?.confidence ?? 0) * 100)}%
-          </Text>
-          {ocrResult?.is_mock && (
-            <Badge label="MOCK OCR" variant="warning" />
-          )}
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Review Extracted Scores</Text>
+          {ocrResult?.is_mock && <Badge label="MOCK OCR" variant="warning" />}
         </View>
+        {!!ocrResult?.notes && (
+          <Text style={styles.notesText}>{ocrResult.notes}</Text>
+        )}
       </View>
 
       {imageUri && (
@@ -196,24 +242,48 @@ export function OCRScoreMapper({ onConfirm, onCancel }: OCRScoreMapperProps) {
 
       <View style={styles.editHint}>
         <Icon name="pencil" size={13} color={COLORS.ocr} />
-        <Text style={styles.editHintText}>Tap the score box to adjust the extracted value</Text>
+        <Text style={styles.editHintText}>Tap a score box to adjust the extracted value</Text>
       </View>
 
-      <View style={styles.scoreRow}>
-        <Text style={styles.scoreRowLabel}>Overall Score</Text>
-        <TextInput
-          style={styles.scoreInput}
-          value={editedScore}
-          onChangeText={setEditedScore}
-          keyboardType="numeric"
-          placeholder="0"
-          placeholderTextColor={COLORS.textMuted}
-        />
-        <Text style={styles.maxLabel}>/ 100</Text>
-      </View>
+      {departments.map((dept) => {
+        const match = ocrResult?.scores.find((s) => s.department === dept);
+        const notRead = !match;
+        return (
+          <View key={dept} style={styles.scoreRow}>
+            <View style={styles.scoreRowHeader}>
+              <Text style={styles.scoreRowLabel} numberOfLines={2}>{dept}</Text>
+              {notRead ? (
+                <Text style={styles.notReadLabel}>Not read — enter manually</Text>
+              ) : (
+                <Text style={[styles.confidenceValue, { color: confidenceColor(match.confidence) }]}>
+                  {Math.round(match.confidence * 100)}% confidence
+                </Text>
+              )}
+            </View>
+            <View style={styles.scoreInputRow}>
+              <TextInput
+                style={[styles.scoreInput, notRead && styles.scoreInputEmpty]}
+                value={editedScores[dept] ?? ''}
+                onChangeText={(value) => setEditedScores((prev) => ({ ...prev, [dept]: value }))}
+                keyboardType="numeric"
+                placeholder={notRead ? 'Enter score' : '0'}
+                placeholderTextColor={COLORS.textMuted}
+              />
+              <Text style={styles.maxLabel}>/ 100</Text>
+            </View>
+          </View>
+        );
+      })}
 
       <View style={styles.actions}>
-        <Button label="Confirm & Use This Score" onPress={handleConfirm} variant="primary" size="lg" fullWidth />
+        <Button
+          label="Confirm & Use These Scores"
+          onPress={handleConfirm}
+          variant="primary"
+          size="lg"
+          fullWidth
+          disabled={!allRowsValid}
+        />
         <Button label="Recapture Image" onPress={() => setStep('capture')} variant="secondary" size="md" fullWidth />
         <Button label="Enter Manually Instead" onPress={() => onCancel(serverImageUrl)} variant="ghost" size="md" fullWidth />
       </View>
@@ -237,6 +307,7 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems:    'center',
+    gap:           SPACING.sm,
   },
   title: {
     fontSize:   FONT_SIZE.xl,
@@ -310,18 +381,10 @@ const styles = StyleSheet.create({
   reviewHeader: {
     gap: SPACING.sm,
   },
-  confidenceRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           SPACING.sm,
-  },
-  confidenceLabel: {
-    fontSize: FONT_SIZE.sm,
-    color:    COLORS.textSecondary,
-  },
-  confidenceValue: {
-    fontSize:   FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.bold,
+  notesText: {
+    fontSize:  FONT_SIZE.sm,
+    color:     COLORS.textSecondary,
+    fontStyle: 'italic',
   },
   reviewImage: {
     width:        '100%',
@@ -332,6 +395,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems:    'center',
     justifyContent: 'center',
+    gap:            SPACING.xs,
   },
   editHintText: {
     fontSize: FONT_SIZE.sm,
@@ -339,17 +403,41 @@ const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHT.medium,
   },
   scoreRow: {
+    backgroundColor: COLORS.surface,
+    borderRadius:    RADIUS.md,
+    borderWidth:     1,
+    borderColor:     COLORS.ocr,
+    padding:         SPACING.sm,
+    gap:             SPACING.xs,
+  },
+  scoreRowHeader: {
     flexDirection:  'row',
     alignItems:     'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     gap:            SPACING.sm,
   },
   scoreRowLabel: {
+    flex:       1,
     fontSize:   FONT_SIZE.md,
     fontWeight: FONT_WEIGHT.semibold,
     color:      COLORS.textPrimary,
   },
+  notReadLabel: {
+    fontSize:   FONT_SIZE.xs,
+    fontWeight: FONT_WEIGHT.bold,
+    color:      COLORS.error,
+  },
+  confidenceValue: {
+    fontSize:   FONT_SIZE.xs,
+    fontWeight: FONT_WEIGHT.bold,
+  },
+  scoreInputRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           SPACING.sm,
+  },
   scoreInput: {
+    flex: 1,
     borderWidth: 1,
     borderColor: COLORS.ocr,
     borderRadius: RADIUS.md,
@@ -358,9 +446,12 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.lg,
     fontWeight: FONT_WEIGHT.bold,
     color: COLORS.textPrimary,
-    minWidth: 90,
     textAlign: 'center',
     backgroundColor: COLORS.surface,
+  },
+  scoreInputEmpty: {
+    borderColor: COLORS.error,
+    borderStyle: 'dashed',
   },
   maxLabel: {
     fontSize: FONT_SIZE.sm,

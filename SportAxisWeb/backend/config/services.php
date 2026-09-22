@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+    ],
+
+    /*
+     * The local PaddleOCR service (OCR/service.py in the repo root) — a
+     * self-hosted, free OCR engine. Must be running separately (OCR/start.sh)
+     * for score-sheet extraction to work; see OCR/README.md.
+     */
+    'ocr' => [
+        'url' => env('OCR_SERVICE_URL', 'http://127.0.0.1:5001'),
+        // Only needed once the OCR service is deployed somewhere
+        // internet-reachable (e.g. an Oracle VM) instead of localhost —
+        // must match OCR_API_KEY in the service's own environment.
+        'api_key' => env('OCR_API_KEY'),
+    ],
+
 ];

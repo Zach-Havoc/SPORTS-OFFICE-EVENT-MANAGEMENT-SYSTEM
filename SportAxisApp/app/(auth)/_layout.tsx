@@ -15,7 +15,7 @@ export default function AuthLayout() {
 
   useEffect(() => {
     if (isHydrated && token) {
-      router.replace('/(app)/scanner');
+      router.replace('/(app)/events');
     }
   }, [isHydrated, token]);
 
@@ -28,6 +28,9 @@ export default function AuthLayout() {
       }}
     >
       <Stack.Screen name="login" />
+      <Stack.Screen name="signup" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="forgot-password" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="privacy-notice" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

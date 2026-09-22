@@ -85,7 +85,8 @@ export const signup = (
   name: string,
   role: "admin" | "coach" | "athlete" | "judge",
   registrationCode: string,
-  srCode?: string,
+  srCode: string | undefined,
+  privacyNoticeAccepted: boolean,
 ) =>
   apiRequest("/signup", {
     method: "POST",
@@ -96,6 +97,7 @@ export const signup = (
       role,
       registrationCode,
       srCode: srCode || undefined,
+      privacyNoticeAccepted,
     }),
   });
 
@@ -904,7 +906,7 @@ export const submitRequirement = (data: any) => {
       try {
         const errorJson = JSON.parse(errorText);
         errorMessage = errorJson.error || errorJson.message || errorText;
-      } catch (_) {}
+      } catch { /* not JSON — fall back to the raw error text */ }
       throw new Error(errorMessage || "Failed to submit requirement");
     }
     const text = await response.text();
@@ -1044,7 +1046,7 @@ async function authMultipart(endpoint: string, formData: FormData) {
       msg = j.errors
         ? Object.values(j.errors).flat().join(", ")
         : j.error || j.message || text;
-    } catch (_) {}
+    } catch { /* not JSON — fall back to the raw text */ }
     throw new Error(msg || "Upload failed");
   }
   return keysToCamelCase(text ? JSON.parse(text) : {});

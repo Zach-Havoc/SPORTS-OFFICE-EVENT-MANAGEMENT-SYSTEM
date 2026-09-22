@@ -51,39 +51,47 @@ function fmtDate(schedule?: string | null): string {
     : d.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+// Long bond paper (8.5 x 13in — the Philippine standard, distinct from US
+// Legal's 8.5 x 14in), landscape. Controls what the browser's print dialog
+// ("Save as PDF" included) defaults to. Landscape gives the wide
+// point-by-point logs (volleyball/badminton/table tennis) room to breathe and
+// lets a team's two roster panels sit side by side instead of stacked.
 const BASE_CSS = `
+  @page { size: 13in 8.5in; margin: 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; background: #fff; padding: 12px; }
-  h1 { font-size: 15px; font-weight: 900; text-transform: uppercase; color: #991b1b; }
-  h2 { font-size: 12px; font-weight: 800; text-transform: uppercase; }
-  .header { text-align: center; border-bottom: 3px solid #b91c1c; padding-bottom: 8px; margin-bottom: 10px; }
-  .header p { font-size: 10px; color: #374151; text-transform: uppercase; font-weight: bold; margin-top: 2px; }
-  .badge { display: inline-block; padding: 2px 8px; background: #fee2e2; color: #991b1b; font-weight: bold; font-size: 10px; border-radius: 4px; border: 1px solid #fca5a5; margin-top: 3px; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-  th, td { border: 1.5px solid #000; padding: 5px; font-size: 10px; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; color: #111; background: #fff; padding: 14px; }
+  h1 { font-size: 19px; font-weight: 900; text-transform: uppercase; color: #991b1b; letter-spacing: 0.3px; }
+  h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; }
+  .header { text-align: center; border-bottom: 3px solid #b91c1c; padding-bottom: 10px; margin-bottom: 12px; }
+  .header p { font-size: 11.5px; color: #374151; text-transform: uppercase; font-weight: bold; margin-top: 3px; }
+  .badge { display: inline-block; padding: 3px 10px; background: #fee2e2; color: #991b1b; font-weight: bold; font-size: 11px; border-radius: 4px; border: 1px solid #fca5a5; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 11px; }
+  th, td { border: 1.5px solid #000; padding: 6px; font-size: 11.5px; }
   th { background: #b91c1c; color: #fff; font-weight: bold; text-align: center; }
-  .meta-table td { font-size: 10px; font-weight: bold; padding: 6px; }
-  .score-table td { height: 24px; }
+  .meta-table td { font-size: 11.5px; font-weight: bold; padding: 7px; }
+  .score-table td { height: 26px; }
   .score-sheet-table th { background: #374151; }
   .score-sheet-table td.name-col { font-weight: bold; width: 45%; }
   .score-sheet-table td.max-col { text-align: center; width: 12%; background: #f9fafb; }
   .score-sheet-table td.score-col { text-align: center; width: 20%; }
   .score-sheet-table td.notes-col { width: 23%; }
-  .section-title { font-size: 11px; font-weight: bold; background: #1f2937; color: #fff; padding: 4px 8px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .sig-line { border-bottom: 1.5px solid #000; margin-top: 22px; width: 100%; }
-  .sig-label { font-size: 9px; text-align: center; margin-top: 3px; }
+  .section-title { font-size: 12px; font-weight: bold; background: #1f2937; color: #fff; padding: 5px 9px; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sig-line { border-bottom: 1.5px solid #000; margin-top: 24px; width: 100%; }
+  .sig-label { font-size: 10px; text-align: center; margin-top: 4px; }
   .sig-section { width: 100%; }
-  .sig-row { display: flex; justify-content: space-between; gap: 20px; margin-top: 12px; }
+  .sig-row { display: flex; justify-content: space-between; gap: 24px; margin-top: 14px; }
   .sig-item { flex: 1; }
-  .score-box { display: inline-block; width: 36px; height: 20px; border: 1.5px solid #000; text-align: center; line-height: 20px; }
-  .foul-box { display: inline-block; width: 14px; height: 14px; border: 1px solid #000; text-align: center; line-height: 14px; font-size: 8px; margin: 0 1px; }
+  .score-box { display: inline-block; width: 40px; height: 24px; border: 1.5px solid #000; text-align: center; line-height: 24px; }
+  .foul-box { display: inline-block; width: 17px; height: 17px; border: 1px solid #000; text-align: center; line-height: 17px; font-size: 9px; margin: 0 1.5px; }
   .red-row { background: #fee2e2; }
   .blue-row { background: #dbeafe; }
   .green-row { background: #dcfce7; }
   .purple-row { background: #f3e8ff; }
-  .total-row td { background: #1f2937 !important; color: #fff !important; font-weight: bold; font-size: 12px; }
-  .total-row td.score { background: #b91c1c !important; font-size: 14px; text-align: center; }
-  .watermark { font-size: 9px; color: #9ca3af; text-align: center; margin-top: 12px; border-top: 1px dashed #d1d5db; padding-top: 6px; }
+  .total-row td { background: #1f2937 !important; color: #fff !important; font-weight: bold; font-size: 13px; }
+  .total-row td.score { background: #b91c1c !important; font-size: 15px; text-align: center; }
+  .watermark { font-size: 9.5px; color: #9ca3af; text-align: center; margin-top: 13px; border-top: 1px dashed #d1d5db; padding-top: 7px; }
+  .two-col { display: flex; gap: 14px; }
+  .two-col > div { flex: 1; min-width: 0; }
   @media print { th, td, .section-title, .total-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 `;
 
@@ -97,10 +105,39 @@ function signatureBlock(role1: string, role2: string, role3: string): string {
 }
 
 const watermark = () =>
-  `<div class="watermark">BatStateU ARASOF Sports Office — SportAxis System © ${new Date().getFullYear()} | For Official Use Only</div>`;
+  `<div class="watermark">SportsAxis System © ${new Date().getFullYear()} | For Official Use Only</div>`;
 
 const page = (inner: string) =>
   `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><style>${BASE_CSS}</style></head><body>${inner}</body></html>`;
+
+// Redesigned for landscape long bond paper: the two rosters sit side by side
+// instead of stacked (halves the page height needed), the redundant
+// per-quarter foul columns were dropped (a single running 1–5 foul tally per
+// player is the standard convention — tracking which quarter each foul
+// happened in duplicated that with no real benefit), and the running-score
+// tally is now one compact line instead of three, freeing space for bigger,
+// clearer cells everywhere else — including the TEAM / FINAL SCORE row that
+// OCR actually reads back later.
+function rosterTable(teamLabel: string, teamName: string): string {
+  return `
+    <p class="section-title">${teamLabel} — ${teamName} — Player Roster &amp; Fouls</p>
+    <table class="roster-table">
+      <thead><tr>
+        <th style="width:16%;">QTRS PLAYED</th>
+        <th style="text-align:left;">PLAYER NAME</th>
+        <th style="width:14%;">JERSEY #</th>
+        <th style="width:26%;">FOULS (1–5)</th>
+      </tr></thead>
+      <tbody>
+        ${Array.from({ length: 7 }).map(() => `<tr>
+          <td style="text-align:center;font-size:10px; letter-spacing:2px;">1&nbsp;&nbsp;2&nbsp;&nbsp;3&nbsp;&nbsp;4</td>
+          <td></td>
+          <td style="text-align:center;"></td>
+          <td style="text-align:center;">${[1, 2, 3, 4, 5].map((n) => `<span class="foul-box">${n}</span>`).join('')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
 
 // ── Basketball ─────────────────────────────────────────────────────────────
 function buildBasketballHtml(event: ScoreSheetEvent): string {
@@ -109,11 +146,11 @@ function buildBasketballHtml(event: ScoreSheetEvent): string {
   const teamB = depts[1] || 'TEAM B';
   return page(`<style>
     .roster-table th { background: #b91c1c; }
-    .roster-table td { height: 18px; }
-    .running-box { border: 1.5px solid #000; padding: 6px; margin-bottom: 8px; font-size: 10px; }
+    .roster-table td { height: 22px; }
+    .running-box { border: 1.5px solid #000; padding: 7px 10px; margin-bottom: 10px; font-size: 10.5px; letter-spacing: 0.5px; }
   </style>
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Basketball Game Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -128,10 +165,8 @@ function buildBasketballHtml(event: ScoreSheetEvent): string {
     </table>
 
     <div class="running-box">
-      <strong>RUNNING SCORE:</strong><br/>
-      1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40<br/>
-      41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80<br/>
-      81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100
+      <strong>RUNNING SCORE (cross off as scored):</strong>
+      1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100
     </div>
 
     <table>
@@ -147,43 +182,10 @@ function buildBasketballHtml(event: ScoreSheetEvent): string {
       </tbody>
     </table>
 
-    <p class="section-title">Team A — ${teamA} — Player Roster &amp; Fouls</p>
-    <table class="roster-table">
-      <thead><tr>
-        <th style="width:8%;">QTR</th><th style="width:30%; text-align:left;">PLAYERS</th>
-        <th style="width:10%;">JERSEY #</th><th style="width:18%;">FOULS (1–5)</th>
-        <th style="width:6%;">Q1</th><th style="width:6%;">Q2</th><th style="width:6%;">Q3</th><th style="width:6%;">Q4</th>
-        <th style="width:5%;">OT1</th><th style="width:5%;">OT2</th><th style="width:5%;">TOTAL</th>
-      </tr></thead>
-      <tbody>
-        ${Array.from({ length: 7 }).map(() => `<tr>
-          <td style="text-align:center;font-size:8px;">1 2 3 4</td><td></td>
-          <td style="text-align:center;"></td>
-          <td style="text-align:center;">${[1, 2, 3, 4, 5].map((n) => `<span class="foul-box">${n}</span>`).join('')}</td>
-          <td></td><td></td><td></td><td></td><td></td><td></td>
-          <td style="background:#f9fafb;"></td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-
-    <p class="section-title">Team B — ${teamB} — Player Roster &amp; Fouls</p>
-    <table class="roster-table">
-      <thead><tr>
-        <th style="width:8%;">QTR</th><th style="width:30%; text-align:left;">PLAYERS</th>
-        <th style="width:10%;">JERSEY #</th><th style="width:18%;">FOULS (1–5)</th>
-        <th style="width:6%;">Q1</th><th style="width:6%;">Q2</th><th style="width:6%;">Q3</th><th style="width:6%;">Q4</th>
-        <th style="width:5%;">OT1</th><th style="width:5%;">OT2</th><th style="width:5%;">TOTAL</th>
-      </tr></thead>
-      <tbody>
-        ${Array.from({ length: 7 }).map(() => `<tr>
-          <td style="text-align:center;font-size:8px;">1 2 3 4</td><td></td>
-          <td style="text-align:center;"></td>
-          <td style="text-align:center;">${[1, 2, 3, 4, 5].map((n) => `<span class="foul-box">${n}</span>`).join('')}</td>
-          <td></td><td></td><td></td><td></td><td></td><td></td>
-          <td style="background:#f9fafb;"></td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
+    <div class="two-col">
+      <div>${rosterTable('TEAM A', teamA)}</div>
+      <div>${rosterTable('TEAM B', teamB)}</div>
+    </div>
 
     ${signatureBlock("Committee's Signature &amp; Name", 'Scorekeeper / Facilitator', 'Event Coordinator')}
     ${watermark()}`);
@@ -196,7 +198,7 @@ function buildVolleyballHtml(event: ScoreSheetEvent): string {
   const teamB = depts[1] || 'TEAM B';
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Volleyball Match Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -252,7 +254,7 @@ function buildBadmintonHtml(event: ScoreSheetEvent): string {
   const playerB = depts[1] || 'PLAYER B';
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Badminton Match Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -307,7 +309,7 @@ function buildFootballHtml(event: ScoreSheetEvent): string {
   const teamB = depts[1] || 'TEAM B';
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Football / Soccer Match Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -358,7 +360,7 @@ function buildFootballHtml(event: ScoreSheetEvent): string {
 function buildTrackFieldHtml(event: ScoreSheetEvent): string {
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Track &amp; Field Performance Record Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -414,7 +416,7 @@ function buildSwimmingHtml(event: ScoreSheetEvent): string {
   const depts = event.departments || [];
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Swimming Race Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -474,7 +476,7 @@ function buildTennisHtml(event: ScoreSheetEvent): string {
   const playerB = depts[1] || 'PLAYER B';
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Tennis Match Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -525,7 +527,7 @@ function buildTableTennisHtml(event: ScoreSheetEvent): string {
   const playerB = depts[1] || 'PLAYER B';
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Table Tennis Match Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -574,7 +576,7 @@ function buildCulturalHtml(event: ScoreSheetEvent): string {
     .perf-header { background: #7c3aed; color: #fff; padding: 6px 10px; font-weight: bold; font-size: 11px; border-radius: 4px; margin-bottom: 6px; }
   </style>
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Cultural / Performing Arts Evaluation Sheet</p>
       <div class="badge" style="background:#f3e8ff; color:#7c3aed; border-color:#ddd6fe;">EVENT: ${event.name.toUpperCase()}</div>
     </div>
@@ -634,7 +636,7 @@ function buildDefaultHtml(event: ScoreSheetEvent): string {
   const depts = event.departments || [];
   return page(`
     <div class="header">
-      <h1>BatStateU ARASOF – Sports Office</h1>
+      <h1>SportsAxis – Sports Office</h1>
       <p>Official Event Score Sheet</p>
       <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
     </div>

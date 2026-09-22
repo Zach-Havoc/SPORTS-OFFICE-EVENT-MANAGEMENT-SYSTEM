@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { COLORS, SPACING, TYPE } from '../../constants/theme';
 import { Screen, ScreenHeader } from '../../src/components/ui/Screen';
+import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
 import { Icon } from '../../src/components/ui/Icon';
@@ -9,14 +10,13 @@ import { EmptyState } from '../../src/components/ui/States';
 import { useNetwork } from '../../src/hooks/use-network';
 import { useOfflineStore } from '../../src/store/offline.store';
 import { useDeptAbbreviator } from '../../src/hooks/use-dept-abbr';
-import type { OfflineQueueItem } from '../../src/types';
+import type { OfflineQueueItem, OfflineQueueStatus } from '../../src/types';
 
-const DOT = {
-  pending: COLORS.warning,
-  syncing: COLORS.info,
-  failed: COLORS.destructive,
-  synced: COLORS.success,
-} as const;
+const STATUS_BADGE: Record<OfflineQueueStatus, { label: string; variant: 'warning' | 'info' | 'error' }> = {
+  pending: { label: 'Pending', variant: 'warning' },
+  syncing: { label: 'Syncing', variant: 'info' },
+  failed:  { label: 'Failed',  variant: 'error' },
+};
 
 export default function HistoryScreen() {
   const queue = useOfflineStore((s) => s.queue);
@@ -45,19 +45,24 @@ export default function HistoryScreen() {
     ]);
   };
 
-  const renderItem = ({ item }: { item: OfflineQueueItem }) => (
-    <Card style={styles.item}>
-      <View style={[styles.itemDot, { backgroundColor: DOT[item.status as keyof typeof DOT] ?? COLORS.warning }]} />
-      <View style={styles.itemBody}>
-        <Text style={styles.dept} numberOfLines={1}>{abbr(item.payload.department)}</Text>
-        <Text style={styles.time} numberOfLines={1}>
-          {new Date(item.created_at).toLocaleString()}
-          {item.error ? ` · ${item.error}` : ''}
-        </Text>
-      </View>
-      <Text style={styles.score}>{item.payload.totalScore.toFixed(0)}</Text>
-    </Card>
-  );
+  const renderItem = ({ item }: { item: OfflineQueueItem }) => {
+    const badge = STATUS_BADGE[item.status];
+    return (
+      <Card style={styles.item}>
+        <View style={styles.itemBody}>
+          <View style={styles.itemTop}>
+            <Text style={styles.dept} numberOfLines={1}>{abbr(item.payload.department)}</Text>
+            <Badge label={badge.label} variant={badge.variant} dot />
+          </View>
+          <Text style={styles.time} numberOfLines={1}>
+            {new Date(item.created_at).toLocaleString()}
+            {item.error ? ` · ${item.error}` : ''}
+          </Text>
+        </View>
+        <Text style={styles.score}>{item.payload.totalScore.toFixed(0)}</Text>
+      </Card>
+    );
+  };
 
   return (
     <Screen padded={false}>
@@ -132,9 +137,9 @@ const styles = StyleSheet.create({
   actions: { gap: SPACING.sm, marginTop: SPACING.md },
 
   item: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.md },
-  itemDot: { width: 8, height: 8, borderRadius: 4 },
-  itemBody: { flex: 1, gap: 2 },
-  dept: { ...TYPE.subhead, color: COLORS.textPrimary },
+  itemBody: { flex: 1, gap: 4 },
+  itemTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  dept: { ...TYPE.subhead, color: COLORS.textPrimary, flexShrink: 1 },
   time: { ...TYPE.caption, textTransform: 'none', color: COLORS.textMuted },
   score: { ...TYPE.title, color: COLORS.textPrimary },
 });

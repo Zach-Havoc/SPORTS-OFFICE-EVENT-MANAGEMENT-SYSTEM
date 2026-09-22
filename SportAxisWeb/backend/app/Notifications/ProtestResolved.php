@@ -24,7 +24,7 @@ class ProtestResolved extends Notification
             ->greeting('Hello '.($notifiable->name ?? 'Coach').',')
             ->line("Your protest about {$this->protest->event?->name} was **{$this->protest->status}**.")
             ->line($this->protest->resolution ?: '')
-            ->line('You can see the full decision in the SportAxis app.');
+            ->line('You can see the full decision in the SportsAxis app.');
     }
 
     /** @return array<string, mixed> */

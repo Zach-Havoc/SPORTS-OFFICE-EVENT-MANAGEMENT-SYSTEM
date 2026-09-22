@@ -1,0 +1,15 @@
+# Deploys to core/.htaccess in the InfinityFree split layout (see
+# INFINITYFREE_DEPLOYMENT.md) — everything in this folder (app/, config/,
+# database/, storage/, vendor/, this app's real source and secrets) sits
+# inside the public web root once deployed. Nothing in here should EVER be
+# reachable directly by URL — only ../index.php reaches it, via PHP's own
+# `require`, not HTTP. Without this, someone could request
+# https://yourdomain/core/app/Models/User.php directly and Apache would
+# execute or expose it.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

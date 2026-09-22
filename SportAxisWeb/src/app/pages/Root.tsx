@@ -47,7 +47,7 @@ export default function Root() {
               <Link to="/" className="flex items-center space-x-2">
                 <Trophy className="h-8 w-8 text-red-600" />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Batangas State University</h1>
+                  <h1 className="text-xl font-bold text-gray-900">SportsAxis</h1>
                   <p className="text-xs text-gray-600">Competition Scoring and Event Management System</p>
                 </div>
               </Link>
@@ -164,7 +164,9 @@ export default function Root() {
         <footer className="bg-white/95 backdrop-blur-md border-t border-gray-200/50 mt-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <p className="text-center text-sm text-gray-600">
-              © 2026 Batangas State University Event Competition Scoring System. All rights reserved.
+              © 2026 SportsAxis — Event Competition Scoring System. All rights reserved.
+              {' '}·{' '}
+              <Link to="/privacy-notice" className="hover:underline">Data Privacy Notice</Link>
             </p>
           </div>
         </footer>

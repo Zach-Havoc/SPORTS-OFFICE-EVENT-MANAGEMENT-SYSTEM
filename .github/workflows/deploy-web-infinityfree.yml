@@ -1,0 +1,113 @@
+name: Deploy to InfinityFree
+
+# Builds the React/Vite frontend AND the Laravel backend (SportAxisWeb/) and
+# FTP-syncs both to the SAME InfinityFree domain — see
+# INFINITYFREE_DEPLOYMENT.md for the split-layout architecture this
+# implements (frontend at htdocs/, backend at htdocs/core/, one shared
+# front controller deciding which handles each request).
+#
+# vendor/ and storage/ are deliberately excluded from the backend sync and
+# stay as a ONE-TIME manual upload (see the deployment guide) — vendor/
+# because InfinityFree can't run Composer itself (no shell access), and
+# storage/ because it holds real runtime data (uploaded images, session
+# files) that an automated sync would otherwise wipe on every deploy.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "SportAxisWeb/**"
+      - ".github/workflows/deploy-web-infinityfree.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: SportAxisWeb/package-lock.json
+
+      # Validates composer.lock resolves cleanly and produces an optimized
+      # autoloader. vendor/ itself is excluded from the FTP step below —
+      # this only catches dependency/build problems early in CI, it doesn't
+      # change what's on the server (see the comment at the top of this file).
+      - name: Install PHP dependencies
+        working-directory: SportAxisWeb/backend
+        run: composer install --no-dev --optimize-autoloader --no-progress --prefer-dist
+
+      - name: Install Node dependencies
+        working-directory: SportAxisWeb
+        run: npm ci
+
+      # Same effect as a local `.env.production` file, but sourced from
+      # GitHub Secrets so nothing production-specific is ever committed.
+      # Vite gives already-set process.env values priority over any .env
+      # file, so these override .env.production (or .env) automatically —
+      # see .env.example in SportAxisWeb/ for what each variable does.
+      #
+      # In this split-domain layout VITE_API_URL is just this same site's
+      # own domain + /api (e.g. https://sportsaxis-arasofbsu.page.gd/api) —
+      # there's no second domain to look up.
+      - name: Build frontend (production)
+        working-directory: SportAxisWeb
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_REVERB_APP_KEY: ${{ secrets.VITE_REVERB_APP_KEY }}
+          VITE_REVERB_HOST: ${{ secrets.VITE_REVERB_HOST }}
+          VITE_REVERB_PORT: ${{ secrets.VITE_REVERB_PORT }}
+          VITE_REVERB_SCHEME: ${{ secrets.VITE_REVERB_SCHEME }}
+        run: npm run build
+
+      - name: Deploy backend to htdocs/core/
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: 21
+          protocol: ftp
+          local-dir: ./SportAxisWeb/backend/
+          server-dir: ./htdocs/core/
+          state-name: .ftp-deploy-sync-state-core.json
+          exclude: |
+            **/.git*
+            **/.git*/**
+            vendor/**
+            public/**
+            storage/**
+            tests/**
+            node_modules/**
+            **/*.md
+            .env
+            .env.example
+            env.php
+            env.php.example
+            .phpunit.result.cache
+
+      - name: Deploy frontend to htdocs/
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: 21
+          protocol: ftp
+          local-dir: ./SportAxisWeb/dist/
+          server-dir: ./htdocs/
+          state-name: .ftp-deploy-sync-state-web.json
+          exclude: |
+            **/.git*
+            **/.git*/**

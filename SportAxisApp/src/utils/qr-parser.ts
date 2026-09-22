@@ -71,7 +71,7 @@ export function parseQrCode(raw: string): QrPayload {
   }
 
   throw new Error(
-    'Unrecognised QR code format. Please use a valid SportAxis event QR code.',
+    'Unrecognised QR code format. Please use a valid SportsAxis event QR code.',
   );
 }
 

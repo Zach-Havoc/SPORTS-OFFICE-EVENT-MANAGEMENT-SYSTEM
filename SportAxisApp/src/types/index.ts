@@ -9,11 +9,54 @@ export interface User {
   name: string;
   email: string;
   role: 'admin' | 'coach' | 'athlete' | 'judge';
+  // Athlete-only, populated from the registrar record at signup.
+  department?: string | null;
+  course?: string | null;
+  yearLevel?: string | null;
+  srCode?: string | null;
+  privacyNoticeAcceptedAt?: string | null;
+  privacyNoticeVersion?: string | null;
 }
 
 export interface AuthState {
   user: User | null;
   token: string | null;
+}
+
+export type UserRole = User['role'];
+
+export interface SignupPayload {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  registrationCode: string;
+  srCode?: string;
+  privacyNoticeAccepted: boolean;
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+
+// The backend's real notification classes (App\Notifications\*) each set their
+// own `kind` string (see app/Notifications/*.php) — there's no generic
+// info/success/warning/error taxonomy. Keep the known ones for autocomplete,
+// but accept any string: the UI must render an unrecognized kind safely
+// rather than assume this list is exhaustive.
+export type NotificationKind =
+  | 'protest_filed'
+  | 'protest_resolved'
+  | 'requirement_reviewed'
+  | 'score_disputed'
+  | (string & {});
+
+export interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  url: string | null;
+  readAt: string | null;
+  createdAt: string;
 }
 
 // ── Event ────────────────────────────────────────────────────────────────────
@@ -117,11 +160,16 @@ export interface ScoreSubmissionResponse {
 
 // ── OCR ──────────────────────────────────────────────────────────────────────
 
-export interface OcrResult {
-  total_score: number;
+export interface OcrDepartmentScore {
+  department: string;
+  score: number;
   confidence: number;
+}
+
+export interface OcrResult {
+  scores: OcrDepartmentScore[];
   image_url: string | null;
-  raw_text?: string;
+  notes: string;
   is_mock: boolean;
 }
 

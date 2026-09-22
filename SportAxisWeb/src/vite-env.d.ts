@@ -11,3 +11,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// No published types for this package; used as a plain JS component library.
+declare module '@g-loot/react-tournament-brackets' {
+  export const SingleEliminationBracket: any;
+  export const Match: any;
+}

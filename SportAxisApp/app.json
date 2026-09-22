@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "SportAxisApp",
+    "name": "SportsAxis",
     "slug": "SportAxisApp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,8 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "SportAxis uses the camera to scan QR codes and capture score sheets for OCR processing.",
-        "NSPhotoLibraryUsageDescription": "SportAxis may access your photo library to upload score sheet images."
+        "NSCameraUsageDescription": "SportsAxis uses the camera to scan QR codes and capture score sheets for OCR processing.",
+        "NSPhotoLibraryUsageDescription": "SportsAxis may access your photo library to upload score sheet images."
       }
     },
     "android": {
@@ -27,8 +27,10 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.zachhavoc.SportAxisApp"
     },
     "web": {
       "output": "static",
@@ -39,7 +41,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "SportAxis uses the camera to scan QR codes and capture score sheets.",
+          "cameraPermission": "SportsAxis uses the camera to scan QR codes and capture score sheets.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -47,7 +49,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "SportAxis may access your photos to upload score sheet images."
+          "photosPermission": "SportsAxis may access your photos to upload score sheet images."
         }
       ],
       [
@@ -71,6 +73,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c73b5677-eb93-4b71-8585-0778d3271820"
+      }
     }
   }
 }

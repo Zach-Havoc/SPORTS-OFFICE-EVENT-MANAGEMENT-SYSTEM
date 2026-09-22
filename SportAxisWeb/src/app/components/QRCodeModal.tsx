@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Download, Copy, Check, Smartphone, ChevronDown, ChevronUp, Code2 } from 'lucide-react';
+import { Download, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -16,7 +16,6 @@ interface QRCodeModalProps {
 
 export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }: QRCodeModalProps) {
   const [copied, setCopied] = useState(false);
-  const [showDocs, setShowDocs] = useState(false);
 
   // Web URL — used by browsers to open the web scoring page
   // The mobile app reads its API base URL from its own env config (EXPO_PUBLIC_API_URL)
@@ -52,12 +51,6 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
       toast.error('Failed to copy');
     }
   };
-
-  const scorePayloadExample = JSON.stringify({
-    department: "College Name",
-    judgeName: "Committee Full Name",
-    totalScore: 87.5,
-  }, null, 2);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -107,126 +100,6 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
             <Download className="h-4 w-4 mr-2" />
             Download QR Code (PNG)
           </Button>
-
-          {/* ── Mobile App Integration Docs ── */}
-          <div className="border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowDocs(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-semibold text-gray-700"
-            >
-              <span className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-blue-600" />
-                Mobile App Integration
-              </span>
-              {showDocs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
-
-            {showDocs && (
-              <div className="p-4 space-y-5 text-sm">
-
-                {/* How it works */}
-                <div>
-                  <p className="font-semibold text-gray-800 mb-2">How it works</p>
-                  <ol className="space-y-1 text-gray-600 list-decimal list-inside text-xs leading-relaxed">
-                    <li>Mobile app scans the QR code</li>
-                    <li>Parse <code className="bg-gray-100 px-1 rounded">eventId</code>, <code className="bg-gray-100 px-1 rounded">token</code>, <code className="bg-gray-100 px-1 rounded">apiBase</code>, and <code className="bg-gray-100 px-1 rounded">apiKey</code> from the URL</li>
-                    <li>Call the <strong>Get Event</strong> endpoint to fetch event details (colleges)</li>
-                    <li>Committee selects a college and enters one overall score</li>
-                    <li>Call the <strong>Submit Score</strong> endpoint — no login required</li>
-                  </ol>
-                </div>
-
-                {/* Values from this QR */}
-                <div>
-                  <p className="font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                    <Code2 className="h-4 w-4" /> Values in this QR
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { label: 'eventId', value: eventId },
-                      { label: 'token', value: qrToken },
-                      { label: 'apiBase', value: apiBase },
-                      { label: 'apiKey', value: publicAnonKey },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-purple-700 w-16 shrink-0">{label}</span>
-                        <code className="flex-1 text-xs bg-gray-100 px-2 py-1 rounded truncate font-mono">{value}</code>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={() => copy(value, `${label} copied`)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Step 1 – Get Event */}
-                <div className="space-y-1">
-                  <span className="inline-block text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                    Step 1 — Get Event Details
-                  </span>
-                  <div className="bg-gray-900 rounded-lg p-3 text-xs font-mono text-green-400 leading-relaxed overflow-x-auto">
-                    <span className="text-yellow-400">GET</span>{' '}
-                    <span className="text-white break-all">
-                      {apiBase}/judge/event/{eventId}/{qrToken}
-                    </span>
-                    <br /><br />
-                    <span className="text-gray-400">// Headers</span><br />
-                    <span className="text-blue-300">Authorization</span>:{' '}
-                    <span className="text-orange-300">Bearer {'<apiKey>'}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Returns: <code className="bg-gray-100 px-1 rounded">{'{ event: { name, departments[], status, ... } }'}</code>
-                  </p>
-                </div>
-
-                {/* Step 2 – Submit Score */}
-                <div className="space-y-1">
-                  <span className="inline-block text-xs font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                    Step 2 — Submit Score
-                  </span>
-                  <div className="bg-gray-900 rounded-lg p-3 text-xs font-mono text-green-400 leading-relaxed overflow-x-auto">
-                    <span className="text-yellow-400">POST</span>{' '}
-                    <span className="text-white break-all">
-                      {apiBase}/judge/score/{eventId}/{qrToken}
-                    </span>
-                    <br /><br />
-                    <span className="text-gray-400">// Headers</span><br />
-                    <span className="text-blue-300">Authorization</span>:{' '}
-                    <span className="text-orange-300">Bearer {'<apiKey>'}</span><br />
-                    <span className="text-blue-300">Content-Type</span>:{' '}
-                    <span className="text-orange-300">application/json</span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Request body:</p>
-                    <pre className="bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-3 overflow-x-auto leading-relaxed whitespace-pre">
-                      {scorePayloadExample}
-                    </pre>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Returns: <code className="bg-gray-100 px-1 rounded">{'{ success: true, message: "Score submitted successfully" }'}</code>
-                  </p>
-                </div>
-
-                {/* URL Parsing hint */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
-                  <p className="font-semibold">Parsing the QR URL (Flutter / React Native)</p>
-                  <pre className="text-xs font-mono overflow-x-auto leading-relaxed whitespace-pre text-blue-900">
-{`final uri = Uri.parse(scannedUrl);
-final segments = uri.pathSegments;
-// segments: ["judge-qr", eventId, token]
-final eventId = segments[1];
-final token   = segments[2];
-final apiBase = uri.queryParameters["apiBase"];
-final apiKey  = uri.queryParameters["apiKey"];`}
-                  </pre>
-                </div>
-
-                <p className="text-xs text-gray-400 text-center">
-                  No judge login required — the QR token authenticates the session.
-                </p>
-              </div>
-            )}
-          </div>
         </div>
       </DialogContent>
     </Dialog>

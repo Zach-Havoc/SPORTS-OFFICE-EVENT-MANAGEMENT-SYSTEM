@@ -1,0 +1,72 @@
+# Database schema & fresh installs
+
+## Setting up a brand new database
+
+Two steps, in order — both are required, neither is optional:
+
+```
+php artisan migrate --force
+php artisan db:seed --class="Database\Seeders\ReferenceDataSeeder" --force
+```
+
+`migrate` builds every table. `ReferenceDataSeeder` then fills in the baseline
+data the app assumes exists: the eligibility checklist (Waiver Form,
+Certificate of Enrollment, Medical Clearance, Parental Consent), the twelve
+racquet-sport line categories (Badminton/Table Tennis × Singles A/B/Doubles ×
+Men/Women), and the default active season. Skip the seed step and the app
+still runs, but athletes see an empty eligibility checklist, racquet line-ups
+have nothing to assign, and no event has a season to attach to.
+
+**Do not** run the plain `php artisan db:seed` (no `--class`) against a real
+database — that seeds `DatabaseSeeder`, which also creates demo accounts
+(`admin@university.edu` etc.) with known, weak passwords, for local
+development only.
+
+## Why this is two separate seeders
+
+`ReferenceDataSeeder` (`database/seeders/ReferenceDataSeeder.php`) — safe
+anywhere, no accounts, just reference rows.
+
+`DatabaseSeeder` (`database/seeders/DatabaseSeeder.php`) — local/dev
+convenience; calls `ReferenceDataSeeder` too, but also creates demo
+admin/coach/athlete/judge accounts. Only ever run this one locally
+(`php artisan db:seed`, no `--class`, which is what a fresh `composer
+install` / local setup should use).
+
+## Why this data lives in a seeder and not a migration
+
+It used to be seeded inline inside three migrations
+(`2026_09_03_000003_seed_racquet_disciplines`,
+`2026_09_13_000002_create_requirement_types_and_threading`,
+`2026_09_10_000002_add_season_id_to_events_and_brackets`). That broke `php
+artisan schema:dump`'s fast-install path: the dump only snapshots table
+structure plus the `migrations` tracking table's own rows, so on a fresh
+database the fast path would mark those three migrations "already run"
+without ever executing the code that inserted the rows — a fresh install
+would silently end up with an empty checklist, no racquet lines, and no
+season, with nothing in the migration output suggesting anything was wrong.
+
+Moving the data into `ReferenceDataSeeder` and always running it as a
+separate, explicit step fixes this regardless of whether the schema was built
+by replaying every migration or by loading the schema dump.
+
+The test suite handles this automatically — `tests/TestCase.php` sets
+`protected $seeder = ReferenceDataSeeder::class;`, so every test using
+`RefreshDatabase` gets this data for free without needing `--seed` itself.
+
+## Regenerating the schema dump
+
+After adding new migrations, refresh the snapshot so fresh installs stay
+fast:
+
+```
+php artisan schema:dump
+```
+
+This overwrites `database/schema/mysql-schema.sql` from whatever database
+your `.env` currently points at — run it against an up-to-date database
+(`php artisan migrate:status` should show nothing pending first). It's a
+read-only `mysqldump` under the hood; it does not touch your data.
+
+Existing migration files are kept, not deleted — `schema:dump --prune` is
+available if you ever want to remove them, but this project doesn't use it.

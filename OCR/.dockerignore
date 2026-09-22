@@ -1,0 +1,8 @@
+# The image installs its own pinned dependencies fresh — don't ship the
+# local dev venv or model cache into the build context (huge, and the venv
+# is Linux/Python-3.11-build-specific, not portable into the image as-is).
+paddleocr-env/
+PaddleOCR/
+.paddlex/
+__pycache__/
+*.pyc

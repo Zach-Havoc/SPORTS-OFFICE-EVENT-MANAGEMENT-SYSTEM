@@ -11,12 +11,22 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
+/**
+ * Local/dev convenience only — this also creates demo accounts with known,
+ * weak passwords (see below). Never run this against a production database;
+ * run `php artisan db:seed --class=ReferenceDataSeeder` there instead, which
+ * seeds only the safe baseline reference data (eligibility checklist,
+ * racquet disciplines, default season) with no accounts attached.
+ */
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
         // Seed data is reference data, not a user action — keep it out of the trail.
-        AuditLog::withoutRecording(fn () => $this->seed());
+        AuditLog::withoutRecording(function () {
+            $this->call(ReferenceDataSeeder::class);
+            $this->seed();
+        });
     }
 
     private function seed(): void

@@ -41,6 +41,7 @@ class SignupTest extends TestCase
             'role' => 'athlete',
             'registrationCode' => 'CODE1234',
             'srCode' => '23-00001',
+            'privacyNoticeAccepted' => true,
         ], $overrides);
     }
 
@@ -99,7 +100,29 @@ class SignupTest extends TestCase
     {
         $this->postJson('/api/signup', [])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['email', 'password', 'name', 'role', 'registrationCode']);
+            ->assertJsonValidationErrors(['email', 'password', 'name', 'role', 'registrationCode', 'privacyNoticeAccepted']);
+    }
+
+    public function test_signup_is_rejected_without_accepting_the_privacy_notice(): void
+    {
+        $this->regCodes()->create(['code' => 'CODE1234', 'role' => 'athlete']);
+
+        $this->postJson('/api/signup', $this->payload(['privacyNoticeAccepted' => false]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('privacyNoticeAccepted');
+
+        $this->assertDatabaseMissing('users', ['email' => 'newuser@example.com']);
+    }
+
+    public function test_accepting_the_privacy_notice_is_recorded_with_a_timestamp_and_version(): void
+    {
+        $this->regCodes()->create(['code' => 'CODE1234', 'role' => 'athlete']);
+
+        $this->postJson('/api/signup', $this->payload())->assertCreated();
+
+        $user = User::where('email', 'newuser@example.com')->first();
+        $this->assertNotNull($user->privacy_notice_accepted_at);
+        $this->assertNotNull($user->privacy_notice_version);
     }
 
     public function test_unknown_code_is_rejected(): void

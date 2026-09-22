@@ -45,13 +45,9 @@ export default function AdminCoaches() {
 
   const loadData = async () => {
     try {
-      console.log('Loading coaches...');
       const coachesData = await getCoaches();
-      console.log('Coaches data:', coachesData);
       setCoaches(coachesData || []);
-      console.log('Loading departments...');
       const deptData = await getDepartments();
-      console.log('Colleges data:', deptData);
       setDepartments(deptData || []);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -64,7 +60,6 @@ export default function AdminCoaches() {
   const NONE_VALUE = '__none__';
 
   const handleOpenDialog = (coach: Coach) => {
-    console.log('Opening dialog for coach:', coach);
     setEditingCoach(coach);
     setDepartmentDraft(coach.department || NONE_VALUE);
     setDialogOpen(true);
@@ -77,7 +72,6 @@ export default function AdminCoaches() {
       const data = (departmentDraft === '' || departmentDraft === '__none__')
         ? { department: null }
         : { department: departmentDraft };
-      console.log('Updating coach department:', editingCoach.id, data);
       await updateCoachDepartment(editingCoach.id, data);
       toast.success('Coach college updated');
       setDialogOpen(false);

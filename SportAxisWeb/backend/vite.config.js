@@ -17,6 +17,12 @@ export default defineConfig({
         tailwindcss(),
     ],
     server: {
+        // Fixed, off-default port so this never fights the real frontend app
+        // (SportAxisWeb/'s own Vite instance) for 5173 when both run at once
+        // via `composer run dev` — this backend-only Vite just compiles the
+        // Blade scaffold's CSS/JS, it's not the actual product UI.
+        port: 5199,
+        strictPort: true,
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },

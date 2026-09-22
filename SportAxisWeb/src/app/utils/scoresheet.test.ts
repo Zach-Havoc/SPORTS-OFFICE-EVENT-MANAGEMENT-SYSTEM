@@ -9,7 +9,7 @@ describe('buildScoreSheetHtml', () => {
       departments: ['CET', 'CICS'],
     });
     expect(html).toContain('Official Basketball Game Score Sheet');
-    expect(html).toContain('RUNNING SCORE:');
+    expect(html).toContain('RUNNING SCORE (cross off as scored):');
     expect(html).toContain('1ST QTR');
     expect(html).toContain('Player Roster &amp; Fouls');
     expect(html).toContain('CET');

@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStandings } from '../../services/api';
@@ -31,13 +30,6 @@ interface Department {
   code: string;
 }
 
-interface Event {
-  id: string;
-  name: string;
-  sport: string;
-  category: string;
-  date: string;
-}
 
 interface Match {
   id: string;
@@ -125,7 +117,6 @@ export default function AdminBracketing() {
   // (post-shuffle/seed for single-elimination). Saving must use this, not the
   // raw admin selection order, so the saved bracket matches what was approved.
   const [previewedOrder, setPreviewedOrder] = useState<string[] | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [bracketZoom, setBracketZoom] = useState(1);
   const [bracketFullscreen, setBracketFullscreen] = useState(false);
 
@@ -325,7 +316,6 @@ export default function AdminBracketing() {
 
     // Generate matches for all rounds
     const matches: Match[] = [];
-    let matchId = 0;
     let currentDate = parseStartDateTime(config.startDate, config.startTime);
 
     for (let round = 1; round <= rounds; round++) {

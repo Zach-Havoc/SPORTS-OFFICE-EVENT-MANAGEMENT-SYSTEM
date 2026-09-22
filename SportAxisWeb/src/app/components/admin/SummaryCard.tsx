@@ -6,7 +6,6 @@ interface SummaryCardProps {
   label: string;
   value: number | string;
   subtext?: string;
-  accentColor?: string;
   iconColor?: string;
   onClick?: () => void;
 }
@@ -16,7 +15,6 @@ export default function SummaryCard({
   label,
   value,
   subtext,
-  accentColor = 'text-blue-600',
   iconColor = 'text-gray-500',
   onClick
 }: SummaryCardProps) {

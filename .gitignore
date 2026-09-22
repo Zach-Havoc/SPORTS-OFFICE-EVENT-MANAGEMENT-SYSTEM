@@ -1,3 +1,14 @@
 
 # Lane-guard diagnostic output (local only)
 .claude/hooks/lane-guard-unknown.log
+
+# Per-developer IDE/AI-tool config (not deleted, just stops showing as untracked)
+.idea/
+.continue/
+
+# Local OCR service (see OCR/README.md for setup) — the venv is regenerable
+# from paddleocr-env's install command, and PaddleOCR/ (an upstream source
+# clone, unused by service.py, deleted from disk) never belonged in history.
+OCR/paddleocr-env/
+OCR/PaddleOCR/
+OCR/__pycache__/

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
+import { Checkbox } from '../components/ui/checkbox';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { signup, resetPassword } from '../services/api';
 
@@ -23,6 +23,7 @@ export default function Login() {
   const [role, setRole] = useState<'admin' | 'coach' | 'athlete' | 'judge'>('athlete');
   const [registrationCode, setRegistrationCode] = useState('');
   const [srCode, setSrCode] = useState('');
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -76,8 +77,12 @@ export default function Login() {
           throw new Error('Enter your SR Code so we can verify you as an enrolled student.');
         }
 
+        if (!privacyAccepted) {
+          throw new Error('You must acknowledge the Data Privacy Notice to continue.');
+        }
+
         console.log('Attempting signup for:', email);
-        await signup(email, password, name, role, registrationCode, srCode.trim());
+        await signup(email, password, name, role, registrationCode, srCode.trim(), privacyAccepted);
         toast.success('Account created successfully! You can now log in.');
 
         // Switch to login mode after successful signup
@@ -86,6 +91,7 @@ export default function Login() {
         setConfirmPassword('');
         setName('');
         setSrCode('');
+        setPrivacyAccepted(false);
       } else if (mode === 'reset') {
         console.log('Requesting password reset for:', email);
         await resetPassword(email);
@@ -110,6 +116,7 @@ export default function Login() {
     setRole('judge');
     setRegistrationCode('');
     setSrCode('');
+    setPrivacyAccepted(false);
     setError('');
     setResetSent(false);
   };
@@ -292,6 +299,25 @@ export default function Login() {
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Privacy Notice acknowledgment (Signup only) */}
+            {mode === 'signup' && (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="privacyAccepted"
+                  checked={privacyAccepted}
+                  onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="privacyAccepted" className="text-sm font-normal leading-snug text-gray-600">
+                  I have read and understand the{' '}
+                  <Link to="/privacy-notice" target="_blank" className="text-[#C8102E] hover:underline">
+                    Data Privacy Notice
+                  </Link>
+                  , including that medical clearance is required for athletes.
+                </Label>
               </div>
             )}
 

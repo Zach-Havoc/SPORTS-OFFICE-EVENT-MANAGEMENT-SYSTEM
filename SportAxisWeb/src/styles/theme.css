@@ -197,4 +197,14 @@
   .animate-bounce-slow {
     animation: bounce-slow 2s ease-in-out infinite;
   }
+
+  /* Route-transition progress bar (MainLayout, shown while a lazy page chunk loads) */
+  @keyframes loading-bar {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(300%);
+    }
+  }
 }

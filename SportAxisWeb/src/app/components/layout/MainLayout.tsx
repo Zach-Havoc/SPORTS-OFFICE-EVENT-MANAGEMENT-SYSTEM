@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, useLocation, Link } from "react-router";
+import { Outlet, useLocation, useNavigation, Link } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/button";
 import {
@@ -15,7 +15,6 @@ import {
   BarChart3,
   History,
   Gavel,
-  Eye,
   Medal,
   Home,
   Shield,
@@ -24,7 +23,6 @@ import {
   Megaphone,
   ClipboardList,
   TrendingUp,
-  UserPlus,
   UserCog,
   MapPin,
   Radio,
@@ -55,6 +53,7 @@ import NotificationBell from "./NotificationBell";
 export default function MainLayout() {
   const { user, logout, loading } = useAuth();
   const location = useLocation();
+  const routerNavigation = useNavigation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
@@ -254,7 +253,7 @@ export default function MainLayout() {
                   />
                   <div>
                     <h2 className="font-bold text-base text-gray-900 leading-tight">
-                      Batangas State University
+                      SportsAxis
                     </h2>
                     <p className="text-xs text-gray-600">
                       Competition Scoring System
@@ -341,7 +340,7 @@ export default function MainLayout() {
                       />
                     </div>
                     <div>
-                      <h2 className="font-bold text-lg">BatStateU</h2>
+                      <h2 className="font-bold text-lg">SportsAxis</h2>
                       <p className="text-xs text-red-100">Competition System</p>
                     </div>
                   </div>
@@ -566,7 +565,7 @@ export default function MainLayout() {
                       />
                       <div>
                         <h1 className="text-base sm:text-xl font-bold text-gray-900">
-                          Batangas State University
+                          SportsAxis
                         </h1>
                         <p className="text-xs text-gray-600 hidden sm:block">
                           Competition Scoring System
@@ -632,7 +631,12 @@ export default function MainLayout() {
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto relative">
+            {routerNavigation.state === "loading" && (
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-red-600/30 overflow-hidden z-10">
+                <div className="h-full w-1/3 bg-red-600 animate-[loading-bar_1s_ease-in-out_infinite]" />
+              </div>
+            )}
             <div className="h-full">
               <Outlet />
             </div>
@@ -642,7 +646,9 @@ export default function MainLayout() {
           <footer className="bg-white/95 backdrop-blur-md border-t border-gray-200/50 py-4">
             <div className="px-4 sm:px-6 lg:px-8">
               <p className="text-center text-sm text-gray-600">
-                © 2026 Batangas State University. All rights reserved.
+                © 2026 SportsAxis. All rights reserved.
+                {' '}·{' '}
+                <Link to="/privacy-notice" className="hover:underline">Data Privacy Notice</Link>
               </p>
             </div>
           </footer>

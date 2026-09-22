@@ -5,65 +5,82 @@ import "/src/suppress-recharts-warnings";
 import "./utils/suppressWarnings";
 
 import { RouterProvider, createBrowserRouter, Navigate } from "react-router";
+import type { LazyRouteFunction, RouteObject } from "react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "./components/ui/sonner";
-import { useEffect, useMemo } from "react";
+import { Suspense, lazy, useEffect, useMemo } from "react";
 import { startWarmup } from "./services/api";
 
 // Start warming up the Edge Function immediately so pages don't have to wait as long
 startWarmup();
 
-// Import route components
+// MainLayout, Login and PrivacyNotice are needed on first paint for most
+// visitors (the app shell + the two routes reachable from a cold load), so
+// they stay in the main bundle. Every other page is route-split below —
+// each one only downloads when a user actually visits a page for their role,
+// instead of every role's pages shipping in one shared bundle.
 import MainLayout from "./components/layout/MainLayout";
 import Login from "./pages/Login";
-import AdminDashboardEnhanced from "./pages/admin/DashboardEnhanced";
-import AdminEventsEnhanced from "./pages/admin/EventsEnhanced";
-import AdminSettings from "./pages/admin/Settings";
-import AdminReports from "./pages/admin/Reports";
-import AdminHistory from "./pages/admin/History";
-import AdminCarousel from "./pages/admin/CarouselManagement";
-
-import AdminRegistrationCodes from "./pages/admin/RegistrationCodes";
-import AdminVenues from "./pages/admin/Venues";
-import AdminBracketing from "./pages/admin/Bracketing";
-import AdminBracketDetail from "./pages/admin/BracketDetail";
-import AdminCoaches from "./pages/admin/Coaches";
-import AdminUsers from "./pages/admin/Users";
-import AdminTrash from "./pages/admin/Trash";
-import AdminSeasons from "./pages/admin/Seasons";
-import AdminProtests from "./pages/admin/Protests";
-import JudgeDashboard from "./pages/judge/Dashboard";
-import JudgeScoring from "./pages/judge/Scoring";
-import CoachDashboard from "./pages/coach/Dashboard";
-import CoachAthletes from "./pages/coach/Athletes";
-import CoachLineup from "./pages/coach/Lineup";
-import CoachAthleteForm from "./pages/coach/AthleteForm";
-import CoachAthleteDetail from "./pages/coach/AthleteDetail";
-import CoachAnnouncements from "./pages/coach/Announcements";
-import CoachAttendance from "./pages/coach/Attendance";
-import CoachSchedule from "./pages/coach/Schedule";
-import CoachPerformance from "./pages/coach/Performance";
-import CoachRequirements from "./pages/coach/Requirements";
-import CoachProtests from "./pages/coach/Protests";
-import AthleteDashboard from "./pages/athlete/Dashboard";
-import AthleteSchedule from "./pages/athlete/Schedule";
-import AthletePerformance from "./pages/athlete/Performance";
-import AthleteRequirements from "./pages/athlete/Requirements";
-import AthleteAttendance from "./pages/athlete/Attendance";
-import AthleteTeam from "./pages/athlete/Team";
-import AccountSettings from "./pages/settings/AccountSettings";
-import PublicViewer from "./pages/public/Viewer";
-import PublicLeaderboard from "./pages/public/Leaderboard";
-import PublicHistory from "./pages/public/History";
-import PublicLiveBoard from "./pages/public/LiveBoard";
-import StandingsBoard from "./pages/public/StandingsBoard";
-import PublicAnnouncements from "./pages/public/Announcements";
-import PublicBrackets from "./pages/public/Brackets";
-import PublicBracket from "./pages/public/Bracket";
-import JudgeQRScoring from "./pages/JudgeQRScoring";
+import PrivacyNotice from "./pages/PrivacyNotice";
 import NotFound from "./pages/NotFound";
+
+// `.then(m => ({ Component: m.default }))` matches every page's `export
+// default` — this is the react-router v7 `route.lazy` code-splitting API.
+const page = (
+  loader: () => Promise<{ default: React.ComponentType }>,
+): LazyRouteFunction<RouteObject> =>
+  (() => loader().then((m) => ({ Component: m.default }))) as LazyRouteFunction<RouteObject>;
+
+const AdminDashboardEnhanced = page(() => import("./pages/admin/DashboardEnhanced"));
+const AdminEventsEnhanced = page(() => import("./pages/admin/EventsEnhanced"));
+const AdminSettings = page(() => import("./pages/admin/Settings"));
+const AdminReports = page(() => import("./pages/admin/Reports"));
+const AdminHistory = page(() => import("./pages/admin/History"));
+const AdminCarousel = page(() => import("./pages/admin/CarouselManagement"));
+const AdminRegistrationCodes = page(() => import("./pages/admin/RegistrationCodes"));
+const AdminVenues = page(() => import("./pages/admin/Venues"));
+const AdminBracketing = page(() => import("./pages/admin/Bracketing"));
+const AdminBracketDetail = page(() => import("./pages/admin/BracketDetail"));
+const AdminCoaches = page(() => import("./pages/admin/Coaches"));
+const AdminUsers = page(() => import("./pages/admin/Users"));
+const AdminTrash = page(() => import("./pages/admin/Trash"));
+const AdminSeasons = page(() => import("./pages/admin/Seasons"));
+const AdminProtests = page(() => import("./pages/admin/Protests"));
+const JudgeDashboard = page(() => import("./pages/judge/Dashboard"));
+const JudgeScoring = page(() => import("./pages/judge/Scoring"));
+const CoachDashboard = page(() => import("./pages/coach/Dashboard"));
+const CoachAthletes = page(() => import("./pages/coach/Athletes"));
+const CoachLineup = page(() => import("./pages/coach/Lineup"));
+const CoachAthleteForm = page(() => import("./pages/coach/AthleteForm"));
+const CoachAthleteDetail = page(() => import("./pages/coach/AthleteDetail"));
+const CoachAnnouncements = page(() => import("./pages/coach/Announcements"));
+const CoachAttendance = page(() => import("./pages/coach/Attendance"));
+const CoachSchedule = page(() => import("./pages/coach/Schedule"));
+const CoachPerformance = page(() => import("./pages/coach/Performance"));
+const CoachRequirements = page(() => import("./pages/coach/Requirements"));
+const CoachProtests = page(() => import("./pages/coach/Protests"));
+const AthleteDashboard = page(() => import("./pages/athlete/Dashboard"));
+const AthleteSchedule = page(() => import("./pages/athlete/Schedule"));
+const AthletePerformance = page(() => import("./pages/athlete/Performance"));
+const AthleteRequirements = page(() => import("./pages/athlete/Requirements"));
+const AthleteAttendance = page(() => import("./pages/athlete/Attendance"));
+const AthleteTeam = page(() => import("./pages/athlete/Team"));
+const AccountSettings = page(() => import("./pages/settings/AccountSettings"));
+const PublicLeaderboard = page(() => import("./pages/public/Leaderboard"));
+const PublicHistory = page(() => import("./pages/public/History"));
+const PublicLiveBoard = page(() => import("./pages/public/LiveBoard"));
+const StandingsBoard = page(() => import("./pages/public/StandingsBoard"));
+const PublicAnnouncements = page(() => import("./pages/public/Announcements"));
+const PublicBrackets = page(() => import("./pages/public/Brackets"));
+const PublicBracket = page(() => import("./pages/public/Bracket"));
+
+// PublicViewer and JudgeQRScoring are rendered directly as JSX (inside
+// HomeRoute / QRCodePage below), not as a route's `Component`, so they use
+// plain React.lazy + Suspense instead of the `page()` helper above.
+const PublicViewer = lazy(() => import("./pages/public/Viewer"));
+const JudgeQRScoring = lazy(() => import("./pages/JudgeQRScoring"));
 
 // The root URL is the public Match Schedule for visitors; a signed-in user
 // landing here (e.g. a hard refresh at "/") is sent to their own home so they
@@ -79,14 +96,22 @@ function HomeRoute() {
   const { user, loading } = useAuth();
   if (loading) return null;
   const home = user ? ROLE_HOME[user.role] : undefined;
-  return home ? <Navigate to={home} replace /> : <PublicViewer />;
+  return home ? (
+    <Navigate to={home} replace />
+  ) : (
+    <Suspense fallback={null}>
+      <PublicViewer />
+    </Suspense>
+  );
 }
 
 // Standalone wrapper for QR code page (no auth needed)
 function QRCodePage() {
   return (
     <>
-      <JudgeQRScoring />
+      <Suspense fallback={null}>
+        <JudgeQRScoring />
+      </Suspense>
       <Toaster />
     </>
   );
@@ -107,142 +132,143 @@ export default function App() {
           children: [
             { index: true, Component: HomeRoute },
             { path: "login", Component: Login },
+            { path: "privacy-notice", Component: PrivacyNotice },
             {
               path: "leaderboard",
-              Component: PublicLeaderboard,
+              lazy: PublicLeaderboard,
             },
-            { path: "history", Component: PublicHistory },
+            { path: "history", lazy: PublicHistory },
             {
               path: "announcements",
-              Component: PublicAnnouncements,
+              lazy: PublicAnnouncements,
             },
-            { path: "live", Component: PublicLiveBoard },
-            { path: "brackets", Component: PublicBrackets },
-            { path: "bracket/:id", Component: PublicBracket },
+            { path: "live", lazy: PublicLiveBoard },
+            { path: "brackets", lazy: PublicBrackets },
+            { path: "bracket/:id", lazy: PublicBracket },
 
             // Admin routes
-            { path: "admin", Component: AdminDashboardEnhanced },
+            { path: "admin", lazy: AdminDashboardEnhanced },
             {
               path: "admin/dashboard",
-              Component: AdminDashboardEnhanced,
+              lazy: AdminDashboardEnhanced,
             },
             {
               path: "admin/events",
-              Component: AdminEventsEnhanced,
+              lazy: AdminEventsEnhanced,
             },
             {
               path: "admin/carousel",
-              Component: AdminCarousel,
+              lazy: AdminCarousel,
             },
             {
               path: "admin/settings",
-              Component: AdminSettings,
+              lazy: AdminSettings,
             },
-            { path: "admin/reports", Component: AdminReports },
-            { path: "admin/history", Component: AdminHistory },
+            { path: "admin/reports", lazy: AdminReports },
+            { path: "admin/history", lazy: AdminHistory },
             {
               path: "admin/registration-codes",
-              Component: AdminRegistrationCodes,
+              lazy: AdminRegistrationCodes,
             },
-            { path: "admin/venues", Component: AdminVenues },
+            { path: "admin/venues", lazy: AdminVenues },
             {
               path: "admin/bracketing",
-              Component: AdminBracketing,
+              lazy: AdminBracketing,
             },
             {
               path: "admin/bracketing/:id",
-              Component: AdminBracketDetail,
+              lazy: AdminBracketDetail,
             },
-            { path: "admin/coaches", Component: AdminCoaches },
-            { path: "admin/users", Component: AdminUsers },
-            { path: "admin/seasons", Component: AdminSeasons },
-            { path: "admin/protests", Component: AdminProtests },
-            { path: "admin/trash", Component: AdminTrash },
+            { path: "admin/coaches", lazy: AdminCoaches },
+            { path: "admin/users", lazy: AdminUsers },
+            { path: "admin/seasons", lazy: AdminSeasons },
+            { path: "admin/protests", lazy: AdminProtests },
+            { path: "admin/trash", lazy: AdminTrash },
 
             // Judge routes
-            { path: "judge", Component: JudgeDashboard },
+            { path: "judge", lazy: JudgeDashboard },
             {
               path: "judge/event/:eventId",
-              Component: JudgeScoring,
+              lazy: JudgeScoring,
             },
 
             // Coach routes
-            { path: "coach", Component: CoachDashboard },
+            { path: "coach", lazy: CoachDashboard },
             {
               path: "coach/dashboard",
-              Component: CoachDashboard,
+              lazy: CoachDashboard,
             },
             {
               path: "coach/athletes",
-              Component: CoachAthletes,
+              lazy: CoachAthletes,
             },
-            { path: "coach/lineup", Component: CoachLineup },
+            { path: "coach/lineup", lazy: CoachLineup },
             {
               path: "coach/athletes/new",
-              Component: CoachAthleteForm,
+              lazy: CoachAthleteForm,
             },
             {
               path: "coach/athletes/:id",
-              Component: CoachAthleteDetail,
+              lazy: CoachAthleteDetail,
             },
             {
               path: "coach/athletes/:id/edit",
-              Component: CoachAthleteForm,
+              lazy: CoachAthleteForm,
             },
             {
               path: "coach/schedule",
-              Component: CoachSchedule,
+              lazy: CoachSchedule,
             },
             {
               path: "coach/attendance",
-              Component: CoachAttendance,
+              lazy: CoachAttendance,
             },
             {
               path: "coach/performance",
-              Component: CoachPerformance,
+              lazy: CoachPerformance,
             },
             {
               path: "coach/requirements",
-              Component: CoachRequirements,
+              lazy: CoachRequirements,
             },
             {
               path: "coach/protests",
-              Component: CoachProtests,
+              lazy: CoachProtests,
             },
             {
               path: "coach/announcements",
-              Component: CoachAnnouncements,
+              lazy: CoachAnnouncements,
             },
 
             // Athlete routes
-            { path: "athlete", Component: AthleteDashboard },
+            { path: "athlete", lazy: AthleteDashboard },
             {
               path: "athlete/dashboard",
-              Component: AthleteDashboard,
+              lazy: AthleteDashboard,
             },
             {
               path: "athlete/schedule",
-              Component: AthleteSchedule,
+              lazy: AthleteSchedule,
             },
             {
               path: "athlete/performance",
-              Component: AthletePerformance,
+              lazy: AthletePerformance,
             },
             {
               path: "athlete/requirements",
-              Component: AthleteRequirements,
+              lazy: AthleteRequirements,
             },
             {
               path: "athlete/attendance",
-              Component: AthleteAttendance,
+              lazy: AthleteAttendance,
             },
             {
               path: "athlete/team",
-              Component: AthleteTeam,
+              lazy: AthleteTeam,
             },
 
             // Shared account settings (coach, athlete, judge)
-            { path: "settings/account", Component: AccountSettings },
+            { path: "settings/account", lazy: AccountSettings },
 
             { path: "*", Component: NotFound },
           ],
@@ -255,7 +281,7 @@ export default function App() {
         // Full-screen standings board for a venue TV — no app chrome.
         {
           path: "/standings",
-          Component: StandingsBoard,
+          lazy: StandingsBoard,
         },
       ]),
     [],

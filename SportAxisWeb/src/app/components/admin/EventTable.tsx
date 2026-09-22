@@ -17,18 +17,6 @@ interface EventTableProps {
 }
 
 export default function EventTable({ events }: EventTableProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ongoing':
-        return 'bg-green-500';
-      case 'upcoming':
-        return 'bg-blue-500';
-      case 'completed':
-        return 'bg-gray-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {

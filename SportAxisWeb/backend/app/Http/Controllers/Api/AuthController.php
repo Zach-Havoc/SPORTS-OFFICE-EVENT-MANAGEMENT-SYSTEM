@@ -15,6 +15,16 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /**
+     * Bump this whenever the Data Privacy Notice text materially changes —
+     * it's stored per-user alongside their acceptance timestamp so a future
+     * revision can be distinguished from what an existing account actually
+     * saw. Keep it in sync with the notice text shown by the mobile/web apps
+     * (SportAxisApp/app/(auth)/privacy-notice.tsx,
+     * SportAxisWeb/src/app/pages/PrivacyNotice.tsx).
+     */
+    private const PRIVACY_NOTICE_VERSION = '2026-09-21';
+
     /** POST /api/signup */
     public function signup(Request $request)
     {
@@ -25,6 +35,12 @@ class AuthController extends Controller
             'role' => 'required|in:admin,coach,athlete,judge',
             'registrationCode' => 'required|string',
             'srCode' => 'required_if:role,athlete|nullable|string',
+            // Every account holder must be shown, and acknowledge, the Data
+            // Privacy Notice — athletes' medical clearance documents are a
+            // mandatory eligibility requirement (not opt-in), so this is an
+            // acknowledgment-of-disclosure record, not a consent gate the
+            // signup can be completed without.
+            'privacyNoticeAccepted' => 'required|accepted',
         ]);
 
         // Validate registration code
@@ -98,6 +114,8 @@ class AuthController extends Controller
             'year_level' => $verified['year_level'],
             'course' => $verified['course'],
             'student_verified_at' => $verified['student_verified_at'],
+            'privacy_notice_accepted_at' => now(),
+            'privacy_notice_version' => self::PRIVACY_NOTICE_VERSION,
         ]);
 
         // Mark code as used

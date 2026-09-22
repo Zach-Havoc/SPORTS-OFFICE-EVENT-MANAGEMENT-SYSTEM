@@ -41,7 +41,6 @@ export default function DepartmentCarousel() {
   const [slides, setSlides] = useState<Slide[]>(defaultSlides);
   const [current, setCurrent] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
-  const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [paused, setPaused] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
   const [textVisible, setTextVisible] = useState(true);
@@ -53,29 +52,33 @@ export default function DepartmentCarousel() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.length > 0) setSlides(parsed);
-      } catch {}
+      } catch { /* not JSON — keep default slides */ }
     }
     const handler = () => {
       const s = localStorage.getItem('carouselSlides');
-      if (s) try { const p = JSON.parse(s); if (p.length > 0) setSlides(p); } catch {}
+      if (s) {
+        try {
+          const p = JSON.parse(s);
+          if (p.length > 0) setSlides(p);
+        } catch { /* not JSON — keep current slides */ }
+      }
     };
     window.addEventListener('carouselSlidesUpdated', handler);
     return () => window.removeEventListener('carouselSlidesUpdated', handler);
   }, []);
 
-  const goTo = useCallback((idx: number, dir: 'next' | 'prev' = 'next') => {
+  const goTo = useCallback((idx: number) => {
     setTextVisible(false);
     setTimeout(() => {
       setPrev(current);
       setCurrent(idx);
-      setDirection(dir);
       setProgressKey(k => k + 1);
       setTextVisible(true);
     }, 80);
   }, [current]);
 
-  const next = useCallback(() => goTo((current + 1) % slides.length, 'next'), [current, slides.length, goTo]);
-  const back = useCallback(() => goTo((current - 1 + slides.length) % slides.length, 'prev'), [current, slides.length, goTo]);
+  const next = useCallback(() => goTo((current + 1) % slides.length), [current, slides.length, goTo]);
+  const back = useCallback(() => goTo((current - 1 + slides.length) % slides.length), [current, slides.length, goTo]);
 
   useEffect(() => {
     if (paused) { if (timerRef.current) clearInterval(timerRef.current); return; }
@@ -265,7 +268,7 @@ export default function DepartmentCarousel() {
           {slides.map((_, i) => (
             <button
               key={i}
-              onClick={() => goTo(i, i > current ? 'next' : 'prev')}
+              onClick={() => goTo(i)}
               className="flex-1 h-0.5 rounded-full overflow-hidden bg-white/25"
               aria-label={`Go to slide ${i + 1}`}
             >
@@ -289,7 +292,7 @@ export default function DepartmentCarousel() {
             return (
               <button
                 key={`thumb-${i}`}
-                onClick={() => goTo(i, i > current ? 'next' : 'prev')}
+                onClick={() => goTo(i)}
                 className="relative flex-1 overflow-hidden focus:outline-none group"
                 style={{ height: 72 }}
                 aria-label={`View ${slide.name}`}

@@ -63,9 +63,13 @@ api.interceptors.response.use(
       }
 
       if (status === 422) {
+        // Most 422s are Laravel's default validator shape ({errors: {field: [...]}}),
+        // but a few auth endpoints (signup's SR-code checks) return a single
+        // {error: "..."} string instead — surface that verbatim rather than the
+        // generic fallback so the real reason reaches the user.
         return Promise.reject({
           code: 'VALIDATION_ERROR',
-          message: 'Validation failed.',
+          message: data.error ?? data.message ?? 'Validation failed.',
           errors: data.errors ?? {},
         });
       }
@@ -95,9 +99,13 @@ api.interceptors.response.use(
       });
     }
 
+    // This branch fires on ANY unreachable-server failure — wrong IP, server
+    // down, or (notably) running Expo in --tunnel mode while the API server
+    // itself isn't tunneled — not only on a genuinely offline device. Don't
+    // claim "no internet" when the real problem is "can't reach the server".
     return Promise.reject({
       code: 'NETWORK_ERROR',
-      message: 'No internet connection. Your scores will be saved offline.',
+      message: "Can't reach the server. Your scores will be saved offline.",
     });
   },
 );

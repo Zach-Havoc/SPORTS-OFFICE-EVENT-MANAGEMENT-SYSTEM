@@ -26,6 +26,7 @@ class User extends Authenticatable
         'sport', 'sports', 'gender_category', 'department', 'enrollment_code', 'coach_id', 'coach_name', 'enrolled_at',
         'sr_code', 'gender', 'student_verified_at', 'department_id',
         'year_level', 'course', 'phone', 'emergency_contact',
+        'privacy_notice_accepted_at', 'privacy_notice_version',
     ];
 
     protected $hidden = ['password'];
@@ -33,6 +34,7 @@ class User extends Authenticatable
     protected $casts = [
         'enrolled_at' => 'datetime',
         'student_verified_at' => 'datetime',
+        'privacy_notice_accepted_at' => 'datetime',
         'sports' => 'array',
         'emergency_contact' => 'array',
         'active' => 'boolean',
@@ -76,6 +78,8 @@ class User extends Authenticatable
             'coachId' => $this->coach_id,
             'coachName' => $this->coach_name,
             'enrolledAt' => $this->enrolled_at,
+            'privacyNoticeAcceptedAt' => $this->privacy_notice_accepted_at,
+            'privacyNoticeVersion' => $this->privacy_notice_version,
         ];
     }
 

@@ -4,6 +4,7 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, RADIUS, SPACING, TYPE } from '../../../constants/theme';
 import { Button } from '../../../src/components/ui/Button';
+import { Card } from '../../../src/components/ui/Card';
 import { Icon, type IconName } from '../../../src/components/ui/Icon';
 import { useEventStore } from '../../../src/store/event.store';
 
@@ -58,7 +59,7 @@ export default function ConfirmScreen() {
           {offline ? 'Will sync when you’re back online.' : 'Recorded.'}
         </Text>
 
-        <View style={styles.card}>
+        <Card variant="tint" style={styles.card}>
           <Row label="Event" value={eventName ?? '–'} />
           {many ? (
             scored.map((s) => <Row key={s.d} label={s.d} value={String(s.v)} highlight />)
@@ -69,7 +70,7 @@ export default function ConfirmScreen() {
             </>
           )}
           <Row label="Method" value={mode === 'ocr' ? 'Scanned sheet' : 'Manual entry'} icon={mode === 'ocr' ? 'camera' : 'pencil'} last />
-        </View>
+        </Card>
 
         <View style={styles.actions}>
           {many ? (
@@ -86,7 +87,7 @@ export default function ConfirmScreen() {
         </View>
       </Animated.View>
 
-      <Text style={styles.footer}>© 2026 Batangas State University</Text>
+      <Text style={styles.footer}>© 2026 SportsAxis</Text>
     </SafeAreaView>
   );
 }
@@ -122,9 +123,8 @@ const styles = StyleSheet.create({
   sub: { ...TYPE.body, color: COLORS.textSecondary, textAlign: 'center' },
   card: {
     width: '100%',
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: RADIUS.xl,
     paddingHorizontal: SPACING.lg,
+    paddingVertical: 0,
     marginTop: SPACING.lg,
   },
   actions: { width: '100%', gap: SPACING.sm, marginTop: SPACING.lg },

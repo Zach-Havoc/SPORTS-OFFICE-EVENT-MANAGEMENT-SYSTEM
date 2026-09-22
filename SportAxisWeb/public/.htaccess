@@ -1,0 +1,29 @@
+# SportsAxis — one InfinityFree domain serves both this SPA and the Laravel
+# API (see INFINITYFREE_DEPLOYMENT.md). Real files/assets are served
+# directly; everything else — SPA client-side routes AND /api|/sanctum
+# calls — goes through index.php, which decides which of those two it is
+# (see that file). This is deliberately NOT a plain "fall back to
+# index.html" rule: an index.php sitting alongside index.html at the same
+# path means Apache's normal DirectoryIndex would try index.php first for
+# "/" anyway, so index.php has to be the one universal front door, not a
+# second thing competing with it.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Laravel's storage disk (department logos, site carousel slides,
+  # coach-uploaded requirement PDFs, OCR-captured score-sheet photos — every
+  # asset(), 'storage/'.$filename) URL the backend generates) normally
+  # reaches disk via the standard `public/storage` symlink. There's no
+  # core/public/ in this split layout, and PHP's symlink() is disabled on
+  # many shared hosts anyway — so map the URL straight to the real path
+  # instead of depending on a symlink existing at all. This directory's own
+  # access rule (see core/storage/app/public/.htaccess) has to explicitly
+  # allow this, since core/.htaccess denies everything else in core/ by
+  # default.
+  RewriteRule ^storage/(.*)$ core/storage/app/public/$1 [L]
+
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.php [L]
+</IfModule>

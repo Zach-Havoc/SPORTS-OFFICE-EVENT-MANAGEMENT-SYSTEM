@@ -123,4 +123,18 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Migration Endpoint Token
+    |--------------------------------------------------------------------------
+    |
+    | Protects GET /artisan-migrate (MaintenanceController) — the only way to
+    | run migrations/seeders on a host with no CLI access (InfinityFree).
+    | Empty by default so the endpoint is a hard 403 everywhere else unless
+    | someone deliberately sets this.
+    |
+    */
+
+    'migration_token' => env('MIGRATION_TOKEN', ''),
+
 ];

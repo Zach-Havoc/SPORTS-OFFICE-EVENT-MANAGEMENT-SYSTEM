@@ -23,12 +23,28 @@ use Database\Factories\TeamMatchFactory;
 use Database\Factories\TryoutApplicationFactory;
 use Database\Factories\UserFactory;
 use Database\Factories\VenueFactory;
+use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\Sanctum;
 
 abstract class TestCase extends BaseTestCase
 {
+    // Tests using RefreshDatabase migrate an empty schema, then rely on this
+    // to get baseline reference data (eligibility checklist, racquet
+    // disciplines, default season) — that data used to be seeded inline by
+    // three migrations, moved out to keep `schema:dump`'s fast-install path
+    // working. Deliberately NOT DatabaseSeeder — that also creates demo
+    // accounts with known passwords, which no test should depend on existing.
+    //
+    // This must be a PROPERTY, not a `seeder()` method: RefreshDatabase's
+    // CanConfigureMigrationCommands trait defines its own `seeder()` method
+    // that reads `$this->seeder` as a property — and since RefreshDatabase is
+    // `use`d directly inside each test class (not here), a same-named method
+    // defined on this parent class would be shadowed by the trait's, and
+    // silently never called.
+    protected $seeder = ReferenceDataSeeder::class;
+
     protected function setUp(): void
     {
         parent::setUp();
