@@ -6,6 +6,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,6 +24,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Some MySQL/MariaDB setups (seen on InfinityFree) still default to
+        // an index key length of 1000 bytes without innodb_large_prefix
+        // enabled. utf8mb4 uses up to 4 bytes/char, so Laravel's default
+        // string() length of 255 makes any unique/indexed string column
+        // (users.email, etc.) exceed that the instant the table is created
+        // fresh — "Specified key was too long". 191 chars * 4 bytes = 764,
+        // safely under the limit, and plenty for every string column this
+        // app actually has. Harmless everywhere else (modern MySQL 8 with
+        // innodb_large_prefix never hits the limit regardless of this
+        // setting) — this doesn't change local dev's already-migrated
+        // tables, only future fresh migrations.
+        Schema::defaultStringLength(191);
+
         $this->configureRateLimiters();
         $this->warnIfBroadcastingIsDegradedInProduction();
     }
