@@ -58,6 +58,28 @@ if (file_exists($envFile = __DIR__.'/core/env.php')) {
     }
 }
 
+// Diagnostic mode: only for /artisan-migrate, only with the correct token
+// (checked directly here, since a crash during Laravel's own boot/middleware
+// — e.g. a broken DB connection with SESSION_DRIVER=database — happens
+// BEFORE MaintenanceController's own token check ever runs, and
+// APP_DEBUG=false hides the real error from a plain 500 page).
+//
+// This forces APP_DEBUG=true for just this one request instead of trying
+// to catch errors with a custom handler — tested that approach first and
+// it doesn't work, because Laravel's own HandleExceptions bootstrapper
+// re-registers its own set_exception_handler/set_error_handler during
+// boot, silently overriding anything set here. Forcing the env var instead
+// makes Laravel render its own real debug page, which is the actual
+// tested, working mechanism, not a competing one. Gated by the same secret
+// that already grants full migrate/seed/fresh access, so this adds no real
+// exposure beyond what that token already allows.
+if ($path === '/artisan-migrate' && isset($_ENV['MIGRATION_TOKEN']) && $_ENV['MIGRATION_TOKEN'] !== ''
+    && hash_equals($_ENV['MIGRATION_TOKEN'], $_GET['token'] ?? '')) {
+    putenv('APP_DEBUG=true');
+    $_ENV['APP_DEBUG'] = 'true';
+    $_SERVER['APP_DEBUG'] = 'true';
+}
+
 require __DIR__.'/core/vendor/autoload.php';
 
 /** @var Application $app */
