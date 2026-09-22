@@ -6,12 +6,13 @@ name: Deploy to InfinityFree
 # implements (frontend at .../htdocs/, backend at .../htdocs/core/, one
 # shared front controller deciding which handles each request).
 #
-# IMPORTANT: this InfinityFree account hosts multiple domains, each with
-# its own htdocs/ nested under a domain-named folder — the account's
-# top-level htdocs/ is NOT what's served for this domain. Confirmed via
-# File Manager: the real web root is
-# sportsaxis-arasofbsu.page.gd/htdocs/. If this ever moves to a
-# different domain/account, update BOTH server-dir paths below to match.
+# NOTE: an earlier domain on this account nested each domain's web root
+# under a domain-named folder (Home/<domain>/htdocs/, not a flat
+# Home/htdocs/) — that is NOT the case for the current hosting slot
+# (sportsaxis-bsuarasof.freedev.app), confirmed via File Manager: htdocs/
+# sits directly at Home, no domain folder. If this ever moves to a
+# different domain/slot, re-verify in File Manager before assuming either
+# layout — both server-dir paths below would need updating to match.
 #
 # vendor/ and storage/ are deliberately excluded from the backend sync and
 # stay as a ONE-TIME manual upload (see the deployment guide) — vendor/
@@ -66,7 +67,7 @@ jobs:
       # see .env.example in SportAxisWeb/ for what each variable does.
       #
       # In this split-domain layout VITE_API_URL is just this same site's
-      # own domain + /api (e.g. https://sportsaxis-arasofbsu.page.gd/api) —
+      # own domain + /api (e.g. https://sportsaxis-bsuarasof.freedev.app/api) —
       # there's no second domain to look up.
       - name: Build frontend (production)
         working-directory: SportAxisWeb
@@ -78,7 +79,7 @@ jobs:
           VITE_REVERB_SCHEME: ${{ secrets.VITE_REVERB_SCHEME }}
         run: npm run build
 
-      - name: Deploy backend to sportsaxis-arasofbsu.page.gd/htdocs/core/
+      - name: Deploy backend to htdocs/core/
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -87,7 +88,7 @@ jobs:
           port: 21
           protocol: ftp
           local-dir: ./SportAxisWeb/backend/
-          server-dir: ./sportsaxis-arasofbsu.page.gd/htdocs/core/
+          server-dir: ./htdocs/core/
           state-name: .ftp-deploy-sync-state-core.json
           exclude: |
             **/.git*
@@ -104,7 +105,7 @@ jobs:
             env.php.example
             .phpunit.result.cache
 
-      - name: Deploy frontend to sportsaxis-arasofbsu.page.gd/htdocs/
+      - name: Deploy frontend to htdocs/
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -113,7 +114,7 @@ jobs:
           port: 21
           protocol: ftp
           local-dir: ./SportAxisWeb/dist/
-          server-dir: ./sportsaxis-arasofbsu.page.gd/htdocs/
+          server-dir: ./htdocs/
           state-name: .ftp-deploy-sync-state-web.json
           exclude: |
             **/.git*

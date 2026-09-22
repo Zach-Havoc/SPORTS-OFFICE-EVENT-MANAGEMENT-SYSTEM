@@ -41,20 +41,19 @@ a normal HTTP request, no shell needed. That's what `/artisan-migrate`
 
 ## Architecture
 
-**Important InfinityFree-specific gotcha:** this account hosts multiple
-domains, and each one gets its own `htdocs/` nested under a domain-named
-folder — the account's top-level `htdocs/` is a *different, unrelated*
-folder, not what's actually served for any particular domain. Confirmed via
-File Manager. The real web root for this project is:
-```
-sportsaxis-arasofbsu.page.gd/htdocs/
-```
-Every path below is relative to *that* `htdocs/`, not the account's
-top-level one — and both `server-dir` values in
-`deploy-web-infinityfree.yml` already point at the correct nested path.
+**A note on InfinityFree's folder layout, since this tripped us up once:**
+some accounts nest each domain's web root under a domain-named folder
+(`Home/<domain>/htdocs/`) instead of a flat `Home/htdocs/` — this happens
+when one account manages multiple domains. The *current* hosting slot for
+`sportsaxis-bsuarasof.freedev.app` is flat (confirmed via File Manager:
+`htdocs/` sits directly at Home), so `deploy-web-infinityfree.yml` targets
+plain `htdocs/` and `htdocs/core/`. **If this project ever moves to a
+different domain or slot, check File Manager first** — don't assume either
+layout; verify it, since guessing wrong means files upload successfully
+while the live site still 404s.
 
 ```
-sportsaxis-arasofbsu.page.gd/htdocs/  <- InfinityFree public web root for this domain
+htdocs/                              <- InfinityFree public web root
 ├── index.php                        <- ONE front controller for everything
 │                                        (SportAxisWeb/public/index.php)
 ├── .htaccess                        <- routes requests to index.php,
@@ -82,7 +81,7 @@ directly reachable over HTTP.
 
 - Your InfinityFree FTP details (Client Area → FTP Details): server,
   username, password.
-- Your domain (e.g. `sportsaxis-arasofbsu.page.gd`).
+- Your domain (e.g. `sportsaxis-bsuarasof.freedev.app`).
 - Push access to this repo on GitHub.
 - `SportAxisWeb/backend/` runnable locally — needed to generate `vendor/`
   and `APP_KEY` in Step 3.
