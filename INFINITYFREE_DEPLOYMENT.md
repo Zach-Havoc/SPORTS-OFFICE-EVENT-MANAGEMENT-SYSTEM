@@ -41,8 +41,20 @@ a normal HTTP request, no shell needed. That's what `/artisan-migrate`
 
 ## Architecture
 
+**Important InfinityFree-specific gotcha:** this account hosts multiple
+domains, and each one gets its own `htdocs/` nested under a domain-named
+folder — the account's top-level `htdocs/` is a *different, unrelated*
+folder, not what's actually served for any particular domain. Confirmed via
+File Manager. The real web root for this project is:
 ```
-htdocs/                              <- InfinityFree public web root
+sportsaxis-arasofbsu.page.gd/htdocs/
+```
+Every path below is relative to *that* `htdocs/`, not the account's
+top-level one — and both `server-dir` values in
+`deploy-web-infinityfree.yml` already point at the correct nested path.
+
+```
+sportsaxis-arasofbsu.page.gd/htdocs/  <- InfinityFree public web root for this domain
 ├── index.php                        <- ONE front controller for everything
 │                                        (SportAxisWeb/public/index.php)
 ├── .htaccess                        <- routes requests to index.php,
