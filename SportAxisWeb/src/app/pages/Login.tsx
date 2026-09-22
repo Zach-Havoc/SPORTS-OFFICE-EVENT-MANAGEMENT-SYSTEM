@@ -131,7 +131,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src="/batstateu-seal.png" alt="Batangas State University" className="h-16 w-16 object-contain" />
+            <img src="/sportaxis-mark.png" alt="SportAxis" className="h-16 w-16 object-contain" />
           </div>
           <CardTitle>
             {mode === 'login' && 'Welcome Back'}

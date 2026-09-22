@@ -1,6 +1,3 @@
-import spartansLogo from 'figma:asset/a78d515b3174b3e35a54bedf9be1f36c9fcde05c.png';
-import bgImage from 'figma:asset/d00b81b29bccf92203e98ef7d2b2d2f18d87f4b1.png';
-
 interface LoadingProps {
   message?: string;
   fullScreen?: boolean;
@@ -9,23 +6,16 @@ interface LoadingProps {
 export default function Loading({ message = "Loading...", fullScreen = true }: LoadingProps) {
   if (fullScreen) {
     return (
-      <div 
-        className="min-h-screen w-full flex items-center justify-center fixed inset-0 z-50" 
-        style={{
-          backgroundImage: `url(${bgImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed'
-        }}
+      <div
+        className="min-h-screen w-full flex items-center justify-center fixed inset-0 z-50 bg-white"
       >
-        <div className="absolute inset-0 bg-white/90 backdrop-blur-[2px]"></div>
         <div className="relative z-10 flex flex-col items-center justify-center w-full px-4 py-12">
           {/* Logo */}
           <div className="relative w-32 h-32 flex items-center justify-center mb-6">
-            <img 
-              src={spartansLogo} 
-              alt="BatStateU Red Spartans" 
-              className="w-24 h-24 object-contain animate-pulse relative z-10"
+            <img
+              src="/sportaxis-mark.png"
+              alt="SportAxis"
+              className="w-28 h-28 object-contain animate-pulse relative z-10"
             />
           </div>
           
@@ -53,11 +43,11 @@ export default function Loading({ message = "Loading...", fullScreen = true }: L
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-24 h-24 bg-red-100 rounded-full animate-ping"></div>
         </div>
-        
+
         {/* Logo - centered */}
-        <img 
-          src={spartansLogo} 
-          alt="BatStateU Red Spartans" 
+        <img
+          src="/sportaxis-mark.png"
+          alt="SportAxis"
           className="w-16 h-16 object-contain animate-pulse relative z-10"
         />
       </div>

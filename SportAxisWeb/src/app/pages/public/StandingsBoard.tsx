@@ -84,7 +84,7 @@ function useFlip(order: string[]) {
 
 // ── clock ───────────────────────────────────────────────────────────────────
 
-/** University seal — drop the file at SportAxisWeb/public/batstateu-seal.png.
+/** SportAxis mark — drop the file at SportAxisWeb/public/sportaxis-mark.png.
  *  Falls back to a trophy tile if the file isn't there yet. */
 function Crest() {
   const [ok, setOk] = useState(true);
@@ -97,10 +97,10 @@ function Crest() {
   }
   return (
     <img
-      src="/batstateu-seal.png"
-      alt="Batangas State University"
+      src="/sportaxis-mark-white.png"
+      alt="SportAxis"
       onError={() => setOk(false)}
-      className="h-[3.5vw] w-[3.5vw] rounded-full bg-white object-contain p-[0.25vw] ring-2 ring-white/30"
+      className="h-[3.5vw] w-[3.5vw] object-contain"
     />
   );
 }
@@ -322,11 +322,11 @@ export default function StandingsBoard() {
       {/* Rotating body — a fresh panel animates in each rotation */}
       <div className="relative flex-1 overflow-hidden">
         <img
-          src="/batstateu-seal.png"
+          src="/sportaxis-mark.png"
           alt=""
           aria-hidden
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          className="pointer-events-none absolute left-1/2 top-1/2 w-[40vw] -translate-x-1/2 -translate-y-1/2 opacity-[0.035]"
+          className="pointer-events-none absolute left-1/2 top-1/2 w-[40vw] -translate-x-1/2 -translate-y-1/2 opacity-[0.06]"
         />
         <div key={active} className="view-enter absolute inset-0">
           {active === 'live'

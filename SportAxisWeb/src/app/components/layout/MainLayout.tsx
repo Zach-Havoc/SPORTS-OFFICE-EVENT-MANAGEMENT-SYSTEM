@@ -34,7 +34,6 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "../ui/utils";
-import bgImage from "figma:asset/d00b81b29bccf92203e98ef7d2b2d2f18d87f4b1.png";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -211,18 +210,8 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Background Image with Gradient Overlay */}
-      <div
-        className="fixed inset-0 z-0"
-        style={{
-          backgroundImage: `url(${bgImage})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-red-900/10 via-white/5 to-gray-900/10 backdrop-blur-[2px]"></div>
-      </div>
+      {/* Background gradient */}
+      <div className="fixed inset-0 z-0 bg-gradient-to-br from-red-50 via-white to-gray-50" />
 
       {/* Main Container */}
       <div className="relative z-10 flex h-screen overflow-hidden">
@@ -247,9 +236,9 @@ export default function MainLayout() {
               <div className="flex items-center justify-between p-6 border-b">
                 <div className="flex items-center space-x-3">
                   <img
-                    src="/batstateu-seal.png"
-                    alt="Batangas State University"
-                    className="h-8 w-8 object-contain"
+                    src="/sportaxis-mark.png"
+                    alt="SportAxis"
+                    className="h-9 w-9 object-contain"
                   />
                   <div>
                     <h2 className="font-bold text-base text-gray-900 leading-tight">
@@ -332,13 +321,11 @@ export default function MainLayout() {
               <div className="flex items-center justify-between p-6 border-b border-white/10">
                 {!sidebarCollapsed && (
                   <div className="flex items-center space-x-3">
-                    <div className="bg-white p-1.5 rounded-lg">
-                      <img
-                        src="/batstateu-seal.png"
-                        alt="Batangas State University"
-                        className="h-7 w-7 object-contain"
-                      />
-                    </div>
+                    <img
+                      src="/sportaxis-mark-white.png"
+                      alt="SportAxis"
+                      className="h-9 w-9 object-contain"
+                    />
                     <div>
                       <h2 className="font-bold text-lg">SportsAxis</h2>
                       <p className="text-xs text-red-100">Competition System</p>
@@ -559,8 +546,8 @@ export default function MainLayout() {
                   {!user && (
                     <Link to="/" className="flex items-center space-x-2">
                       <img
-                        src="/batstateu-seal.png"
-                        alt="Batangas State University"
+                        src="/sportaxis-mark.png"
+                        alt="SportAxis"
                         className="h-8 w-8 sm:h-10 sm:w-10 object-contain"
                       />
                       <div>
