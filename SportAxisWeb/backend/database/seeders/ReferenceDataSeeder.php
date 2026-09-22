@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -22,6 +23,11 @@ use Illuminate\Support\Str;
  * schema was built via a full migration replay or the schema-dump fast path.
  *
  * Idempotent: safe to run against a database that already has this data.
+ *
+ * Also loads database/seeders/data/dev_snapshot.php if present — a real
+ * data export (accounts, events, brackets, scores) committed to git so a
+ * fresh install doesn't start empty. See seedLocalSnapshot() and that
+ * file's own docblock.
  */
 class ReferenceDataSeeder extends Seeder
 {
@@ -51,29 +57,35 @@ class ReferenceDataSeeder extends Seeder
     }
 
     /**
-     * Optional: loads database/seeders/data/dev_snapshot.sql if present —
-     * a full data export (accounts, events, brackets, scores, etc.) from an
-     * existing working database, so a fresh install doesn't start empty.
+     * Loads database/seeders/data/dev_snapshot.php — a real data export
+     * (accounts, events, brackets, scores, etc.) from a working database,
+     * so a fresh install doesn't start empty. Committed to git (see that
+     * file's own docblock for what's deliberately excluded and why —
+     * personal_access_tokens and sessions must never be added back).
      *
-     * Not committed by default (see database/seeders/data/README.md for how
-     * to generate one) — silently does nothing if the file doesn't exist,
-     * so this never breaks a fresh clone or CI, which have no such file.
-     *
-     * Wrapped with FOREIGN_KEY_CHECKS off: a phpMyAdmin export lists tables
-     * alphabetically, not in dependency order, so inserting athletes before
-     * users (etc.) would otherwise fail on the foreign key.
+     * insertOrIgnore per table, wrapped with foreign key checks disabled:
+     * the export lists tables alphabetically, not dependency order, so
+     * inserting e.g. athletes before users would otherwise fail on the
+     * foreign key. Silently does nothing if the file is ever missing (kept
+     * as a guard, not because that's expected — this file is committed).
      */
     private function seedLocalSnapshot(): void
     {
-        $path = database_path('seeders/data/dev_snapshot.sql');
+        $path = database_path('seeders/data/dev_snapshot.php');
 
         if (! file_exists($path)) {
             return;
         }
 
-        DB::unprepared('SET FOREIGN_KEY_CHECKS=0');
-        DB::unprepared(file_get_contents($path));
-        DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
+        Schema::disableForeignKeyConstraints();
+
+        foreach (require $path as $table => $rows) {
+            if ($rows !== []) {
+                DB::table($table)->insertOrIgnore($rows);
+            }
+        }
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

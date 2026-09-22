@@ -5,10 +5,6 @@
 .env.production
 # Real filled-in InfinityFree config (see env.php.example) — never commit.
 env.php
-# Real user data export (accounts, phone numbers, emergency contacts) —
-# loaded by ReferenceDataSeeder if present, generated locally, uploaded to
-# the server by hand like vendor/env.php. Never commit real PII to git.
-database/seeders/data/*.sql
 .phpactor.json
 .phpunit.result.cache
 /.codex

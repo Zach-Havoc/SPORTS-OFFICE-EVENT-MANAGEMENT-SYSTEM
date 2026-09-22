@@ -1,56 +1,76 @@
-# dev_snapshot.sql — real data export, not committed
+# dev_snapshot.php — real data, committed to git
 
-`ReferenceDataSeeder` loads `dev_snapshot.sql` from this folder if it
-exists (see that file's `seedLocalSnapshot()` method). This file is
-**never committed** — it's real user data (accounts, phone numbers,
-emergency contacts, real emails), gitignored via
-`database/seeders/data/*.sql` in `.gitignore`, generated locally and
-uploaded to a real server by hand, the same way `vendor/` and `env.php` are
-for InfinityFree.
+`ReferenceDataSeeder::seedLocalSnapshot()` loads this file if it exists and
+inserts every row via `DB::table($table)->insertOrIgnore($rows)`.
 
-**Does not load during tests** — `ReferenceDataSeeder::run()` skips it
-when `APP_ENV=testing` (which `phpunit.xml` sets). `TestCase.php` uses
-this seeder for every `RefreshDatabase` test, and those tests assert
-specific row counts assuming just the small baseline (categories,
-requirement types, one season) — loading 48 users/34 events on top of that
-broke ~45 tests the first time this was tried.
+**This is committed to git and contains real user data** — names, phone
+numbers, emergency contacts, real emails. That's a deliberate, explicit
+choice (not the default recommendation — a gitignored version was offered
+first and turned down), so if this repo or its history is ever made public
+or shared more broadly, that data goes with it. Worth remembering if the
+repo's visibility ever changes.
+
+**Does not load during tests** — `ReferenceDataSeeder::run()` skips it when
+`APP_ENV=testing` (set in `phpunit.xml`). `TestCase.php` uses this seeder
+for every `RefreshDatabase` test, and those tests assert specific row
+counts assuming just the small baseline (categories, requirement types,
+one season) — loading 48 users/34 events on top of that broke ~45 tests
+the first time this was tried.
+
+## What's excluded, and why — never add these back
+
+- **`personal_access_tokens`** — contains live, working Sanctum API
+  tokens. Including one means anyone who can read this file (which is
+  now anyone with repo access, since it's committed) can authenticate as
+  that account.
+- **`sessions`** — encrypted browser session payloads, meaningless outside
+  the browser that created them.
+- **`migrations`, `cache`, `cache_locks`** — framework bookkeeping, not
+  app data; already correctly populated by running migrations normally.
 
 ## Regenerating it
 
-```bash
-mysqldump -h 127.0.0.1 -u <your-db-user> -p \
-  --no-create-info \
-  --complete-insert \
-  --insert-ignore \
-  --skip-add-locks \
-  --skip-disable-keys \
-  --no-tablespaces \
-  --single-transaction \
-  --ignore-table=<database>.personal_access_tokens \
-  --ignore-table=<database>.sessions \
-  --ignore-table=<database>.migrations \
-  --ignore-table=<database>.cache \
-  --ignore-table=<database>.cache_locks \
-  <database> \
-  > database/seeders/data/dev_snapshot.sql 2>/dev/null
+Run this against your local database (adjust host/user/password/db name):
+
+```php
+<?php
+$pdo = new PDO('mysql:host=127.0.0.1;dbname=sportsaxis;charset=utf8mb4', 'DB_USER', 'DB_PASSWORD');
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+$tables = [
+    'departments', 'venues', 'categories', 'seasons', 'users', 'requirement_types',
+    'athletes', 'discipline_entries', 'coach_category', 'events', 'event_department',
+    'brackets', 'bracket_matches', 'live_scores', 'scores', 'rankings',
+    'team_matches', 'performance_records', 'requirements', 'attendance_sessions',
+    'attendance_records', 'audit_logs', 'notifications', 'announcements',
+    'tryout_applications', 'registration_codes', 'site_slides', 'email_verifications',
+    'protests',
+]; // NOT personal_access_tokens or sessions — see above.
+
+$out = "<?php\n\nreturn [\n";
+foreach ($tables as $table) {
+    $rows = $pdo->query("SELECT * FROM `{$table}`")->fetchAll(PDO::FETCH_ASSOC);
+    $out .= "    '{$table}' => " . var_export($rows, true) . ",\n";
+}
+$out .= "];\n";
+
+file_put_contents(__DIR__ . '/dev_snapshot.php', $out);
 ```
 
-**The 5 excluded tables matter, don't skip them:**
-- `personal_access_tokens` — contains live, working Sanctum API tokens.
-  Committing or uploading one of these means anyone with it can
-  authenticate as that account. Never let this table into an export.
-- `sessions` — encrypted browser session payloads, meaningless outside the
-  browser that created them.
-- `migrations`, `cache`, `cache_locks` — framework bookkeeping, not app
-  data; already correctly populated by running migrations normally.
+Then `php -l database/seeders/data/dev_snapshot.php` to confirm it's valid,
+and re-run the test suite before committing — a schema change (new/renamed
+column) since this was last generated could otherwise silently produce
+rows that don't match the current migrations.
 
-**`--no-create-info`** matters too — this file only INSERTs into tables
-that migrations already created; it must never contain `CREATE TABLE`.
+## Load order (why this file loads *before* the baseline methods)
 
-## Deploying it to InfinityFree
-
-Upload the generated file to `htdocs/core/database/seeders/data/dev_snapshot.sql`
-— same one-time manual step as `vendor/`, `storage/`, and `env.php` (see
-`INFINITYFREE_DEPLOYMENT.md`). It'll be picked up automatically the next
-time `/artisan-migrate?...&seed=1&class=Database\Seeders\ReferenceDataSeeder`
-runs.
+`ReferenceDataSeeder::run()` calls `seedLocalSnapshot()` before
+`seedRacquetDisciplines()`/`seedDefaultRequirementTypes()`/`seedDefaultSeason()`,
+not after. This file carries its own specific UUIDs for
+categories/requirement_types/seasons, cross-referenced by its own
+events/discipline_entries/etc. Those three methods each check-before-insert
+and correctly skip once they see this data already exists — but only if it
+loads first. Loading it last would instead race them: their fresh random
+UUIDs would claim the same `categories.name` unique slot first, silently
+blocking this file's own category rows via `insertOrIgnore` and leaving its
+events pointing at category_ids that were never created.
