@@ -19,8 +19,13 @@ return new class extends Migration
     {
         if (! Schema::hasTable('coach_category')) {
             Schema::create('coach_category', function (Blueprint $table) {
-                $table->string('coach_id');
-                $table->string('category_id');
+                // Explicit shorter lengths, not the default 191: these two
+                // form the composite primary key below — at utf8mb4's 4
+                // bytes/char, 191+191 exceeds InfinityFree's MySQL 1000-byte
+                // index key limit (confirmed empirically). Both only ever
+                // hold a 36-char UUID (users.id / categories.id).
+                $table->string('coach_id', 36);
+                $table->string('category_id', 36);
                 $table->primary(['coach_id', 'category_id']);
                 $table->index('category_id');
                 $table->foreign('coach_id')->references('id')->on('users')->onDelete('cascade');

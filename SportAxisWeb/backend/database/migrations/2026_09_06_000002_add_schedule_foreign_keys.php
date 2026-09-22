@@ -26,8 +26,13 @@ return new class extends Migration
         // ── the competing colleges of an event ────────────────────────────
         if (! Schema::hasTable('event_department')) {
             Schema::create('event_department', function (Blueprint $table) {
-                $table->string('event_id');
-                $table->string('department_id');
+                // Explicit shorter lengths, not the default 191: these two
+                // form the composite primary key below — at utf8mb4's 4
+                // bytes/char, 191+191 exceeds InfinityFree's MySQL 1000-byte
+                // index key limit (confirmed empirically). Both only ever
+                // hold a 36-char UUID (events.id / departments.id).
+                $table->string('event_id', 36);
+                $table->string('department_id', 36);
                 $table->primary(['event_id', 'department_id']);
                 $table->index('department_id');
                 $table->foreign('event_id')->references('id')->on('events')->onDelete('cascade');
