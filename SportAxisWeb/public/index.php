@@ -7,9 +7,13 @@
  * (see that file's comments for why it has to be routed through PHP rather
  * than resolved by Apache's normal DirectoryIndex).
  *
- * - /api/* and /sanctum/* -> boot Laravel from core/ and let it handle
- *   the request, exactly like a normal Laravel public/index.php would,
- *   just with core/ instead of the app root two directories up.
+ * - /api/*, /sanctum/*, and /artisan-migrate -> boot Laravel from core/ and
+ *   let it handle the request, exactly like a normal Laravel public/index.php
+ *   would, just with core/ instead of the app root two directories up.
+ *   /artisan-migrate is a routes/web.php route (MaintenanceController),
+ *   deliberately outside /api — any FUTURE routes.web.php route needs
+ *   adding to this list too, or it silently falls into the SPA branch
+ *   below and 404s from React Router instead of ever reaching Laravel.
  * - everything else -> this is a client-side-routed React app; there is
  *   no server-side route table to match against, so just hand back the
  *   SPA shell (index.html) and let react-router take over in the browser.
@@ -23,7 +27,7 @@
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 
-if (! preg_match('#^/(api|sanctum)(/|$)#', $path)) {
+if (! preg_match('#^/(api|sanctum)(/|$)#', $path) && $path !== '/artisan-migrate') {
     header('Content-Type: text/html; charset=UTF-8');
     readfile(__DIR__.'/index.html');
     exit;
