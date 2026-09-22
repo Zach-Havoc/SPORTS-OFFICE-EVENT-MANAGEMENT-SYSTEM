@@ -70,3 +70,18 @@ read-only `mysqldump` under the hood; it does not touch your data.
 
 Existing migration files are kept, not deleted — `schema:dump --prune` is
 available if you ever want to remove them, but this project doesn't use it.
+
+## InfinityFree can't use the schema dump at all
+
+Loading the dump on a fresh database shells out to the real `mysql` CLI
+binary via Symfony's `Process` component, which needs `proc_open` —
+disabled on InfinityFree (confirmed empirically: reproduced locally with
+`php -d disable_functions=proc_open artisan migrate --force`, which fails
+with `Symfony\Component\Process\Exception\LogicException: The Process
+class relies on proc_open...` the instant it tries to load the dump, but
+succeeds cleanly via normal per-migration replay once the dump file isn't
+present). `database/schema/mysql-schema.sql` is therefore excluded from the
+InfinityFree deploy (`deploy-web-infinityfree.yml`'s `exclude:` list) —
+that's the *only* environment this matters for; local dev, CI, and any
+host with `proc_open` available all keep using the fast dump-loading path
+exactly as designed.

@@ -31,10 +31,18 @@ laid out:
 - **Composer** — can't run on the server. `vendor/` is built in CI but
   deliberately excluded from the automated deploy; it's uploaded to the
   server by hand, once (see Step 3).
+- **`proc_open`** — disabled (confirmed empirically, see
+  `backend/docs/SCHEMA.md`'s InfinityFree section). This mostly doesn't
+  matter since nothing in this app calls it directly, except Laravel's own
+  `schema:dump` fast-install path does, to shell out to the `mysql` CLI —
+  worked around by excluding `database/schema/mysql-schema.sql` from this
+  deploy specifically, so migrations fall back to normal per-file replay
+  here (still the fast dump-loading path everywhere else).
 
 Migrations are the one exception that *does* work despite no CLI access —
 `Artisan::call('migrate', ...)` is just PHP application code running inside
-a normal HTTP request, no shell needed. That's what `/artisan-migrate`
+a normal HTTP request, no shell needed (as long as it doesn't itself try to
+shell out — see the `proc_open` note above). That's what `/artisan-migrate`
 (Step 6) is for.
 
 ---

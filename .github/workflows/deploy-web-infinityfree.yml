@@ -104,6 +104,7 @@ jobs:
             env.php
             env.php.example
             .phpunit.result.cache
+            database/schema/**
 
       - name: Deploy frontend to htdocs/
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
