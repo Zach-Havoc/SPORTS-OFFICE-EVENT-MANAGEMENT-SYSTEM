@@ -85,3 +85,23 @@ InfinityFree deploy (`deploy-web-infinityfree.yml`'s `exclude:` list) —
 that's the *only* environment this matters for; local dev, CI, and any
 host with `proc_open` available all keep using the fast dump-loading path
 exactly as designed.
+
+## InfinityFree's MySQL also has a stricter index key length limit
+
+New migrations: **give any string column an explicit length if it's going
+into a composite (multi-column) unique/index together with another string
+column.** `Schema::defaultStringLength(191)` (`AppServiceProvider::boot()`)
+already handles a single indexed/unique string column safely, but two
+default-length (191-char) `utf8mb4` string columns combined in one
+constraint is 1528 bytes — over InfinityFree's 1000-byte limit (confirmed
+empirically against the real deploy; local MySQL 8's `innodb_large_prefix`
+means this can't be caught by testing locally, only by working out the
+byte math by hand: `length * 4` per column, summed across every column in
+the constraint). A single string column paired with non-string columns
+(integers, enums, dates) is fine regardless of length.
+
+Existing fixed examples to follow: `discipline_entries` (category/department
+capped at 80, athlete_id at 36 — matching its real UUID length),
+`notifications`/`audit_logs` (their `*_type`/`*_id` polymorphic pairs,
+capped at 100/36), `requirement_types` (name/sport, 150/80),
+`attendance_records` (athlete_id/event_id, both 36).
