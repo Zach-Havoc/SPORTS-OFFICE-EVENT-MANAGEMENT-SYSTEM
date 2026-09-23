@@ -140,7 +140,7 @@ export default function AdminBracketing() {
     sport: '',
     format: 'single-elimination' as 'single-elimination' | 'round-robin',
     participants: [] as string[],
-    venueId: '' as string,   // '' = auto-assign a venue that matches the sport
+    venueId: '' as string,   // '' = no venue set — matches stay "TBD" until one is picked
     startDate: '',           // admin picks it — no default
     startTime: '',
     matchDuration: 60, // minutes
@@ -224,47 +224,10 @@ export default function AdminBracketing() {
     setConfig(prev => ({ ...prev, participants: [] }));
   };
 
-  /** Venues whose `sports` list explicitly names this sport. */
-  const venuesForSport = (sport: string): Venue[] =>
-    venues.filter(v =>
-      (v.sports || []).some(s => s && s.toLowerCase() === sport.toLowerCase()),
-    );
-
-  /**
-   * Pick the venue for a match.
-   *
-   *  - If the admin chose a specific venue in the config, always use that.
-   *  - Otherwise only auto-assign a venue that EXPLICITLY lists this sport.
-   *    If none does, return `undefined` so the match stays "TBD" rather than
-   *    being dumped somewhere wrong (e.g. Swimming in the Main Gymnasium).
-   *    The admin is warned and can add/pick a venue.
-   */
-  const assignVenueForMatch = (sport: string): Venue | undefined => {
-    if (config.venueId) {
-      return venues.find(v => v.id === config.venueId);
-    }
-
-    const pool = venuesForSport(sport);
-    if (pool.length === 0) return undefined;
-
-    // Nudge toward the right kind of facility when the venue `type` is set.
-    const sportLower = sport.toLowerCase();
-    let preferred: string | null = null;
-    if (['basketball', 'volleyball', 'badminton', 'table tennis', 'tennis'].includes(sportLower)) {
-      preferred = 'court';
-    } else if (sportLower === 'swimming') {
-      preferred = 'pool';
-    } else if (['football', 'track & field'].includes(sportLower)) {
-      preferred = 'field';
-    }
-
-    if (preferred) {
-      const match = pool.find(v => (v.type || '').toLowerCase().includes(preferred!));
-      if (match) return match;
-    }
-
-    return pool[0];
-  };
+  /** The admin-chosen venue for a match, or undefined — matches stay "TBD"
+   * until one is explicitly picked, rather than guessing one by sport. */
+  const assignVenueForMatch = (): Venue | undefined =>
+    venues.find(v => v.id === config.venueId);
 
   const parseStartDateTime = (startDateStr: string, startTimeStr: string): Date => {
     try {
@@ -336,7 +299,7 @@ export default function AdminBracketing() {
         if (team1 === null && team2) winner = team2;
         if (team2 === null && team1) winner = team1;
 
-        const venue = assignVenueForMatch(config.sport);
+        const venue = assignVenueForMatch();
 
         matches.push({
           id: `${round}_${pos}`,
@@ -380,7 +343,7 @@ export default function AdminBracketing() {
 
     for (let i = 0; i < numParticipants; i++) {
       for (let j = i + 1; j < numParticipants; j++) {
-        const venue = assignVenueForMatch(config.sport);
+        const venue = assignVenueForMatch();
 
         matches.push({
           id: `match_${matchId++}`,
@@ -534,12 +497,8 @@ export default function AdminBracketing() {
         const sport = targets[i];
         // Stagger each line by a day so 3 brackets on one court/time don't clash.
         const startDate = targets.length > 1 ? addDays(config.startDate, i) : config.startDate;
-        // Resolve the actual venue for THIS bracket's sport — matches what the
-        // preview showed, instead of always sending the raw config.venueId
-        // (which is null/'' when the admin left it on "Auto").
-        const resolvedVenueId = config.venueId || assignVenueForMatch(sport)?.id || null;
         try {
-          const created = await createBracketMut.mutateAsync({ ...basePayload, sport, startDate, venueId: resolvedVenueId });
+          const created = await createBracketMut.mutateAsync({ ...basePayload, sport, startDate });
           createdIds.push(created.id);
           try {
             await publishBracketMut.mutateAsync(created.id);
@@ -895,9 +854,7 @@ export default function AdminBracketing() {
                 value={config.venueId}
                 onChange={(e) => setConfig({ ...config, venueId: e.target.value })}
               >
-                <option value="">
-                  {config.sport ? `Auto — match to ${config.sport}` : 'Auto — match to sport'}
-                </option>
+                <option value="">Select venue</option>
                 {venues.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}{v.type ? ` · ${v.type}` : ''}
@@ -906,10 +863,8 @@ export default function AdminBracketing() {
               </select>
               {config.venueId ? (
                 <p className="text-xs text-gray-500">All matches use this venue.</p>
-              ) : config.sport && venuesForSport(config.sport).length === 0 ? (
-                <p className="text-xs text-amber-600">No venue for {config.sport} — matches will be “TBD”.</p>
               ) : (
-                <p className="text-xs text-gray-500">Auto: a venue that lists {config.sport || 'the sport'}.</p>
+                <p className="text-xs text-amber-600">No venue selected — matches will be "TBD" until one is picked.</p>
               )}
             </div>
 
