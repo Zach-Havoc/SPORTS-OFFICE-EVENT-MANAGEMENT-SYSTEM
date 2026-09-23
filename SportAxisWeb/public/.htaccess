@@ -11,6 +11,18 @@
   RewriteEngine On
   RewriteBase /
 
+  # Laravel's stock .htaccess (backend/public/.htaccess, which never actually
+  # serves production traffic in this split-layout deploy — see index.php)
+  # carries this rule by default, but this custom front-door file was written
+  # from scratch and never got it: on Apache+PHP setups here, the
+  # Authorization header otherwise never reaches PHP at all, so every Sanctum
+  # Bearer-token request looks like an anonymous guest request and gets a
+  # blanket 401 — login (public, no token needed) works, everything
+  # authenticated after it doesn't. This must come before the catch-all
+  # rewrite below and apply unconditionally to every request.
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
   # Laravel's storage disk (department logos, site carousel slides,
   # coach-uploaded requirement PDFs, OCR-captured score-sheet photos — every
   # asset(), 'storage/'.$filename) URL the backend generates) normally
