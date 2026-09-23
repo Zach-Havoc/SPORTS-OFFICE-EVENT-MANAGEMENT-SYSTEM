@@ -128,10 +128,13 @@ interface FormData {
   departments: string[];
 }
 
-const getStatusColor = (s: string) =>
-  s === 'ongoing' ? 'bg-green-100 text-green-800' :
-  s === 'completed' ? 'bg-gray-100 text-gray-800' :
-  'bg-blue-100 text-blue-800';
+// Maps onto the shared Badge semantic variants (theme.css tokens) instead of
+// this page inventing its own green/gray/blue — "completed" stays neutral
+// (secondary) since finishing an event isn't itself a positive/negative signal.
+const getStatusVariant = (s: string): 'success' | 'secondary' | 'info' =>
+  s === 'ongoing' ? 'success' :
+  s === 'completed' ? 'secondary' :
+  'info';
 
 const getStatusIcon = (s: string) =>
   s === 'ongoing' ? <CheckCircle2 className="h-4 w-4" /> :
@@ -948,7 +951,7 @@ const EventCard = memo(function EventCard({
           </div>
           <div className="flex items-center gap-2">
             {getStatusIcon(event.status)}
-            <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
+            <Badge variant={getStatusVariant(event.status)}>{event.status}</Badge>
           </div>
           <div className="flex gap-2 pt-2">
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(event)}>
@@ -996,7 +999,7 @@ const EventRow = memo(function EventRow({
             <p>{(event.judges || []).length} / {(event.departments || []).length}</p>
           </div>
           <div className="flex items-center">
-            <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
+            <Badge variant={getStatusVariant(event.status)}>{event.status}</Badge>
           </div>
         </div>
         <div className="flex gap-1">

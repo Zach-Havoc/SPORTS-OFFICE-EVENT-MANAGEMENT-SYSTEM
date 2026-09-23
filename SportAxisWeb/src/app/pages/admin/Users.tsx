@@ -334,7 +334,7 @@ export default function AdminUsers() {
                         </Badge>
                       )}
                       {isSelf(u) && (
-                        <Badge variant="outline" className="border-red-200 text-red-600">
+                        <Badge variant="info">
                           You
                         </Badge>
                       )}

@@ -34,16 +34,20 @@ export const STATUS_COLORS = {
   ongoing: "#22c55e",
   completed: "#94a3b8",
 };
+// These two map 1:1 onto the app's semantic tokens (theme.css --success/
+// --warning/--info/--destructive) — same literal hex, so a chart's "approved"
+// green is the exact same green as a Badge's success variant elsewhere,
+// instead of each picking its own slightly-different shade.
 export const ATTENDANCE_COLORS = {
-  present: "#22c55e",
-  late: "#f59e0b",
-  excused: "#0ea5e9",
-  absent: "#ef4444",
+  present: "#059669",
+  late: "#D97706",
+  excused: "#2563EB",
+  absent: "#DC2626",
 };
 export const REQUIREMENT_COLORS = {
-  approved: "#22c55e",
-  pending: "#f59e0b",
-  rejected: "#ef4444",
+  approved: "#059669",
+  pending: "#D97706",
+  rejected: "#DC2626",
 };
 export const MEDAL_COLORS = {
   gold: "#f59e0b",
