@@ -98,7 +98,7 @@ export function DashboardCanvas({
 
 export function Grid({ children }: { children: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-12">
+    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-12">
       {children}
     </div>
   );
@@ -135,16 +135,16 @@ export function Tile({
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        "rounded-lg border border-slate-200 bg-white shadow-xs transition-shadow hover:shadow-sm",
         SPAN[span],
         className,
       )}
     >
       {(title || right) && (
-        <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
+        <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-4 py-3">
           <div className="min-w-0">
             {title && (
-              <h3 className="truncate text-[13px] font-semibold text-slate-700">
+              <h3 className="truncate text-[13px] font-semibold tracking-wide text-slate-700 uppercase">
                 {title}
               </h3>
             )}
@@ -195,8 +195,8 @@ export function Delta({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 text-xs font-semibold",
-        flat ? "text-slate-400" : up ? "text-emerald-600" : "text-rose-600",
+        "inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums",
+        flat ? "text-slate-400" : up ? "text-success" : "text-destructive",
         className,
       )}
     >
@@ -277,7 +277,7 @@ export function Metric({
   return (
     <div className="flex-1 px-3 py-1 text-center">
       <p className="text-[13px] text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight text-slate-800 sm:text-[2.5rem] sm:leading-tight">
+      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-slate-800 sm:text-[2.5rem] sm:leading-tight">
         {value}
       </p>
       {(pct != null || prev != null) && (
@@ -330,7 +330,7 @@ export function IconStat({
   return (
     <div className="flex flex-col items-center gap-1 px-2 text-center">
       <Icon className={cn("h-6 w-6", iconClass ?? "text-slate-400")} />
-      <span className="text-2xl font-bold text-slate-800">{value}</span>
+      <span className="text-2xl font-bold tabular-nums text-slate-800">{value}</span>
       <span className="text-[11px] text-slate-400">{caption}</span>
     </div>
   );
@@ -350,7 +350,7 @@ export function BareStat({
   return (
     <div className="py-1">
       <div className="flex items-baseline gap-2">
-        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-800">
+        <span className="text-[2rem] font-bold leading-none tracking-tight tabular-nums text-slate-800">
           {value}
         </span>
         <Delta pct={pct} />
@@ -393,10 +393,10 @@ export function MetricTable({ rows }: { rows: MetricRow[] }) {
             return (
               <tr key={r.metric} className="border-t border-slate-100">
                 <td className="py-2 pr-2 text-slate-600">{r.metric}</td>
-                <td className="py-2 text-right font-semibold text-slate-800">
+                <td className="py-2 text-right font-semibold tabular-nums text-slate-800">
                   {r.current.toLocaleString()}
                 </td>
-                <td className="py-2 text-right text-slate-400">
+                <td className="py-2 text-right tabular-nums text-slate-400">
                   {r.prev.toLocaleString()}
                 </td>
                 <td className="py-1 pl-4">
@@ -453,7 +453,7 @@ export function DistBar({
               />
               {s.label}
             </span>
-            <span className="font-semibold text-slate-700">
+            <span className="font-semibold tabular-nums text-slate-700">
               {s.value.toLocaleString()}
               <span className="ml-1 text-slate-400">
                 {Math.round((s.value / total) * 100)}%
@@ -484,7 +484,7 @@ export function RankList({
         <div key={i.label}>
           <div className="mb-1 flex items-center justify-between text-xs">
             <span className="truncate text-slate-600">{i.label}</span>
-            <span className="ml-2 shrink-0 font-semibold text-slate-700">
+            <span className="ml-2 shrink-0 font-semibold tabular-nums text-slate-700">
               {i.value.toLocaleString()}
               {unit ? ` ${unit}` : ""}
             </span>
@@ -559,7 +559,7 @@ export function RangePicker({
     <select
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 outline-none focus:border-slate-300"
+      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 shadow-xs outline-none transition-colors focus:border-slate-400"
     >
       {options.map((o) => (
         <option key={o} value={o}>
