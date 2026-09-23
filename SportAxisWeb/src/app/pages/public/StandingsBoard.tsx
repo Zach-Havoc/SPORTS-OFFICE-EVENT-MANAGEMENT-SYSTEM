@@ -127,7 +127,7 @@ function CollegeCell({ name, logo, abbr }: { name: string; logo?: string | null;
   return (
     <div className="flex items-center gap-[1.2vw] min-w-0">
       {logo ? (
-        <img src={logo} alt="" className="h-[2.7vw] w-[2.7vw] rounded-full object-cover ring-1 ring-black/10 bg-white" />
+        <img src={logo} alt="" loading="lazy" className="h-[2.7vw] w-[2.7vw] rounded-full object-cover ring-1 ring-black/10 bg-white" />
       ) : (
         <div className="flex h-[2.7vw] w-[2.7vw] items-center justify-center rounded-full bg-red-100 text-[0.9vw] font-bold text-red-700">
           {(abbr || name.slice(0, 2)).toUpperCase()}
@@ -222,7 +222,7 @@ function LiveView({ games, logoOf }: { games: LiveScore[]; logoOf: (name: string
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-[1vw]">
                 <div className="flex items-center justify-end gap-[0.8vw] min-w-0">
                   <span className={`truncate text-right text-[1.3vw] font-semibold ${homeLead ? 'text-gray-900' : 'text-gray-500'}`}>{g.homeTeam}</span>
-                  {logoOf(g.homeTeam ?? '') && <img src={logoOf(g.homeTeam ?? '')!} alt="" className="h-[2.2vw] w-[2.2vw] rounded-full object-cover" />}
+                  {logoOf(g.homeTeam ?? '') && <img src={logoOf(g.homeTeam ?? '')!} alt="" loading="lazy" className="h-[2.2vw] w-[2.2vw] rounded-full object-cover" />}
                 </div>
                 <div className="tabular-nums text-[2.9vw] font-extrabold">
                   <AnimatedNumber value={g.homeScore} className={homeLead ? 'text-red-600' : 'text-gray-800'} />
@@ -230,7 +230,7 @@ function LiveView({ games, logoOf }: { games: LiveScore[]; logoOf: (name: string
                   <AnimatedNumber value={g.awayScore} className={awayLead ? 'text-red-600' : 'text-gray-800'} />
                 </div>
                 <div className="flex items-center gap-[0.8vw] min-w-0">
-                  {logoOf(g.awayTeam ?? '') && <img src={logoOf(g.awayTeam ?? '')!} alt="" className="h-[2.2vw] w-[2.2vw] rounded-full object-cover" />}
+                  {logoOf(g.awayTeam ?? '') && <img src={logoOf(g.awayTeam ?? '')!} alt="" loading="lazy" className="h-[2.2vw] w-[2.2vw] rounded-full object-cover" />}
                   <span className={`truncate text-[1.3vw] font-semibold ${awayLead ? 'text-gray-900' : 'text-gray-500'}`}>{g.awayTeam}</span>
                 </div>
               </div>

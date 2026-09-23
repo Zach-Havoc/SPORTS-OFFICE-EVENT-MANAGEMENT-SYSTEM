@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Controller;
 use App\Models\Athlete;
 use App\Models\User;
@@ -12,6 +13,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AthleteController extends Controller
 {
+    use Paginates;
+
     /**
      * Fetch an athlete, enforcing that the current coach owns it.
      * Admins may access any athlete. Anyone else gets a 404 (rather than a
@@ -38,8 +41,8 @@ class AthleteController extends Controller
             $query->where('coach_id', $user->id);
         }
 
-        $athletes = $query->orderBy('last_name')->get()
-            ->map(fn (Athlete $a) => $this->withAccountProfile($a));
+        $athletes = $query->orderBy('last_name')->paginate($this->perPage($request, 50));
+        $athletes->getCollection()->transform(fn (Athlete $a) => $this->withAccountProfile($a));
 
         return response()->json($athletes);
     }

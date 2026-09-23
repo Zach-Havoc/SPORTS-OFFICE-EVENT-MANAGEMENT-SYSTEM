@@ -48,7 +48,9 @@ class NotificationController extends Controller
 
     public function markAllRead(Request $request)
     {
-        $request->user()->unreadNotifications->markAsRead();
+        // A single UPDATE for every unread row belonging to this user, instead
+        // of loading the collection and issuing one UPDATE per notification.
+        $request->user()->unreadNotifications()->update(['read_at' => now()]);
 
         return response()->json(['ok' => true]);
     }

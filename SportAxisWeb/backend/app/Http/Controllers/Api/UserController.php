@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Controller;
 use App\Models\Athlete;
 use App\Models\Event;
@@ -27,6 +28,8 @@ use Illuminate\Validation\ValidationException;
  */
 class UserController extends Controller
 {
+    use Paginates;
+
     private const ROLES = ['admin', 'coach', 'athlete', 'judge'];
 
     /** GET /api/admin/users */
@@ -53,11 +56,14 @@ class UserController extends Controller
             $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
         }
 
-        $rows = $this->withLinks($query->orderBy('name')->get())
+        $paginator = $query->orderBy('name')->paginate($this->perPage($request, 50));
+
+        $rows = $this->withLinks($paginator->getCollection())
             ->map(fn ($entry) => $entry['row'])
             ->values();
+        $paginator->setCollection($rows);
 
-        return response()->json($rows);
+        return response()->json($paginator);
     }
 
     /** GET /api/admin/users/{id} — one account plus the records linked to it. */

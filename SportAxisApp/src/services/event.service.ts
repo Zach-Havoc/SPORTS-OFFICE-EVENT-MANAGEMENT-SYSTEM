@@ -1,20 +1,75 @@
 import api from './api';
 import { storage, STORAGE_KEYS } from '../storage/async-storage';
-import type { EventSessionResponse } from '../types';
+import type { EventSessionResponse, EventSummary } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event Service — QR session lookup and event listing
 // ─────────────────────────────────────────────────────────────────────────────
+
+interface Paginator<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+}
+
+/** GET /api/events may return a bare array or a Laravel paginator object
+ * ({ data, current_page, last_page, ... }) — walk every page either way so
+ * a season with more events than the backend's per-page default doesn't get
+ * silently truncated. */
+async function fetchAllEvents(): Promise<EventSummary[]> {
+  const first = await api.get('/events', { params: { page: 1, per_page: 200 } });
+  const body = first.data;
+  if (Array.isArray(body)) return body;
+
+  const paginator = body as Paginator<EventSummary>;
+  let items = paginator.data ?? [];
+  if (!paginator.last_page || paginator.last_page <= paginator.current_page) return items;
+
+  const rest = await Promise.all(
+    Array.from({ length: paginator.last_page - paginator.current_page }, (_, i) =>
+      api.get('/events', { params: { page: paginator.current_page + i + 1, per_page: 200 } }),
+    ),
+  );
+  for (const page of rest) {
+    const pageBody = page.data;
+    items = items.concat(Array.isArray(pageBody) ? pageBody : (pageBody as Paginator<EventSummary>).data ?? []);
+  }
+  return items;
+}
 
 export const eventService = {
   /**
    * GET /api/events
    *
    * Fetches all events from the backend. Public endpoint.
+   *
+   * Stale-while-revalidate: if a cached list is available in AsyncStorage,
+   * it's returned immediately so the screen can render without waiting on
+   * the network, while a background refetch updates the cache and — once it
+   * completes — calls `onFresh` with the up-to-date list so the caller can
+   * update its own state. On a cold cache (or if the background refetch
+   * fails and there was nothing cached), this awaits the network as before.
    */
-  async getEvents(): Promise<import('../types').EventSummary[]> {
-    const response = await api.get('/events');
-    return response.data;
+  async getEvents(onFresh?: (events: EventSummary[]) => void): Promise<EventSummary[]> {
+    const cached = await storage.getJSON<EventSummary[]>(STORAGE_KEYS.EVENTS_LIST);
+
+    const fetchFresh = async (): Promise<EventSummary[]> => {
+      const fresh = await fetchAllEvents();
+      await storage.setJSON(STORAGE_KEYS.EVENTS_LIST, fresh);
+      return fresh;
+    };
+
+    if (cached) {
+      fetchFresh()
+        .then((fresh) => onFresh?.(fresh))
+        .catch(() => {
+          // Background refresh failed — the caller is already showing the
+          // cached list, so there's nothing more to do here.
+        });
+      return cached;
+    }
+
+    return fetchFresh();
   },
 
   /**

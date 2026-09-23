@@ -1,6 +1,75 @@
 import { API_URL } from "../../config/api";
 
 // ─────────────────────────────────────────────────────────────────────
+// Pagination helpers — some list endpoints (athletes, events, users) are
+// migrating to Laravel's standard paginate() response shape
+// ({ data, current_page, last_page, per_page, total, ... }) instead of a
+// bare array. These helpers let callers handle both shapes so the app
+// keeps working whether or not the backend change has landed yet.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface PageMeta {
+  currentPage: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
+}
+
+export interface PageParams {
+  page?: number;
+  perPage?: number;
+}
+
+/** The shape a paginated list endpoint returns once migrated to Laravel's
+ * paginate(). Response bodies pass through `keysToCamelCase`, so the
+ * standard `current_page` / `last_page` / `per_page` keys arrive camelCased. */
+export interface Paginated<T> {
+  data: T[];
+  currentPage: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
+}
+
+/** A list endpoint mid-migration can send either a bare array (old shape)
+ * or a Laravel paginator object (new shape). */
+export type ListResponse<T> = T[] | Paginated<T>;
+
+const pageParamsToQuery = (params: PageParams = {}) => {
+  const qs = new URLSearchParams();
+  if (params.page) qs.set("page", String(params.page));
+  if (params.perPage) qs.set("per_page", String(params.perPage));
+  return qs;
+};
+
+/** Extracts the row array regardless of whether the response is a bare
+ * array or a Laravel paginator object. */
+export function unwrapList<T = unknown>(response: ListResponse<T>): T[] {
+  if (Array.isArray(response)) return response;
+  if (response && Array.isArray(response.data)) return response.data;
+  return [];
+}
+
+/** Returns pagination metadata, or null if the response wasn't paginated
+ * (e.g. the backend still returns a bare array for this endpoint). */
+export function getPageMeta<T>(response: ListResponse<T>): PageMeta | null {
+  if (
+    response &&
+    !Array.isArray(response) &&
+    typeof response.currentPage === "number" &&
+    typeof response.lastPage === "number"
+  ) {
+    return {
+      currentPage: response.currentPage,
+      lastPage: response.lastPage,
+      perPage: response.perPage,
+      total: response.total,
+    };
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Core request helper
 // ─────────────────────────────────────────────────────────────────────
 
@@ -269,8 +338,12 @@ export const deleteCategory = (id: string) =>
 // Events
 // ─────────────────────────────────────────────────────────────────────
 
-export const getEvents = (season?: string) =>
-  apiRequest(`/events${season ? `?season=${encodeURIComponent(season)}` : ""}`);
+export const getEvents = (season?: string, pageParams: PageParams = {}) => {
+  const qs = pageParamsToQuery(pageParams);
+  if (season) qs.set("season", season);
+  const s = qs.toString();
+  return apiRequest(`/events${s ? `?${s}` : ""}`);
+};
 export const getEventsByDate = (date: string) =>
   apiRequest(`/events?date=${encodeURIComponent(date)}`);
 export const getEvent = (id: string) => apiRequest(`/events/${id}`);
@@ -622,8 +695,10 @@ export const deleteVenue = (id: string) =>
 // Registration Codes (admin only)
 // ─────────────────────────────────────────────────────────────────────
 
-export const getRegistrationCodes = () =>
-  apiRequest("/registration-codes", {}, true);
+export const getRegistrationCodes = (pageParams: PageParams = {}) => {
+  const s = pageParamsToQuery(pageParams).toString();
+  return apiRequest(`/registration-codes${s ? `?${s}` : ""}`, {}, true);
+};
 export const createRegistrationCode = (data: {
   role: "admin" | "coach" | "athlete" | "judge";
   expiresInDays?: number;
@@ -641,7 +716,10 @@ export const revokeRegistrationCode = (code: string) =>
 // Athletes (coach access)
 // ─────────────────────────────────────────────────────────────────────
 
-export const getAthletes = () => apiRequest("/athletes", {}, true);
+export const getAthletes = (pageParams: PageParams = {}) => {
+  const s = pageParamsToQuery(pageParams).toString();
+  return apiRequest(`/athletes${s ? `?${s}` : ""}`, {}, true);
+};
 export const getAthlete = (id: string) =>
   apiRequest(`/athletes/${id}`, {}, true);
 export const createAthlete = (data: any) =>
@@ -695,16 +773,22 @@ export interface UserListFilters {
   role?: UserRole;
   status?: "active" | "inactive";
   search?: string;
+  page?: number;
+  perPage?: number;
 }
 
 export const getUsers = (filters: UserListFilters = {}) => {
+  const { page, perPage, ...rest } = filters;
   const qs = new URLSearchParams(
-    Object.entries(filters).filter(([, v]) => v != null && v !== "") as [
+    Object.entries(rest).filter(([, v]) => v != null && v !== "") as [
       string,
       string,
     ][],
-  ).toString();
-  return apiRequest(`/admin/users${qs ? `?${qs}` : ""}`, {}, true);
+  );
+  const pageQs = pageParamsToQuery({ page, perPage });
+  pageQs.forEach((value, key) => qs.set(key, value));
+  const s = qs.toString();
+  return apiRequest(`/admin/users${s ? `?${s}` : ""}`, {}, true);
 };
 
 export const getUser = (id: string) =>
@@ -766,7 +850,10 @@ export const getMyCoach = () => apiRequest("/my-coach", {}, true);
 // Announcements
 // ─────────────────────────────────────────────────────────────────────
 
-export const getAnnouncements = () => apiRequest("/announcements");
+export const getAnnouncements = (pageParams: PageParams = {}) => {
+  const s = pageParamsToQuery(pageParams).toString();
+  return apiRequest(`/announcements${s ? `?${s}` : ""}`);
+};
 export const createAnnouncement = (data: any) =>
   apiRequest(
     "/announcements",
@@ -914,7 +1001,10 @@ export const submitRequirement = (data: any) => {
     return keysToCamelCase(data);
   });
 };
-export const getRequirements = () => apiRequest("/requirements", {}, true);
+export const getRequirements = (pageParams: PageParams = {}) => {
+  const s = pageParamsToQuery(pageParams).toString();
+  return apiRequest(`/requirements${s ? `?${s}` : ""}`, {}, true);
+};
 export const getMyRequirements = () => apiRequest("/requirements/my", {}, true);
 export const updateRequirementStatus = (id: string, data: any) =>
   apiRequest(

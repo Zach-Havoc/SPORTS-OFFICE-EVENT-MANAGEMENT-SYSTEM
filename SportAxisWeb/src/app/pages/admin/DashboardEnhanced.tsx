@@ -14,7 +14,7 @@ import {
   useLiveScores,
 } from "../../hooks/api";
 import { RefreshStatus } from "../../components/RefreshStatus";
-import Loading from "../../components/Loading";
+import { DashboardSkeleton } from "../../components/dashboard/DashboardSkeleton";
 import {
   DashboardCanvas,
   Grid,
@@ -236,8 +236,7 @@ export default function DashboardEnhanced() {
     [athleteUsers],
   );
 
-  if (loading)
-    return <Loading fullScreen={false} message="Loading dashboard…" />;
+  if (loading) return <DashboardSkeleton />;
 
   return (
     <DashboardCanvas

@@ -1,10 +1,10 @@
 import { Icon } from '../ui/Icon';
+import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
     Alert,
-    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -201,7 +201,7 @@ export function OCRScoreMapper({ departments, onConfirm, onCancel }: OCRScoreMap
         <Text style={styles.processingTitle}>Extracting Scores...</Text>
         <Text style={styles.processingSubtitle}>This can take up to a minute — please don't close the app.</Text>
         {imageUri && (
-          <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="cover" />
+          <Image source={{ uri: imageUri }} style={styles.previewImage} contentFit="cover" />
         )}
       </View>
     );
@@ -237,7 +237,7 @@ export function OCRScoreMapper({ departments, onConfirm, onCancel }: OCRScoreMap
       </View>
 
       {imageUri && (
-        <Image source={{ uri: imageUri }} style={styles.reviewImage} resizeMode="cover" />
+        <Image source={{ uri: imageUri }} style={styles.reviewImage} contentFit="cover" />
       )}
 
       <View style={styles.editHint}>

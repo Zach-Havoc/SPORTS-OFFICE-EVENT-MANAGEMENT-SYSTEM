@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Concerns\ResolvesSeason;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
@@ -12,7 +13,7 @@ use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
-    use ResolvesSeason;
+    use Paginates, ResolvesSeason;
 
     /**
      * Reject a roster that doesn't fit how the sport is contested:
@@ -84,9 +85,10 @@ class EventController extends Controller
             $query->where('season_id', $seasonId);
         }
 
-        $events = $query->get();
+        $events = $query->paginate($this->perPage($request, 50));
+        $events->getCollection()->transform(fn ($e) => $e->toApiFormat());
 
-        return response()->json($events->map(fn ($e) => $e->toApiFormat()));
+        return response()->json($events);
     }
 
     public function show(string $id)

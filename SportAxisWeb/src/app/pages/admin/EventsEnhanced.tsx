@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { getEvents, getDepartments, getVenues, getJudges, getCategories, createEvent, updateEvent, deleteEvent, bulkDeleteEvents, bulkUpdateEventStatus } from '../../services/api';
+import { getEvents, getDepartments, getVenues, getJudges, getCategories, createEvent, updateEvent, deleteEvent, bulkDeleteEvents, bulkUpdateEventStatus, unwrapList, getPageMeta } from '../../services/api';
 import { makeAbbreviator } from '../../utils/departments';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -23,7 +23,7 @@ const openScoreSheet = (event: any) => {
 import { toast } from 'sonner';
 import { Checkbox } from '../../components/ui/checkbox';
 import { QRCodeModal } from '../../components/QRCodeModal';
-import Loading from '../../components/Loading';
+import { CardGridSkeleton } from '../../components/ListSkeleton';
 
 // ── Sports-only category list ──────────────────────────────────────────────
 const SPORTS = [
@@ -76,6 +76,27 @@ function formatTime(t: string) {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
+// This page cross-checks venue/judge overlaps across the whole schedule and
+// computes stats over all events, so it needs every event, not one page.
+// /events may still return a bare array or the new Laravel paginator shape;
+// this walks every page either way.
+async function fetchAllEvents(): Promise<Event[]> {
+  const first = await getEvents(undefined, { page: 1, perPage: 200 });
+  if (Array.isArray(first)) return first;
+
+  const meta = getPageMeta<Event>(first);
+  let items = unwrapList<Event>(first);
+  if (!meta || meta.lastPage <= meta.currentPage) return items;
+
+  const rest = await Promise.all(
+    Array.from({ length: meta.lastPage - meta.currentPage }, (_, i) =>
+      getEvents(undefined, { page: meta.currentPage + i + 1, perPage: 200 }),
+    ),
+  );
+  for (const page of rest) items = items.concat(unwrapList<Event>(page));
+  return items;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 interface JudgeRef { id: string; name: string; email: string; }
 
@@ -106,6 +127,16 @@ interface FormData {
   judgeIds: string[];
   departments: string[];
 }
+
+const getStatusColor = (s: string) =>
+  s === 'ongoing' ? 'bg-green-100 text-green-800' :
+  s === 'completed' ? 'bg-gray-100 text-gray-800' :
+  'bg-blue-100 text-blue-800';
+
+const getStatusIcon = (s: string) =>
+  s === 'ongoing' ? <CheckCircle2 className="h-4 w-4" /> :
+  s === 'completed' ? <Archive className="h-4 w-4" /> :
+  <Clock className="h-4 w-4" />;
 
 const EMPTY_FORM: FormData = {
   name: '',
@@ -171,7 +202,10 @@ export default function AdminEventsEnhanced() {
 
     // Load core data — page cannot function without these
     try {
-      const [eventsData, deptData] = await Promise.all([getEvents(), getDepartments()]);
+      const [eventsData, deptData] = await Promise.all([
+        fetchAllEvents(),
+        getDepartments(),
+      ]);
       const normalizedEvents = (eventsData || []).map((e: any) => ({
         ...e,
         departments: e.departments || [],
@@ -271,7 +305,7 @@ export default function AdminEventsEnhanced() {
   };
 
   // ── Dialog ────────────────────────────────────────────────────────────
-  const handleOpenDialog = (event?: Event) => {
+  const handleOpenDialog = useCallback((event?: Event) => {
     setFormError(null);
     if (event) {
       setEditingEvent(event);
@@ -292,7 +326,7 @@ export default function AdminEventsEnhanced() {
       setFormData(EMPTY_FORM);
     }
     setDialogOpen(true);
-  };
+  }, []);
 
   const handleSubmit = async () => {
     setFormError(null);
@@ -402,19 +436,33 @@ export default function AdminEventsEnhanced() {
     return list;
   }, [events, searchQuery, statusFilter, sportFilter, sortBy, sortOrder]);
 
-  const getStatusColor = (s: string) =>
-    s === 'ongoing' ? 'bg-green-100 text-green-800' :
-    s === 'completed' ? 'bg-gray-100 text-gray-800' :
-    'bg-blue-100 text-blue-800';
+  // ── Stable row callbacks (memoized cards/rows rely on referential
+  // stability so a keystroke in the dialog doesn't re-render every card) ──
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedEvents(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
 
-  const getStatusIcon = (s: string) =>
-    s === 'ongoing' ? <CheckCircle2 className="h-4 w-4" /> :
-    s === 'completed' ? <Archive className="h-4 w-4" /> :
-    <Clock className="h-4 w-4" />;
+  const handleQRClick = useCallback((event: Event) => {
+    setSelectedEventForQR(event);
+    setQrModalOpen(true);
+  }, []);
+
+  const handleDeleteClick = useCallback((event: Event) => {
+    setEventToDelete(event);
+    setDeleteConfirmOpen(true);
+  }, []);
 
   if (loading) return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Loading fullScreen={false} message="Loading events..." />
+      <div className="mb-6">
+        <div className="h-8 w-72 bg-gray-200 rounded animate-pulse mb-2" />
+        <div className="h-4 w-96 bg-gray-100 rounded animate-pulse" />
+      </div>
+      <CardGridSkeleton count={6} />
     </div>
   );
 
@@ -552,67 +600,17 @@ export default function AdminEventsEnhanced() {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredEvents.map(event => (
-            <Card key={event.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start gap-2">
-                  <Checkbox checked={selectedEvents.has(event.id)} onCheckedChange={() => {
-                    const n = new Set(selectedEvents);
-                    if (n.has(event.id)) { n.delete(event.id); } else { n.add(event.id); }
-                    setSelectedEvents(n);
-                  }} />
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base leading-tight" title={event.name}>{abbr(event.name)}</CardTitle>
-                    <CardDescription className="flex items-center gap-1 mt-1">
-                      <Trophy className="h-3 w-3" />{event.category}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="h-4 w-4 shrink-0" />
-                    {new Date(event.schedule).toLocaleDateString()}
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="h-4 w-4 shrink-0" />
-                    {formatTime(event.startTime)} – {formatTime(event.endTime)}
-                  </div>
-                  {event.venueName && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPin className="h-4 w-4 shrink-0" />
-                      {event.venueName}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <UserCheck className="h-4 w-4 shrink-0" />
-                    {(event.judges || []).length} committee{(event.judges || []).length !== 1 ? 's' : ''}
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users className="h-4 w-4 shrink-0" />
-                    {(event.departments || []).length} dept{(event.departments || []).length !== 1 ? 's' : ''}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(event.status)}
-                    <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenDialog(event)}>
-                      <Edit className="h-3 w-3 mr-1" />Edit
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedEventForQR(event); setQrModalOpen(true); }}>
-                      <QrCode className="h-3 w-3 mr-1" />QR
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => openScoreSheet(event)} title="Print score sheet">
-                      <Printer className="h-3 w-3 mr-1" />Sheet
-                    </Button>
-                  </div>
-                  <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700" onClick={() => { setEventToDelete(event); setDeleteConfirmOpen(true); }}>
-                    <Trash2 className="h-3 w-3 mr-1" />Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <EventCard
+              key={event.id}
+              event={event}
+              selected={selectedEvents.has(event.id)}
+              abbr={abbr}
+              onToggleSelect={handleToggleSelect}
+              onEdit={handleOpenDialog}
+              onQR={handleQRClick}
+              onPrint={openScoreSheet}
+              onDelete={handleDeleteClick}
+            />
           ))}
         </div>
       ) : (
@@ -620,43 +618,17 @@ export default function AdminEventsEnhanced() {
           <CardContent className="p-0">
             <div className="divide-y">
               {filteredEvents.map(event => (
-                <div key={event.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex items-center gap-4">
-                    <Checkbox checked={selectedEvents.has(event.id)} onCheckedChange={() => {
-                      const n = new Set(selectedEvents);
-                      if (n.has(event.id)) { n.delete(event.id); } else { n.add(event.id); }
-                      setSelectedEvents(n);
-                    }} />
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-3 text-sm">
-                      <div className="md:col-span-2">
-                        <p className="font-semibold" title={event.name}>{abbr(event.name)}</p>
-                        <p className="text-gray-500">{event.category}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Date & Time</p>
-                        <p>{new Date(event.schedule).toLocaleDateString()}</p>
-                        <p className="text-xs text-gray-500">{formatTime(event.startTime)} – {formatTime(event.endTime)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Venue</p>
-                        <p>{event.venueName || '—'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Committees / Depts</p>
-                        <p>{(event.judges || []).length} / {(event.departments || []).length}</p>
-                      </div>
-                      <div className="flex items-center">
-                        <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(event)}><Edit className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEventForQR(event); setQrModalOpen(true); }}><QrCode className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => openScoreSheet(event)} title="Print score sheet"><Printer className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" className="text-red-600" onClick={() => { setEventToDelete(event); setDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  </div>
-                </div>
+                <EventRow
+                  key={event.id}
+                  event={event}
+                  selected={selectedEvents.has(event.id)}
+                  abbr={abbr}
+                  onToggleSelect={handleToggleSelect}
+                  onEdit={handleOpenDialog}
+                  onQR={handleQRClick}
+                  onPrint={openScoreSheet}
+                  onDelete={handleDeleteClick}
+                />
               ))}
             </div>
           </CardContent>
@@ -917,3 +889,123 @@ export default function AdminEventsEnhanced() {
     </div>
   );
 }
+
+// ── Memoized row/card components ──────────────────────────────────────────
+// The events list can run into the dozens once a season is fully scheduled,
+// and every keystroke in the create/edit dialog re-renders this page. These
+// are wrapped in React.memo, and the parent passes stable (useCallback)
+// handlers, so unrelated cards/rows skip re-rendering.
+interface EventRowProps {
+  event: Event;
+  selected: boolean;
+  abbr: (name: string) => string;
+  onToggleSelect: (id: string) => void;
+  onEdit: (event: Event) => void;
+  onQR: (event: Event) => void;
+  onPrint: (event: Event) => void;
+  onDelete: (event: Event) => void;
+}
+
+const EventCard = memo(function EventCard({
+  event, selected, abbr, onToggleSelect, onEdit, onQR, onPrint, onDelete,
+}: EventRowProps) {
+  return (
+    <Card className="hover:shadow-lg transition-shadow">
+      <CardHeader>
+        <div className="flex items-start gap-2">
+          <Checkbox checked={selected} onCheckedChange={() => onToggleSelect(event.id)} />
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base leading-tight" title={event.name}>{abbr(event.name)}</CardTitle>
+            <CardDescription className="flex items-center gap-1 mt-1">
+              <Trophy className="h-3 w-3" />{event.category}
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-2 text-gray-600">
+            <Calendar className="h-4 w-4 shrink-0" />
+            {new Date(event.schedule).toLocaleDateString()}
+          </div>
+          <div className="flex items-center gap-2 text-gray-600">
+            <Clock className="h-4 w-4 shrink-0" />
+            {formatTime(event.startTime)} – {formatTime(event.endTime)}
+          </div>
+          {event.venueName && (
+            <div className="flex items-center gap-2 text-gray-600">
+              <MapPin className="h-4 w-4 shrink-0" />
+              {event.venueName}
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-gray-600">
+            <UserCheck className="h-4 w-4 shrink-0" />
+            {(event.judges || []).length} committee{(event.judges || []).length !== 1 ? 's' : ''}
+          </div>
+          <div className="flex items-center gap-2 text-gray-600">
+            <Users className="h-4 w-4 shrink-0" />
+            {(event.departments || []).length} dept{(event.departments || []).length !== 1 ? 's' : ''}
+          </div>
+          <div className="flex items-center gap-2">
+            {getStatusIcon(event.status)}
+            <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(event)}>
+              <Edit className="h-3 w-3 mr-1" />Edit
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onQR(event)}>
+              <QrCode className="h-3 w-3 mr-1" />QR
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onPrint(event)} title="Print score sheet">
+              <Printer className="h-3 w-3 mr-1" />Sheet
+            </Button>
+          </div>
+          <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700" onClick={() => onDelete(event)}>
+            <Trash2 className="h-3 w-3 mr-1" />Delete
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
+const EventRow = memo(function EventRow({
+  event, selected, abbr, onToggleSelect, onEdit, onQR, onPrint, onDelete,
+}: EventRowProps) {
+  return (
+    <div className="p-4 hover:bg-gray-50">
+      <div className="flex items-center gap-4">
+        <Checkbox checked={selected} onCheckedChange={() => onToggleSelect(event.id)} />
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-3 text-sm">
+          <div className="md:col-span-2">
+            <p className="font-semibold" title={event.name}>{abbr(event.name)}</p>
+            <p className="text-gray-500">{event.category}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Date & Time</p>
+            <p>{new Date(event.schedule).toLocaleDateString()}</p>
+            <p className="text-xs text-gray-500">{formatTime(event.startTime)} – {formatTime(event.endTime)}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Venue</p>
+            <p>{event.venueName || '—'}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Committees / Depts</p>
+            <p>{(event.judges || []).length} / {(event.departments || []).length}</p>
+          </div>
+          <div className="flex items-center">
+            <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" onClick={() => onEdit(event)}><Edit className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => onQR(event)}><QrCode className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => onPrint(event)} title="Print score sheet"><Printer className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => onDelete(event)}><Trash2 className="h-4 w-4" /></Button>
+        </div>
+      </div>
+    </div>
+  );
+});

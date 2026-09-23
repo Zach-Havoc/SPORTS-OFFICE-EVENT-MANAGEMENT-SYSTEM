@@ -33,4 +33,35 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+
+          if (
+            id.includes('/react-router') ||
+            id.includes('/react-dom') ||
+            id.includes('/react/') ||
+            id.includes('/scheduler/')
+          ) {
+            return 'react-vendor'
+          }
+
+          if (id.includes('@tanstack/react-query')) {
+            return 'query-vendor'
+          }
+
+          if (id.includes('@radix-ui') || id.includes('lucide-react')) {
+            return 'ui-vendor'
+          }
+
+          // recharts and its dependency tree are left out of manualChunks
+          // on purpose: DashboardKit already lazy-loads recharts via
+          // route.lazy, so it keeps its own separate chunk.
+        },
+      },
+    },
+  },
 })

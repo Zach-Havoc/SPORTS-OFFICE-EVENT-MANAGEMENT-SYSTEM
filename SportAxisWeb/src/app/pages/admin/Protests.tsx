@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { useProtests, useResolveProtest } from "../../hooks/api";
@@ -52,29 +52,29 @@ export default function AdminProtests() {
   const query = useProtests(status === "all" ? {} : { status });
   const resolve = useResolveProtest();
 
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [decision, setDecision] = useState<"upheld" | "dismissed">("upheld");
-  const [resolution, setResolution] = useState("");
-
   const protests = query.data ?? [];
 
-  const submit = (p: Protest) => {
-    if (resolution.trim().length < 10) {
-      toast.error("Write a short resolution note (at least 10 characters).");
-      return;
-    }
-    resolve.mutate(
-      { id: p.id, data: { status: decision, resolution: resolution.trim() } },
-      {
-        onSuccess: () => {
-          toast.success(`Protest ${decision}`);
-          setOpenId(null);
-          setResolution("");
+  // Stable across renders so a keystroke in one card's resolution textarea
+  // doesn't re-render every other (memoized) card in the list.
+  const submit = useCallback(
+    (p: Protest, decision: "upheld" | "dismissed", resolution: string, onDone: () => void) => {
+      if (resolution.trim().length < 10) {
+        toast.error("Write a short resolution note (at least 10 characters).");
+        return;
+      }
+      resolve.mutate(
+        { id: p.id, data: { status: decision, resolution: resolution.trim() } },
+        {
+          onSuccess: () => {
+            toast.success(`Protest ${decision}`);
+            onDone();
+          },
+          onError: (e: any) => toast.error(e?.message || "Could not resolve"),
         },
-        onError: (e: any) => toast.error(e?.message || "Could not resolve"),
-      },
-    );
-  };
+      );
+    },
+    [resolve],
+  );
 
   if (query.isLoading)
     return <Loading fullScreen={false} message="Loading protests…" />;
@@ -122,114 +122,141 @@ export default function AdminProtests() {
       ) : (
         <div className="space-y-4">
           {protests.map((p) => (
-            <Card key={p.id}>
-              <CardHeader className="pb-2">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-base">
-                      {p.eventName ?? "Event"}{" "}
-                      <span className="font-normal text-gray-400">
-                        · {p.eventCategory}
-                      </span>
-                    </CardTitle>
-                    <CardDescription>
-                      {p.department} · filed by {p.filerName ?? "—"} ·{" "}
-                      {fmt(p.createdAt)}
-                    </CardDescription>
-                  </div>
-                  <Badge
-                    className={`text-[11px] capitalize ${STATUS_STYLE[p.status]}`}
-                  >
-                    {p.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-                  {p.reason}
-                </p>
-
-                {p.status !== "open" && p.resolution && (
-                  <div className="mt-3 rounded-lg border border-gray-100 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      Resolution · {p.resolverName ?? "—"}
-                      {p.resolvedAt ? ` · ${fmt(p.resolvedAt)}` : ""}
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
-                      {p.resolution}
-                    </p>
-                  </div>
-                )}
-
-                {p.status === "open" && (
-                  <div className="mt-3">
-                    {openId === p.id ? (
-                      <div className="space-y-2 rounded-lg border border-gray-200 p-3">
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant={
-                              decision === "upheld" ? "default" : "outline"
-                            }
-                            onClick={() => setDecision("upheld")}
-                          >
-                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                            Uphold
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={
-                              decision === "dismissed" ? "default" : "outline"
-                            }
-                            onClick={() => setDecision("dismissed")}
-                          >
-                            <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                            Dismiss
-                          </Button>
-                        </div>
-                        <Textarea
-                          value={resolution}
-                          onChange={(e) => setResolution(e.target.value)}
-                          placeholder="What did you find, and what happens now?"
-                          rows={3}
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => submit(p)}
-                            disabled={resolve.isPending}
-                          >
-                            Save decision
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setOpenId(null)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setOpenId(p.id);
-                          setDecision("upheld");
-                          setResolution("");
-                        }}
-                      >
-                        Review &amp; resolve
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <ProtestCard
+              key={p.id}
+              protest={p}
+              onSubmit={submit}
+              submitting={resolve.isPending}
+            />
           ))}
         </div>
       )}
     </div>
   );
 }
+
+// Each card owns its own "reviewing" draft state (decision + resolution
+// text), instead of that living in the parent keyed by id. Typing in one
+// card's textarea used to re-render every protest card on every keystroke;
+// now, wrapped in React.memo, only the card being edited re-renders.
+const ProtestCard = memo(function ProtestCard({
+  protest: p,
+  onSubmit,
+  submitting,
+}: {
+  protest: Protest;
+  onSubmit: (
+    p: Protest,
+    decision: "upheld" | "dismissed",
+    resolution: string,
+    onDone: () => void,
+  ) => void;
+  submitting: boolean;
+}) {
+  const [reviewing, setReviewing] = useState(false);
+  const [decision, setDecision] = useState<"upheld" | "dismissed">("upheld");
+  const [resolution, setResolution] = useState("");
+
+  const startReview = useCallback(() => {
+    setReviewing(true);
+    setDecision("upheld");
+    setResolution("");
+  }, []);
+
+  const save = useCallback(() => {
+    onSubmit(p, decision, resolution, () => {
+      setReviewing(false);
+      setResolution("");
+    });
+  }, [onSubmit, p, decision, resolution]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">
+              {p.eventName ?? "Event"}{" "}
+              <span className="font-normal text-gray-400">
+                · {p.eventCategory}
+              </span>
+            </CardTitle>
+            <CardDescription>
+              {p.department} · filed by {p.filerName ?? "—"} ·{" "}
+              {fmt(p.createdAt)}
+            </CardDescription>
+          </div>
+          <Badge className={`text-[11px] capitalize ${STATUS_STYLE[p.status]}`}>
+            {p.status}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+          {p.reason}
+        </p>
+
+        {p.status !== "open" && p.resolution && (
+          <div className="mt-3 rounded-lg border border-gray-100 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Resolution · {p.resolverName ?? "—"}
+              {p.resolvedAt ? ` · ${fmt(p.resolvedAt)}` : ""}
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
+              {p.resolution}
+            </p>
+          </div>
+        )}
+
+        {p.status === "open" && (
+          <div className="mt-3">
+            {reviewing ? (
+              <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={decision === "upheld" ? "default" : "outline"}
+                    onClick={() => setDecision("upheld")}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Uphold
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={decision === "dismissed" ? "default" : "outline"}
+                    onClick={() => setDecision("dismissed")}
+                  >
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Dismiss
+                  </Button>
+                </div>
+                <Textarea
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  placeholder="What did you find, and what happens now?"
+                  rows={3}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={save} disabled={submitting}>
+                    Save decision
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setReviewing(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button size="sm" variant="outline" onClick={startReview}>
+                Review &amp; resolve
+              </Button>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+});

@@ -201,6 +201,10 @@ class BracketController extends Controller
         // the whole bracket back.
         $bracket->delete();
 
+        // computeLeaderboard() only counts non-trashed brackets, so removing
+        // one changes what the cached leaderboard should show.
+        RankingController::forgetLeaderboardCacheFor($bracket->sport, $bracket->season_id);
+
         return response()->json(['message' => 'Bracket deleted']);
     }
 

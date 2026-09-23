@@ -30,7 +30,7 @@ class EventTest extends TestCase
         $this->events()->create(['name' => 'Later',  'schedule' => now()->addDays(10)->toDateString()]);
         $this->events()->create(['name' => 'Sooner', 'schedule' => now()->addDays(2)->toDateString()]);
 
-        $names = $this->getJson('/api/events')->assertOk()->json('*.name');
+        $names = $this->getJson('/api/events')->assertOk()->json('data.*.name');
 
         $this->assertSame(['Sooner', 'Later'], $names);
     }
@@ -43,7 +43,7 @@ class EventTest extends TestCase
 
         $this->getJson('/api/events?date='.$target)
             ->assertOk()
-            ->assertJsonCount(1)
+            ->assertJsonCount(1, 'data')
             ->assertJsonFragment(['name' => 'On target']);
     }
 
@@ -68,7 +68,7 @@ class EventTest extends TestCase
         $list = $this->getJson('/api/events')->assertOk();
         $show = $this->getJson("/api/events/{$event->id}")->assertOk();
 
-        $listJudges = $list->json('0.judges');
+        $listJudges = $list->json('data.0.judges');
         $this->assertNotEmpty($listJudges);
         foreach ($listJudges as $judge) {
             $this->assertArrayHasKey('id', $judge);

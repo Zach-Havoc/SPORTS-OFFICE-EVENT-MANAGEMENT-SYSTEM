@@ -33,8 +33,8 @@ class UserManagementTest extends TestCase
 
         $rows = $this->getJson('/api/admin/users')
             ->assertOk()
-            ->assertJsonStructure(['*' => ['id', 'name', 'email', 'role', 'active', 'links' => ['athleteCount', 'scoreCount', 'assignedEventCount']]])
-            ->json();
+            ->assertJsonStructure(['data' => ['*' => ['id', 'name', 'email', 'role', 'active', 'links' => ['athleteCount', 'scoreCount', 'assignedEventCount']]]])
+            ->json('data');
 
         $coachRow = collect($rows)->firstWhere('id', $coach->id);
         $this->assertSame(2, $coachRow['links']['athleteCount']);
@@ -48,12 +48,12 @@ class UserManagementTest extends TestCase
         $this->users()->coach()->create(['name' => 'Carl Coach', 'email' => 'carl@example.com']);
         $this->users()->judge()->inactive()->create(['name' => 'Benched Judge', 'email' => 'benched@example.com']);
 
-        $this->getJson('/api/admin/users?role=judge')->assertOk()->assertJsonCount(2);
-        $this->getJson('/api/admin/users?role=judge&status=active')->assertOk()->assertJsonCount(1)
+        $this->getJson('/api/admin/users?role=judge')->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/admin/users?role=judge&status=active')->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonFragment(['name' => 'Judith Judge']);
-        $this->getJson('/api/admin/users?status=inactive')->assertOk()->assertJsonCount(1)
+        $this->getJson('/api/admin/users?status=inactive')->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonFragment(['name' => 'Benched Judge']);
-        $this->getJson('/api/admin/users?search=carl@example')->assertOk()->assertJsonCount(1)
+        $this->getJson('/api/admin/users?search=carl@example')->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonFragment(['name' => 'Carl Coach']);
     }
 

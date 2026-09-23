@@ -26,6 +26,32 @@ type QueryOpts<T> = Partial<
   >
 >;
 
+/**
+ * Full-list screens (roster views, dashboards, cross-record conflict
+ * checks) still need every row, not just one page. This walks a
+ * paginated endpoint page by page and merges the results, while
+ * tolerating endpoints that haven't migrated to the paginated shape yet
+ * (a bare array short-circuits after the first request).
+ */
+async function fetchAllPages<T>(
+  fetchPage: (page: number) => Promise<api.ListResponse<T>>,
+): Promise<T[]> {
+  const first = await fetchPage(1);
+  if (Array.isArray(first)) return first;
+
+  const meta = api.getPageMeta(first);
+  let items = api.unwrapList<T>(first);
+  if (!meta || meta.lastPage <= meta.currentPage) return items;
+
+  const remaining = await Promise.all(
+    Array.from({ length: meta.lastPage - meta.currentPage }, (_, i) =>
+      fetchPage(meta.currentPage + i + 1),
+    ),
+  );
+  for (const page of remaining) items = items.concat(api.unwrapList<T>(page));
+  return items;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Query keys — the single source of truth for cache identity + invalidation
 // ─────────────────────────────────────────────────────────────────────
@@ -142,20 +168,29 @@ export const useVenues = (opts?: QueryOpts<any[]>) =>
     ...opts,
   });
 
+// The registration-codes endpoint may return a bare array or a Laravel
+// paginator; this always resolves the full list by walking all pages.
 export const useRegistrationCodes = (opts?: QueryOpts<any[]>) =>
   useQuery({
     queryKey: qk.registrationCodes,
-    queryFn: api.getRegistrationCodes,
+    queryFn: () =>
+      fetchAllPages((page) => api.getRegistrationCodes({ page, perPage: 200 })),
     staleTime: STALE.static,
     ...opts,
   });
 
 // `season` is optional: omit for the active edition (the backend default),
 // pass an id to browse a past one. Zero-arg calls are unchanged.
+//
+// The events endpoint may return a bare array or a Laravel paginator; this
+// always resolves every event for the season by walking all pages, so
+// existing full-list consumers (dashboards, schedule/overlap checks) keep
+// working regardless of which shape the backend sends.
 export const useEvents = (season?: string, opts?: QueryOpts<any[]>) =>
   useQuery({
     queryKey: season ? (["events", "season", season] as const) : qk.events,
-    queryFn: () => api.getEvents(season),
+    queryFn: () =>
+      fetchAllPages((page) => api.getEvents(season, { page, perPage: 200 })),
     staleTime: STALE.live,
     ...opts,
   });
@@ -247,10 +282,13 @@ export const useEventReport = (
     ...opts,
   });
 
+// Coach roster consumers (roster page, lineup, attendance, performance,
+// dashboard) all expect the full roster — walk every page and merge so
+// they keep working whether /athletes is paginated yet or not.
 export const useAthletes = (opts?: QueryOpts<any[]>) =>
   useQuery({
     queryKey: qk.athletes,
-    queryFn: api.getAthletes,
+    queryFn: () => fetchAllPages((page) => api.getAthletes({ page, perPage: 200 })),
     staleTime: STALE.live,
     ...opts,
   });
@@ -272,14 +310,18 @@ export const useCoaches = (opts?: QueryOpts<any[]>) =>
     ...opts,
   });
 
-// User Management (admin) — the whole account directory
+// User Management (admin) — the whole account directory. Both consumers
+// (Users.tsx, DashboardEnhanced.tsx) filter/summarize over the complete
+// list client-side, so this walks every page and merges the results,
+// tolerating either the bare-array or the paginated response shape.
 export const useUsers = (
   filters: api.UserListFilters = {},
   opts?: QueryOpts<any[]>,
 ) =>
   useQuery({
     queryKey: qk.users(filters as Record<string, string | undefined>),
-    queryFn: () => api.getUsers(filters),
+    queryFn: () =>
+      fetchAllPages((page) => api.getUsers({ ...filters, page, perPage: 200 })),
     staleTime: STALE.live,
     ...opts,
   });
@@ -309,10 +351,13 @@ export const useMyCoach = (opts?: QueryOpts<any>) =>
     ...opts,
   });
 
+// The announcements endpoint may return a bare array or a Laravel
+// paginator; this always resolves the full list by walking all pages.
 export const useAnnouncements = (opts?: QueryOpts<any[]>) =>
   useQuery({
     queryKey: qk.announcements,
-    queryFn: api.getAnnouncements,
+    queryFn: () =>
+      fetchAllPages((page) => api.getAnnouncements({ page, perPage: 200 })),
     staleTime: STALE.live,
     ...opts,
   });
@@ -370,10 +415,13 @@ export const useMyPerformance = (opts?: QueryOpts<any[]>) =>
     ...opts,
   });
 
+// The requirements endpoint may return a bare array or a Laravel
+// paginator; this always resolves the full list by walking all pages.
 export const useRequirements = (opts?: QueryOpts<any[]>) =>
   useQuery({
     queryKey: qk.requirements,
-    queryFn: api.getRequirements,
+    queryFn: () =>
+      fetchAllPages((page) => api.getRequirements({ page, perPage: 200 })),
     staleTime: STALE.live,
     ...opts,
   });

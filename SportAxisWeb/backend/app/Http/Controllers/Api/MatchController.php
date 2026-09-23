@@ -70,6 +70,12 @@ class MatchController extends Controller
         $match->resolveOutcome();
         $match->save();
 
+        // Round-robin standings feed the leaderboard's bracket-podium walk;
+        // TeamMatch carries no season_id, so this forgets the default/active
+        // and "all" season cache variants (the ones this data realistically
+        // affects) rather than a specific past season's.
+        RankingController::forgetLeaderboardCacheFor($match->sport, null);
+
         return response()->json($match, 201);
     }
 
@@ -103,12 +109,18 @@ class MatchController extends Controller
         $match->resolveOutcome();
         $match->save();
 
+        RankingController::forgetLeaderboardCacheFor($match->sport, null);
+
         return response()->json($match->fresh());
     }
 
     public function destroy(string $id)
     {
-        TeamMatch::findOrFail($id)->delete();
+        $match = TeamMatch::findOrFail($id);
+        $sport = $match->sport;
+        $match->delete();
+
+        RankingController::forgetLeaderboardCacheFor($sport, null);
 
         return response()->json(['message' => 'Match deleted']);
     }

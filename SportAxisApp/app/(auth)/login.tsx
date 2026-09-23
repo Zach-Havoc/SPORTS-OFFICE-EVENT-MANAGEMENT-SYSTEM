@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/auth.store';
@@ -15,6 +16,8 @@ import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
 import { Icon } from '../../src/components/ui/Icon';
 import { Button } from '../../src/components/ui/Button';
 import { Input } from '../../src/components/ui/Input';
+
+const sportAxisMark = require('../../assets/images/brand/sportaxis-mark-white.png');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Login — white page, BatStateU-red lockup, inline errors.
@@ -65,7 +68,7 @@ export default function LoginScreen() {
           {/* Lockup */}
           <View style={styles.lockup}>
             <View style={styles.crest}>
-              <Icon name="trophy" size={34} color={COLORS.textInverse} strokeWidth={2.2} />
+              <Image source={sportAxisMark} style={styles.crestMark} contentFit="contain" />
             </View>
             <Text style={styles.appName}>SportsAxis</Text>
             <Text style={styles.appSub}>Committee Portal</Text>
@@ -159,6 +162,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: SPACING.md,
   },
+  crestMark: { width: 40, height: 38 },
   appName: { ...TYPE.display, color: COLORS.textPrimary },
   appSub: { ...TYPE.label, color: COLORS.textMuted, textAlign: 'center' },
 

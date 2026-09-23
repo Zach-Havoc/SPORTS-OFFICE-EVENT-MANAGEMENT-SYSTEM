@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, memo } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -21,6 +21,7 @@ import {
   useUpdateCoachProfile,
 } from '../../hooks/api';
 import { RefreshStatus } from '../../components/RefreshStatus';
+import { TableRowsSkeleton } from '../../components/ListSkeleton';
 
 const SPORTS = [
   'Basketball','Volleyball','Badminton','Swimming','Track & Field',
@@ -46,6 +47,11 @@ interface Athlete {
   emergencyContact?: { name: string; relationship: string; phone: string };
   createdAt: string;
 }
+
+const statusColor = (s: string) =>
+  s === 'active' ? 'bg-green-100 text-green-800' :
+  s === 'injured' ? 'bg-red-100 text-red-800' :
+  'bg-gray-100 text-gray-800';
 
 interface CoachProfile {
   id: string;
@@ -167,10 +173,7 @@ export default function CoachAthletes() {
     return matchSearch && matchStatus;
   });
 
-  const statusColor = (s: string) =>
-    s === 'active' ? 'bg-green-100 text-green-800' :
-    s === 'injured' ? 'bg-red-100 text-red-800' :
-    'bg-gray-100 text-gray-800';
+  const handleRemoveClick = useCallback((athlete: Athlete) => setRemoveTarget(athlete), []);
 
   if (!user) return null;
 
@@ -323,7 +326,7 @@ export default function CoachAthletes() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading roster…</div>
+            <TableRowsSkeleton rows={6} columns={6} />
           ) : filtered.length === 0 ? (
             <div className="text-center py-14">
               <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -364,49 +367,7 @@ export default function CoachAthletes() {
                 </thead>
                 <tbody>
                   {filtered.map(athlete => (
-                    <tr key={athlete.id} className="border-b hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-gray-900">{athlete.firstName} {athlete.lastName}</div>
-                        <div className="text-xs text-gray-500">{athlete.email}</div>
-                      </td>
-                      <td className="py-3 px-4 font-mono hidden md:table-cell text-gray-600">
-                        {athlete.studentId || <span className="text-gray-300 italic">not set</span>}
-                      </td>
-                      <td className="py-3 px-4 hidden md:table-cell text-gray-600">{athlete.department || '—'}</td>
-                      <td className="py-3 px-4 hidden lg:table-cell text-gray-600">{athlete.yearLevel || '—'}</td>
-                      <td className="py-3 px-4">
-                        <Badge className={statusColor(athlete.status)}>{athlete.status}</Badge>
-                      </td>
-                      <td className="py-3 px-4 hidden sm:table-cell">
-                        {athlete.enrolledViaCode ? (
-                          <Badge className="bg-blue-100 text-blue-800">Self-enrolled</Badge>
-                        ) : (
-                          <Badge className="bg-purple-100 text-purple-800">Manual</Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex justify-end gap-1">
-                          <Link to={`/coach/athletes/${athlete.id}`}>
-                            <Button variant="ghost" size="sm" title="View profile">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Link to={`/coach/athletes/${athlete.id}/edit`}>
-                            <Button variant="ghost" size="sm" title="Edit profile">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="ghost" size="sm"
-                            className="text-red-500 hover:text-red-700"
-                            title="Remove from roster"
-                            onClick={() => setRemoveTarget(athlete)}
-                          >
-                            <UserMinus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                    <AthleteRow key={athlete.id} athlete={athlete} onRemove={handleRemoveClick} />
                   ))}
                 </tbody>
               </table>
@@ -513,3 +474,59 @@ export default function CoachAthletes() {
     </div>
   );
 }
+
+// A full roster can run into dozens of rows; memoized so filtering/sorting
+// elsewhere on the page (or opening a dialog) doesn't re-render every row.
+const AthleteRow = memo(function AthleteRow({
+  athlete,
+  onRemove,
+}: {
+  athlete: Athlete;
+  onRemove: (athlete: Athlete) => void;
+}) {
+  return (
+    <tr className="border-b hover:bg-gray-50 transition-colors">
+      <td className="py-3 px-4">
+        <div className="font-medium text-gray-900">{athlete.firstName} {athlete.lastName}</div>
+        <div className="text-xs text-gray-500">{athlete.email}</div>
+      </td>
+      <td className="py-3 px-4 font-mono hidden md:table-cell text-gray-600">
+        {athlete.studentId || <span className="text-gray-300 italic">not set</span>}
+      </td>
+      <td className="py-3 px-4 hidden md:table-cell text-gray-600">{athlete.department || '—'}</td>
+      <td className="py-3 px-4 hidden lg:table-cell text-gray-600">{athlete.yearLevel || '—'}</td>
+      <td className="py-3 px-4">
+        <Badge className={statusColor(athlete.status)}>{athlete.status}</Badge>
+      </td>
+      <td className="py-3 px-4 hidden sm:table-cell">
+        {athlete.enrolledViaCode ? (
+          <Badge className="bg-blue-100 text-blue-800">Self-enrolled</Badge>
+        ) : (
+          <Badge className="bg-purple-100 text-purple-800">Manual</Badge>
+        )}
+      </td>
+      <td className="py-3 px-4">
+        <div className="flex justify-end gap-1">
+          <Link to={`/coach/athletes/${athlete.id}`}>
+            <Button variant="ghost" size="sm" title="View profile">
+              <Eye className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link to={`/coach/athletes/${athlete.id}/edit`}>
+            <Button variant="ghost" size="sm" title="Edit profile">
+              <Edit className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Button
+            variant="ghost" size="sm"
+            className="text-red-500 hover:text-red-700"
+            title="Remove from roster"
+            onClick={() => onRemove(athlete)}
+          >
+            <UserMinus className="h-4 w-4" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+});

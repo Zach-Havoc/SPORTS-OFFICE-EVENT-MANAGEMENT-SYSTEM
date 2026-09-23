@@ -12,6 +12,8 @@ import {
   verifyScore,
   disputeScore,
   officializeEvent,
+  unwrapList,
+  getPageMeta,
 } from "../../services/api";
 import {
   Card,
@@ -73,6 +75,26 @@ const SCORE_STYLE: Record<ScoreRow["status"], string> = {
   official: "bg-blue-100 text-blue-700",
 };
 
+// /events may return a bare array or a Laravel paginator; this walks every
+// page either way so a season with more than one page of events doesn't
+// silently lose entries from this report's event picker.
+async function fetchAllReportEvents(): Promise<Event[]> {
+  const first = await getEvents(undefined, { page: 1, perPage: 200 });
+  if (Array.isArray(first)) return first;
+
+  const meta = getPageMeta<Event>(first);
+  let items = unwrapList<Event>(first);
+  if (!meta || meta.lastPage <= meta.currentPage) return items;
+
+  const rest = await Promise.all(
+    Array.from({ length: meta.lastPage - meta.currentPage }, (_, i) =>
+      getEvents(undefined, { page: meta.currentPage + i + 1, perPage: 200 }),
+    ),
+  );
+  for (const page of rest) items = items.concat(unwrapList<Event>(page));
+  return items;
+}
+
 export default function AdminReports() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -91,7 +113,7 @@ export default function AdminReports() {
     }
     (async () => {
       try {
-        const data = await getEvents();
+        const data = await fetchAllReportEvents();
         setEvents(
           data.filter(
             (e: Event) => e.status === "completed" || e.status === "ongoing",
@@ -489,6 +511,7 @@ export default function AdminReports() {
                     <img
                       src={sheetScore.imageUrl}
                       alt={`Score sheet for ${sheetScore.department}`}
+                      loading="lazy"
                       className="max-h-80 w-full rounded-lg border object-contain"
                     />
                     <a

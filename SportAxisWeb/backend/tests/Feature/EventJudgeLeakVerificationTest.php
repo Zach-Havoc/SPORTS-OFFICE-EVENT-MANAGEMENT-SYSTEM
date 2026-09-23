@@ -37,7 +37,7 @@ class EventJudgeLeakVerificationTest extends TestCase
         $show = $this->getJson("/api/events/{$event->id}")->assertOk();
 
         foreach ([$list, $show] as $res) {
-            $judges = $res === $list ? $res->json('0.judges') : $res->json('judges');
+            $judges = $res === $list ? $res->json('data.0.judges') : $res->json('judges');
             $this->assertNotEmpty($judges);
             foreach ($judges as $judge) {
                 $this->assertSame(['id', 'name'], array_keys($judge));

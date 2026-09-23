@@ -12,10 +12,14 @@ use App\Models\Ranking;
 use App\Models\Score;
 use App\Models\TeamMatch;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class RankingController extends Controller
 {
     use ResolvesSeason;
+
+    /** How long a computed leaderboard is trusted before it's recomputed. */
+    private const CACHE_TTL_SECONDS = 300;
 
     public function show(string $eventId)
     {
@@ -42,10 +46,61 @@ class RankingController extends Controller
     public function leaderboard(Request $request)
     {
         $category = $request->query('category');
+        $parentSport = $request->query('parentSport');
 
+        // Scoped by the same three axes the query itself is filtered by, plus
+        // the raw (unresolved) season param — "absent" and "the currently
+        // active season" can be different editions over time, so they can't
+        // share a cache entry.
+        $cacheKey = self::leaderboardCacheKey($request->query('season'), $category, $parentSport);
+
+        return response()->json(
+            Cache::remember($cacheKey, self::CACHE_TTL_SECONDS, fn () => $this->computeLeaderboard($request, $category, $parentSport))
+        );
+    }
+
+    /** The cache key for one leaderboard view — same axes the endpoint is filtered by. */
+    public static function leaderboardCacheKey(?string $seasonParam, ?string $category, ?string $parentSport): string
+    {
+        return sprintf(
+            'leaderboard:%s:%s:%s',
+            $seasonParam !== null && $seasonParam !== '' ? $seasonParam : '_current',
+            $category ?: '_all',
+            $parentSport ?: '_all',
+        );
+    }
+
+    /**
+     * Forget every cached leaderboard view that a change to this sport/season
+     * could affect: the unfiltered board, the sport's own filter, and (if it
+     * belongs to one) its parent-sport rollup — each under every season
+     * variant a request could have asked for (the default/active edition,
+     * `?season=all`, and the specific edition the change happened in).
+     */
+    public static function forgetLeaderboardCacheFor(?string $sport, ?string $seasonId): void
+    {
+        $parentSport = $sport ? Category::where('name', $sport)->value('parent_sport') : null;
+
+        $seasonVariants = array_unique(array_filter([null, 'all', $seasonId], fn ($v) => $v !== ''));
+        $categoryAxes = [[null, null]];
+        if ($sport) {
+            $categoryAxes[] = [$sport, null];
+        }
+        if ($parentSport) {
+            $categoryAxes[] = [null, $parentSport];
+        }
+
+        foreach ($seasonVariants as $seasonVariant) {
+            foreach ($categoryAxes as [$cat, $parent]) {
+                Cache::forget(self::leaderboardCacheKey($seasonVariant, $cat, $parent));
+            }
+        }
+    }
+
+    private function computeLeaderboard(Request $request, ?string $category, ?string $parentSport): array
+    {
         // A parent sport ("Badminton") rolls up its line categories
         // ("Badminton — M Singles A" …) so their brackets/medals combine.
-        $parentSport = $request->query('parentSport');
         $parentNames = $parentSport
             ? Category::where('parent_sport', $parentSport)->pluck('name')->all()
             : [];
@@ -108,8 +163,16 @@ class RankingController extends Controller
             ->with('matches')
             ->get();
 
+        // Round-robin standings are a full per-sport table scan (TeamMatch::
+        // standings()); compute each distinct sport once up front instead of
+        // re-querying it inside the loop below for every bracket that shares it.
+        $standingsBySport = [];
+        foreach ($brackets->where('format', 'round_robin')->pluck('sport')->unique() as $sport) {
+            $standingsBySport[$sport] = TeamMatch::standings($sport);
+        }
+
         foreach ($brackets as $bracket) {
-            $podium = $this->bracketPodium($bracket);
+            $podium = $this->bracketPodium($bracket, $standingsBySport);
             if ($podium['gold']) {
                 $ensure($podium['gold']);
                 $rows[$podium['gold']]['gold']++;
@@ -131,15 +194,17 @@ class RankingController extends Controller
         usort($leaderboard, fn ($a, $b) => [$b['total'], $b['gold'], $b['silver'], $b['bronze']]
             <=> [$a['total'], $a['gold'], $a['silver'], $a['bronze']]);
 
-        return response()->json($leaderboard);
+        return $leaderboard;
     }
 
     /**
      * The three medal slots for a tournament, or empty when it isn't finished.
      *
+     * @param  array<string, array>  $standingsBySport  round-robin standings, precomputed once per
+     *                                                  distinct sport by the caller (see leaderboard()).
      * @return array{gold: ?string, silver: ?string, bronze: array<int, string>}
      */
-    private function bracketPodium(Bracket $bracket): array
+    private function bracketPodium(Bracket $bracket, array $standingsBySport = []): array
     {
         $empty = ['gold' => null, 'silver' => null, 'bronze' => []];
 
@@ -167,7 +232,7 @@ class RankingController extends Controller
             if ($bracket->matches->isEmpty() || $bracket->matches->contains(fn ($m) => $m->status !== 'completed')) {
                 return $empty;
             }
-            $standings = TeamMatch::standings($bracket->sport);
+            $standings = $standingsBySport[$bracket->sport] ?? TeamMatch::standings($bracket->sport);
 
             return [
                 'gold' => $standings[0]['department'] ?? null,

@@ -243,7 +243,7 @@ export default function AdminSettings() {
                       <div className="flex items-start justify-between">
                         <div className="flex flex-1 items-center gap-3 min-w-0">
                           {dept.logoUrl ? (
-                            <img src={dept.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover border border-gray-200" />
+                            <img src={dept.logoUrl} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-full object-cover border border-gray-200" />
                           ) : (
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50">
                               <Users className="h-4 w-4 text-blue-600" />
@@ -390,7 +390,7 @@ export default function AdminSettings() {
                 <div className="flex items-center gap-3">
                   <div className="h-14 w-14 shrink-0 rounded-full border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
                     {editingDept.logoUrl ? (
-                      <img src={editingDept.logoUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={editingDept.logoUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xs text-gray-400">none</span>
                     )}

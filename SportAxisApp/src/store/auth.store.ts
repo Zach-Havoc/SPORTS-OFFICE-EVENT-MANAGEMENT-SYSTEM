@@ -34,6 +34,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    */
   hydrate: async () => {
     const { token, user } = await authService.loadStoredAuth();
+    // A token with no matching user means the two fell out of sync (e.g. the
+    // user record failed to persist while the token did) — that half-logged-in
+    // state would otherwise sail past the app layout's token-only guard and
+    // crash the first screen that reads `user.role`/`user.name`. Treat it as
+    // signed out rather than as a subtly broken session.
+    if (token && !user) {
+      await Promise.all([
+        storage.remove(STORAGE_KEYS.AUTH_TOKEN),
+        storage.remove(STORAGE_KEYS.AUTH_USER),
+      ]);
+      set({ token: null, user: null, isHydrated: true });
+      return;
+    }
     set({ token, user, isHydrated: true });
   },
 

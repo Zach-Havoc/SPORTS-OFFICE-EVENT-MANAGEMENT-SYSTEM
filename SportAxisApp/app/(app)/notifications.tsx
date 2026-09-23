@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
 import { Icon, type IconName } from '../../src/components/ui/Icon';
@@ -34,6 +34,10 @@ const KIND_COLOR: Partial<Record<NotificationKind, { fg: string; bg: string }>> 
 const DEFAULT_ICON: IconName = 'bell';
 const DEFAULT_TONE = { fg: COLORS.textSecondary, bg: COLORS.surfaceAlt };
 
+// Refetching on every focus is wasteful if the user just flipped tabs and
+// back — skip the refetch when the last successful fetch is still fresh.
+const STALE_MS = 30_000;
+
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diffMs / 60000);
@@ -51,12 +55,14 @@ export default function NotificationsScreen() {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const lastFetchedAt = useRef(0);
 
   const load = useCallback(async () => {
     try {
       setError(null);
       const res = await notificationService.list();
       setItems(res.items);
+      lastFetchedAt.current = Date.now();
     } catch (err: any) {
       setError(err?.message ?? 'Could not load notifications.');
     } finally {
@@ -66,6 +72,7 @@ export default function NotificationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (lastFetchedAt.current > 0 && Date.now() - lastFetchedAt.current < STALE_MS) return;
       load();
     }, [load]),
   );

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Controller;
 use App\Models\Athlete;
 use App\Models\Requirement;
@@ -14,9 +15,12 @@ use Illuminate\Support\Str;
 
 class RequirementController extends Controller
 {
+    use Paginates;
+
     public function index(Request $request)
     {
         $user = $request->user();
+        $perPage = $this->perPage($request, 50);
 
         if ($user->role === 'coach') {
             $athleteIds = Athlete::where('coach_id', $user->id)->pluck('id');
@@ -24,11 +28,11 @@ class RequirementController extends Controller
             $rosterIds = $athleteIds->merge($userIds)->unique();
 
             return response()->json(
-                Requirement::whereIn('athlete_id', $rosterIds)->orderByDesc('submitted_at')->get()
+                Requirement::whereIn('athlete_id', $rosterIds)->orderByDesc('submitted_at')->paginate($perPage)
             );
         }
 
-        return response()->json(Requirement::orderByDesc('submitted_at')->get());
+        return response()->json(Requirement::orderByDesc('submitted_at')->paginate($perPage));
     }
 
     public function myRequirements(Request $request)

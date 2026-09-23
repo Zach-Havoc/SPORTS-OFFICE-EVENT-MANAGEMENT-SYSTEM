@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { COLORS, SPACING, TYPE } from '../../constants/theme';
 import { Screen, ScreenHeader } from '../../src/components/ui/Screen';
@@ -45,24 +45,27 @@ export default function HistoryScreen() {
     ]);
   };
 
-  const renderItem = ({ item }: { item: OfflineQueueItem }) => {
-    const badge = STATUS_BADGE[item.status];
-    return (
-      <Card style={styles.item}>
-        <View style={styles.itemBody}>
-          <View style={styles.itemTop}>
-            <Text style={styles.dept} numberOfLines={1}>{abbr(item.payload.department)}</Text>
-            <Badge label={badge.label} variant={badge.variant} dot />
+  const renderItem = useCallback(
+    ({ item }: { item: OfflineQueueItem }) => {
+      const badge = STATUS_BADGE[item.status];
+      return (
+        <Card style={styles.item}>
+          <View style={styles.itemBody}>
+            <View style={styles.itemTop}>
+              <Text style={styles.dept} numberOfLines={1}>{abbr(item.payload.department)}</Text>
+              <Badge label={badge.label} variant={badge.variant} dot />
+            </View>
+            <Text style={styles.time} numberOfLines={1}>
+              {new Date(item.created_at).toLocaleString()}
+              {item.error ? ` · ${item.error}` : ''}
+            </Text>
           </View>
-          <Text style={styles.time} numberOfLines={1}>
-            {new Date(item.created_at).toLocaleString()}
-            {item.error ? ` · ${item.error}` : ''}
-          </Text>
-        </View>
-        <Text style={styles.score}>{item.payload.totalScore.toFixed(0)}</Text>
-      </Card>
-    );
-  };
+          <Text style={styles.score}>{item.payload.totalScore.toFixed(0)}</Text>
+        </Card>
+      );
+    },
+    [abbr],
+  );
 
   return (
     <Screen padded={false}>

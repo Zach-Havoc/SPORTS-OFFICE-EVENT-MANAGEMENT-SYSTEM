@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Controller;
 use App\Models\RegistrationCode;
 use Illuminate\Http\Request;
@@ -9,9 +10,13 @@ use Illuminate\Support\Str;
 
 class RegistrationCodeController extends Controller
 {
-    public function index()
+    use Paginates;
+
+    public function index(Request $request)
     {
-        return response()->json(RegistrationCode::orderByDesc('created_at')->get());
+        return response()->json(
+            RegistrationCode::orderByDesc('created_at')->paginate($this->perPage($request, 50))
+        );
     }
 
     public function store(Request $request)

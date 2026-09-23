@@ -199,6 +199,13 @@ class ScoreController extends Controller
 
     public static function recalculateRankings(string $eventId): void
     {
+        // A ranking change can move a department's medal count, so any cached
+        // leaderboard view scoped to this event's sport/season is now stale.
+        $event = Event::find($eventId, ['category', 'season_id']);
+        if ($event) {
+            RankingController::forgetLeaderboardCacheFor($event->category, $event->season_id);
+        }
+
         // Only verified / official scores decide the table; a disputed score is
         // held out until it is checked and re-verified.
         $scores = Score::where('event_id', $eventId)

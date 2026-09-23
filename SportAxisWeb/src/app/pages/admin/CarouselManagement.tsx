@@ -113,7 +113,7 @@ function AddSlideForm({ type, onDone }: { type: SlideType; onDone: () => void })
             />
             <p className="text-xs text-gray-500">JPG, PNG or WebP · up to 5 MB · wide photos (21:8) look best in the slideshow.</p>
             {preview && (
-              <img src={preview} alt="Preview" className="mt-2 h-40 w-full rounded-lg border object-cover" />
+              <img src={preview} alt="Preview" loading="lazy" className="mt-2 h-40 w-full rounded-lg border object-cover" />
             )}
           </div>
 
@@ -199,7 +199,7 @@ function EditSlideDialog({ slide, onClose }: { slide: Slide | null; onClose: () 
           <DialogTitle>Edit {slide.type === 'popup' ? 'popup image' : 'slide'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <img src={preview || slide.imageUrl} alt="" className="h-40 w-full rounded-lg border object-cover" />
+          <img src={preview || slide.imageUrl} alt="" loading="lazy" className="h-40 w-full rounded-lg border object-cover" />
           <div className="space-y-2">
             <Label>Replace image <span className="text-gray-400">(optional)</span></Label>
             <Input type="file" accept={ACCEPT} onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
@@ -305,7 +305,7 @@ function SlideManager({ type }: { type: SlideType }) {
             <Card key={s.id} className={s.active ? '' : 'opacity-60'}>
               <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
                 <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                  <img src={s.imageUrl} alt={s.title ?? ''} className="h-full w-full object-cover" />
+                  <img src={s.imageUrl} alt={s.title ?? ''} loading="lazy" className="h-full w-full object-cover" />
                   <span className="absolute left-1.5 top-1.5 rounded bg-white/90 px-1.5 py-0.5 text-xs font-medium text-gray-700">
                     #{i + 1}
                   </span>

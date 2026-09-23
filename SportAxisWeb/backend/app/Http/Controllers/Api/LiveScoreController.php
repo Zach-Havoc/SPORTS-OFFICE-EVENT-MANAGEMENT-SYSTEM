@@ -176,6 +176,13 @@ class LiveScoreController extends Controller
         $match->resolveOutcome();
         $match->save();
 
+        // Every write here can change this sport's round-robin standings
+        // (bracketPodium()'s leaderboard input), not just events linked to a
+        // bracket match — advanceFromEvent() below only forgets the cache
+        // when it finds one to advance, so a standalone round-robin fixture
+        // or a drawn game would otherwise leave a stale cached leaderboard.
+        RankingController::forgetLeaderboardCacheFor($event->category, $event->season_id);
+
         // If this event is a bracket match, feed the winner into the next round.
         app(BracketService::class)->advanceFromEvent($event->id);
     }

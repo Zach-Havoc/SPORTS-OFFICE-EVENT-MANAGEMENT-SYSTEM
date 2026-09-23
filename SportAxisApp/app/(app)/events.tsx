@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../constants/theme';
@@ -41,7 +41,10 @@ export default function EventsScreen() {
   const fetchEvents = async () => {
     try {
       setError(null);
-      setEvents(await eventService.getEvents());
+      // getEvents() returns a cached list immediately (if any) and calls
+      // this back once the background refetch resolves, so the list stays
+      // fresh without blocking the initial render on the network.
+      setEvents(await eventService.getEvents((fresh) => setEvents(fresh)));
     } catch (err: any) {
       setError(err.message || 'Failed to load events.');
     } finally {
@@ -64,19 +67,22 @@ export default function EventsScreen() {
     fetchEvents();
   };
 
-  const openEvent = async (item: EventSummary) => {
-    if (openingId) return;
-    setOpeningId(item.id);
-    try {
-      await loadEvent(item.qrToken);
-      const id = useEventStore.getState().event?.id;
-      if (id) router.push(`/(app)/scoring/${id}`);
-    } catch (err: any) {
-      setError(err?.message ?? 'Could not open that event.');
-    } finally {
-      setOpeningId(null);
-    }
-  };
+  const openEvent = useCallback(
+    async (item: EventSummary) => {
+      if (openingId) return;
+      setOpeningId(item.id);
+      try {
+        await loadEvent(item.qrToken);
+        const id = useEventStore.getState().event?.id;
+        if (id) router.push(`/(app)/scoring/${id}`);
+      } catch (err: any) {
+        setError(err?.message ?? 'Could not open that event.');
+      } finally {
+        setOpeningId(null);
+      }
+    },
+    [openingId, loadEvent, router],
+  );
 
   const counts = useMemo(
     () => ({
@@ -95,37 +101,40 @@ export default function EventsScreen() {
 
   const toggleFilter = (value: StatusFilter) => setFilter((prev) => (prev === value ? 'all' : value));
 
-  const renderEvent = ({ item }: { item: EventSummary }) => {
-    const sport = getSportConfigFromEvent(item.category, item.name);
-    const depts = item.departments ?? [];
-    const opening = openingId === item.id;
-    return (
-      <Card style={[styles.card, opening && styles.cardOpening]} onPress={() => openEvent(item)}>
-        <View style={[styles.tile, { backgroundColor: sport.colorLight }]}>
-          <Icon name={sport.icon as IconName} size={20} color={sport.color} strokeWidth={2.2} />
-        </View>
-
-        <View style={styles.body}>
-          <Text style={styles.name} numberOfLines={1}>{abbr(item.name)}</Text>
-          <View style={styles.meta}>
-            <Icon name="calendar" size={12} color={COLORS.textMuted} />
-            <Text style={styles.metaText}>{new Date(item.schedule).toLocaleDateString()}</Text>
-            <Icon name="clock" size={12} color={COLORS.textMuted} />
-            <Text style={styles.metaText}>{item.startTime}</Text>
-            {depts.length > 0 && (
-              <>
-                <Icon name="users" size={12} color={COLORS.textMuted} />
-                <Text style={styles.metaText}>{depts.length}</Text>
-              </>
-            )}
+  const renderEvent = useCallback(
+    ({ item }: { item: EventSummary }) => {
+      const sport = getSportConfigFromEvent(item.category, item.name);
+      const depts = item.departments ?? [];
+      const opening = openingId === item.id;
+      return (
+        <Card style={[styles.card, opening && styles.cardOpening]} onPress={() => openEvent(item)}>
+          <View style={[styles.tile, { backgroundColor: sport.colorLight }]}>
+            <Icon name={sport.icon as IconName} size={20} color={sport.color} strokeWidth={2.2} />
           </View>
-        </View>
 
-        <View style={[styles.dot, { backgroundColor: STATUS_DOT[item.status] }]} />
-        <Icon name="chevron-right" size={18} color={COLORS.textMuted} />
-      </Card>
-    );
-  };
+          <View style={styles.body}>
+            <Text style={styles.name} numberOfLines={1}>{abbr(item.name)}</Text>
+            <View style={styles.meta}>
+              <Icon name="calendar" size={12} color={COLORS.textMuted} />
+              <Text style={styles.metaText}>{new Date(item.schedule).toLocaleDateString()}</Text>
+              <Icon name="clock" size={12} color={COLORS.textMuted} />
+              <Text style={styles.metaText}>{item.startTime}</Text>
+              {depts.length > 0 && (
+                <>
+                  <Icon name="users" size={12} color={COLORS.textMuted} />
+                  <Text style={styles.metaText}>{depts.length}</Text>
+                </>
+              )}
+            </View>
+          </View>
+
+          <View style={[styles.dot, { backgroundColor: STATUS_DOT[item.status] }]} />
+          <Icon name="chevron-right" size={18} color={COLORS.textMuted} />
+        </Card>
+      );
+    },
+    [openingId, abbr, openEvent],
+  );
 
   return (
     <Screen padded={false}>

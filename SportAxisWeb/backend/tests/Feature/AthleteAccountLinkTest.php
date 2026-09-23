@@ -124,7 +124,7 @@ class AthleteAccountLinkTest extends TestCase
         $this->loginAs($coach);
         $this->getJson('/api/athletes')
             ->assertOk()
-            ->assertJsonCount(1)
+            ->assertJsonCount(1, 'data')
             ->assertJsonFragment(['first_name' => 'Sam', 'last_name' => 'Reyes']);
     }
 
@@ -146,7 +146,7 @@ class AthleteAccountLinkTest extends TestCase
         $this->assertDatabaseHas('athletes', ['id' => $row->id, 'user_id' => $account->id]);
 
         $this->loginAs($coach);
-        $this->getJson('/api/athletes')->assertOk()->assertJsonCount(1);
+        $this->getJson('/api/athletes')->assertOk()->assertJsonCount(1, 'data');
     }
 
     public function test_unenrolling_removes_the_athlete_from_the_roster(): void
@@ -159,6 +159,6 @@ class AthleteAccountLinkTest extends TestCase
         $this->deleteJson('/api/unenroll')->assertOk();
 
         $this->loginAs($coach);
-        $this->getJson('/api/athletes')->assertOk()->assertJsonCount(0);
+        $this->getJson('/api/athletes')->assertOk()->assertJsonCount(0, 'data');
     }
 }

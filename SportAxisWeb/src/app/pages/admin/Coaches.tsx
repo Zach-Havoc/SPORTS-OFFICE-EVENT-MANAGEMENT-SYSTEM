@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, memo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { getCoaches, updateCoachDepartment, getDepartments } from '../../services/api';
@@ -59,11 +59,11 @@ export default function AdminCoaches() {
 
   const NONE_VALUE = '__none__';
 
-  const handleOpenDialog = (coach: Coach) => {
+  const handleOpenDialog = useCallback((coach: Coach) => {
     setEditingCoach(coach);
     setDepartmentDraft(coach.department || NONE_VALUE);
     setDialogOpen(true);
-  };
+  }, []);
 
   const handleSave = async () => {
     if (!editingCoach) return;
@@ -107,65 +107,7 @@ export default function AdminCoaches() {
           </Card>
         ) : (
           coaches.map(coach => (
-            <Card key={coach.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-purple-100 text-purple-800">Coach</Badge>
-                      {(coach.sports?.length ? coach.sports : coach.sport ? [coach.sport] : []).map((s) => (
-                        <Badge key={s} variant="outline">{s}</Badge>
-                      ))}
-                      {coach.departmentAbbreviation && coach.gender && (
-                        <Badge className="bg-blue-100 text-blue-800">
-                          {coach.departmentAbbreviation} {coach.gender} Coach
-                        </Badge>
-                      )}
-                      {coach.department && !coach.departmentAbbreviation && (
-                        <Badge className="bg-blue-100 text-blue-800">{coach.department}</Badge>
-                      )}
-                    </div>
-                    <CardTitle>{coach.name}</CardTitle>
-                    <CardDescription className="mt-2">
-                      <div className="text-sm text-gray-600">{coach.email}</div>
-                    </CardDescription>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleOpenDialog(coach)}
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Assign College
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <Trophy className="h-4 w-4 mr-2 text-gray-400" />
-                    <span className="text-sm text-gray-600">
-                      {coach.sports?.length
-                        ? coach.sports.join(', ')
-                        : coach.sport || 'No sport assigned'}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 mr-2 text-gray-400" />
-                    <span className="text-sm text-gray-600">
-                      {coach.department ? coach.department : 'No college assigned'}
-                    </span>
-                  </div>
-                  {coach.enrollmentCode && (
-                    <div className="flex items-center">
-                      <span className="text-sm text-gray-500">
-                        Enrollment Code: <span className="font-mono font-bold">{coach.enrollmentCode}</span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <CoachCard key={coach.id} coach={coach} onAssign={handleOpenDialog} />
           ))
         )}
       </div>
@@ -217,3 +159,75 @@ export default function AdminCoaches() {
     </div>
   );
 }
+
+// Memoized so assigning a college to one coach (which reopens/loads data)
+// doesn't re-render every other coach card in a large roster.
+const CoachCard = memo(function CoachCard({
+  coach,
+  onAssign,
+}: {
+  coach: Coach;
+  onAssign: (coach: Coach) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className="bg-purple-100 text-purple-800">Coach</Badge>
+              {(coach.sports?.length ? coach.sports : coach.sport ? [coach.sport] : []).map((s) => (
+                <Badge key={s} variant="outline">{s}</Badge>
+              ))}
+              {coach.departmentAbbreviation && coach.gender && (
+                <Badge className="bg-blue-100 text-blue-800">
+                  {coach.departmentAbbreviation} {coach.gender} Coach
+                </Badge>
+              )}
+              {coach.department && !coach.departmentAbbreviation && (
+                <Badge className="bg-blue-100 text-blue-800">{coach.department}</Badge>
+              )}
+            </div>
+            <CardTitle>{coach.name}</CardTitle>
+            <CardDescription className="mt-2">
+              <div className="text-sm text-gray-600">{coach.email}</div>
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onAssign(coach)}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Assign College
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <div className="flex items-center">
+            <Trophy className="h-4 w-4 mr-2 text-gray-400" />
+            <span className="text-sm text-gray-600">
+              {coach.sports?.length
+                ? coach.sports.join(', ')
+                : coach.sport || 'No sport assigned'}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <User className="h-4 w-4 mr-2 text-gray-400" />
+            <span className="text-sm text-gray-600">
+              {coach.department ? coach.department : 'No college assigned'}
+            </span>
+          </div>
+          {coach.enrollmentCode && (
+            <div className="flex items-center">
+              <span className="text-sm text-gray-500">
+                Enrollment Code: <span className="font-mono font-bold">{coach.enrollmentCode}</span>
+              </span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+});

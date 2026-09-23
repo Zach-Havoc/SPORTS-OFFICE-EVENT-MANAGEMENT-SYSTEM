@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use Illuminate\Http\Request;
@@ -9,11 +10,13 @@ use Illuminate\Support\Str;
 
 class AnnouncementController extends Controller
 {
-    public function index()
+    use Paginates;
+
+    public function index(Request $request)
     {
-        $announcements = Announcement::orderByDesc('created_at')->get();
+        $announcements = Announcement::orderByDesc('created_at')->paginate($this->perPage($request, 25));
         // Ensure is_tryout is always boolean (default to true for existing records)
-        $announcements->each(function ($announcement) {
+        $announcements->getCollection()->each(function ($announcement) {
             if ($announcement->is_tryout === null) {
                 $announcement->is_tryout = true;
             }

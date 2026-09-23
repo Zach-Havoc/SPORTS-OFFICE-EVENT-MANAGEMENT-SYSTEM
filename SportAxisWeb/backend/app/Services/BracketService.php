@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\Api\RankingController;
 use App\Models\Bracket;
 use App\Models\BracketMatch;
 use App\Models\Event;
@@ -413,6 +414,10 @@ class BracketService
             'champion' => $champion,
             'status' => $champion ? 'completed' : ($bracket->status === 'draft' ? 'draft' : 'active'),
         ]);
+
+        // The bracket's podium (champion / standings) is a leaderboard input —
+        // any cached view for this sport/season is now stale.
+        RankingController::forgetLeaderboardCacheFor($bracket->sport, $bracket->season_id);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────
