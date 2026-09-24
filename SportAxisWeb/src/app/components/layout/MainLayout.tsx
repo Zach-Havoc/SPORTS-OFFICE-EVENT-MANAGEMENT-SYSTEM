@@ -537,7 +537,7 @@ export default function MainLayout() {
             wrapper holds every page in the app and some rely on true
             viewport-edge fixed positioning (modals, etc.); only the header
             gets the rounded top corners since it's a contained, known shape. */}
-        <div className={cn("flex-1 flex flex-col overflow-hidden", user && "lg:my-3 lg:mr-3")}>
+        <div className={cn("flex-1 min-w-0 flex flex-col overflow-hidden", user && "lg:my-3 lg:mr-3")}>
           {/* Top Navigation Bar */}
           <header className={cn(
             "bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200/50 z-30",
@@ -643,7 +643,7 @@ export default function MainLayout() {
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto relative">
+          <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto relative">
             {routerNavigation.state === "loading" && (
               <div className="absolute inset-x-0 top-0 h-0.5 bg-red-600/30 overflow-hidden z-10">
                 <div className="h-full w-1/3 bg-red-600 animate-[loading-bar_1s_ease-in-out_infinite]" />
