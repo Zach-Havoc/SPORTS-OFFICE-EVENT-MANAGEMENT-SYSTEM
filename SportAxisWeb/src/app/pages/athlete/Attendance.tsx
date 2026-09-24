@@ -120,7 +120,7 @@ export default function AthleteAttendance() {
               Attendance rate
             </p>
           </div>
-          <div className="flex flex-1 flex-wrap gap-4 text-sm">
+          <div className="flex flex-1 flex-wrap justify-around gap-4 text-sm">
             {(Object.keys(STATUS) as AttendanceRow["status"][]).map((s) => (
               <div key={s} className="flex items-center gap-1.5">
                 <span className={`h-2 w-2 rounded-full ${STATUS[s].dot}`} />

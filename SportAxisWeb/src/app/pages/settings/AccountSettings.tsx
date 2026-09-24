@@ -216,7 +216,7 @@ export default function AccountSettings() {
               value={name}
               onChange={e => { setName(e.target.value); setProfileSaved(false); }}
               placeholder="Enter your full name"
-              className="mt-1.5"
+              className="mt-1.5 max-w-md"
               onKeyDown={e => e.key === 'Enter' && handleSaveProfile()}
             />
           </div>
@@ -315,7 +315,7 @@ export default function AccountSettings() {
           {/* Current password */}
           <div>
             <Label htmlFor="current-pw" className="text-sm font-medium">Current Password</Label>
-            <div className="relative mt-1.5">
+            <div className="relative mt-1.5 max-w-md">
               <Input
                 id="current-pw"
                 type={showCurrent ? 'text' : 'password'}
@@ -339,7 +339,7 @@ export default function AccountSettings() {
           {/* New password */}
           <div>
             <Label htmlFor="new-pw" className="text-sm font-medium">New Password</Label>
-            <div className="relative mt-1.5">
+            <div className="relative mt-1.5 max-w-md">
               <Input
                 id="new-pw"
                 type={showNew ? 'text' : 'password'}
@@ -364,7 +364,7 @@ export default function AccountSettings() {
           {/* Confirm new password */}
           <div>
             <Label htmlFor="confirm-pw" className="text-sm font-medium">Confirm New Password</Label>
-            <div className="relative mt-1.5">
+            <div className="relative mt-1.5 max-w-md">
               <Input
                 id="confirm-pw"
                 type={showConfirm ? 'text' : 'password'}

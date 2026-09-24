@@ -123,7 +123,7 @@ export default function CoachProtests() {
         </CardHeader>
         <CardContent className="space-y-3">
           <Select value={eventId} onValueChange={setEventId}>
-            <SelectTrigger>
+            <SelectTrigger className="max-w-md">
               <SelectValue placeholder="Select a game" />
             </SelectTrigger>
             <SelectContent>

@@ -181,7 +181,7 @@ export default function CoachLineup() {
                       <div key={ps}>
                         <label className="mb-1 block text-xs font-medium text-gray-500">Player {ps}</label>
                         <Select value={slotValue(line.category, ps)} onValueChange={(v) => pick(line.category, v, ps)}>
-                          <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                          <SelectTrigger className="max-w-sm"><SelectValue placeholder="Unassigned" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value={NONE}>— Unassigned —</SelectItem>
                             {athletes.map((a) => (
@@ -193,7 +193,7 @@ export default function CoachLineup() {
                     ))
                   ) : (
                     <Select value={slotValue(line.category)} onValueChange={(v) => pick(line.category, v)}>
-                      <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                      <SelectTrigger className="max-w-sm"><SelectValue placeholder="Unassigned" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>— Unassigned —</SelectItem>
                         {athletes.map((a) => (
