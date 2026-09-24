@@ -335,13 +335,11 @@ export default function MainLayout() {
                 )}
               >
                 <div className="flex items-center space-x-3">
-                  <div className="bg-white p-2 rounded-xl shrink-0">
-                    <img
-                      src="/sportaxis-mark.png"
-                      alt="SportAxis"
-                      className="h-6 w-6 object-contain"
-                    />
-                  </div>
+                  <img
+                    src="/sportaxis-mark-white.png"
+                    alt="SportAxis"
+                    className="h-8 w-8 shrink-0 object-contain"
+                  />
                   {!sidebarCollapsed && (
                     <div>
                       <h2 className="font-bold text-lg">SportsAxis</h2>

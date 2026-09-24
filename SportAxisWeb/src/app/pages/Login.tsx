@@ -141,7 +141,7 @@ export default function Login() {
           Collapses to a single column below md. */}
       <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-md md:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
         <aside className="hidden flex-col justify-between bg-sidebar p-8 text-sidebar-foreground md:flex">
-          <img src="/sportaxis-mark.png" alt="" aria-hidden="true" className="h-11 w-11 object-contain" />
+          <img src="/sportaxis-mark-white.png" alt="" aria-hidden="true" className="h-11 w-11 object-contain" />
           <div>
             <h2 className="text-2xl font-bold leading-[1.15] tracking-[-0.022em] text-white">
               SportAxis
@@ -150,7 +150,7 @@ export default function Login() {
               The scoring and event record for the BatStateU-TNEU ARASOF Sports Office.
             </p>
           </div>
-          <p className="text-xs text-sidebar-foreground/45">
+          <p className="text-xs text-sidebar-foreground/60">
             Results are official once the Sports Office confirms them.
           </p>
         </aside>
@@ -332,7 +332,7 @@ export default function Login() {
                 />
                 <Label htmlFor="privacyAccepted" className="text-sm font-normal leading-snug text-muted-foreground">
                   I have read and understand the{' '}
-                  <Link to="/privacy-notice" target="_blank" className="font-medium text-primary underline-offset-4 hover:underline">
+                  <Link to="/privacy-notice" target="_blank" className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline">
                     Data Privacy Notice
                   </Link>
                   , including that medical clearance is required for athletes.
@@ -356,7 +356,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => switchMode('signup')}
-                      className="font-medium text-primary underline-offset-4 hover:underline"
+                      className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
                     >
                       Don't have an account? Create one
                     </button>
@@ -378,7 +378,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => switchMode('login')}
-                    className="font-medium text-primary underline-offset-4 hover:underline"
+                    className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
                   >
                     Already have an account? Login
                   </button>

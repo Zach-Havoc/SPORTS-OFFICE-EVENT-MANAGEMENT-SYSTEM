@@ -16,9 +16,9 @@ import Loading from "../../components/Loading";
  * own hue for the podium and quiet neutral below it. No pill, no dot.
  */
 const MEDAL_TEXT: Record<number, string> = {
-  1: "text-amber-700",
+  1: "text-amber-600",
   2: "text-gray-500",
-  3: "text-amber-800/80",
+  3: "text-amber-900",
 };
 
 function Rank({ rank }: { rank: number }) {

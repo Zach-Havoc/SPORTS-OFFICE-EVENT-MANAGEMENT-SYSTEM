@@ -20,7 +20,10 @@ interface Row {
   eventCount?: number;
 }
 
-const RANK_TINT = ['bg-amber-50', 'bg-slate-100', 'bg-orange-50'];
+// Podium emphasis on a broadcast board comes from weight and a neutral
+// surface step, not from cream and peach washes reading as highlighter
+// marks across the full row width.
+const RANK_TINT = ['', 'bg-muted/70', 'bg-muted/70'];
 
 // ── small animation helpers ─────────────────────────────────────────────────
 
@@ -175,15 +178,15 @@ function StandingsView({ rows, logoOf, abbrOf, title }: {
               ref={setRef(r.department)}
               style={{ animationDelay: `${i * 55}ms` }}
               className={`board-row grid min-h-0 flex-1 grid-cols-[6vw_1fr_7vw_7vw_7vw_10vw] items-center gap-x-[1vw] rounded-xl px-[1vw] ${
-                i === 0 ? 'leader-row' : i < 3 ? RANK_TINT[i] : i % 2 ? 'bg-gray-50' : ''
+                i === 0 ? 'leader-row bg-accent' : i < 3 ? RANK_TINT[i] : i % 2 ? 'bg-muted/35' : ''
               }`}
             >
-              <span className="text-center text-[1.7vw] font-extrabold text-gray-700">{i + 1}</span>
+              <span className={`numeral text-center text-[1.7vw] ${i === 0 ? 'text-primary' : 'text-gray-700'}`}>{i + 1}</span>
               <CollegeCell name={r.department} logo={logoOf(r.department)} abbr={abbrOf(r.department)} />
               <AnimatedNumber value={r.gold} className="text-center text-[1.6vw] font-bold text-amber-600 tabular-nums" />
-              <AnimatedNumber value={r.silver} className="text-center text-[1.6vw] font-bold text-slate-500 tabular-nums" />
-              <AnimatedNumber value={r.bronze} className="text-center text-[1.6vw] font-bold text-orange-600 tabular-nums" />
-              <AnimatedNumber value={Math.round(r.total)} className="text-right text-[1.9vw] font-extrabold text-gray-900 tabular-nums" />
+              <AnimatedNumber value={r.silver} className="text-center text-[1.6vw] font-bold text-gray-500 tabular-nums" />
+              <AnimatedNumber value={r.bronze} className="text-center text-[1.6vw] font-bold text-amber-900 tabular-nums" />
+              <AnimatedNumber value={Math.round(r.total)} className="numeral text-right text-[1.9vw] text-gray-900" />
             </div>
           ))
         )}
@@ -295,11 +298,14 @@ export default function StandingsBoard() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .board-row { animation: rowIn 620ms cubic-bezier(.2,.7,.2,1) both; }
-        @keyframes leaderPulse {
-          0%,100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.0); background-color: rgb(255 251 235); }
-          50%     { box-shadow: 0 0 0 3px rgba(217,119,6,0.25); background-color: rgb(254 243 199); }
+        /* The leader row used to pulse forever between two amber fills with an
+           outer glow. On a board that stays on all day that is burn-in risk
+           and visual noise, and the amber fought the brand. The leader is
+           marked by the accent surface and the red rank numeral instead. */
+        .leader-row {
+          animation: rowIn 620ms cubic-bezier(.2,.7,.2,1) both;
+          box-shadow: inset 0 0 0 2px var(--primary);
         }
-        .leader-row { animation: rowIn 620ms cubic-bezier(.2,.7,.2,1) both, leaderPulse 2.8s ease-in-out 700ms infinite; }
         @keyframes viewIn { from { opacity: 0; transform: translateY(24px) scale(.985); } to { opacity: 1; transform: none; } }
         .view-enter { animation: viewIn 650ms cubic-bezier(.2,.7,.2,1) both; }
         @media (prefers-reduced-motion: reduce) {

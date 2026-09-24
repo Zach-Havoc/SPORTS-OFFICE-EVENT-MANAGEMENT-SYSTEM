@@ -27,7 +27,8 @@ export default function NotFound() {
           <span className="rounded-sm bg-muted px-1.5 py-0.5 font-medium text-foreground">
             {pathname}
           </span>
-          . The link may be old, or the event behind it may have been archived.
+          {'. '}
+          The link may be old, or the event behind it may have been archived.
         </p>
 
         <ul className="mt-8 divide-y divide-border border-y border-border">
