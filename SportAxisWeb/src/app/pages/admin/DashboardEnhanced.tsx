@@ -253,7 +253,7 @@ export default function DashboardEnhanced() {
       <Grid>
         {/* Row A */}
         <Tile title="System Totals" span={3}>
-          <div className="grid grid-cols-2 gap-y-4">
+          <div className="grid grid-cols-2 gap-3">
             <IconStat
               icon={Calendar}
               iconClass="text-blue-500"

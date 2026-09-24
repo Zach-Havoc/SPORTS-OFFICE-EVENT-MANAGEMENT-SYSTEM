@@ -316,6 +316,20 @@ export function HeroTile({
 }
 
 // ── Small stat helpers ────────────────────────────────────────────────────
+// Light color-wash card per stat (blue/violet/rose/cyan/amber/slate) instead
+// of a bare icon on the tile's white background — same colorful, distinct-
+// per-metric feel as a Jobie-style KPI card, scaled down for a stat that
+// lives nested inside a neutral Tile rather than standing alone.
+const ICON_STAT_TINT: Record<string, string> = {
+  blue: "bg-blue-50",
+  violet: "bg-violet-50",
+  rose: "bg-rose-50",
+  cyan: "bg-cyan-50",
+  amber: "bg-amber-50",
+  emerald: "bg-emerald-50",
+  slate: "bg-slate-50",
+};
+
 export function IconStat({
   icon: Icon,
   iconClass,
@@ -327,11 +341,13 @@ export function IconStat({
   value: ReactNode;
   caption: string;
 }) {
+  const color = iconClass?.match(/text-(\w+)-\d+/)?.[1];
+  const tint = (color && ICON_STAT_TINT[color]) ?? "bg-slate-50";
   return (
-    <div className="flex flex-col items-center gap-1 px-2 text-center">
+    <div className={cn("flex flex-col items-center gap-1 rounded-xl px-3 py-3 text-center", tint)}>
       <Icon className={cn("h-6 w-6", iconClass ?? "text-slate-400")} />
       <span className="text-2xl font-bold tabular-nums text-slate-800">{value}</span>
-      <span className="text-[11px] text-slate-400">{caption}</span>
+      <span className="text-[11px] text-slate-500">{caption}</span>
     </div>
   );
 }
@@ -359,6 +375,54 @@ export function BareStat({
         {label}
         {prev != null && ` · vs ${prev} prev.`}
       </p>
+    </div>
+  );
+}
+
+// ── Circular progress ring (for a genuine percentage stat) ────────────────
+export function RadialProgress({
+  pct,
+  label,
+  size = 84,
+  stroke = 8,
+  color = BLUE,
+}: {
+  pct: number;
+  label?: string;
+  size?: number;
+  stroke?: number;
+  color?: string;
+}) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c - (clamped / 100) * c}
+        />
+        <text
+          x={size / 2}
+          y={size / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          className="fill-slate-800 text-base font-bold tabular-nums"
+          style={{ transform: "rotate(90deg)", transformOrigin: "center", transformBox: "fill-box" }}
+        >
+          {Math.round(clamped)}%
+        </text>
+      </svg>
+      {label && <span className="text-[11px] text-slate-500">{label}</span>}
     </div>
   );
 }

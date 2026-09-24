@@ -25,6 +25,7 @@ import {
   RankList,
   RangePicker,
   Empty,
+  RadialProgress,
   dailyCounts,
   periodDelta,
   metricRow,
@@ -208,7 +209,7 @@ export default function CoachDashboard() {
       <Grid>
         {/* Row A */}
         <Tile title="Team Totals" span={3}>
-          <div className="grid grid-cols-2 gap-y-4">
+          <div className="grid grid-cols-2 gap-3">
             <IconStat
               icon={Users}
               iconClass="text-blue-500"
@@ -261,14 +262,15 @@ export default function CoachDashboard() {
         </HeroTile>
 
         <Tile title="Team Health" span={3}>
-          <div className="space-y-3">
-            <BareStat
-              value={attendanceRate == null ? "—" : `${attendanceRate}%`}
-              label="Attendance rate (all marks)"
-            />
+          <div className="flex items-center justify-around gap-3">
+            {attendanceRate == null ? (
+              <BareStat value="—" label="Attendance rate" />
+            ) : (
+              <RadialProgress pct={attendanceRate} label="Attendance rate" color={ATTENDANCE_COLORS.present} />
+            )}
             <BareStat
               value={avgRating == null ? "—" : `${avgRating}/10`}
-              label="Average performance rating"
+              label="Avg. performance rating"
             />
           </div>
         </Tile>

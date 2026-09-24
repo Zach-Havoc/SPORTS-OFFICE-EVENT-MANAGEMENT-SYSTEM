@@ -307,10 +307,13 @@ export default function MainLayout() {
               />
             )}
 
-            {/* Sidebar */}
+            {/* Sidebar — flush full-height drawer on mobile (standard mobile
+                pattern), floating rounded panel with a visible page-background
+                gutter around it on desktop (lg:). */}
             <aside
               className={cn(
-                "fixed lg:static inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-red-700 to-red-800 text-white shadow-2xl transition-all duration-300",
+                "fixed lg:static inset-y-0 left-0 lg:inset-y-auto z-50 flex flex-col bg-gradient-to-b from-red-700 to-red-800 text-white shadow-2xl transition-all duration-300",
+                "lg:my-3 lg:ml-3 lg:h-[calc(100vh-1.5rem)] lg:rounded-2xl lg:shadow-xl",
                 sidebarOpen
                   ? "translate-x-0"
                   : "-translate-x-full lg:translate-x-0",
@@ -318,20 +321,27 @@ export default function MainLayout() {
               )}
             >
               {/* Sidebar Header */}
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                {!sidebarCollapsed && (
-                  <div className="flex items-center space-x-3">
+              <div
+                className={cn(
+                  "flex items-center justify-between p-6 border-b border-white/10",
+                  sidebarCollapsed && "justify-center p-4",
+                )}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white p-2 rounded-xl shrink-0">
                     <img
-                      src="/sportaxis-mark-white.png"
+                      src="/sportaxis-mark.png"
                       alt="SportAxis"
-                      className="h-9 w-9 object-contain"
+                      className="h-6 w-6 object-contain"
                     />
+                  </div>
+                  {!sidebarCollapsed && (
                     <div>
                       <h2 className="font-bold text-lg">SportsAxis</h2>
                       <p className="text-xs text-red-100">Competition System</p>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
                 <button
                   onClick={() =>
                     sidebarCollapsed
@@ -514,10 +524,19 @@ export default function MainLayout() {
           </>
         )}
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Main Content Area — matches the sidebar's floating gutter on
+            desktop (lg:mr-3/lg:my-3) so both read as one system of panels
+            over the gradient canvas, not a floating sidebar next to a flush
+            rectangle. No rounding/overflow-hidden here on purpose — this
+            wrapper holds every page in the app and some rely on true
+            viewport-edge fixed positioning (modals, etc.); only the header
+            gets the rounded top corners since it's a contained, known shape. */}
+        <div className={cn("flex-1 flex flex-col overflow-hidden", user && "lg:my-3 lg:mr-3")}>
           {/* Top Navigation Bar */}
-          <header className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200/50 z-30">
+          <header className={cn(
+            "bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200/50 z-30",
+            user && "lg:rounded-t-2xl",
+          )}>
             <div className="px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
                 {/* Left Side */}
