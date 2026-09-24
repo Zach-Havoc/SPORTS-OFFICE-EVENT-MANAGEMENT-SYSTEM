@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BracketController;
 use App\Http\Controllers\Api\CampusStudentController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CmoApplicationController;
 use App\Http\Controllers\Api\CoachController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DisciplineEntryController;
@@ -236,6 +237,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/users/{id}/active', [UserController::class, 'setActive']);
         Route::post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword']);
         Route::delete('/admin/users/{id}', [UserController::class, 'destroy']);
+
+        // CMO (CHED Memorandum Order) applications — always office-reviewed,
+        // unlike the coach-reviewed eligibility checklist in RequirementController.
+        Route::get('/cmo-applications', [CmoApplicationController::class, 'index']);
+        Route::put('/cmo-applications/{id}/status', [CmoApplicationController::class, 'updateStatus']);
     });
 
     // ─── COACH ONLY ───────────────────────────
@@ -291,6 +297,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/requirements/my/clearance', [RequirementController::class, 'clearance']);
         Route::post('/requirements', [RequirementController::class, 'store']);
         Route::get('/my-team', [EnrollController::class, 'myTeam']);
+
+        Route::get('/cmo-applications/my', [CmoApplicationController::class, 'myApplications']);
+        Route::post('/cmo-applications', [CmoApplicationController::class, 'store']);
     });
 
     // ─── ATHLETE + COACH ──────────────────────

@@ -32,6 +32,7 @@ import {
   CalendarCheck,
   Flag,
   Image as ImageIcon,
+  FileBadge,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 import { toast } from "sonner";
@@ -99,6 +100,11 @@ export default function MainLayout() {
           { name: "Bracketing", path: "/admin/bracketing", icon: Trophy },
           { name: "Coaches", path: "/admin/coaches", icon: Users },
           { name: "Users", path: "/admin/users", icon: UserCog },
+          {
+            name: "CMO Applications",
+            path: "/admin/cmo-applications",
+            icon: FileBadge,
+          },
           { name: "Reports", path: "/admin/reports", icon: BarChart3 },
           { name: "Protests", path: "/admin/protests", icon: Gavel },
           { name: "History", path: "/admin/history", icon: History },
@@ -157,6 +163,11 @@ export default function MainLayout() {
             name: "Requirements",
             path: "/athlete/requirements",
             icon: FileText,
+          },
+          {
+            name: "CMO Applications",
+            path: "/athlete/cmo-applications",
+            icon: FileBadge,
           },
           {
             name: "Attendance",

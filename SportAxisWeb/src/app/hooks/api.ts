@@ -106,6 +106,8 @@ export const qk = {
   myClearance: ["requirements", "clearance"] as const,
   requirementTypes: (sport?: string) =>
     ["requirement-types", sport ?? "all"] as const,
+  cmoApplications: ["cmo-applications"] as const,
+  myCmoApplications: ["cmo-applications", "mine"] as const,
   myTeam: ["my-team"] as const,
   judges: ["judges"] as const,
   siteSlides: (type: "carousel" | "popup") => ["site-slides", type] as const,
@@ -463,6 +465,48 @@ export const useAllRequirementTypes = (
     staleTime: STALE.live,
     ...opts,
   });
+
+// CMO applications — admin-reviewed, distinct from the coach-reviewed
+// Requirements checklist above.
+export const useCmoApplications = (opts?: QueryOpts<any[]>) =>
+  useQuery({
+    queryKey: qk.cmoApplications,
+    queryFn: () =>
+      fetchAllPages((page) => api.getCmoApplications({ page, perPage: 200 })),
+    staleTime: STALE.live,
+    ...opts,
+  });
+
+export const useMyCmoApplications = (opts?: QueryOpts<any[]>) =>
+  useQuery({
+    queryKey: qk.myCmoApplications,
+    queryFn: api.getMyCmoApplications,
+    staleTime: STALE.live,
+    ...opts,
+  });
+
+export const useSubmitCmoApplication = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.submitCmoApplication,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.cmoApplications });
+      qc.invalidateQueries({ queryKey: qk.myCmoApplications });
+    },
+  });
+};
+
+export const useUpdateCmoApplicationStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      api.updateCmoApplicationStatus(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.cmoApplications });
+      qc.invalidateQueries({ queryKey: qk.myCmoApplications });
+    },
+  });
+};
 
 export const useMyTeam = (opts?: QueryOpts<api.MyTeam>) =>
   useQuery({

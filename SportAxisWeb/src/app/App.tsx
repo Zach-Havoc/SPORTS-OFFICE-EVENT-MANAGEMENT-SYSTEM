@@ -45,6 +45,7 @@ const AdminBracketing = page(() => import("./pages/admin/Bracketing"));
 const AdminBracketDetail = page(() => import("./pages/admin/BracketDetail"));
 const AdminCoaches = page(() => import("./pages/admin/Coaches"));
 const AdminUsers = page(() => import("./pages/admin/Users"));
+const AdminCmoApplications = page(() => import("./pages/admin/CmoApplications"));
 const AdminTrash = page(() => import("./pages/admin/Trash"));
 const AdminSeasons = page(() => import("./pages/admin/Seasons"));
 const AdminProtests = page(() => import("./pages/admin/Protests"));
@@ -65,6 +66,7 @@ const AthleteDashboard = page(() => import("./pages/athlete/Dashboard"));
 const AthleteSchedule = page(() => import("./pages/athlete/Schedule"));
 const AthletePerformance = page(() => import("./pages/athlete/Performance"));
 const AthleteRequirements = page(() => import("./pages/athlete/Requirements"));
+const AthleteCmoApplications = page(() => import("./pages/athlete/CmoApplications"));
 const AthleteAttendance = page(() => import("./pages/athlete/Attendance"));
 const AthleteTeam = page(() => import("./pages/athlete/Team"));
 const AccountSettings = page(() => import("./pages/settings/AccountSettings"));
@@ -181,6 +183,10 @@ export default function App() {
             },
             { path: "admin/coaches", lazy: AdminCoaches },
             { path: "admin/users", lazy: AdminUsers },
+            {
+              path: "admin/cmo-applications",
+              lazy: AdminCmoApplications,
+            },
             { path: "admin/seasons", lazy: AdminSeasons },
             { path: "admin/protests", lazy: AdminProtests },
             { path: "admin/trash", lazy: AdminTrash },
@@ -257,6 +263,10 @@ export default function App() {
             {
               path: "athlete/requirements",
               lazy: AthleteRequirements,
+            },
+            {
+              path: "athlete/cmo-applications",
+              lazy: AthleteCmoApplications,
             },
             {
               path: "athlete/attendance",
