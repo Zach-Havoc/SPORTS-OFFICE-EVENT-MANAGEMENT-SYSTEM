@@ -12,3 +12,7 @@
 OCR/paddleocr-env/
 OCR/PaddleOCR/
 OCR/__pycache__/
+
+# Impeccable's platform-specific engine binary (16 MB, per-OS/arch).
+# Regenerate with `npx impeccable install` / `npx impeccable update`.
+.claude/skills/impeccable/scripts/bin/
