@@ -10,16 +10,23 @@ import {
 import { RefreshStatus } from "../../components/RefreshStatus";
 import Loading from "../../components/Loading";
 
-function RankBadge({ rank }: { rank: number }) {
-  const styles: Record<number, string> = {
-    1: "bg-amber-100 text-amber-800",
-    2: "bg-gray-200 text-gray-700",
-    3: "bg-orange-100 text-orange-800",
-  };
+/**
+ * Three colored pills was the old rank column. A standing is a number, so
+ * the number is the treatment: set in Archivo's wide axis, in the medal's
+ * own hue for the podium and quiet neutral below it. No pill, no dot.
+ */
+const MEDAL_TEXT: Record<number, string> = {
+  1: "text-amber-700",
+  2: "text-gray-500",
+  3: "text-amber-800/80",
+};
+
+function Rank({ rank }: { rank: number }) {
+  const podium = rank <= 3;
   return (
     <span
-      className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums ${
-        styles[rank] ?? "bg-gray-100 text-gray-500"
+      className={`numeral inline-block tabular-nums ${
+        podium ? `text-xl ${MEDAL_TEXT[rank]}` : "text-base text-muted-foreground"
       }`}
     >
       {rank}
@@ -108,7 +115,7 @@ export default function PublicLeaderboard() {
           <select
             value={sel}
             onChange={(e) => setSel(e.target.value)}
-            className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700"
+            className="rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-foreground transition-colors hover:border-ring/40"
             aria-label="Filter by sport"
           >
             <option value="">All sports</option>
@@ -127,7 +134,7 @@ export default function PublicLeaderboard() {
             <select
               value={season}
               onChange={(e) => setSeason(e.target.value)}
-              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700"
+              className="rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-foreground transition-colors hover:border-ring/40"
               aria-label="Season"
             >
               <option value="">
@@ -155,20 +162,20 @@ export default function PublicLeaderboard() {
             }
             target="_blank"
             rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
             Open TV board
             <span aria-hidden>↗</span>
           </a>
         </div>
-        <p className="text-gray-500 text-sm mt-1.5">
+        <p className="mt-1.5 text-sm text-muted-foreground">
           Cumulative standings across all scored events · Last updated{" "}
           {new Date(dataUpdatedAt).toLocaleTimeString()}
         </p>
       </header>
 
       {/* Leaderboard Table */}
-      <Card className="border-gray-200 shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">
             Overall Rankings
@@ -179,14 +186,20 @@ export default function PublicLeaderboard() {
         </CardHeader>
         <CardContent>
           {leaderboard.length === 0 ? (
-            <p className="text-center text-gray-500 py-10 text-sm">
-              No results have been recorded yet.
-            </p>
+            <div className="py-14 text-center">
+              <p className="text-base font-medium text-foreground">
+                Nothing scored yet
+              </p>
+              <p className="mx-auto mt-1.5 max-w-[42ch] text-sm leading-relaxed text-muted-foreground">
+                Standings fill in as the Sports Office confirms results. Check the
+                schedule to see what is being played today.
+              </p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
+                  <tr className="border-b border-border text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                     <th className="text-left py-3 px-4 font-semibold">Rank</th>
                     <th className="text-left py-3 px-4 font-semibold">
                       College
@@ -200,8 +213,8 @@ export default function PublicLeaderboard() {
                     <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">
                       Bronze
                     </th>
-                    <th className="text-right py-3 px-4 font-semibold">
-                      Total Points
+                    <th className="px-4 py-3 text-right font-semibold">
+                      Points
                     </th>
                   </tr>
                 </thead>
@@ -209,25 +222,29 @@ export default function PublicLeaderboard() {
                   {leaderboard.map((entry) => (
                     <tr
                       key={entry.department}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/70 transition-colors"
+                      className={`border-b border-border/60 transition-colors last:border-0 hover:bg-muted/60 ${
+                        entry.rank <= 3 ? "bg-muted/25" : ""
+                      }`}
                     >
-                      <td className="py-3.5 px-4">
-                        <RankBadge rank={entry.rank} />
+                      <td className="w-14 px-4 py-3.5 text-center">
+                        <Rank rank={entry.rank} />
                       </td>
-                      <td className="py-3.5 px-4 font-medium text-gray-900">
+                      <td className="px-4 py-3.5 font-medium text-foreground">
                         {entry.department}
                       </td>
-                      <td className="py-3.5 px-4 text-center tabular-nums text-gray-600 hidden sm:table-cell">
+                      <td className="hidden px-4 py-3.5 text-center tabular-nums text-muted-foreground sm:table-cell">
                         {entry.gold}
                       </td>
-                      <td className="py-3.5 px-4 text-center tabular-nums text-gray-600 hidden sm:table-cell">
+                      <td className="hidden px-4 py-3.5 text-center tabular-nums text-muted-foreground sm:table-cell">
                         {entry.silver}
                       </td>
-                      <td className="py-3.5 px-4 text-center tabular-nums text-gray-600 hidden sm:table-cell">
+                      <td className="hidden px-4 py-3.5 text-center tabular-nums text-muted-foreground sm:table-cell">
                         {entry.bronze}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-semibold text-gray-900 tabular-nums">
-                        {Math.round(entry.totalPoints)}
+                      <td className="px-4 py-3.5 text-right">
+                        <span className="numeral text-lg text-foreground">
+                          {Math.round(entry.totalPoints)}
+                        </span>
                       </td>
                     </tr>
                   ))}
