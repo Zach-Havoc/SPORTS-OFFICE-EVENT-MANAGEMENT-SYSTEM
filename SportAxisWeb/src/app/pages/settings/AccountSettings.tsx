@@ -163,7 +163,7 @@ export default function AccountSettings() {
   const roleColor = ROLE_COLORS[user.role] || 'bg-gray-100 text-gray-800';
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
+    <div className="max-w-4xl mx-auto px-4 py-10">
 
       {/* ── Page header ─────────────────────────────────────────────── */}
       <div className="mb-8">

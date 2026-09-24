@@ -233,7 +233,7 @@ function EnrolledDashboard({
   ];
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-6 sm:py-8">
+    <div className="container mx-auto max-w-6xl px-4 py-6 sm:py-8">
       {/* Header / team strip */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>

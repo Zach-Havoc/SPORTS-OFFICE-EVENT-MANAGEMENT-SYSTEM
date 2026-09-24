@@ -95,7 +95,7 @@ export default function CoachProtests() {
     return <Loading fullScreen={false} message="Loading protests…" />;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <Flag className="h-5 w-5 text-gray-400" />

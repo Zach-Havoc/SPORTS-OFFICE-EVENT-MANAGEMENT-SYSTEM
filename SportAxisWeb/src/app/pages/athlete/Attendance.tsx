@@ -98,7 +98,7 @@ export default function AthleteAttendance() {
     return <Loading fullScreen={false} message="Loading attendance…" />;
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-8">
+    <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
         <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
           My Attendance
