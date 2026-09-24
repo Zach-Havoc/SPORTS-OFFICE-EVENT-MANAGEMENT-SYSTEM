@@ -109,18 +109,18 @@ export default function DepartmentCarousel() {
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes badge-pop {
-          0%   { opacity: 0; transform: scale(0.85) translateY(6px); }
+          0%   { opacity: 0; transform: scale(0.94) translateY(6px); }
           100% { opacity: 1; transform: scale(1) translateY(0); }
         }
-        .carousel-text-enter { animation: slide-up 0.45s cubic-bezier(.22,.68,0,1.2) both; }
-        .carousel-badge-enter { animation: badge-pop 0.4s cubic-bezier(.22,.68,0,1.2) 0.1s both; }
+        .carousel-text-enter { animation: slide-up 0.45s cubic-bezier(0.25,1,0.5,1) both; }
+        .carousel-badge-enter { animation: badge-pop 0.4s cubic-bezier(0.25,1,0.5,1) 0.1s both; }
         .kb-even { animation: kb-zoom ${INTERVAL}ms linear forwards; }
         .kb-odd  { animation: kb-zoom-alt ${INTERVAL}ms linear forwards; }
         .progress-bar {
           transform-origin: left;
           animation: progress-fill ${INTERVAL}ms linear forwards;
         }
-        .thumb-img { transition: transform 0.5s cubic-bezier(.22,.68,0,1.2); }
+        .thumb-img { transition: transform 0.5s cubic-bezier(0.25,1,0.5,1); }
         .thumb-img:hover { transform: scale(1.07); }
       `}</style>
 
@@ -190,7 +190,7 @@ export default function DepartmentCarousel() {
           <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-5 pt-4">
             {/* Live badge */}
             <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-primary animate-settle motion-reduce:animate-none" />
               <span className="text-white text-xs font-bold tracking-widest uppercase">Live</span>
             </div>
 
@@ -309,7 +309,7 @@ export default function DepartmentCarousel() {
                   style={{ background: isActive ? 'var(--primary, #dc2626)' : 'transparent' }}
                 />
                 {/* Gradient + label */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-950/85 via-gray-950/35 to-transparent" />
                 <div className="absolute bottom-2 left-0 right-0 px-2 text-center">
                   <span
                     className="text-xs font-black tracking-wider uppercase truncate block"

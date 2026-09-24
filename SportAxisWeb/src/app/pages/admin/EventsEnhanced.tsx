@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, memo } from 'react';
+import { Skeleton } from '../../components/ui/skeleton';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { getEvents, getDepartments, getVenues, getJudges, getCategories, createEvent, updateEvent, deleteEvent, bulkDeleteEvents, bulkUpdateEventStatus, unwrapList, getPageMeta } from '../../services/api';
@@ -462,8 +463,8 @@ export default function AdminEventsEnhanced() {
   if (loading) return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <div className="h-8 w-72 bg-gray-200 rounded animate-pulse mb-2" />
-        <div className="h-4 w-96 bg-gray-100 rounded animate-pulse" />
+        <Skeleton className="mb-2 h-8 w-72" />
+        <Skeleton className="h-4 w-96" />
       </div>
       <CardGridSkeleton count={6} />
     </div>

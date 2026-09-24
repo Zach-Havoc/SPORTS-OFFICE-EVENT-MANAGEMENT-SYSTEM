@@ -181,7 +181,7 @@ export default function CoachAthletes() {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
 
       {/* ── Sport Class Header ─────────────────────────────────────── */}
-      <Card className="mb-8 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+      <Card className="mb-8 border-primary/25 bg-accent/40">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-4">

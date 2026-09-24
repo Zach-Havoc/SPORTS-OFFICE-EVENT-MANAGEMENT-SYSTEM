@@ -160,7 +160,7 @@ export default function CoachAttendance() {
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); setToDelete(s); }}
-                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      className="rounded p-1 text-destructive/60 hover:bg-red-50 hover:text-red-600"
                       aria-label="Delete session"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -343,7 +343,7 @@ function SessionDialog({
           ) : (
             <div className="flex items-center gap-2">
               <DialogTitle className="text-left">{session.title}</DialogTitle>
-              <button onClick={() => setEditMeta(true)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Edit session">
+              <button onClick={() => setEditMeta(true)} className="rounded p-1 text-destructive/60 hover:bg-gray-100 hover:text-gray-600" aria-label="Edit session">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -358,7 +358,7 @@ function SessionDialog({
         </DialogHeader>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive/60" />
           <input
             className={`${inputCls} pl-10`}
             placeholder="Search athletes…"
@@ -402,7 +402,7 @@ function SessionDialog({
                     </div>
                     <select
                       className={`h-9 w-40 shrink-0 rounded-md border border-input bg-background px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        current ? STATUS_TEXT[current] : 'text-gray-400'
+                        current ? STATUS_TEXT[current] : 'text-destructive/60'
                       }`}
                       value={current ?? ''}
                       onChange={(e) => e.target.value && mark(a.id, e.target.value as Status)}

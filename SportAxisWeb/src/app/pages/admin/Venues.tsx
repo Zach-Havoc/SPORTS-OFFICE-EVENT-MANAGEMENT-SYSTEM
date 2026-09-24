@@ -232,7 +232,7 @@ export default function AdminVenues() {
             <CardTitle className="text-sm font-medium text-gray-600">Open Spaces</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-purple-600">
+            <div className="text-3xl font-bold text-foreground">
               {venues.filter(v => v.type === 'open').length}
             </div>
           </CardContent>

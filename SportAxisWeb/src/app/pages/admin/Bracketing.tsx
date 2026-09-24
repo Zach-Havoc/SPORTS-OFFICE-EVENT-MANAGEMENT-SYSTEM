@@ -1005,7 +1005,7 @@ export default function AdminBracketing() {
                           </h3>
                           <div className="space-y-2">
                             {roundMatches.map(match => (
-                              <Card key={match.id} className="border-l-4 border-l-blue-500">
+                              <Card key={match.id} className="border-l-blue-500">
                                 <CardContent className="py-3 px-4">
                                   <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0 flex-1">

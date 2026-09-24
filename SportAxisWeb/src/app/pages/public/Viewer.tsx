@@ -110,7 +110,7 @@ function StatusBadge({ status }: { status: Event['status'] }) {
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.badgeClass}`}>
       {cfg.pulse && (
         <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75 motion-reduce:hidden" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
         </span>
       )}

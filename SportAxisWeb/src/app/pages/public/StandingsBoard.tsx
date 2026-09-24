@@ -199,7 +199,7 @@ function LiveView({ games, logoOf }: { games: LiveScore[]; logoOf: (name: string
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-[1.5vw] px-[3vw] pt-[2vw] pb-[1vw]">
         <span className="relative flex h-[1.2vw] w-[1.2vw]">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:hidden" />
           <span className="relative inline-flex h-full w-full rounded-full bg-red-600" />
         </span>
         <h1 className="text-[2.2vw] font-extrabold uppercase tracking-wide text-gray-900">Live Scores</h1>
@@ -308,7 +308,7 @@ export default function StandingsBoard() {
       `}</style>
 
       {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-red-700 to-red-800 px-[3vw] py-[1.1vw] text-white">
+      <div className="flex items-center justify-between bg-primary px-[3vw] py-[1.1vw] text-primary-foreground">
         <div className="flex items-center gap-[1.5vw]">
           <Crest />
           <div className="leading-tight">

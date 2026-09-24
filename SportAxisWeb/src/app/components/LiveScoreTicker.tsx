@@ -45,7 +45,7 @@ export function LiveScoreTicker() {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      className="bg-gradient-to-r from-red-600 to-red-700 text-white py-3 px-4 rounded-lg shadow-lg"
+      className="rounded-lg bg-primary px-4 py-3 text-primary-foreground shadow-sm"
     >
       <div className="flex items-center gap-3">
         <Trophy className="h-5 w-5 text-yellow-300 flex-shrink-0" />

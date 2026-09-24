@@ -136,11 +136,11 @@ export default function JudgeQRScoring() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Validating QR Code...</p>
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" />
+            <p className="text-muted-foreground">Checking this QR code</p>
           </CardContent>
         </Card>
       </div>
@@ -149,21 +149,21 @@ export default function JudgeQRScoring() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-red-200">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
           <CardHeader>
-            <div className="flex items-center gap-2 text-red-600">
+            <div className="flex items-center gap-2 text-destructive">
               <AlertCircle className="h-6 w-6" />
-              <CardTitle>Invalid QR Code</CardTitle>
+              <CardTitle>This QR code is not valid</CardTitle>
             </div>
-            <CardDescription className="text-red-600">
+            <CardDescription className="text-destructive">
               {error}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 mb-4">
-              This QR code may be expired, invalid, or the event may no longer exist.
-              Please contact the event administrator for assistance.
+            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+              The code has expired, was already used, or the event it points at is gone.
+              Ask the event administrator for a new one.
             </p>
             <Button onClick={() => navigate('/')} className="w-full">
               Go to Home
@@ -176,22 +176,22 @@ export default function JudgeQRScoring() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-green-200">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
           <CardHeader>
-            <div className="flex items-center gap-2 text-green-600">
+            <div className="flex items-center gap-2 text-success">
               <CheckCircle2 className="h-6 w-6" />
-              <CardTitle>Score Submitted!</CardTitle>
+              <CardTitle>Score recorded</CardTitle>
             </div>
             <CardDescription>
-              Your score for {formData.department} has been recorded successfully.
+              Your score for {formData.department} is in. The Sports Office confirms it before it counts.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-green-50 p-4 rounded-lg">
+            <div className="rounded-md bg-success-bg p-4 text-success-foreground">
               <div className="flex justify-between font-bold">
                 <span>Score:</span>
-                <span className="text-green-600">{totalScore}/100</span>
+                <span className="numeral text-success-foreground">{totalScore}/100</span>
               </div>
             </div>
             
@@ -207,25 +207,25 @@ export default function JudgeQRScoring() {
   if (!event) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8 px-4">
+    <div className="min-h-[100dvh] bg-background px-4 py-8">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 text-indigo-600 mb-2">
+          <div className="mb-2 flex items-center justify-center gap-2 text-primary">
             <QrCode className="h-8 w-8" />
             <h1 className="text-3xl font-bold">Committee Scoring</h1>
           </div>
-          <p className="text-gray-600">Score via QR Code Access</p>
+          <p className="text-muted-foreground">Scoring by QR code access</p>
         </div>
 
         {/* Event Info Card */}
-        <Card className="mb-6 border-indigo-200 bg-white/80 backdrop-blur">
+        <Card className="mb-6">
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <CardTitle className="text-2xl mb-2">{event.name}</CardTitle>
                 <div className="flex flex-wrap gap-2 mb-3">
-                  <Badge variant="outline" className="bg-indigo-50">
+                  <Badge variant="outline">
                     {event.category}
                   </Badge>
                   <Badge className={
@@ -236,7 +236,7 @@ export default function JudgeQRScoring() {
                     {event.status}
                   </Badge>
                 </div>
-                <div className="flex items-center text-gray-600 text-sm">
+                <div className="flex items-center text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4 mr-2" />
                   {new Date(event.schedule).toLocaleDateString()}
                   {event.startTime && event.endTime && (
@@ -310,7 +310,7 @@ export default function JudgeQRScoring() {
                     placeholder="0-100"
                     className="w-24"
                   />
-                  <span className="text-sm text-gray-500">/ 100</span>
+                  <span className="text-sm text-muted-foreground">/ 100</span>
                 </div>
               </div>
 
@@ -327,7 +327,7 @@ export default function JudgeQRScoring() {
         </Card>
 
         {/* Footer */}
-        <div className="text-center mt-6 text-sm text-gray-500">
+        <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>University Event Competition Scoring System</p>
           <p className="mt-1">Powered by QR Code Technology</p>
         </div>
