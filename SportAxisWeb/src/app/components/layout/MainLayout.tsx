@@ -215,12 +215,13 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="min-h-screen relative">
-      {/* Background gradient */}
-      <div className="fixed inset-0 z-0 bg-gradient-to-br from-red-50 via-white to-gray-50" />
+    <div className="relative min-h-[100dvh]">
+      {/* Flat canvas. Depth comes from the panels sitting on it, not from a
+          diagonal wash behind them. */}
+      <div className="fixed inset-0 z-0 bg-background" />
 
       {/* Main Container */}
-      <div className="relative z-10 flex h-screen overflow-hidden">
+      <div className="relative z-10 flex h-[100dvh] overflow-hidden">
         {/* Mobile Menu Overlay for public users */}
         {!user && mobileMenuOpen && (
           <div
@@ -233,7 +234,7 @@ export default function MainLayout() {
         {!user && (
           <aside
             className={cn(
-              "fixed sm:hidden inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl transition-transform duration-300",
+              "fixed inset-y-0 left-0 z-50 w-72 bg-card shadow-lg transition-transform duration-300 sm:hidden",
               mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
             )}
           >
@@ -247,19 +248,19 @@ export default function MainLayout() {
                     className="h-9 w-9 object-contain"
                   />
                   <div>
-                    <h2 className="font-bold text-base text-gray-900 leading-tight">
+                    <h2 className="text-base font-bold leading-tight text-foreground">
                       SportsAxis
                     </h2>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-muted-foreground">
                       Competition Scoring System
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="rounded-md p-2 transition-colors hover:bg-muted"
                 >
-                  <X className="h-5 w-5 text-gray-700" />
+                  <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
 
@@ -278,8 +279,8 @@ export default function MainLayout() {
                         className={cn(
                           "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
                           active
-                            ? "bg-red-50 text-red-700"
-                            : "text-gray-700 hover:bg-gray-50",
+                            ? "bg-accent text-accent-foreground"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         )}
                       >
                         <Icon className="h-5 w-5" />
@@ -293,7 +294,7 @@ export default function MainLayout() {
               {/* Login Button */}
               <div className="p-4 border-t">
                 <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full bg-red-600 hover:bg-red-700">
+                  <Button className="w-full">
                     Login
                   </Button>
                 </Link>
@@ -318,8 +319,8 @@ export default function MainLayout() {
                 gutter around it on desktop (lg:). */}
             <aside
               className={cn(
-                "fixed lg:static inset-y-0 left-0 lg:inset-y-auto z-50 flex flex-col bg-gradient-to-b from-red-700 to-red-800 text-white shadow-2xl transition-all duration-300",
-                "lg:my-3 lg:ml-3 lg:h-[calc(100vh-1.5rem)] lg:rounded-2xl lg:shadow-xl",
+                "fixed lg:static inset-y-0 left-0 lg:inset-y-auto z-50 flex flex-col bg-sidebar text-sidebar-foreground shadow-2xl transition-all duration-300",
+                "lg:my-3 lg:ml-3 lg:h-[calc(100dvh-1.5rem)] lg:rounded-2xl lg:shadow-lg",
                 sidebarOpen
                   ? "translate-x-0"
                   : "-translate-x-full lg:translate-x-0",
@@ -329,7 +330,7 @@ export default function MainLayout() {
               {/* Sidebar Header */}
               <div
                 className={cn(
-                  "flex items-center justify-between p-6 border-b border-white/10",
+                  "flex items-center justify-between p-6 border-b border-sidebar-border",
                   sidebarCollapsed && "justify-center p-4",
                 )}
               >
@@ -344,7 +345,7 @@ export default function MainLayout() {
                   {!sidebarCollapsed && (
                     <div>
                       <h2 className="font-bold text-lg">SportsAxis</h2>
-                      <p className="text-xs text-red-100">Competition System</p>
+                      <p className="text-xs text-sidebar-foreground/60">Competition System</p>
                     </div>
                   )}
                 </div>
@@ -354,7 +355,7 @@ export default function MainLayout() {
                       ? setSidebarCollapsed(false)
                       : setSidebarOpen(false)
                   }
-                  className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  className="lg:hidden rounded-md p-2 transition-colors hover:bg-sidebar-accent"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -363,7 +364,7 @@ export default function MainLayout() {
               {/* User Info */}
               <div
                 className={cn(
-                  "p-6 border-b border-white/10",
+                  "p-6 border-b border-sidebar-border",
                   sidebarCollapsed && "p-4",
                 )}
               >
@@ -373,7 +374,7 @@ export default function MainLayout() {
                     sidebarCollapsed && "justify-center",
                   )}
                 >
-                  <div className="bg-white/20 backdrop-blur-sm p-2 rounded-full">
+                  <div className="rounded-full bg-sidebar-accent p-2">
                     <User className="h-5 w-5" />
                   </div>
                   {!sidebarCollapsed && (
@@ -381,7 +382,7 @@ export default function MainLayout() {
                       <p className="font-semibold text-sm truncate">
                         {user.name}
                       </p>
-                      <p className="text-xs text-red-100 capitalize">
+                      <p className="text-xs text-sidebar-foreground/60 capitalize">
                         {user.role === "coach"
                           ? [
                               user.department
@@ -432,8 +433,8 @@ export default function MainLayout() {
                         className={cn(
                           "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group",
                           active
-                            ? "bg-white text-red-700 shadow-lg"
-                            : "text-red-50 hover:bg-white/10 hover:text-white",
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           sidebarCollapsed && "justify-center px-2",
                         )}
                       >
@@ -441,8 +442,8 @@ export default function MainLayout() {
                           className={cn(
                             "h-5 w-5",
                             active
-                              ? "text-red-700"
-                              : "text-red-100 group-hover:text-white",
+                              ? "text-sidebar-primary-foreground"
+                              : "text-sidebar-foreground/55 group-hover:text-sidebar-accent-foreground",
                           )}
                         />
                         {!sidebarCollapsed && (
@@ -458,7 +459,7 @@ export default function MainLayout() {
 
                 {/* Bottom Navigation */}
                 {navigation.bottom.length > 0 && (
-                  <div className="mt-8 pt-6 border-t border-white/10 space-y-1">
+                  <div className="mt-8 pt-6 border-t border-sidebar-border space-y-1">
                     {navigation.bottom.map((item) => {
                       const Icon = item.icon;
                       const active = isActive(item.path);
@@ -471,8 +472,8 @@ export default function MainLayout() {
                           className={cn(
                             "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group",
                             active
-                              ? "bg-white text-red-700 shadow-lg"
-                              : "text-red-50 hover:bg-white/10 hover:text-white",
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                             sidebarCollapsed && "justify-center px-2",
                           )}
                         >
@@ -480,8 +481,8 @@ export default function MainLayout() {
                             className={cn(
                               "h-5 w-5",
                               active
-                                ? "text-red-700"
-                                : "text-red-100 group-hover:text-white",
+                                ? "text-sidebar-primary-foreground"
+                                : "text-sidebar-foreground/55 group-hover:text-sidebar-accent-foreground",
                             )}
                           />
                           {!sidebarCollapsed && (
@@ -497,7 +498,7 @@ export default function MainLayout() {
               {/* Logout Button */}
               <div
                 className={cn(
-                  "p-4 border-t border-white/10",
+                  "p-4 border-t border-sidebar-border",
                   sidebarCollapsed && "p-2",
                 )}
               >
@@ -505,7 +506,7 @@ export default function MainLayout() {
                   onClick={handleLogoutClick}
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start text-white hover:bg-white/10 hover:text-white",
+                    "w-full justify-start text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                     sidebarCollapsed && "justify-center px-2",
                   )}
                 >
@@ -517,7 +518,7 @@ export default function MainLayout() {
               {/* Collapse Toggle (Desktop Only) */}
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="hidden lg:flex absolute -right-3 top-20 bg-red-700 hover:bg-red-600 text-white p-1.5 rounded-full shadow-lg transition-colors"
+                className="absolute -right-3 top-20 hidden rounded-full bg-primary p-1.5 text-primary-foreground shadow-md transition-colors hover:bg-primary/90 lg:flex"
               >
                 <ChevronRight
                   className={cn(
@@ -540,7 +541,7 @@ export default function MainLayout() {
         <div className={cn("flex-1 min-w-0 flex flex-col overflow-hidden", user && "lg:my-3 lg:mr-3")}>
           {/* Top Navigation Bar */}
           <header className={cn(
-            "bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200/50 z-30",
+            "z-30 border-b border-border bg-card/85 backdrop-blur-md",
             user && "lg:rounded-t-2xl",
           )}>
             <div className="px-4 sm:px-6 lg:px-8">
@@ -551,9 +552,9 @@ export default function MainLayout() {
                   {user && (
                     <button
                       onClick={() => setSidebarOpen(true)}
-                      className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="rounded-md p-2 transition-colors hover:bg-muted lg:hidden"
                     >
-                      <Menu className="h-6 w-6 text-gray-700" />
+                      <Menu className="h-6 w-6 text-muted-foreground" />
                     </button>
                   )}
 
@@ -561,9 +562,9 @@ export default function MainLayout() {
                   {!user && (
                     <button
                       onClick={() => setMobileMenuOpen(true)}
-                      className="sm:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="rounded-md p-2 transition-colors hover:bg-muted sm:hidden"
                     >
-                      <Menu className="h-6 w-6 text-gray-700" />
+                      <Menu className="h-6 w-6 text-muted-foreground" />
                     </button>
                   )}
 
@@ -576,10 +577,10 @@ export default function MainLayout() {
                         className="h-8 w-8 sm:h-10 sm:w-10 object-contain"
                       />
                       <div>
-                        <h1 className="text-base sm:text-xl font-bold text-gray-900">
+                        <h1 className="text-base font-bold text-foreground sm:text-xl">
                           SportsAxis
                         </h1>
-                        <p className="text-xs text-gray-600 hidden sm:block">
+                        <p className="hidden text-xs text-muted-foreground sm:block">
                           Competition Scoring System
                         </p>
                       </div>
@@ -588,10 +589,10 @@ export default function MainLayout() {
 
                   {/* Breadcrumb for logged-in users */}
                   {user && (
-                    <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="hidden items-center space-x-2 text-sm text-muted-foreground sm:flex">
                       <Home className="h-4 w-4" />
                       <ChevronRight className="h-4 w-4" />
-                      <span className="font-medium text-gray-900 capitalize">
+                      <span className="font-medium capitalize text-foreground">
                         {location.pathname.split("/")[1] || "Home"}
                       </span>
                     </div>
@@ -619,8 +620,8 @@ export default function MainLayout() {
                             className={cn(
                               "rounded-md px-3 py-2 text-sm font-medium transition-colors",
                               isActive(item.path)
-                                ? "bg-red-50 text-red-700"
-                                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                                ? "bg-accent text-accent-foreground"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
                             )}
                           >
                             {item.name}
@@ -630,7 +631,7 @@ export default function MainLayout() {
                       <Link to="/login">
                         <Button
                           size="sm"
-                          className="bg-red-600 hover:bg-red-700"
+                          className=""
                         >
                           Login
                         </Button>
@@ -645,8 +646,8 @@ export default function MainLayout() {
           {/* Page Content */}
           <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto relative">
             {routerNavigation.state === "loading" && (
-              <div className="absolute inset-x-0 top-0 h-0.5 bg-red-600/30 overflow-hidden z-10">
-                <div className="h-full w-1/3 bg-red-600 animate-[loading-bar_1s_ease-in-out_infinite]" />
+              <div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-primary/20">
+                <div className="h-full w-1/3 bg-primary [animation:loading-bar_1.1s_cubic-bezier(0.25,1,0.5,1)_infinite] motion-reduce:w-full motion-reduce:animate-none" />
               </div>
             )}
             <div className="h-full">
@@ -655,9 +656,9 @@ export default function MainLayout() {
           </main>
 
           {/* Footer */}
-          <footer className="bg-white/95 backdrop-blur-md border-t border-gray-200/50 py-4">
+          <footer className="border-t border-border bg-card/85 py-4 backdrop-blur-md">
             <div className="px-4 sm:px-6 lg:px-8">
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-muted-foreground">
                 © 2026 SportsAxis. All rights reserved.
                 {' '}·{' '}
                 <Link to="/privacy-notice" className="hover:underline">Data Privacy Notice</Link>

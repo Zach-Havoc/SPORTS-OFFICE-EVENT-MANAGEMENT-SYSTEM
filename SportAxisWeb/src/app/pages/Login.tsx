@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
@@ -61,7 +60,7 @@ export default function Login() {
         console.log('Attempting login for:', email);
         await login(email, password);
         console.log('Login completed successfully');
-        toast.success(`Welcome back! Logging in as ${email}`);
+        toast.success('Signed in');
       } else if (mode === 'signup') {
         // Validate passwords match
         if (password !== confirmPassword) {
@@ -83,7 +82,7 @@ export default function Login() {
 
         console.log('Attempting signup for:', email);
         await signup(email, password, name, role, registrationCode, srCode.trim(), privacyAccepted);
-        toast.success('Account created successfully! You can now log in.');
+        toast.success('Account created. You can sign in now.');
 
         // Switch to login mode after successful signup
         setMode('login');
@@ -96,11 +95,11 @@ export default function Login() {
         console.log('Requesting password reset for:', email);
         await resetPassword(email);
         setResetSent(true);
-        toast.success('Password reset instructions sent to your email!');
+        toast.success('Reset link sent. Check your email.');
       }
     } catch (err: any) {
       console.error('Auth error:', err);
-      const errorMessage = err.message || 'An error occurred. Please try again.';
+      const errorMessage = err.message || "We couldn't complete that. Please try again.";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -126,31 +125,51 @@ export default function Login() {
     resetForm();
   };
 
+  const heading =
+    mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create an account' : 'Reset your password';
+  const subheading =
+    mode === 'login'
+      ? 'Scoring, standings and rosters for ARASOF intramurals.'
+      : mode === 'signup'
+        ? 'Accounts are for staff, coaches, judges and enrolled athletes.'
+        : 'We will email you a link to set a new password.';
+
   return (
-    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 py-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <img src="/sportaxis-mark.png" alt="SportAxis" className="h-16 w-16 object-contain" />
+    <div className="flex min-h-[calc(100dvh-200px)] items-center justify-center px-4 py-8">
+      {/* Asymmetric split rather than a centered card: the left column carries
+          who this belongs to, the right column does the one job the page has.
+          Collapses to a single column below md. */}
+      <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-md md:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
+        <aside className="hidden flex-col justify-between bg-sidebar p-8 text-sidebar-foreground md:flex">
+          <img src="/sportaxis-mark.png" alt="" aria-hidden="true" className="h-11 w-11 object-contain" />
+          <div>
+            <h2 className="text-2xl font-bold leading-[1.15] tracking-[-0.022em] text-white">
+              SportAxis
+            </h2>
+            <p className="mt-3 max-w-[28ch] text-sm leading-relaxed text-sidebar-foreground/65">
+              The scoring and event record for the BatStateU-TNEU ARASOF Sports Office.
+            </p>
           </div>
-          <CardTitle>
-            {mode === 'login' && 'Welcome Back'}
-            {mode === 'signup' && 'Create Account'}
-            {mode === 'reset' && 'Reset Password'}
-          </CardTitle>
-          <CardDescription>
-            {mode === 'login' && 'Login to access the scoring system'}
-            {mode === 'signup' && 'Register for admin or judge access'}
-            {mode === 'reset' && 'Enter your email to reset your password'}
-          </CardDescription>
+          <p className="text-xs text-sidebar-foreground/45">
+            Results are official once the Sports Office confirms them.
+          </p>
+        </aside>
+
+        <div className="p-6 sm:p-8">
+          <img
+            src="/sportaxis-mark.png"
+            alt="SportAxis"
+            className="mb-5 h-12 w-12 object-contain md:hidden"
+          />
+          <h1 className="text-2xl font-bold tracking-[-0.022em]">{heading}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{subheading}</p>
           {mode === 'signup' && (
-            <div className="mt-3 text-xs text-gray-600 bg-gray-50 p-3 rounded-md">
-              <strong>Note:</strong> Public viewers can access the system without creating an account.
-              Accounts are only for admins and committees who need to manage or score events.
-            </div>
+            <p className="mt-4 rounded-md border border-border bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
+              Public viewers can browse schedules, standings and results without an
+              account. Sign up only if you need to manage or score events.
+            </p>
           )}
-        </CardHeader>
-        <CardContent>
+          <div className="mt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -186,7 +205,7 @@ export default function Login() {
                 <Input
                   id="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Maria Clara Villanueva"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -209,7 +228,7 @@ export default function Login() {
                     <SelectItem value="admin">Admin - Full system access</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {role === 'athlete' && 'Athletes can view schedules, performance, and submit requirements'}
                   {role === 'coach' && 'Coaches can manage athletes, track attendance, and record performance'}
                   {role === 'judge' && 'Committees can view and score assigned events'}
@@ -230,7 +249,7 @@ export default function Login() {
                   onChange={(e) => setSrCode(e.target.value)}
                   required
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Your name and SR Code must match your college registrar's records.
                 </p>
               </div>
@@ -248,7 +267,7 @@ export default function Login() {
                   onChange={(e) => setRegistrationCode(e.target.value)}
                   required
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Contact an administrator to get a registration code for {role} access
                 </p>
               </div>
@@ -270,7 +289,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -294,7 +313,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -311,9 +330,9 @@ export default function Login() {
                   onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
                   className="mt-0.5"
                 />
-                <Label htmlFor="privacyAccepted" className="text-sm font-normal leading-snug text-gray-600">
+                <Label htmlFor="privacyAccepted" className="text-sm font-normal leading-snug text-muted-foreground">
                   I have read and understand the{' '}
-                  <Link to="/privacy-notice" target="_blank" className="text-[#C8102E] hover:underline">
+                  <Link to="/privacy-notice" target="_blank" className="font-medium text-primary underline-offset-4 hover:underline">
                     Data Privacy Notice
                   </Link>
                   , including that medical clearance is required for athletes.
@@ -330,14 +349,14 @@ export default function Login() {
             </Button>
 
             {/* Mode Switchers */}
-            <div className="space-y-2 text-center text-sm">
+            <div className="space-y-2 pt-1 text-sm">
               {mode === 'login' && (
                 <>
                   <div>
                     <button
                       type="button"
                       onClick={() => switchMode('signup')}
-                      className="text-[#C8102E] hover:underline"
+                      className="font-medium text-primary underline-offset-4 hover:underline"
                     >
                       Don't have an account? Create one
                     </button>
@@ -346,7 +365,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => switchMode('reset')}
-                      className="text-gray-600 hover:underline"
+                      className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
                       Forgot password?
                     </button>
@@ -359,7 +378,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => switchMode('login')}
-                    className="text-[#C8102E] hover:underline"
+                    className="font-medium text-primary underline-offset-4 hover:underline"
                   >
                     Already have an account? Login
                   </button>
@@ -371,7 +390,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => switchMode('login')}
-                    className="text-[#C8102E] hover:underline flex items-center justify-center gap-1 mx-auto"
+                    className="mx-auto flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Back to Login
@@ -381,8 +400,9 @@ export default function Login() {
             </div>
 
           </form>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
