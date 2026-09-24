@@ -172,10 +172,10 @@ const CoachCard = memo(function CoachCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge className="bg-purple-100 text-purple-800">Coach</Badge>
+        <div className="flex justify-between items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <Badge className="shrink-0 bg-purple-100 text-purple-800">Coach</Badge>
               {(coach.sports?.length ? coach.sports : coach.sport ? [coach.sport] : []).map((s) => (
                 <Badge key={s} variant="outline">{s}</Badge>
               ))}
@@ -188,14 +188,15 @@ const CoachCard = memo(function CoachCard({
                 <Badge className="bg-blue-100 text-blue-800">{coach.department}</Badge>
               )}
             </div>
-            <CardTitle>{coach.name}</CardTitle>
+            <CardTitle className="truncate">{coach.name}</CardTitle>
             <CardDescription className="mt-2">
-              <div className="text-sm text-gray-600">{coach.email}</div>
+              <div className="truncate text-sm text-gray-600">{coach.email}</div>
             </CardDescription>
           </div>
           <Button
             size="sm"
             variant="outline"
+            className="shrink-0"
             onClick={() => onAssign(coach)}
           >
             <Edit className="h-4 w-4 mr-2" />

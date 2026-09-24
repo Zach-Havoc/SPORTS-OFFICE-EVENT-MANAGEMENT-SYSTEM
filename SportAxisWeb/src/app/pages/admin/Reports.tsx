@@ -195,7 +195,7 @@ export default function AdminReports() {
     scores.length > 0 && scores.every((s) => s.status === "official");
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">
           Reports &amp; Results

@@ -170,7 +170,7 @@ export default function AthleteForm() {
   if (!user) return null;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="mb-6">
         <Link to="/coach/athletes">
           <Button variant="ghost" className="mb-4">

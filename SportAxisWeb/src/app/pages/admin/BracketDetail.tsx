@@ -256,8 +256,8 @@ export default function BracketDetail() {
         <Link to="/admin/bracketing">
           <Button variant="outline" size="sm"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
         </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{bracket.name}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="break-words text-2xl font-bold text-gray-900">{bracket.name}</h1>
           <p className="text-sm text-gray-500">
             {bracket.format === 'round_robin' ? 'Round Robin' : 'Single Elimination'} · {bracket.matches.length} matches
           </p>

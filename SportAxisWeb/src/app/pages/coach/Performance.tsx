@@ -301,14 +301,14 @@ export default function CoachPerformance() {
               {filteredPerformances.map(record => (
                 <div key={record.id} className="border rounded-lg p-4">
                   <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold text-lg">{record.athleteName}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary">{record.sport}</Badge>
-                        <span className="text-sm text-gray-600">{record.eventName}</span>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate font-semibold text-lg">{record.athleteName}</h4>
+                      <div className="flex min-w-0 items-center gap-2 mt-1">
+                        <Badge variant="secondary" className="shrink-0">{record.sport}</Badge>
+                        <span className="min-w-0 truncate text-sm text-gray-600">{record.eventName}</span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className={`text-2xl font-bold ${getRatingColor(record.overallRating)}`}>
                         {record.overallRating}/10
                       </div>

@@ -179,9 +179,9 @@ export default function CoachAnnouncements() {
             <Card key={announcement.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <CardTitle className="text-xl">{announcement.title}</CardTitle>
+                      <CardTitle className="min-w-0 truncate text-xl">{announcement.title}</CardTitle>
                       {announcement.sport && (
                         <Badge variant="secondary">{announcement.sport}</Badge>
                       )}

@@ -212,11 +212,11 @@ export default function AdminRequirements() {
                   key={req.id}
                   className="rounded-lg border p-4 transition-colors hover:bg-gray-50"
                 >
-                  <div className="mb-3 flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                        <h4 className="text-lg font-semibold">{req.athleteName}</h4>
-                        <Badge variant={statusVariant(req.status)}>
+                        <h4 className="min-w-0 truncate text-lg font-semibold">{req.athleteName}</h4>
+                        <Badge variant={statusVariant(req.status)} className="shrink-0">
                           {statusIcon(req.status)}
                           <span className="ml-1">{req.status}</span>
                         </Badge>
@@ -251,7 +251,7 @@ export default function AdminRequirements() {
                         </p>
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => handleView(req)}>
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => handleView(req)}>
                       <Eye className="mr-1 h-4 w-4" />
                       Review
                     </Button>
@@ -273,9 +273,9 @@ export default function AdminRequirements() {
             <div className="space-y-4">
               {reviewed.map((req) => (
                 <div key={req.id} className="rounded-lg border bg-gray-50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <h4 className="font-semibold">{req.athleteName}</h4>
-                    <Badge variant={statusVariant(req.status)}>
+                  <div className="mb-2 flex min-w-0 items-center gap-2">
+                    <h4 className="min-w-0 truncate font-semibold">{req.athleteName}</h4>
+                    <Badge variant={statusVariant(req.status)} className="shrink-0">
                       {statusIcon(req.status)}
                       <span className="ml-1">{req.status}</span>
                     </Badge>

@@ -348,13 +348,13 @@ export default function AthleteDetail() {
                 {performances.slice(0, 5).map((p) => (
                   <div key={p.id} className="border rounded-lg p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-sm">{p.eventName}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-sm">{p.eventName}</p>
                         <p className="text-xs text-gray-500">
                           {p.sport} &middot; {formatDate(p.recordedAt)}
                         </p>
                       </div>
-                      <Badge variant="secondary">{p.overallRating}/10</Badge>
+                      <Badge variant="secondary" className="shrink-0">{p.overallRating}/10</Badge>
                     </div>
                     {p.coachNotes && <p className="text-xs text-gray-600 mt-2">{p.coachNotes}</p>}
                   </div>
@@ -384,11 +384,11 @@ export default function AthleteDetail() {
                 {requirements.slice(0, 5).map((r) => (
                   <div key={r.id} className="border rounded-lg p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-sm">{r.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-sm">{r.name}</p>
                         <p className="text-xs text-gray-500">{formatDate(r.submittedAt)}</p>
                       </div>
-                      <Badge className={`text-[11px] gap-1 ${REQ_STATUS_STYLE[r.status]}`}>
+                      <Badge className={`shrink-0 text-[11px] gap-1 ${REQ_STATUS_STYLE[r.status]}`}>
                         {REQ_STATUS_ICON[r.status]}
                         {r.status}
                       </Badge>

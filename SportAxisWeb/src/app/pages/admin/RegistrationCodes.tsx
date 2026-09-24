@@ -210,8 +210,8 @@ export default function AdminRegistrationCodes() {
             {activeCodes.map(code => (
               <Card key={code.code}>
                 <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <code className="text-2xl font-mono font-bold bg-gray-100 px-3 py-1 rounded">
                           {code.code}
@@ -223,7 +223,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{code.label}</p>
+                      <p className="truncate text-sm text-gray-600 mb-1">{code.label}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span>Created by {code.createdBy}</span>
                         <span>•</span>
@@ -239,7 +239,7 @@ export default function AdminRegistrationCodes() {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex shrink-0 gap-2">
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -275,7 +275,7 @@ export default function AdminRegistrationCodes() {
               <Card key={code.code} className="bg-gray-50">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <code className="text-lg font-mono font-bold text-gray-500 px-3 py-1">
                           {code.code}
@@ -288,7 +288,7 @@ export default function AdminRegistrationCodes() {
                         </Badge>
                         <Badge variant="secondary">Used</Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{code.label}</p>
+                      <p className="truncate text-sm text-gray-600 mb-1">{code.label}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span>Used by {code.usedBy}</span>
                         <span>•</span>
@@ -315,7 +315,7 @@ export default function AdminRegistrationCodes() {
               <Card key={code.code} className="bg-red-50 border-red-200">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <code className="text-lg font-mono font-bold text-red-600 line-through px-3 py-1">
                           {code.code}
@@ -328,7 +328,7 @@ export default function AdminRegistrationCodes() {
                         </Badge>
                         <Badge className="bg-red-600">Expired</Badge>
                       </div>
-                      <p className="text-sm text-red-700 mb-1">{code.label}</p>
+                      <p className="truncate text-sm text-red-700 mb-1">{code.label}</p>
                       <div className="flex items-center gap-4 text-xs text-red-600">
                         <span>Expired {code.expiresAt && formatDate(code.expiresAt)}</span>
                       </div>

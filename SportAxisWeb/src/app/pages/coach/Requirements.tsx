@@ -473,12 +473,12 @@ export default function CoachRequirements() {
                   className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold text-lg">
+                        <h4 className="min-w-0 truncate font-semibold text-lg">
                           {req.athleteName}
                         </h4>
-                        <Badge className={getStatusColor(req.status)}>
+                        <Badge className={`shrink-0 ${getStatusColor(req.status)}`}>
                           {getStatusIcon(req.status)}
                           <span className="ml-1">{req.status}</span>
                         </Badge>
@@ -543,10 +543,10 @@ export default function CoachRequirements() {
               {reviewedRequirements.map((req) => (
                 <div key={req.id} className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold">{req.athleteName}</h4>
-                        <Badge className={getStatusColor(req.status)}>
+                        <h4 className="min-w-0 truncate font-semibold">{req.athleteName}</h4>
+                        <Badge className={`shrink-0 ${getStatusColor(req.status)}`}>
                           {getStatusIcon(req.status)}
                           <span className="ml-1">{req.status}</span>
                         </Badge>

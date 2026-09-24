@@ -800,6 +800,7 @@ export default function AdminBracketing() {
                     No completed matches recorded for this sport yet.
                   </p>
                 ) : (
+                  <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-left text-gray-500 border-b border-gray-100">
@@ -822,6 +823,7 @@ export default function AdminBracketing() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
             )}
@@ -1005,14 +1007,14 @@ export default function AdminBracketing() {
                             {roundMatches.map(match => (
                               <Card key={match.id} className="border-l-4 border-l-blue-500">
                                 <CardContent className="py-3 px-4">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <span className={match.team1 === 'BYE' ? 'text-gray-400' : 'font-medium'}>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex min-w-0 items-center gap-2 text-sm">
+                                        <span className={`truncate ${match.team1 === 'BYE' ? 'text-gray-400' : 'font-medium'}`}>
                                           {match.team1}
                                         </span>
-                                        <ArrowRight className="h-3 w-3 text-gray-400" />
-                                        <span className={match.team2 === 'BYE' ? 'text-gray-400' : 'font-medium'}>
+                                        <ArrowRight className="h-3 w-3 shrink-0 text-gray-400" />
+                                        <span className={`truncate ${match.team2 === 'BYE' ? 'text-gray-400' : 'font-medium'}`}>
                                           {match.team2}
                                         </span>
                                       </div>
@@ -1022,7 +1024,7 @@ export default function AdminBracketing() {
                                         </Badge>
                                       )}
                                     </div>
-                                    <div className="text-right text-xs text-gray-600 space-y-1">
+                                    <div className="shrink-0 text-right text-xs text-gray-600 space-y-1">
                                       <div className="flex items-center gap-1">
                                         <Calendar className="h-3 w-3" />
                                         {match.date} {match.time}
