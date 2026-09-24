@@ -40,6 +40,8 @@ import {
   Plus,
   Trash2,
   Search,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -49,6 +51,8 @@ import {
   useCreateRequirementType,
   useUpdateRequirementType,
   useDeleteRequirementType,
+  useUploadRequirementTypeTemplate,
+  useDeleteRequirementTypeTemplate,
 } from "../../hooks/api";
 import { RefreshStatus } from "../../components/RefreshStatus";
 
@@ -57,12 +61,25 @@ function RequirementTypeManager() {
   const create = useCreateRequirementType();
   const update = useUpdateRequirementType();
   const remove = useDeleteRequirementType();
+  const uploadTemplate = useUploadRequirementTypeTemplate();
+  const deleteTemplate = useDeleteRequirementTypeTemplate();
 
   const [name, setName] = useState("");
   const [sport, setSport] = useState("");
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
 
   const types = typesQuery.data ?? [];
+
+  const onPickTemplate = (id: string, file: File | null) => {
+    if (!file) return;
+    uploadTemplate.mutate(
+      { id, file },
+      {
+        onSuccess: () => toast.success("Template uploaded"),
+        onError: (e: any) => toast.error(e?.message || "Could not upload the template"),
+      },
+    );
+  };
 
   const onAdd = () => {
     if (!name.trim()) return toast.error("Give the document a name");
@@ -131,6 +148,17 @@ function RequirementTypeManager() {
                   <p className="text-xs text-gray-500">
                     {t.sport ?? "All sports"}
                   </p>
+                  {t.templateFileUrl && (
+                    <a
+                      href={t.templateFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      <FileText className="mr-1 h-3 w-3" />
+                      Blank template
+                    </a>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button
@@ -156,6 +184,32 @@ function RequirementTypeManager() {
                   >
                     {t.active ? "Active" : "Hidden"}
                   </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <label className="cursor-pointer">
+                      <Upload className="h-4 w-4" />
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*,.pdf,.doc,.docx"
+                        onChange={(e) => {
+                          onPickTemplate(t.id, e.target.files?.[0] || null);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </Button>
+                  {t.templateFileUrl && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:bg-red-50"
+                      onClick={() => deleteTemplate.mutate(t.id)}
+                      disabled={deleteTemplate.isPending}
+                      title="Remove template"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -315,7 +369,7 @@ export default function CoachRequirements() {
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold text-gray-900">
-            Requirements Management
+            CMO Requirements
           </h1>
           <RefreshStatus
             fetching={fetching}

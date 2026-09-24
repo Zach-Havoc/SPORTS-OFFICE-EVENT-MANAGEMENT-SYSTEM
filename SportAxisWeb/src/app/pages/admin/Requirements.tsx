@@ -20,40 +20,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
-import {
-  CheckCircle,
-  XCircle,
-  Clock,
-  Download,
-  Eye,
-  Search,
-} from "lucide-react";
+import { CheckCircle, XCircle, Clock, Download, Eye, Search } from "lucide-react";
 import { toast } from "sonner";
-import {
-  useCmoApplications,
-  useUpdateCmoApplicationStatus,
-} from "../../hooks/api";
+import { useRequirements, useUpdateRequirementStatus } from "../../hooks/api";
 import { RefreshStatus } from "../../components/RefreshStatus";
 
-interface CmoApplicationRow {
+interface Requirement {
   id: string;
+  athleteId: string;
   athleteName: string;
-  referenceNo: string;
-  cmoReference: string;
-  schoolYear: string;
-  purpose: string;
-  description: string | null;
-  fileUrl: string | null;
+  type: string;
+  name: string;
+  description: string;
+  fileUrl: string;
   status: "pending" | "approved" | "rejected";
   submittedAt: string;
+  reviewedBy: string | null;
   reviewedAt: string | null;
-  notes: string | null;
+  notes: string;
 }
 
-export default function AdminCmoApplications() {
+/**
+ * The Sports Office's view of the same CMO requirements a coach reviews —
+ * the athlete submits it, the coach looks at it first, and it also lands
+ * here for the office's own sign-off. Same data, same statuses, no separate
+ * module: RequirementController already returns every submission (not just
+ * a roster) and skips the roster check for any caller that isn't a coach.
+ */
+export default function AdminRequirements() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<CmoApplicationRow | null>(null);
+  const [selected, setSelected] = useState<Requirement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
   const [search, setSearch] = useState("");
@@ -62,29 +59,25 @@ export default function AdminCmoApplications() {
     if (!user || user.role !== "admin") navigate("/login");
   }, [user, navigate]);
 
-  const applicationsQuery = useCmoApplications();
-  const updateStatus = useUpdateCmoApplicationStatus();
+  const requirementsQuery = useRequirements();
+  const updateStatus = useUpdateRequirementStatus();
 
-  const applications: CmoApplicationRow[] = useMemo(() => {
+  const requirements: Requirement[] = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const all: CmoApplicationRow[] = applicationsQuery.data ?? [];
+    const all: Requirement[] = requirementsQuery.data ?? [];
     if (!q) return all;
-    return all.filter(
-      (a) =>
-        a.athleteName.toLowerCase().includes(q) ||
-        a.referenceNo.toLowerCase().includes(q),
-    );
-  }, [applicationsQuery.data, search]);
-  const loading = applicationsQuery.isLoading;
-  const fetching = applicationsQuery.isFetching && !loading;
+    return all.filter((r) => r.athleteName.toLowerCase().includes(q));
+  }, [requirementsQuery.data, search]);
+  const loading = requirementsQuery.isLoading;
+  const fetching = requirementsQuery.isFetching && !loading;
   const processing = updateStatus.isPending;
 
-  const pending = applications.filter((a) => a.status === "pending");
-  const reviewed = applications.filter((a) => a.status !== "pending");
+  const pending = requirements.filter((r) => r.status === "pending");
+  const reviewed = requirements.filter((r) => r.status !== "pending");
 
-  const handleView = (app: CmoApplicationRow) => {
-    setSelected(app);
-    setReviewNotes(app.notes || "");
+  const handleView = (req: Requirement) => {
+    setSelected(req);
+    setReviewNotes(req.notes || "");
     setDialogOpen(true);
   };
 
@@ -95,14 +88,12 @@ export default function AdminCmoApplications() {
         id: selected.id,
         data: { status, notes: reviewNotes },
       });
-      toast.success(
-        `Application ${status === "approved" ? "approved" : "rejected"}`,
-      );
+      toast.success(`Requirement ${status === "approved" ? "approved" : "rejected"}`);
       setDialogOpen(false);
       setSelected(null);
       setReviewNotes("");
     } catch (error: any) {
-      toast.error(error.message || "Failed to update application");
+      toast.error(error.message || "Failed to update requirement");
     }
   };
 
@@ -139,64 +130,53 @@ export default function AdminCmoApplications() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">
-            CMO Applications
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">CMO Requirements</h1>
           <RefreshStatus
             fetching={fetching}
-            error={applicationsQuery.isRefetchError}
-            onRetry={() => applicationsQuery.refetch()}
+            error={requirementsQuery.isRefetchError}
+            onRetry={() => requirementsQuery.refetch()}
           />
         </div>
         <p className="mt-2 text-gray-600">
-          Review formal, CHED-cited applications submitted by student-athletes
+          The Sports Office's view of the documents athletes submit — same
+          checklist the coach reviews.
         </p>
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{applications.length}</div>
+            <div className="text-3xl font-bold">{requirements.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Pending
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-amber-600">
-              {pending.length}
-            </div>
+            <div className="text-3xl font-bold text-amber-600">{pending.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Approved
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Approved</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-emerald-600">
-              {applications.filter((a) => a.status === "approved").length}
+              {requirements.filter((r) => r.status === "approved").length}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Rejected
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Rejected</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-red-600">
-              {applications.filter((a) => a.status === "rejected").length}
+              {requirements.filter((r) => r.status === "rejected").length}
             </div>
           </CardContent>
         </Card>
@@ -205,7 +185,7 @@ export default function AdminCmoApplications() {
       <div className="relative mb-6">
         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input
-          placeholder="Search by athlete name or reference no…"
+          placeholder="Search by athlete name…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm pl-10"
@@ -215,55 +195,48 @@ export default function AdminCmoApplications() {
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Pending Review ({pending.length})</CardTitle>
-          <CardDescription>Applications awaiting a decision</CardDescription>
+          <CardDescription>Documents awaiting a decision</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="py-12 text-center text-gray-500">
-              Loading applications...
-            </div>
+            <div className="py-12 text-center text-gray-500">Loading requirements...</div>
           ) : pending.length === 0 ? (
             <div className="py-12 text-center">
               <CheckCircle className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-              <p className="text-gray-500">
-                All caught up! No pending applications
-              </p>
+              <p className="text-gray-500">All caught up! No pending requirements</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {pending.map((app) => (
+              {pending.map((req) => (
                 <div
-                  key={app.id}
+                  key={req.id}
                   className="rounded-lg border p-4 transition-colors hover:bg-gray-50"
                 >
                   <div className="mb-3 flex items-start justify-between">
                     <div className="flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                        <h4 className="text-lg font-semibold">
-                          {app.athleteName}
-                        </h4>
-                        <Badge variant={statusVariant(app.status)}>
-                          {statusIcon(app.status)}
-                          <span className="ml-1">{app.status}</span>
+                        <h4 className="text-lg font-semibold">{req.athleteName}</h4>
+                        <Badge variant={statusVariant(req.status)}>
+                          {statusIcon(req.status)}
+                          <span className="ml-1">{req.status}</span>
                         </Badge>
                       </div>
                       <div className="space-y-1 text-sm text-gray-600">
                         <p>
-                          <strong>Reference:</strong> {app.referenceNo}
+                          <strong>Type:</strong> {req.type}
                         </p>
                         <p>
-                          <strong>CMO cited:</strong> {app.cmoReference}
+                          <strong>Document:</strong> {req.name}
                         </p>
-                        <p>
-                          <strong>School year:</strong> {app.schoolYear}
-                        </p>
-                        <p>
-                          <strong>Purpose:</strong> {app.purpose}
-                        </p>
-                        {app.fileUrl && (
+                        {req.description && (
+                          <p>
+                            <strong>Description:</strong> {req.description}
+                          </p>
+                        )}
+                        {req.fileUrl && (
                           <div className="mt-2">
                             <a
-                              href={app.fileUrl}
+                              href={req.fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
@@ -274,15 +247,11 @@ export default function AdminCmoApplications() {
                           </div>
                         )}
                         <p className="text-xs text-gray-500">
-                          Submitted {formatDate(app.submittedAt)}
+                          Submitted {formatDate(req.submittedAt)}
                         </p>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleView(app)}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => handleView(req)}>
                       <Eye className="mr-1 h-4 w-4" />
                       Review
                     </Button>
@@ -298,26 +267,26 @@ export default function AdminCmoApplications() {
         <Card>
           <CardHeader>
             <CardTitle>Reviewed ({reviewed.length})</CardTitle>
-            <CardDescription>Previously reviewed applications</CardDescription>
+            <CardDescription>Previously reviewed documents</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {reviewed.map((app) => (
-                <div key={app.id} className="rounded-lg border bg-gray-50 p-4">
+              {reviewed.map((req) => (
+                <div key={req.id} className="rounded-lg border bg-gray-50 p-4">
                   <div className="mb-2 flex items-center gap-2">
-                    <h4 className="font-semibold">{app.athleteName}</h4>
-                    <Badge variant={statusVariant(app.status)}>
-                      {statusIcon(app.status)}
-                      <span className="ml-1">{app.status}</span>
+                    <h4 className="font-semibold">{req.athleteName}</h4>
+                    <Badge variant={statusVariant(req.status)}>
+                      {statusIcon(req.status)}
+                      <span className="ml-1">{req.status}</span>
                     </Badge>
                   </div>
                   <div className="space-y-1 text-sm text-gray-600">
                     <p>
-                      <strong>{app.referenceNo}</strong> — {app.purpose}
+                      <strong>Type:</strong> {req.type} - {req.name}
                     </p>
-                    {app.fileUrl && (
+                    {req.fileUrl && (
                       <a
-                        href={app.fileUrl}
+                        href={req.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
@@ -327,15 +296,12 @@ export default function AdminCmoApplications() {
                       </a>
                     )}
                     <p className="text-xs text-gray-500">
-                      Reviewed{" "}
-                      {app.reviewedAt ? formatDate(app.reviewedAt) : "N/A"}
+                      Reviewed {req.reviewedAt ? formatDate(req.reviewedAt) : "N/A"}
                     </p>
-                    {app.notes && (
+                    {req.notes && (
                       <div className="mt-2 rounded bg-white p-2">
-                        <p className="text-xs font-medium text-gray-700">
-                          Review Notes:
-                        </p>
-                        <p className="text-sm text-gray-600">{app.notes}</p>
+                        <p className="text-xs font-medium text-gray-700">Review Notes:</p>
+                        <p className="text-sm text-gray-600">{req.notes}</p>
                       </div>
                     )}
                   </div>
@@ -349,9 +315,9 @@ export default function AdminCmoApplications() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Review CMO Application</DialogTitle>
+            <DialogTitle>Review Requirement</DialogTitle>
             <DialogDescription>
-              Approve or reject this formal application
+              Review and approve or reject this document submission
             </DialogDescription>
           </DialogHeader>
 
@@ -364,32 +330,22 @@ export default function AdminCmoApplications() {
                     <p className="text-gray-900">{selected.athleteName}</p>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-700">Reference No.</p>
-                    <p className="text-gray-900">{selected.referenceNo}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-700">CMO Cited</p>
-                    <p className="text-gray-900">{selected.cmoReference}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-700">School Year</p>
-                    <p className="text-gray-900">{selected.schoolYear}</p>
+                    <p className="font-medium text-gray-700">Type</p>
+                    <p className="text-gray-900">{selected.type}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="font-medium text-gray-700">Purpose</p>
-                    <p className="text-gray-900">{selected.purpose}</p>
+                    <p className="font-medium text-gray-700">Document Name</p>
+                    <p className="text-gray-900">{selected.name}</p>
                   </div>
                   {selected.description && (
                     <div className="col-span-2">
-                      <p className="font-medium text-gray-700">Details</p>
+                      <p className="font-medium text-gray-700">Description</p>
                       <p className="text-gray-900">{selected.description}</p>
                     </div>
                   )}
                   <div className="col-span-2">
                     <p className="font-medium text-gray-700">Submitted</p>
-                    <p className="text-gray-900">
-                      {formatDate(selected.submittedAt)}
-                    </p>
+                    <p className="text-gray-900">{formatDate(selected.submittedAt)}</p>
                   </div>
                 </div>
               </div>
@@ -397,7 +353,7 @@ export default function AdminCmoApplications() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Review Notes</label>
                 <Textarea
-                  placeholder="Add feedback or notes about this application..."
+                  placeholder="Add feedback or notes about this submission..."
                   value={reviewNotes}
                   onChange={(e) => setReviewNotes(e.target.value)}
                   rows={4}
@@ -406,9 +362,7 @@ export default function AdminCmoApplications() {
 
               {selected.fileUrl && (
                 <div className="rounded-lg border bg-gray-50 p-4">
-                  <p className="mb-2 font-medium text-gray-700">
-                    Attached File
-                  </p>
+                  <p className="mb-2 font-medium text-gray-700">Uploaded File</p>
                   <a
                     href={selected.fileUrl}
                     target="_blank"
@@ -424,11 +378,7 @@ export default function AdminCmoApplications() {
           )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
             <Button

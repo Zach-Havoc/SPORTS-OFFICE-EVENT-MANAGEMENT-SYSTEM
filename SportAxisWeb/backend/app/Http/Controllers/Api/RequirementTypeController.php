@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\RequirementType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -13,10 +14,15 @@ use Illuminate\Validation\ValidationException;
  * file. Any signed-in role may read it (an athlete needs the list to submit
  * against); only admin/coach may manage it.
  *
- *   GET    /api/requirement-types            (?sport=, ?includeInactive=1)
- *   POST   /api/requirement-types             admin, coach
- *   PUT    /api/requirement-types/{id}        admin, coach
- *   DELETE /api/requirement-types/{id}        admin, coach
+ *   GET    /api/requirement-types                 (?sport=, ?includeInactive=1)
+ *   POST   /api/requirement-types                  admin, coach
+ *   PUT    /api/requirement-types/{id}              admin, coach
+ *   DELETE /api/requirement-types/{id}              admin, coach
+ *   POST   /api/requirement-types/{id}/template     admin, coach — attach a
+ *          blank/fillable template (e.g. a Parental Consent form) the
+ *          athlete downloads, signs, scans, and re-uploads as their
+ *          Requirement submission against this type.
+ *   DELETE /api/requirement-types/{id}/template     admin, coach
  */
 class RequirementTypeController extends Controller
 {
@@ -73,6 +79,51 @@ class RequirementTypeController extends Controller
         RequirementType::findOrFail($id)->delete();
 
         return response()->json(['message' => 'Requirement type deleted']);
+    }
+
+    /** POST /api/requirement-types/{id}/template */
+    public function uploadTemplate(Request $request, string $id)
+    {
+        $type = RequirementType::findOrFail($id);
+
+        $request->validate([
+            // Same restriction as RequirementController::store() — document/
+            // image types only, server-generated filename.
+            'template' => 'required|file|max:10240|mimes:pdf,doc,docx,jpg,jpeg,png',
+        ]);
+
+        $this->deleteTemplateFile($type->template_file_url);
+
+        $file = $request->file('template');
+        $extension = strtolower($file->extension() ?: $file->getClientOriginalExtension());
+        $fileName = Str::uuid().($extension ? ('.'.$extension) : '');
+        $filePath = $file->storeAs('requirement_type_templates', $fileName, 'public');
+
+        $type->update(['template_file_url' => Storage::url($filePath)]);
+
+        return response()->json($type->fresh()->toApiFormat());
+    }
+
+    /** DELETE /api/requirement-types/{id}/template */
+    public function deleteTemplate(string $id)
+    {
+        $type = RequirementType::findOrFail($id);
+        $this->deleteTemplateFile($type->template_file_url);
+        $type->update(['template_file_url' => null]);
+
+        return response()->json($type->fresh()->toApiFormat());
+    }
+
+    private function deleteTemplateFile(?string $url): void
+    {
+        if (! $url) {
+            return;
+        }
+        $rel = ltrim(parse_url($url, PHP_URL_PATH) ?? '', '/');
+        $rel = preg_replace('#^storage/#', '', $rel);
+        if ($rel && str_starts_with($rel, 'requirement_type_templates/')) {
+            Storage::disk('public')->delete($rel);
+        }
     }
 
     /** Shared create/update path — one duplicate-name(+sport) message, one place. */

@@ -1014,60 +1014,6 @@ export const updateRequirementStatus = (id: string, data: any) =>
   );
 
 // ─────────────────────────────────────────────────────────────────────
-// CMO applications — formal, admin-reviewed applications distinct from
-// the coach-reviewed Requirements checklist.
-// ─────────────────────────────────────────────────────────────────────
-
-export const submitCmoApplication = (data: any) => {
-  const formData = new FormData();
-  formData.append("cmoReference", data.cmoReference);
-  formData.append("schoolYear", data.schoolYear);
-  formData.append("purpose", data.purpose);
-  if (data.description) formData.append("description", data.description);
-  if (data.file) formData.append("file", data.file);
-
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-
-  const token = localStorage.getItem("auth_token");
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  return fetch(`${API_URL}/cmo-applications`, {
-    method: "POST",
-    headers,
-    body: formData,
-  }).then(async (response) => {
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = errorText;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error || errorJson.message || errorText;
-      } catch { /* not JSON — fall back to the raw error text */ }
-      throw new Error(errorMessage || "Failed to submit CMO application");
-    }
-    const text = await response.text();
-    const data = text ? JSON.parse(text) : {};
-    return keysToCamelCase(data);
-  });
-};
-export const getCmoApplications = (pageParams: PageParams = {}) => {
-  const s = pageParamsToQuery(pageParams).toString();
-  return apiRequest(`/cmo-applications${s ? `?${s}` : ""}`, {}, true);
-};
-export const getMyCmoApplications = () =>
-  apiRequest("/cmo-applications/my", {}, true);
-export const updateCmoApplicationStatus = (id: string, data: any) =>
-  apiRequest(
-    `/cmo-applications/${id}/status`,
-    { method: "PUT", body: JSON.stringify(data) },
-    true,
-  );
-
-// ─────────────────────────────────────────────────────────────────────
 // Requirement types — the eligibility checklist catalog
 // ─────────────────────────────────────────────────────────────────────
 
@@ -1075,6 +1021,7 @@ export interface RequirementTypeRow {
   id: string;
   name: string;
   description: string | null;
+  templateFileUrl: string | null;
   sport: string | null;
   required: boolean;
   active: boolean;
@@ -1119,6 +1066,40 @@ export const updateRequirementType = (
   ) as Promise<RequirementTypeRow>;
 export const deleteRequirementType = (id: string) =>
   apiRequest(`/requirement-types/${id}`, { method: "DELETE" }, true);
+
+export const uploadRequirementTypeTemplate = (id: string, file: File) => {
+  const formData = new FormData();
+  formData.append("template", file);
+
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = localStorage.getItem("auth_token");
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  return fetch(`${API_URL}/requirement-types/${id}/template`, {
+    method: "POST",
+    headers,
+    body: formData,
+  }).then(async (response) => {
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch { /* not JSON — fall back to the raw error text */ }
+      throw new Error(errorMessage || "Failed to upload template");
+    }
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    return keysToCamelCase(data) as RequirementTypeRow;
+  });
+};
+export const deleteRequirementTypeTemplate = (id: string) =>
+  apiRequest(
+    `/requirement-types/${id}/template`,
+    { method: "DELETE" },
+    true,
+  ) as Promise<RequirementTypeRow>;
 
 export interface ClearanceStatus {
   cleared: boolean;

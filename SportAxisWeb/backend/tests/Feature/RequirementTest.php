@@ -119,6 +119,25 @@ class RequirementTest extends TestCase
         $this->assertSame('pending', $req->fresh()->status);
     }
 
+    public function test_admin_can_see_and_review_every_requirement(): void
+    {
+        $this->actingAsRole('admin');
+        $coach = $this->users()->coach()->create();
+        $athlete = $this->athletes()->create(['coach_id' => $coach->id]);
+        $req = $this->requirements()->create(['athlete_id' => $athlete->id]);
+
+        // Admin isn't scoped to a coach's roster the way a coach is —
+        // this requirement belongs to someone else's roster and admin can
+        // still see and act on it.
+        $this->getJson('/api/requirements')->assertOk()
+            ->assertJsonFragment(['id' => $req->id]);
+
+        $this->putJson("/api/requirements/{$req->id}/status", ['status' => 'approved', 'notes' => 'Confirmed by the office'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('requirements', ['id' => $req->id, 'status' => 'approved']);
+    }
+
     public function test_review_status_must_be_valid(): void
     {
         $coach = $this->actingAsRole('coach');

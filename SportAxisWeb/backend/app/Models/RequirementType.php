@@ -19,7 +19,7 @@ class RequirementType extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'name', 'description', 'sport', 'required', 'active', 'created_by'];
+    protected $fillable = ['id', 'name', 'description', 'template_file_url', 'sport', 'required', 'active', 'created_by'];
 
     protected $casts = [
         'required' => 'boolean',
@@ -37,6 +37,7 @@ class RequirementType extends Model
             'id' => $this->id,
             'name' => $this->name,
             'description' => $this->description,
+            'templateFileUrl' => $this->template_file_url,
             'sport' => $this->sport,
             'required' => $this->required,
             'active' => $this->active,

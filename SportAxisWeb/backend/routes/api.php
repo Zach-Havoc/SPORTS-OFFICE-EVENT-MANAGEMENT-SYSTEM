@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BracketController;
 use App\Http\Controllers\Api\CampusStudentController;
 use App\Http\Controllers\Api\CategoryController;
-use App\Http\Controllers\Api\CmoApplicationController;
 use App\Http\Controllers\Api\CoachController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DisciplineEntryController;
@@ -237,11 +236,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/users/{id}/active', [UserController::class, 'setActive']);
         Route::post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword']);
         Route::delete('/admin/users/{id}', [UserController::class, 'destroy']);
+    });
 
-        // CMO (CHED Memorandum Order) applications — always office-reviewed,
-        // unlike the coach-reviewed eligibility checklist in RequirementController.
-        Route::get('/cmo-applications', [CmoApplicationController::class, 'index']);
-        Route::put('/cmo-applications/{id}/status', [CmoApplicationController::class, 'updateStatus']);
+    // Requirements (which is what a CMO — CHED Memorandum Order — document
+    // is, at this university): the athlete submits it, the coach reviews it,
+    // and the coach passes it to the Sports Office. RequirementController's
+    // index()/updateStatus() already return every record and skip the
+    // roster check for any caller that isn't a coach — written to support
+    // this, just never wired up to an admin route. One registration for
+    // both roles, not two: registering the same GET/PUT twice under
+    // separate role:admin / role:coach groups silently collides in
+    // Laravel's route table (the second registration overwrites the
+    // first's middleware for that exact method+URI), so admin ends up
+    // rejected with "requires role coach" instead of getting through.
+    Route::middleware('role:admin,coach')->group(function () {
+        Route::get('/requirements', [RequirementController::class, 'index']);
+        Route::put('/requirements/{id}/status', [RequirementController::class, 'updateStatus']);
     });
 
     // ─── COACH ONLY ───────────────────────────
@@ -279,9 +289,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('/performance', [PerformanceController::class, 'store']);
         Route::get('/performance', [PerformanceController::class, 'index']);
-
-        Route::get('/requirements', [RequirementController::class, 'index']);
-        Route::put('/requirements/{id}/status', [RequirementController::class, 'updateStatus']);
     });
 
     // ─── ATHLETE ONLY ─────────────────────────
@@ -297,9 +304,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/requirements/my/clearance', [RequirementController::class, 'clearance']);
         Route::post('/requirements', [RequirementController::class, 'store']);
         Route::get('/my-team', [EnrollController::class, 'myTeam']);
-
-        Route::get('/cmo-applications/my', [CmoApplicationController::class, 'myApplications']);
-        Route::post('/cmo-applications', [CmoApplicationController::class, 'store']);
     });
 
     // ─── ATHLETE + COACH ──────────────────────
@@ -314,5 +318,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/requirement-types', [RequirementTypeController::class, 'store']);
         Route::put('/requirement-types/{id}', [RequirementTypeController::class, 'update']);
         Route::delete('/requirement-types/{id}', [RequirementTypeController::class, 'destroy']);
+        Route::post('/requirement-types/{id}/template', [RequirementTypeController::class, 'uploadTemplate']);
+        Route::delete('/requirement-types/{id}/template', [RequirementTypeController::class, 'deleteTemplate']);
     });
 });

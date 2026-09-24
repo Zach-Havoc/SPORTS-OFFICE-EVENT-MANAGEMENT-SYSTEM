@@ -101,8 +101,8 @@ export default function MainLayout() {
           { name: "Coaches", path: "/admin/coaches", icon: Users },
           { name: "Users", path: "/admin/users", icon: UserCog },
           {
-            name: "CMO Applications",
-            path: "/admin/cmo-applications",
+            name: "CMO Requirements",
+            path: "/admin/requirements",
             icon: FileBadge,
           },
           { name: "Reports", path: "/admin/reports", icon: BarChart3 },
@@ -135,7 +135,7 @@ export default function MainLayout() {
             icon: ClipboardList,
           },
           { name: "Performance", path: "/coach/performance", icon: TrendingUp },
-          { name: "Requirements", path: "/coach/requirements", icon: FileText },
+          { name: "CMO Requirements", path: "/coach/requirements", icon: FileText },
           {
             name: "Announcements",
             path: "/coach/announcements",
@@ -160,14 +160,9 @@ export default function MainLayout() {
             icon: TrendingUp,
           },
           {
-            name: "Requirements",
+            name: "CMO Requirements",
             path: "/athlete/requirements",
             icon: FileText,
-          },
-          {
-            name: "CMO Applications",
-            path: "/athlete/cmo-applications",
-            icon: FileBadge,
           },
           {
             name: "Attendance",
