@@ -1,3 +1,4 @@
+import { StatStrip } from '../../components/page/StatStrip';
 import { useCallback, useEffect, useState, memo } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
@@ -190,29 +191,29 @@ export default function CoachAthletes() {
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="t-page-title">
                     {hasSetUpSport ? `${coachSports.join(' & ')} Team` : 'My Sport Team'}
                   </h1>
                   {!hasSetUpSport && (
-                    <Badge className="bg-amber-100 text-amber-800 text-xs">Setup required</Badge>
+                    <Badge variant="warning" className="text-xs">Setup required</Badge>
                   )}
                   {coachSports.length > 1 && (
-                    <Badge className="bg-primary/10 text-primary text-xs">
+                    <Badge variant="outline" className="border-primary/30 text-primary text-xs">
                       {coachSports.length} sports
                     </Badge>
                   )}
                 </div>
-                <p className="text-gray-500 text-sm">Coach {user.name}</p>
+                <p className="t-page-lede">Coach {user.name}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
               {/* Enrollment Code */}
               {coachProfile?.enrollmentCode && hasSetUpSport && (
-                <div className="flex items-center gap-2 bg-white border-2 border-dashed border-primary/40 rounded-xl px-4 py-2">
+                <div className="flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-primary/40 bg-card px-4 py-2 sm:w-auto sm:justify-start">
                   <div>
-                    <p className="text-xs text-gray-500 font-medium leading-none mb-0.5">Enrollment Code</p>
-                    <p className="text-2xl font-black tracking-widest text-primary font-mono">
+                    <p className="t-label mb-0.5 leading-none">Enrollment Code</p>
+                    <p className="numeral text-2xl tracking-[0.18em] text-primary">
                       {coachProfile.enrollmentCode}
                     </p>
                   </div>
@@ -268,23 +269,14 @@ export default function CoachAthletes() {
       </div>
 
       {/* ── Stats ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total', value: athletes.length, color: 'text-gray-900' },
-          { label: 'Active', value: athletes.filter(a => a.status === 'active').length, color: 'text-foreground' },
-          { label: 'Injured', value: athletes.filter(a => a.status === 'injured').length, color: 'text-foreground' },
-          { label: 'Inactive', value: athletes.filter(a => a.status === 'inactive').length, color: 'text-foreground' },
-        ].map(s => (
-          <Card key={s.label}>
-            <CardHeader className="pb-1 pt-4 px-4">
-              <CardTitle className="text-xs font-medium text-gray-500">{s.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4 px-4">
-              <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <StatStrip
+        stats={[
+          { label: 'Total', value: athletes.length },
+          { label: 'Active', value: athletes.filter(a => a.status === 'active').length },
+          { label: 'Injured', value: athletes.filter(a => a.status === 'injured').length },
+          { label: 'Inactive', value: athletes.filter(a => a.status === 'inactive').length },
+        ]}
+      />
 
       {/* ── Filters ───────────────────────────────────────────────── */}
       <Card className="mb-4">

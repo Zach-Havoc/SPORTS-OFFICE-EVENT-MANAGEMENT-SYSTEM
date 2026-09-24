@@ -69,10 +69,10 @@ export default function AthletePerformance() {
   if (!user) return null;
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8">
+    <div className="container page-container px-4 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">My Performance</h1>
+          <h1 className="t-page-title">My Performance</h1>
           <RefreshStatus
             fetching={performanceQuery.isFetching && !loading}
             error={performanceQuery.isRefetchError}
@@ -93,7 +93,7 @@ export default function AthletePerformance() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{performances.length}</div>
+            <div className="numeral text-2xl">{performances.length}</div>
             <p className="text-xs text-gray-500 mt-1">
               Performance evaluations
             </p>

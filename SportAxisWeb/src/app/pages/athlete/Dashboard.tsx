@@ -79,7 +79,7 @@ function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="t-page-title mb-2">
             Join a Sports Team
           </h1>
           <p className="text-gray-500 leading-relaxed">
@@ -233,11 +233,11 @@ function EnrolledDashboard({
   ];
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-6 sm:py-8">
+    <div className="container page-container px-4 py-6 sm:py-8">
       {/* Header / team strip */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+          <h1 className="t-page-title">
             Hello, {userName.split(" ")[0]}
           </h1>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-500">

@@ -213,7 +213,7 @@ export default function JudgeQRScoring() {
         <div className="text-center mb-8">
           <div className="mb-2 flex items-center justify-center gap-2 text-primary">
             <QrCode className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">Committee Scoring</h1>
+            <h1 className="t-page-title">Committee Scoring</h1>
           </div>
           <p className="text-muted-foreground">Scoring by QR code access</p>
         </div>

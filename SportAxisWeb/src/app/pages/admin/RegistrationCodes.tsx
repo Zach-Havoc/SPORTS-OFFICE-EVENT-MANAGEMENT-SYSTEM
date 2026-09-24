@@ -113,7 +113,7 @@ export default function AdminRegistrationCodes() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
         <Loading fullScreen={false} message="Loading registration codes..." />
       </div>
     );
@@ -124,11 +124,11 @@ export default function AdminRegistrationCodes() {
   const expiredCodes = codes.filter(c => !c.used && isExpired(c.expiresAt));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">Registration Codes</h1>
+            <h1 className="t-page-title">Registration Codes</h1>
             <RefreshStatus
               fetching={codesQuery.isFetching && !loading}
               error={codesQuery.isRefetchError}
@@ -150,7 +150,7 @@ export default function AdminRegistrationCodes() {
             <CardTitle className="text-sm font-medium text-gray-600">Active Codes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{activeCodes.length}</div>
+            <div className="numeral text-2xl">{activeCodes.length}</div>
             <p className="text-xs text-gray-500 mt-1">Ready to use</p>
           </CardContent>
         </Card>
@@ -160,7 +160,7 @@ export default function AdminRegistrationCodes() {
             <CardTitle className="text-sm font-medium text-gray-600">Used Codes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{usedCodes.length}</div>
+            <div className="numeral text-2xl">{usedCodes.length}</div>
             <p className="text-xs text-gray-500 mt-1">Accounts created</p>
           </CardContent>
         </Card>
@@ -170,7 +170,7 @@ export default function AdminRegistrationCodes() {
             <CardTitle className="text-sm font-medium text-gray-600">Expired Codes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-600">{expiredCodes.length}</div>
+            <div className="numeral text-2xl">{expiredCodes.length}</div>
             <p className="text-xs text-gray-500 mt-1">No longer valid</p>
           </CardContent>
         </Card>

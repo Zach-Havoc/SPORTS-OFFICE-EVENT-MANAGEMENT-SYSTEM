@@ -19,7 +19,7 @@ export default function NotFound() {
     <main className="flex min-h-[calc(100dvh-200px)] items-center px-4 py-12">
       <div className="mx-auto w-full max-w-2xl">
         <p className="numeral text-5xl text-muted-foreground/40">404</p>
-        <h1 className="mt-3 text-2xl font-bold tracking-[-0.022em]">
+        <h1 className="t-page-title mt-3">
           That page is not here
         </h1>
         <p className="mt-2 max-w-[52ch] text-sm leading-relaxed text-muted-foreground">

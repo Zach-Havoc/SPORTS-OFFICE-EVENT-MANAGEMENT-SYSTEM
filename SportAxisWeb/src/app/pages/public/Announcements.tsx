@@ -212,7 +212,7 @@ export default function PublicAnnouncements() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+    <div className="page-container px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
       <header className="mb-8 pb-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Announcements</h1>

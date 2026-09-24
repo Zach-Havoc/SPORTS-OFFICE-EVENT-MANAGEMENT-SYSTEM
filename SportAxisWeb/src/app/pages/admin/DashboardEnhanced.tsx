@@ -256,25 +256,25 @@ export default function DashboardEnhanced() {
           <div className="grid grid-cols-2 gap-3">
             <IconStat
               icon={Calendar}
-              iconClass="text-blue-500"
+              iconClass="text-muted-foreground"
               value={totals.events}
               caption="Events"
             />
             <IconStat
               icon={GraduationCap}
-              iconClass="text-violet-500"
+              iconClass="text-muted-foreground"
               value={totals.athletes}
               caption="Athletes"
             />
             <IconStat
               icon={Users}
-              iconClass="text-cyan-500"
+              iconClass="text-muted-foreground"
               value={totals.coaches}
               caption="Coaches"
             />
             <IconStat
               icon={Gavel}
-              iconClass="text-amber-500"
+              iconClass="text-muted-foreground"
               value={totals.committee}
               caption="Committee"
             />

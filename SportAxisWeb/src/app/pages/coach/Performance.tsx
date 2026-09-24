@@ -1,3 +1,4 @@
+import { StatStrip } from '../../components/page/StatStrip';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
@@ -213,7 +214,7 @@ export default function CoachPerformance() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">Performance Records</h1>
+            <h1 className="t-page-title">Performance Records</h1>
             <RefreshStatus fetching={fetching} error={backgroundError} onRetry={retryAll} />
           </div>
           <p className="text-gray-600 mt-2">Track and analyze athlete performance</p>
@@ -225,44 +226,13 @@ export default function CoachPerformance() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Records</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{performances.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">This Month</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {performances.filter(p => {
-                const recorded = new Date(p.recordedAt);
-                const now = new Date();
-                return recorded.getMonth() === now.getMonth() && recorded.getFullYear() === now.getFullYear();
-              }).length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Average Rating</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {performances.length > 0
-                ? (performances.reduce((sum, p) => sum + p.overallRating, 0) / performances.length).toFixed(1)
-                : '-'}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <StatStrip
+        stats={[
+          { label: 'Total Records', value: performances.length },
+          { label: 'This Month', value: performances.filter(p => { const recorded = new Date(p.recordedAt); const now = new Date(); return recorded.getMonth() === now.getMonth() && recorded.getFullYear() === now.getFullYear(); }).length },
+          { label: 'Average Rating', value: performances.length > 0 ? (performances.reduce((sum, p) => sum + p.overallRating, 0) / performances.length).toFixed(1) : '-' },
+        ]}
+      />
 
       {/* Performance Records */}
       <Card>

@@ -175,11 +175,11 @@ export default function AdminVenues() {
   if (!user) return null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">Venue Management</h1>
+            <h1 className="t-page-title">Venue Management</h1>
             <RefreshStatus
               fetching={venuesQuery.isFetching && !loading}
               error={venuesQuery.isRefetchError}
@@ -201,7 +201,7 @@ export default function AdminVenues() {
             <CardTitle className="text-sm font-medium text-gray-600">Total Venues</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{venues.length}</div>
+            <div className="numeral text-2xl">{venues.length}</div>
           </CardContent>
         </Card>
 
@@ -210,7 +210,7 @@ export default function AdminVenues() {
             <CardTitle className="text-sm font-medium text-gray-600">Indoor</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">
+            <div className="numeral text-2xl">
               {venues.filter(v => v.type === 'indoor').length}
             </div>
           </CardContent>
@@ -221,7 +221,7 @@ export default function AdminVenues() {
             <CardTitle className="text-sm font-medium text-gray-600">Outdoor</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">
+            <div className="numeral text-2xl">
               {venues.filter(v => v.type === 'outdoor').length}
             </div>
           </CardContent>

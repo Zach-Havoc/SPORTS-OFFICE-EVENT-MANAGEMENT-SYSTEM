@@ -92,14 +92,14 @@ export default function PublicLiveBoard() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
         <Loading fullScreen={false} message="Loading live scores..." />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-8 flex flex-col gap-3 border-b border-gray-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2.5 text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">

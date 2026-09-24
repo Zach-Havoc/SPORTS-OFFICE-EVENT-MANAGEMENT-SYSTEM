@@ -1,3 +1,5 @@
+import { PageHeader } from '../../components/page/PageHeader';
+import { StatStrip } from '../../components/page/StatStrip';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
@@ -203,7 +205,7 @@ export default function AdminUsers() {
 
   if (usersQuery.isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
         <Loading fullScreen={false} message="Loading accounts..." />
       </div>
     );
@@ -212,43 +214,37 @@ export default function AdminUsers() {
   const isSelf = (u: ManagedUser) => u.id === user?.id;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <header className="mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+    <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="User Management"
+        description={
+          <>
+            Every account across all roles. Accounts are created from{' '}
+            <Link to="/admin/registration-codes" className="text-primary underline-offset-4 hover:underline">
+              Registration Codes
+            </Link>
+            ; here you edit, reset, disable, or remove them.
+          </>
+        }
+        actions={
           <RefreshStatus
             fetching={usersQuery.isFetching && !usersQuery.isLoading}
             error={usersQuery.isRefetchError}
             onRetry={() => usersQuery.refetch()}
           />
-        </div>
-        <p className="text-gray-500 mt-1">
-          Every account across all roles. Accounts are created from{' '}
-          <Link to="/admin/registration-codes" className="text-primary underline-offset-4 hover:underline">
-            Registration Codes
-          </Link>
-          ; here you edit, reset, disable, or remove them.
-        </p>
-      </header>
+        }
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-        {[
-          { label: 'Total', value: stats.total, tone: 'text-gray-900' },
-          { label: 'Admins', value: stats.admins, tone: 'text-foreground' },
-          { label: 'Coaches', value: stats.coaches, tone: 'text-purple-600' },
-          { label: 'Committees', value: stats.committees, tone: 'text-foreground' },
-          { label: 'Athletes', value: stats.athletes, tone: 'text-foreground' },
-          { label: 'Disabled', value: stats.inactive, tone: 'text-gray-500' },
-        ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="py-4 text-center">
-              <div className={`text-2xl font-bold ${s.tone}`}>{s.value}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <StatStrip
+        stats={[
+          { label: 'Total', value: stats.total },
+          { label: 'Admins', value: stats.admins },
+          { label: 'Coaches', value: stats.coaches },
+          { label: 'Committees', value: stats.committees },
+          { label: 'Athletes', value: stats.athletes },
+          { label: 'Disabled', value: stats.inactive },
+        ]}
+      />
 
       {/* Filters */}
       <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 sm:p-4">

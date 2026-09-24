@@ -212,25 +212,25 @@ export default function CoachDashboard() {
           <div className="grid grid-cols-2 gap-3">
             <IconStat
               icon={Users}
-              iconClass="text-blue-500"
+              iconClass="text-muted-foreground"
               value={athletes.length}
               caption="Athletes"
             />
             <IconStat
               icon={CalendarClock}
-              iconClass="text-violet-500"
+              iconClass="text-muted-foreground"
               value={upcomingGames.length}
               caption="Upcoming"
             />
             <IconStat
               icon={ClipboardCheck}
-              iconClass="text-rose-500"
+              iconClass="text-muted-foreground"
               value={pendingRequirements}
               caption="Pending reqs"
             />
             <IconStat
               icon={UserPlus}
-              iconClass="text-cyan-500"
+              iconClass="text-muted-foreground"
               value={tryouts.length}
               caption="Tryouts"
             />

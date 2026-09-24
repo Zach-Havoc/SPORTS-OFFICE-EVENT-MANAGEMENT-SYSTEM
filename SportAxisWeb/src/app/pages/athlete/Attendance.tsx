@@ -100,7 +100,7 @@ export default function AthleteAttendance() {
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+        <h1 className="t-page-title">
           My Attendance
         </h1>
         <RefreshStatus
@@ -113,7 +113,7 @@ export default function AthleteAttendance() {
       <Card className="mb-6">
         <CardContent className="flex flex-wrap items-center gap-6 py-5">
           <div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="numeral text-2xl">
               {rate == null ? "—" : `${rate}%`}
             </p>
             <p className="text-xs uppercase tracking-wide text-gray-400">

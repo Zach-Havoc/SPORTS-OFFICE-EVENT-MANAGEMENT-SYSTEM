@@ -101,7 +101,7 @@ export default function CoachAttendance() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center gap-3">
-        <h1 className="text-3xl font-bold text-gray-900">Attendance</h1>
+        <h1 className="t-page-title">Attendance</h1>
         <RefreshStatus
           fetching={(sessionsQ.isFetching || athletesQ.isFetching) && !loading}
           error={sessionsQ.isRefetchError || athletesQ.isRefetchError}

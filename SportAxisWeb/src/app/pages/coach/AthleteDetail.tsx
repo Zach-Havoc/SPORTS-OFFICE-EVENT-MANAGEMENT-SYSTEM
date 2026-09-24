@@ -173,7 +173,7 @@ export default function AthleteDetail() {
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="t-page-title">
                 {athlete.firstName} {athlete.lastName}
               </h1>
               <RefreshStatus
@@ -300,7 +300,7 @@ export default function AthleteDetail() {
             <CardTitle className="text-lg">Attendance Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{attendanceRate == null ? '—' : `${attendanceRate}%`}</div>
+            <div className="numeral text-2xl">{attendanceRate == null ? '—' : `${attendanceRate}%`}</div>
             <p className="text-sm text-gray-500 mt-1">Last 30 days</p>
           </CardContent>
         </Card>
@@ -310,7 +310,7 @@ export default function AthleteDetail() {
             <CardTitle className="text-lg">Performance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{avgRating == null ? '-' : `${avgRating}/10`}</div>
+            <div className="numeral text-2xl">{avgRating == null ? '-' : `${avgRating}/10`}</div>
             <p className="text-sm text-gray-500 mt-1">Average rating</p>
           </CardContent>
         </Card>
@@ -320,7 +320,7 @@ export default function AthleteDetail() {
             <CardTitle className="text-lg">Requirements</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{approvedRequirements}/{requirements.length}</div>
+            <div className="numeral text-2xl">{approvedRequirements}/{requirements.length}</div>
             <p className="text-sm text-gray-500 mt-1">Approved</p>
           </CardContent>
         </Card>

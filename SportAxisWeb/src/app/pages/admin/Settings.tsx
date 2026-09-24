@@ -195,7 +195,7 @@ export default function AdminSettings() {
     <div className="container mx-auto py-8 px-4">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">System Settings</h1>
+          <h1 className="t-page-title">System Settings</h1>
           <p className="text-gray-600 mt-2">Manage colleges and sports</p>
         </div>
       </div>

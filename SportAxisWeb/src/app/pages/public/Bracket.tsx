@@ -49,19 +49,19 @@ export default function PublicBracket() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
         <Loading fullScreen={false} message="Loading bracket…" />
       </div>
     );
   }
   if (!bracket) {
-    return <div className="mx-auto max-w-6xl px-4 py-8 text-gray-500">Bracket not found.</div>;
+    return <div className="page-container px-4 py-8 text-gray-500">Bracket not found.</div>;
   }
 
   const isSingleElim = bracket.format !== 'round_robin';
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Link
           to="/brackets"

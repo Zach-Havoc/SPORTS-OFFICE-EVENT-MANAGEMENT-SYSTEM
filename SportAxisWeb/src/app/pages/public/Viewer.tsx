@@ -711,7 +711,7 @@ export default function PublicViewer() {
   // ── First-load states (cached data, if any, skips straight past these) ────
   if (eventsQuery.isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
         <Loading fullScreen={false} message="Loading match schedule..." />
       </div>
     );
@@ -719,7 +719,7 @@ export default function PublicViewer() {
 
   if (eventsQuery.isLoadingError) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
         <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
           <p className="text-red-600 font-semibold mb-1">Couldn&rsquo;t load the match schedule</p>
           <p className="text-red-500 text-sm mb-4">
@@ -738,7 +738,7 @@ export default function PublicViewer() {
 
   // ── Main Render ───────────────────────────────────────────────────────────
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
 
       {/* Admin-managed photo slideshow (renders nothing if no slides added) */}
       <PhotoSlideshow />

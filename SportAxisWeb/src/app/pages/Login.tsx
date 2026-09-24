@@ -161,7 +161,7 @@ export default function Login() {
             alt="SportAxis"
             className="mb-5 h-12 w-12 object-contain md:hidden"
           />
-          <h1 className="text-2xl font-bold tracking-[-0.022em]">{heading}</h1>
+          <h1 className="t-page-title">{heading}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">{subheading}</p>
           {mode === 'signup' && (
             <p className="mt-4 rounded-md border border-border bg-muted p-3 text-xs leading-relaxed text-muted-foreground">

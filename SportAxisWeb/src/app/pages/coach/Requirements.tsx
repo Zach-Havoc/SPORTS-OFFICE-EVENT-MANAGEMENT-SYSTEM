@@ -1,3 +1,4 @@
+import { StatStrip } from '../../components/page/StatStrip';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
@@ -368,7 +369,7 @@ export default function CoachRequirements() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="t-page-title">
             CMO Requirements
           </h1>
           <RefreshStatus
@@ -385,57 +386,14 @@ export default function CoachRequirements() {
       <RequirementTypeManager />
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Submissions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{requirements.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Pending
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">
-              {pendingRequirements.length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Approved
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">
-              {requirements.filter((r) => r.status === "approved").length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Rejected
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">
-              {requirements.filter((r) => r.status === "rejected").length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <StatStrip
+        stats={[
+          { label: 'Total Submissions', value: requirements.length },
+          { label: 'Pending', value: pendingRequirements.length },
+          { label: 'Approved', value: requirements.filter((r) => r.status === "approved").length },
+          { label: 'Rejected', value: requirements.filter((r) => r.status === "rejected").length },
+        ]}
+      />
 
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />

@@ -385,7 +385,7 @@ export default function CarouselManagement() {
   if (!user || user.role !== 'admin') return null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8 flex items-center gap-4">
         <Link to="/admin/dashboard">
           <Button variant="outline" size="sm">
@@ -394,7 +394,7 @@ export default function CarouselManagement() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Site Content</h1>
+          <h1 className="t-page-title">Site Content</h1>
           <p className="mt-1 text-gray-500">Photos on the public site — you control what shows and in what order.</p>
         </div>
       </div>

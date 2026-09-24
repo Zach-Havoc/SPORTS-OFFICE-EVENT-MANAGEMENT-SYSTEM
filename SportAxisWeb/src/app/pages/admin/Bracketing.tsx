@@ -678,7 +678,7 @@ export default function AdminBracketing() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Automatic Bracketing</h1>
+        <h1 className="t-page-title">Automatic Bracketing</h1>
         <p className="text-gray-600 mt-2">Generate tournament brackets with intelligent venue assignment</p>
       </div>
 
@@ -966,7 +966,7 @@ export default function AdminBracketing() {
                     <CardContent className="pt-6">
                       <div className="text-center">
                         <Users className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                        <div className="text-2xl font-bold">{bracket.participants.length}</div>
+                        <div className="numeral text-2xl">{bracket.participants.length}</div>
                         <div className="text-xs text-gray-600">Participants</div>
                       </div>
                     </CardContent>
@@ -975,7 +975,7 @@ export default function AdminBracketing() {
                     <CardContent className="pt-6">
                       <div className="text-center">
                         <Trophy className="h-6 w-6 mx-auto mb-2 text-yellow-600" />
-                        <div className="text-2xl font-bold">{bracket.matches.length}</div>
+                        <div className="numeral text-2xl">{bracket.matches.length}</div>
                         <div className="text-xs text-gray-600">Matches</div>
                       </div>
                     </CardContent>
@@ -984,7 +984,7 @@ export default function AdminBracketing() {
                     <CardContent className="pt-6">
                       <div className="text-center">
                         <Calendar className="h-6 w-6 mx-auto mb-2 text-green-600" />
-                        <div className="text-2xl font-bold">{bracket.rounds}</div>
+                        <div className="numeral text-2xl">{bracket.rounds}</div>
                         <div className="text-xs text-gray-600">Rounds</div>
                       </div>
                     </CardContent>

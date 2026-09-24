@@ -524,7 +524,120 @@
   }
 }
 
+@layer base {
+  /* ---- Browser surfaces -------------------------------------------------
+     The parts nobody draws still ship with somebody's defaults. Selection,
+     caret, scrollbars and underline offsets arrive from the browser
+     belonging to no design system, and they are visible on every screen of
+     a product people use all day. */
+
+  ::selection {
+    background-color: oklch(0.936 0.037 25);
+    color: oklch(0.396 0.138 27.5);
+  }
+
+  .dark ::selection {
+    background-color: oklch(0.312 0.048 28);
+    color: oklch(0.881 0.072 25.5);
+  }
+
+  html {
+    /* Standard property, not a rebuilt scrollbar widget: the native control
+       keeps its platform behaviour and takes the palette's neutrals. */
+    scrollbar-color: var(--color-gray-300) transparent;
+    scrollbar-width: thin;
+    caret-color: var(--primary);
+    accent-color: var(--primary);
+  }
+
+  .dark html,
+  .dark body {
+    scrollbar-color: var(--color-gray-700) transparent;
+  }
+
+  /* Inline links inside prose: the underline sits clear of descenders and
+     thins out, instead of the browser's default flush 1px rule. */
+  a:not([class]) {
+    color: var(--primary);
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    text-decoration-color: color-mix(in oklch, var(--primary) 35%, transparent);
+    transition: text-decoration-color 150ms var(--ease-out-quart);
+  }
+
+  a:not([class]):hover {
+    text-decoration-color: var(--primary);
+  }
+}
+
 @layer utilities {
+  /* ---- Type roles -------------------------------------------------------
+     Five roles, fixed rem, ratio ~1.2. Every page used to re-invent its own
+     heading (six competing patterns, three of them coloring the h1 green or
+     red, which asks color to do work that weight should do). */
+
+  .t-page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.18;
+    letter-spacing: -0.023em;
+    text-wrap: balance;
+    color: var(--foreground);
+  }
+
+  .t-page-lede {
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+    max-width: 68ch;
+    text-wrap: pretty;
+  }
+
+  .t-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.012em;
+    color: var(--foreground);
+  }
+
+  .t-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  .t-meta {
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Spatial rhythm ---------------------------------------------------
+     The app repeated one interval (gap-6 / mb-6 / py-8) until every group
+     carried the same weight. These are the two intervals that matter:
+     tight inside a group, generous between them, and more room above a
+     heading than below it. */
+
+  .stack-tight > * + * {
+    margin-top: 0.375rem;
+  }
+
+  .stack-section > * + * {
+    margin-top: 2.5rem;
+  }
+
+  .stack-section > * + .t-section-title,
+  .stack-section > * + h2,
+  .stack-section > * + h3 {
+    margin-top: 3rem;
+  }
+
   /* Scoreboard numerals: Archivo widened and tightened, for the few places a
      figure is the content rather than a label on it (live score, medal count,
      final standing). */
@@ -545,7 +658,7 @@
      copy does not stretch the full width of a 27-inch monitor. */
   .page-container {
     width: 100%;
-    max-width: 90rem;
+    max-width: 80rem;
     margin-inline: auto;
   }
 }

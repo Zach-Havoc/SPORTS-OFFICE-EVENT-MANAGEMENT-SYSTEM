@@ -1,3 +1,4 @@
+import { StatStrip } from '../../components/page/StatStrip';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
@@ -130,7 +131,7 @@ export default function AdminRequirements() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">CMO Requirements</h1>
+          <h1 className="t-page-title">CMO Requirements</h1>
           <RefreshStatus
             fetching={fetching}
             error={requirementsQuery.isRefetchError}
@@ -138,49 +139,19 @@ export default function AdminRequirements() {
           />
         </div>
         <p className="mt-2 text-gray-600">
-          The Sports Office's view of the documents athletes submit — same
+          The Sports Office's view of the documents athletes submit. Same
           checklist the coach reviews.
         </p>
       </div>
 
-      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{requirements.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-600">{pending.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Approved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-600">
-              {requirements.filter((r) => r.status === "approved").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Rejected</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">
-              {requirements.filter((r) => r.status === "rejected").length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <StatStrip
+        stats={[
+          { label: 'Total', value: requirements.length },
+          { label: 'Pending', value: pending.length },
+          { label: 'Approved', value: requirements.filter((r) => r.status === "approved").length },
+          { label: 'Rejected', value: requirements.filter((r) => r.status === "rejected").length },
+        ]}
+      />
 
       <div className="relative mb-6">
         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />

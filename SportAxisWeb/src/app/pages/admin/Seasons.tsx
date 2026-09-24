@@ -122,11 +122,11 @@ export default function AdminSeasons() {
     return <Loading fullScreen={false} message="Loading seasons…" />;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <CalendarRange className="h-5 w-5 text-gray-400" />
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          <h1 className="t-page-title">
             Seasons
           </h1>
           <RefreshStatus

@@ -461,7 +461,7 @@ export default function AdminEventsEnhanced() {
   }, []);
 
   if (loading) return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Skeleton className="mb-2 h-8 w-72" />
         <Skeleton className="h-4 w-96" />
@@ -471,12 +471,12 @@ export default function AdminEventsEnhanced() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="t-page-title flex items-center gap-2">
               <Trophy className="h-7 w-7 text-primary" />
               Sports Event Management
             </h1>

@@ -115,16 +115,16 @@ export default function CoachLineup() {
 
   if (!user) return null;
   if (profile.isLoading || categoriesQ.isLoading) {
-    return <div className="max-w-6xl mx-auto px-4 py-8"><Loading fullScreen={false} message="Loading line-up..." /></div>;
+    return <div className="page-container px-4 py-8"><Loading fullScreen={false} message="Loading line-up..." /></div>;
   }
 
   const slotValue = (category: string, pairSlot?: 'C' | 'D') =>
     (byCategory.get(category) ?? []).find((e) => (pairSlot ? e.pairSlot === pairSlot : true))?.athleteId ?? NONE;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
       <header className="mb-6">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-gray-900">
+        <h1 className="t-page-title flex items-center gap-2">
           <Swords className="h-6 w-6 text-red-700" />
           Racquet Line-up
         </h1>

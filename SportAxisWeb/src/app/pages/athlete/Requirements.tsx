@@ -171,7 +171,7 @@ export default function AthleteRequirements() {
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+        <h1 className="t-page-title">
           My CMO Requirements
         </h1>
         <RefreshStatus
