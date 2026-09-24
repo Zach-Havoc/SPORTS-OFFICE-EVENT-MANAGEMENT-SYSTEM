@@ -2,12 +2,22 @@ import * as React from "react";
 
 import { cn } from "./utils";
 
+/**
+ * Elevation here comes from surface contrast, not from a drop shadow: the
+ * page sits on an off-white background and the card is true white, so it
+ * reads as raised with a hairline and no shadow at rest. A shadow only
+ * appears when the card is actually interactive (`data-interactive`), which
+ * keeps "this is clickable" a real signal instead of decoration on every box.
+ */
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border shadow-xs transition-shadow",
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border border-border/80",
+        "transition-[box-shadow,border-color,transform] duration-200",
+        "data-[interactive]:cursor-pointer data-[interactive]:hover:shadow-md data-[interactive]:hover:border-border",
+        "data-[interactive]:active:translate-y-px motion-reduce:transition-none",
         className,
       )}
       {...props}
@@ -32,7 +42,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <h4
       data-slot="card-title"
-      className={cn("leading-none", className)}
+      className={cn("leading-none tracking-[-0.006em]", className)}
       {...props}
     />
   );
@@ -42,7 +52,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-muted-foreground", className)}
+      className={cn("text-muted-foreground text-sm text-pretty", className)}
       {...props}
     />
   );
