@@ -493,8 +493,8 @@ export default function AdminEventsEnhanced() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Total Events', value: stats.total, color: 'text-gray-900' },
-          { label: 'Upcoming', value: stats.upcoming, color: 'text-blue-600' },
-          { label: 'Ongoing', value: stats.ongoing, color: 'text-green-600' },
+          { label: 'Upcoming', value: stats.upcoming, color: 'text-foreground' },
+          { label: 'Ongoing', value: stats.ongoing, color: 'text-foreground' },
           { label: 'Completed', value: stats.completed, color: 'text-gray-600' },
         ].map(s => (
           <Card key={s.label}>

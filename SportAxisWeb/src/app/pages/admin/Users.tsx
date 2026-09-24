@@ -224,7 +224,7 @@ export default function AdminUsers() {
         </div>
         <p className="text-gray-500 mt-1">
           Every account across all roles. Accounts are created from{' '}
-          <Link to="/admin/registration-codes" className="text-red-600 hover:underline">
+          <Link to="/admin/registration-codes" className="text-primary underline-offset-4 hover:underline">
             Registration Codes
           </Link>
           ; here you edit, reset, disable, or remove them.
@@ -235,10 +235,10 @@ export default function AdminUsers() {
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
         {[
           { label: 'Total', value: stats.total, tone: 'text-gray-900' },
-          { label: 'Admins', value: stats.admins, tone: 'text-red-600' },
+          { label: 'Admins', value: stats.admins, tone: 'text-foreground' },
           { label: 'Coaches', value: stats.coaches, tone: 'text-purple-600' },
-          { label: 'Committees', value: stats.committees, tone: 'text-blue-600' },
-          { label: 'Athletes', value: stats.athletes, tone: 'text-emerald-600' },
+          { label: 'Committees', value: stats.committees, tone: 'text-foreground' },
+          { label: 'Athletes', value: stats.athletes, tone: 'text-foreground' },
           { label: 'Disabled', value: stats.inactive, tone: 'text-gray-500' },
         ].map((s) => (
           <Card key={s.label}>
@@ -398,7 +398,7 @@ export default function AdminUsers() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-red-600 hover:text-red-700"
+                      className="text-destructive hover:text-red-800"
                       disabled={isSelf(u) || hasDependents(u)}
                       onClick={() => setDeleting(u)}
                       title={
@@ -659,7 +659,7 @@ export default function AdminUsers() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-red-600" />
+              <ShieldAlert className="h-5 w-5 text-destructive" />
               Delete this account?
             </AlertDialogTitle>
             <AlertDialogDescription>

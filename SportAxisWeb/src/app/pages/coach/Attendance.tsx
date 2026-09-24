@@ -433,7 +433,7 @@ function SessionDialog({
 
 function SaveIndicator({ state, count, total }: { state: string; count: number; total: number }) {
   if (state === 'saving') return <span className="flex items-center gap-1 text-gray-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</span>;
-  if (state === 'error') return <span className="text-red-600">Save failed — change a status to retry</span>;
+  if (state === 'error') return <span className="text-red-600">Save failed. Change a status to retry.</span>;
   if (state === 'saved') return <span className="flex items-center gap-1 text-green-700"><Check className="h-3.5 w-3.5" /> Saved · {count}/{total}</span>;
   return <span className="text-gray-500">{count}/{total} marked</span>;
 }

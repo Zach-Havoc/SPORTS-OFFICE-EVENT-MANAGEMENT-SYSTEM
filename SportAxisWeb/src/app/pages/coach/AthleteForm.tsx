@@ -302,7 +302,7 @@ export default function AthleteForm() {
                 </Select>
                 {!departmentsQuery.isLoading && departments.length === 0 && (
                   <p className="text-xs text-amber-600">
-                    No colleges set up yet — an admin adds them in Settings → Colleges.
+                    No colleges set up yet. An admin adds them in Settings, under Colleges.
                   </p>
                 )}
               </div>

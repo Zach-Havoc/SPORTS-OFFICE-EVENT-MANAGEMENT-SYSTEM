@@ -241,7 +241,7 @@ export default function DashboardEnhanced() {
   return (
     <DashboardCanvas
       title="Admin Dashboard"
-      subtitle="Sports Office — event, roster and results overview"
+      subtitle="Events, rosters and results for the Sports Office"
       right={
         <RefreshStatus
           fetching={fetching}

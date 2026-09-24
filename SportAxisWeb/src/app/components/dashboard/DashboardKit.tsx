@@ -18,41 +18,41 @@ import { cn } from "../ui/utils";
 // tiles in a 12-column mosaic, big-number heroes with a period-over-period
 // delta chip and a thin sparkline underneath.
 
-export const BLUE = "#3b82f6";
+// Series colors are the sRGB equivalents of the --chart-* tokens in
+// theme.css, so a chart and a Badge of the same meaning are the same color.
+// The old set was blue/indigo/sky/teal/amber/red/violet/pink: eight families
+// for a system that has one accent, and two of them (violet, pink) were the
+// AI-palette tells. These six are separated by hue at even lightness, brand
+// first, so adjacent series stay distinguishable without a legend.
+export const BLUE = "#D02525"; // kept as the default series name; now brand red
 export const CHART_COLORS = [
-  "#3b82f6",
-  "#6366f1",
-  "#0ea5e9",
-  "#14b8a6",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
+  "#D02525", // chart-1 brand red
+  "#118186", // chart-2 teal
+  "#CB8B2E", // chart-3 ochre
+  "#436590", // chart-4 steel
+  "#834765", // chart-5 plum
+  "#497F5D", // chart-6 pine
 ];
 export const STATUS_COLORS = {
-  upcoming: "#f59e0b",
-  ongoing: "#22c55e",
-  completed: "#94a3b8",
+  upcoming: "#B1721E", // --warning
+  ongoing: "#307A4F", // --success
+  completed: "#A9A19E", // --gray-400
 };
-// These two map 1:1 onto the app's semantic tokens (theme.css --success/
-// --warning/--info/--destructive) — same literal hex, so a chart's "approved"
-// green is the exact same green as a Badge's success variant elsewhere,
-// instead of each picking its own slightly-different shade.
 export const ATTENDANCE_COLORS = {
-  present: "#059669",
-  late: "#D97706",
-  excused: "#2563EB",
-  absent: "#DC2626",
+  present: "#307A4F", // --success
+  late: "#B1721E", // --warning
+  excused: "#366AA4", // --info
+  absent: "#B91A1B", // --destructive
 };
 export const REQUIREMENT_COLORS = {
-  approved: "#059669",
-  pending: "#D97706",
-  rejected: "#DC2626",
+  approved: "#307A4F", // --success
+  pending: "#B1721E", // --warning
+  rejected: "#B91A1B", // --destructive
 };
 export const MEDAL_COLORS = {
-  gold: "#f59e0b",
-  silver: "#94a3b8",
-  bronze: "#b45309",
+  gold: "#CB8B2E", // --chart-3 ochre
+  silver: "#A9A19E", // --gray-400
+  bronze: "#6F4A18", // --amber-900, separated from gold by lightness
 };
 
 const TT = {
@@ -316,18 +316,19 @@ export function HeroTile({
 }
 
 // ── Small stat helpers ────────────────────────────────────────────────────
-// Light color-wash card per stat (blue/violet/rose/cyan/amber/slate) instead
-// of a bare icon on the tile's white background — same colorful, distinct-
-// per-metric feel as a Jobie-style KPI card, scaled down for a stat that
-// lives nested inside a neutral Tile rather than standing alone.
+// Every stat used to get its own color wash (blue/violet/rose/cyan/amber/
+// slate), which meant a tile with four stats in it showed four accent colors
+// and none of them meant anything. Callers still pass a color name, but they
+// all resolve to the same neutral surface: the number is the content, the
+// wash was decoration competing with it.
 const ICON_STAT_TINT: Record<string, string> = {
-  blue: "bg-blue-50",
-  violet: "bg-violet-50",
-  rose: "bg-rose-50",
-  cyan: "bg-cyan-50",
-  amber: "bg-amber-50",
-  emerald: "bg-emerald-50",
-  slate: "bg-slate-50",
+  blue: "bg-muted",
+  violet: "bg-muted",
+  rose: "bg-muted",
+  cyan: "bg-muted",
+  amber: "bg-muted",
+  emerald: "bg-muted",
+  slate: "bg-muted",
 };
 
 export function IconStat({
@@ -399,7 +400,7 @@ export function RadialProgress({
   return (
     <div className="flex flex-col items-center gap-1.5">
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E2DFDC" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -586,7 +587,7 @@ export function StackedRankBars({
           interval={0}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          tick={{ fontSize: 11, fill: "#6C6460" }}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}

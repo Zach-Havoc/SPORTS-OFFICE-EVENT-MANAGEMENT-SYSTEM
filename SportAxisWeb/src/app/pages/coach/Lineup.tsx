@@ -212,7 +212,7 @@ export default function CoachLineup() {
 
           {athletes.length === 0 && (
             <p className="mt-4 text-sm text-amber-600">
-              Add athletes to your roster first — they'll appear in these dropdowns.
+              Add athletes to your roster first. They appear in these dropdowns once you do.
             </p>
           )}
         </>

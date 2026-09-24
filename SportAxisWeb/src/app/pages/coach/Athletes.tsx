@@ -241,7 +241,7 @@ export default function CoachAthletes() {
           )}
 
           {hasSetUpSport && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+            <div className="mt-4 rounded-md border border-primary/15 bg-card/70 p-3 text-sm text-foreground">
               <BookOpen className="h-4 w-4 inline mr-1.5 mb-0.5" />
               Share the code <strong className="font-mono">{coachProfile?.enrollmentCode}</strong> with your athletes. They log in and enter it on their dashboard to join your {coachSports.join(' / ')} team.
             </div>
@@ -271,9 +271,9 @@ export default function CoachAthletes() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Total', value: athletes.length, color: 'text-gray-900' },
-          { label: 'Active', value: athletes.filter(a => a.status === 'active').length, color: 'text-green-600' },
-          { label: 'Injured', value: athletes.filter(a => a.status === 'injured').length, color: 'text-red-600' },
-          { label: 'Inactive', value: athletes.filter(a => a.status === 'inactive').length, color: 'text-gray-500' },
+          { label: 'Active', value: athletes.filter(a => a.status === 'active').length, color: 'text-foreground' },
+          { label: 'Injured', value: athletes.filter(a => a.status === 'injured').length, color: 'text-foreground' },
+          { label: 'Inactive', value: athletes.filter(a => a.status === 'inactive').length, color: 'text-foreground' },
         ].map(s => (
           <Card key={s.label}>
             <CardHeader className="pb-1 pt-4 px-4">
@@ -333,7 +333,7 @@ export default function CoachAthletes() {
               <p className="text-gray-600 font-medium mb-1">
                 {searchQuery || statusFilter !== 'all' ? 'No athletes match your filters' : 'Your roster is empty'}
               </p>
-              <p className="text-sm text-gray-400 mb-4">
+              <p className="mb-4 text-sm text-muted-foreground">
                 {searchQuery || statusFilter !== 'all'
                   ? 'Try adjusting your search'
                   : hasSetUpSport
@@ -500,7 +500,7 @@ const AthleteRow = memo(function AthleteRow({
       </td>
       <td className="py-3 px-4 hidden sm:table-cell">
         {athlete.enrolledViaCode ? (
-          <Badge className="bg-blue-100 text-blue-800">Self-enrolled</Badge>
+          <Badge variant="info">Self-enrolled</Badge>
         ) : (
           <Badge className="bg-purple-100 text-purple-800">Manual</Badge>
         )}
