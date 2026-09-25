@@ -22,7 +22,6 @@ import {
   HeroTile,
   Metric,
   IconStat,
-  BareStat,
   MetricTable,
   DistBar,
   RankList,
@@ -36,7 +35,8 @@ import {
   MEDAL_COLORS,
   CHART_COLORS,
 } from "../../components/dashboard/DashboardKit";
-import { Calendar, GraduationCap, Users, Gavel } from "lucide-react";
+import { Calendar, GraduationCap, Users, Gavel, Radio, UserX, ClipboardCheck } from "lucide-react";
+import { AttentionBand, type AttentionItem } from "../../components/dashboard/AttentionBand";
 
 export default function DashboardEnhanced() {
   const { user } = useAuth();
@@ -236,6 +236,42 @@ export default function DashboardEnhanced() {
     [athleteUsers],
   );
 
+  /* What needs the Sports Office's attention, derived from data already on
+     this page. Each entry hides itself when its count is zero, so the band
+     reports facts rather than a row of zeroes. */
+  const attention = useMemo<AttentionItem[]>(() => {
+    const unstaffed = events.filter(
+      (e) => (e.status ?? "upcoming") !== "completed" && (e.judges || []).length === 0,
+    ).length;
+    const disabled = users.filter((u) => u.active === false).length;
+    return [
+      {
+        count: totals.liveGames,
+        label: totals.liveGames === 1 ? "game live" : "games live",
+        detail: "Scoring is in progress right now",
+        to: "/live",
+        icon: Radio,
+        tone: "live",
+      },
+      {
+        count: unstaffed,
+        label: unstaffed === 1 ? "event without a committee" : "events without a committee",
+        detail: "These cannot be scored until someone is assigned",
+        to: "/admin/events",
+        icon: ClipboardCheck,
+        tone: "action",
+      },
+      {
+        count: disabled,
+        label: disabled === 1 ? "disabled account" : "disabled accounts",
+        detail: "Re-enable or remove them to keep the roster accurate",
+        to: "/admin/users",
+        icon: UserX,
+        tone: "info",
+      },
+    ];
+  }, [events, users, totals.liveGames]);
+
   if (loading) return <DashboardSkeleton />;
 
   return (
@@ -250,6 +286,8 @@ export default function DashboardEnhanced() {
         />
       }
     >
+      <AttentionBand items={attention} />
+
       <Grid>
         {/* Row A */}
         <Tile title="System Totals" span={3}>
@@ -303,10 +341,12 @@ export default function DashboardEnhanced() {
           />
         </HeroTile>
 
-        <Tile title="Live Now" span={3}>
-          <div className="space-y-3">
-            <BareStat value={totals.liveGames} label="Games in progress" />
-            <BareStat value={totals.ongoing} label="Events ongoing" />
+        <Tile title="Configuration" span={3}>
+          <div className="grid grid-cols-2 gap-x-5">
+            <RecordLine label="Colleges" value={totals.colleges} />
+            <RecordLine label="Sports" value={totals.sports} />
+            <RecordLine label="Venues" value={totals.venues} />
+            <RecordLine label="Brackets" value={totals.brackets} />
           </div>
         </Tile>
 
@@ -355,11 +395,9 @@ export default function DashboardEnhanced() {
         <Tile title="Season Records" span={4}>
           <div className="grid grid-cols-2 gap-x-6">
             <RecordLine label="Completed events" value={totals.completed} />
-            <RecordLine label="Brackets" value={totals.brackets} />
-            <RecordLine label="Colleges" value={totals.colleges} />
-            <RecordLine label="Sports" value={totals.sports} />
-            <RecordLine label="Venues" value={totals.venues} />
+            <RecordLine label="Events ongoing" value={totals.ongoing} />
             <RecordLine label="Active accounts" value={totals.activeAccounts} />
+            <RecordLine label="Athletes" value={totals.athletes} />
           </div>
         </Tile>
 
@@ -410,9 +448,9 @@ export default function DashboardEnhanced() {
 
 function RecordLine({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-100 py-2 last:border-0">
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="text-sm font-semibold text-slate-800">
+    <div className="flex items-center justify-between border-b border-border-subtle py-2 last:border-0">
+      <span className="t-caption">{label}</span>
+      <span className="text-sm font-semibold tabular-nums text-text">
         {value.toLocaleString()}
       </span>
     </div>

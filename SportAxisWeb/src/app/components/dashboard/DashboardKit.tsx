@@ -79,14 +79,14 @@ export function DashboardCanvas({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-full bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-h-full bg-surface-sunken px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1440px]">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-800">
+            <h1 className="text-lg font-bold tracking-tight text-text">
               {title}
             </h1>
-            {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-text-secondary">{subtitle}</p>}
           </div>
           {right && <div className="flex items-center gap-2">{right}</div>}
         </div>
@@ -135,13 +135,13 @@ export function Tile({
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-200 bg-white shadow-xs transition-shadow hover:shadow-sm",
+        "rounded-lg border border-border bg-white shadow-xs transition-shadow hover:shadow-sm",
         SPAN[span],
         className,
       )}
     >
       {(title || right) && (
-        <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-4 py-3">
+        <div className="flex items-start justify-between gap-2 border-b border-border-subtle px-4 py-3">
           <div className="min-w-0">
             {title && (
               <h3 className="truncate text-[13px] font-semibold tracking-wide text-slate-700 uppercase">
@@ -149,7 +149,7 @@ export function Tile({
               </h3>
             )}
             {subtitle && (
-              <p className="mt-0.5 truncate text-[11px] text-slate-400">
+              <p className="mt-0.5 truncate text-[11px] text-text-muted">
                 {subtitle}
               </p>
             )}
@@ -171,7 +171,7 @@ export function Empty({
 }) {
   return (
     <div
-      className="flex items-center justify-center text-xs text-slate-400"
+      className="flex items-center justify-center text-xs text-text-muted"
       style={{ height: h }}
     >
       {msg}
@@ -196,7 +196,7 @@ export function Delta({
     <span
       className={cn(
         "inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums",
-        flat ? "text-slate-400" : up ? "text-success" : "text-destructive",
+        flat ? "text-text-muted" : up ? "text-success" : "text-destructive",
         className,
       )}
     >
@@ -276,12 +276,12 @@ export function Metric({
 }) {
   return (
     <div className="flex-1 px-3 py-1 text-center">
-      <p className="text-[13px] text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-slate-800 sm:text-[2.5rem] sm:leading-tight">
+      <p className="text-[13px] text-text-secondary">{label}</p>
+      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-text sm:text-[2.5rem] sm:leading-tight">
         {value}
       </p>
       {(pct != null || prev != null) && (
-        <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] text-slate-400">
+        <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] text-text-muted">
           <Delta pct={pct} />
           {prev != null && <span>vs. {prev} (prev.)</span>}
         </p>
@@ -321,15 +321,6 @@ export function HeroTile({
 // and none of them meant anything. Callers still pass a color name, but they
 // all resolve to the same neutral surface: the number is the content, the
 // wash was decoration competing with it.
-const ICON_STAT_TINT: Record<string, string> = {
-  blue: "bg-muted",
-  violet: "bg-muted",
-  rose: "bg-muted",
-  cyan: "bg-muted",
-  amber: "bg-muted",
-  emerald: "bg-muted",
-  slate: "bg-muted",
-};
 
 export function IconStat({
   icon: Icon,
@@ -342,13 +333,19 @@ export function IconStat({
   value: ReactNode;
   caption: string;
 }) {
-  const color = iconClass?.match(/text-(\w+)-\d+/)?.[1];
-  const tint = (color && ICON_STAT_TINT[color]) ?? "bg-slate-50";
+  // These used to be tinted boxes inside a Tile, which is a card nested in a
+  // card. The figure and its caption are the content; the tile around them is
+  // already the container.
   return (
-    <div className={cn("flex flex-col items-center gap-1 rounded-xl px-3 py-3 text-center", tint)}>
-      <Icon className={cn("h-6 w-6", iconClass ?? "text-slate-400")} />
-      <span className="text-2xl font-bold tabular-nums text-slate-800">{value}</span>
-      <span className="text-[11px] text-slate-500">{caption}</span>
+    <div className="flex items-start gap-2.5 py-1.5">
+      <Icon
+        className={cn("mt-0.5 size-4 shrink-0", iconClass ?? "text-text-muted")}
+        aria-hidden="true"
+      />
+      <div className="min-w-0">
+        <div className="numeral text-xl leading-none text-text">{value}</div>
+        <div className="t-caption mt-1">{caption}</div>
+      </div>
     </div>
   );
 }
@@ -367,12 +364,12 @@ export function BareStat({
   return (
     <div className="py-1">
       <div className="flex items-baseline gap-2">
-        <span className="text-[2rem] font-bold leading-none tracking-tight tabular-nums text-slate-800">
+        <span className="text-[2rem] font-bold leading-none tracking-tight tabular-nums text-text">
           {value}
         </span>
         <Delta pct={pct} />
       </div>
-      <p className="mt-1 text-[11px] text-slate-400">
+      <p className="mt-1 text-[11px] text-text-muted">
         {label}
         {prev != null && ` · vs ${prev} prev.`}
       </p>
@@ -423,7 +420,7 @@ export function RadialProgress({
           {Math.round(clamped)}%
         </text>
       </svg>
-      {label && <span className="text-[11px] text-slate-500">{label}</span>}
+      {label && <span className="text-[11px] text-text-secondary">{label}</span>}
     </div>
   );
 }
@@ -441,7 +438,7 @@ export function MetricTable({ rows }: { rows: MetricRow[] }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+          <tr className="text-[10px] uppercase tracking-wide text-text-muted">
             <th className="pb-2 text-left font-medium">Metric</th>
             <th className="pb-2 text-right font-medium">Last 30d</th>
             <th className="pb-2 text-right font-medium">Prev 30d</th>
@@ -456,12 +453,12 @@ export function MetricTable({ rows }: { rows: MetricRow[] }) {
                 ? 100
                 : 0;
             return (
-              <tr key={r.metric} className="border-t border-slate-100">
+              <tr key={r.metric} className="border-t border-border-subtle">
                 <td className="py-2 pr-2 text-slate-600">{r.metric}</td>
-                <td className="py-2 text-right font-semibold tabular-nums text-slate-800">
+                <td className="py-2 text-right font-semibold tabular-nums text-text">
                   {r.current.toLocaleString()}
                 </td>
-                <td className="py-2 text-right tabular-nums text-slate-400">
+                <td className="py-2 text-right tabular-nums text-text-muted">
                   {r.prev.toLocaleString()}
                 </td>
                 <td className="py-1 pl-4">
@@ -511,7 +508,7 @@ export function DistBar({
             key={s.label}
             className="flex items-center justify-between text-xs"
           >
-            <span className="flex items-center gap-1.5 text-slate-500">
+            <span className="flex items-center gap-1.5 text-text-secondary">
               <span
                 className="h-2 w-2 rounded-full"
                 style={{ background: s.color }}
@@ -520,7 +517,7 @@ export function DistBar({
             </span>
             <span className="font-semibold tabular-nums text-slate-700">
               {s.value.toLocaleString()}
-              <span className="ml-1 text-slate-400">
+              <span className="ml-1 text-text-muted">
                 {Math.round((s.value / total) * 100)}%
               </span>
             </span>
@@ -624,7 +621,7 @@ export function RangePicker({
     <select
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 shadow-xs outline-none transition-colors focus:border-slate-400"
+      className="rounded-md border border-border bg-white px-2 py-1 text-[11px] text-slate-600 shadow-xs outline-none transition-colors focus:border-slate-400"
     >
       {options.map((o) => (
         <option key={o} value={o}>
@@ -666,7 +663,7 @@ export function dailyCounts(
   return [...buckets.values()];
 }
 
-/** `{ current, prev, pct }` — last `days` window vs the `days` before it. */
+/** `{ current, prev, pct }` for the last `days` window vs the `days` before it. */
 export function periodDelta(rows: any[], field: string, days: number) {
   const now = Date.now();
   const win = days * 86_400_000;

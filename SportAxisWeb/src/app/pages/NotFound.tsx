@@ -45,7 +45,7 @@ export default function NotFound() {
           ))}
         </ul>
 
-        <Button asChild variant="outline" className="mt-8">
+        <Button asChild variant="secondary" className="mt-8">
           <Link to="/">Back to home</Link>
         </Button>
       </div>

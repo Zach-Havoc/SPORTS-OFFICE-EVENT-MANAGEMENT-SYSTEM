@@ -274,7 +274,7 @@ export default function AthleteRequirements() {
                     {!row || row.status === "rejected" ? (
                       <Button
                         size="sm"
-                        variant={row ? "outline" : "default"}
+                        variant={row ? "secondary" : "primary"}
                         onClick={() => openFor(t, row)}
                       >
                         {row ? (
@@ -312,7 +312,7 @@ export default function AthleteRequirements() {
               Anything your coach asked for outside the checklist.
             </CardDescription>
           </div>
-          <Button size="sm" variant="outline" onClick={() => openFor()}>
+          <Button size="sm" variant="secondary" onClick={() => openFor()}>
             <Upload className="mr-1.5 h-4 w-4" />
             Submit
           </Button>
@@ -417,7 +417,7 @@ export default function AthleteRequirements() {
             <DialogFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setDialogOpen(false)}
               >
                 Cancel

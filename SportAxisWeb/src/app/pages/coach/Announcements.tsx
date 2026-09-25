@@ -183,10 +183,10 @@ export default function CoachAnnouncements() {
                     <div className="flex items-center gap-2 mb-2">
                       <CardTitle className="min-w-0 truncate text-xl">{announcement.title}</CardTitle>
                       {announcement.sport && (
-                        <Badge variant="secondary">{announcement.sport}</Badge>
+                        <Badge variant="neutral">{announcement.sport}</Badge>
                       )}
                       {announcement.isTryout && (
-                        <Badge variant="default" className="bg-red-600">Tryout</Badge>
+                        <Badge variant="brand" className="bg-red-600">Tryout</Badge>
                       )}
                     </div>
                     <CardDescription className="flex items-center gap-2">
@@ -276,7 +276,7 @@ export default function CoachAnnouncements() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>
+              <Button type="button" variant="secondary" onClick={() => handleDialogClose(false)}>
                 Cancel
               </Button>
               <Button type="submit">

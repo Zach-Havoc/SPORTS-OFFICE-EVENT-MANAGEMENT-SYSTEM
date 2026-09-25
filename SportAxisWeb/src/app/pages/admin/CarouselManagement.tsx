@@ -141,7 +141,7 @@ function AddSlideForm({ type, onDone }: { type: SlideType; onDone: () => void })
           <Button onClick={submit} disabled={create.isPending}>
             {create.isPending ? 'Saving…' : 'Save'}
           </Button>
-          <Button variant="outline" onClick={onDone} disabled={create.isPending}>Cancel</Button>
+          <Button variant="secondary" onClick={onDone} disabled={create.isPending}>Cancel</Button>
         </div>
       </CardContent>
     </Card>
@@ -218,7 +218,7 @@ function EditSlideDialog({ slide, onClose }: { slide: Slide | null; onClose: () 
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={update.isPending}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={update.isPending}>Cancel</Button>
           <Button onClick={save} disabled={update.isPending}>{update.isPending ? 'Saving…' : 'Save changes'}</Button>
         </DialogFooter>
       </DialogContent>
@@ -388,7 +388,7 @@ export default function CarouselManagement() {
     <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8 flex items-center gap-4">
         <Link to="/admin/dashboard">
-          <Button variant="outline" size="sm">
+          <Button variant="secondary" size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>

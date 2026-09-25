@@ -195,7 +195,7 @@ export default function JudgeQRScoring() {
               </div>
             </div>
             
-            <Button onClick={() => navigate('/')} variant="outline" className="w-full">
+            <Button onClick={() => navigate('/')} variant="secondary" className="w-full">
               View Public Rankings
             </Button>
           </CardContent>

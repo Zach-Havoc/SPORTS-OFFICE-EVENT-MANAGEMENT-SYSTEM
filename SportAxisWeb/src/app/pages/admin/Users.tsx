@@ -1,3 +1,5 @@
+import { EmptyState } from '../../components/page/EmptyState';
+import { TableFrame, DataTable, Th, Tr, Td, RowActions } from '../../components/page/DataTable';
 import { PageHeader } from '../../components/page/PageHeader';
 import { StatStrip } from '../../components/page/StatStrip';
 import { useEffect, useMemo, useState } from 'react';
@@ -13,7 +15,6 @@ import {
   useDeleteUser,
 } from '../../hooks/api';
 import { RefreshStatus } from '../../components/RefreshStatus';
-import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -53,9 +54,6 @@ import {
   Trash2,
   Copy,
   ShieldAlert,
-  Gavel,
-  GraduationCap,
-  Trophy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Loading from '../../components/Loading';
@@ -71,12 +69,6 @@ import {
 } from '../../utils/users';
 
 const NONE = '__none__';
-const ROLE_BADGE: Record<UserRole, string> = {
-  admin: 'bg-red-100 text-red-800',
-  coach: 'bg-purple-100 text-purple-800',
-  judge: 'bg-blue-100 text-blue-800',
-  athlete: 'bg-emerald-100 text-emerald-800',
-};
 
 interface EditDraft {
   name: string;
@@ -247,10 +239,10 @@ export default function AdminUsers() {
       />
 
       {/* Filters */}
-      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+      <div className="mb-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1 min-w-0">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
             <Input
               placeholder="Search by name or email"
               value={filters.search}
@@ -290,16 +282,16 @@ export default function AdminUsers() {
             </Select>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
-          <p className="text-xs text-gray-500">
-            Showing <span className="font-medium text-gray-700">{visible.length}</span> of{' '}
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <p className="t-caption">
+            Showing <span className="font-medium text-text">{visible.length}</span> of{' '}
             {allUsers.length}
           </p>
           {hasFilters && (
             <button
               type="button"
               onClick={() => setFilters(EMPTY_FILTERS)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900"
+              className="inline-flex items-center gap-1 text-xs font-medium text-text-muted transition-colors hover:text-text"
             >
               <X className="h-3.5 w-3.5" />
               Clear filters
@@ -310,109 +302,149 @@ export default function AdminUsers() {
 
       {/* List */}
       {visible.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-          <UsersIcon className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-3 text-sm font-medium text-gray-700">No accounts match your filters</p>
-        </div>
+        <TableFrame>
+          <EmptyState
+            icon={UsersIcon}
+            title={
+              hasFilters
+                ? 'No accounts match these filters'
+                : 'No accounts yet'
+            }
+            description={
+              hasFilters
+                ? 'Try a broader role or status, or clear the filters to see everyone.'
+                : 'Accounts appear here once someone signs up with a registration code.'
+            }
+            action={
+              hasFilters ? (
+                <Button variant="secondary" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
+                  Clear filters
+                </Button>
+              ) : (
+                <Button asChild size="sm">
+                  <Link to="/admin/registration-codes">Manage registration codes</Link>
+                </Button>
+              )
+            }
+          />
+        </TableFrame>
       ) : (
-        <div className="space-y-3">
-          {visible.map((u) => (
-            <Card key={u.id} className={u.active ? '' : 'bg-gray-50 border-gray-200'}>
-              <CardContent className="py-4">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="font-semibold text-gray-900 truncate">{u.name}</span>
-                      <Badge className={ROLE_BADGE[u.role]}>{roleLabel(u.role)}</Badge>
-                      {!u.active && (
-                        <Badge variant="outline" className="border-gray-300 text-gray-500">
-                          Disabled
-                        </Badge>
-                      )}
-                      {isSelf(u) && (
-                        <Badge variant="info">
-                          You
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-500 truncate">{u.email}</div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                      {u.department && (
-                        <span className="inline-flex items-center gap-1">
-                          <GraduationCap className="h-3.5 w-3.5" />
-                          {u.department}
-                        </span>
-                      )}
-                      {(u.sports?.length ? u.sports.join(', ') : u.sport) && (
-                        <span className="inline-flex items-center gap-1">
-                          <Trophy className="h-3.5 w-3.5" />
-                          {u.sports?.length ? u.sports.join(', ') : u.sport}
-                        </span>
-                      )}
-                      {u.role === 'coach' && (
-                        <span>{u.links.athleteCount} athlete{u.links.athleteCount === 1 ? '' : 's'}</span>
-                      )}
-                      {u.role === 'judge' && (
-                        <span className="inline-flex items-center gap-1">
-                          <Gavel className="h-3.5 w-3.5" />
-                          {u.links.assignedEventCount} event{u.links.assignedEventCount === 1 ? '' : 's'} ·{' '}
-                          {u.links.scoreCount} score{u.links.scoreCount === 1 ? '' : 's'}
-                        </span>
-                      )}
-                      {u.links.registrationCode && (
-                        <span className="font-mono text-gray-400">{u.links.registrationCode}</span>
-                      )}
-                    </div>
-                  </div>
+        <TableFrame>
+          <DataTable>
+            <thead>
+              <tr>
+                <Th>Account</Th>
+                <Th className="hidden lg:table-cell">College &amp; sport</Th>
+                <Th className="hidden md:table-cell">Activity</Th>
+                <Th align="right" className="w-px whitespace-nowrap">
+                  <span className="sr-only">Actions</span>
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((u) => {
+                const sport = u.sports?.length ? u.sports.join(', ') : u.sport;
+                return (
+                  <Tr key={u.id} className={u.active ? undefined : 'opacity-70'}>
+                    <Td>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="font-medium text-text">{u.name}</span>
+                        <Badge variant="neutral">{roleLabel(u.role)}</Badge>
+                        {isSelf(u) && <Badge variant="brand">You</Badge>}
+                        {!u.active && <Badge variant="outline">Disabled</Badge>}
+                      </div>
+                      <div className="t-caption mt-0.5 truncate">{u.email}</div>
+                      {/* Below lg the detail columns collapse into the name cell
+                          rather than being dropped, so nothing becomes unreachable. */}
+                      <div className="t-caption mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 lg:hidden">
+                        {u.department && <span>{u.department}</span>}
+                        {sport && <span>{sport}</span>}
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
-                      <Pencil className="h-4 w-4 sm:mr-1.5" />
-                      <span className="hidden sm:inline">Edit</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setResetting(u);
-                        setResetPw('');
-                        setTempPw(null);
-                      }}
-                    >
-                      <KeyRound className="h-4 w-4 sm:mr-1.5" />
-                      <span className="hidden sm:inline">Reset</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isSelf(u)}
-                      onClick={() => setToggling(u)}
-                      title={isSelf(u) ? 'You cannot disable your own account' : undefined}
-                    >
-                      <Power className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-red-800"
-                      disabled={isSelf(u) || hasDependents(u)}
-                      onClick={() => setDeleting(u)}
-                      title={
-                        isSelf(u)
-                          ? 'You cannot delete your own account'
-                          : hasDependents(u)
-                            ? 'Reassign this account’s records first'
-                            : undefined
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                      </div>
+                    </Td>
+
+                    <Td className="hidden lg:table-cell">
+                      <div className="text-[0.8125rem] text-text-secondary">
+                        {u.department || <span className="sr-only">No college set</span>}
+                      </div>
+                      {sport && <div className="t-caption mt-0.5">{sport}</div>}
+                    </Td>
+
+                    <Td className="hidden md:table-cell text-[0.8125rem] text-text-secondary">
+                      {u.role === 'coach' ? (
+                        <>
+                          {u.links.athleteCount} athlete{u.links.athleteCount === 1 ? '' : 's'}
+                        </>
+                      ) : u.role === 'judge' ? (
+                        <>
+                          {u.links.assignedEventCount} event
+                          {u.links.assignedEventCount === 1 ? '' : 's'} ·{' '}
+                          {u.links.scoreCount} score{u.links.scoreCount === 1 ? '' : 's'}
+                        </>
+                      ) : u.links.registrationCode ? (
+                        <span className="t-caption">{u.links.registrationCode}</span>
+                      ) : null}
+                    </Td>
+
+                    <Td align="right" className="whitespace-nowrap">
+                      <RowActions>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => openEdit(u)}
+                          aria-label={`Edit ${u.name}`}
+                          title="Edit"
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Reset password for ${u.name}`}
+                          title="Reset password"
+                          onClick={() => {
+                            setResetting(u);
+                            setResetPw('');
+                            setTempPw(null);
+                          }}
+                        >
+                          <KeyRound className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={isSelf(u)}
+                          onClick={() => setToggling(u)}
+                          aria-label={u.active ? `Disable ${u.name}` : `Enable ${u.name}`}
+                          title={isSelf(u) ? 'You cannot disable your own account' : u.active ? 'Disable' : 'Enable'}
+                        >
+                          <Power className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="text-danger hover:bg-danger-subtle hover:text-danger-text"
+                          disabled={isSelf(u) || hasDependents(u)}
+                          onClick={() => setDeleting(u)}
+                          aria-label={`Delete ${u.name}`}
+                          title={
+                            isSelf(u)
+                              ? 'You cannot delete your own account'
+                              : hasDependents(u)
+                                ? 'Reassign this account\u2019s records first'
+                                : 'Delete'
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </RowActions>
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </tbody>
+          </DataTable>
+        </TableFrame>
       )}
 
       {/* Edit dialog */}
@@ -459,7 +491,7 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
                 {editing && isSelf(editing) && (
-                  <p className="text-xs text-gray-500">You cannot change your own role.</p>
+                  <p className="t-caption">You cannot change your own role.</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -486,7 +518,7 @@ export default function AdminUsers() {
                 {draft.sports.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {draft.sports.map((s) => (
-                      <Badge key={s} variant="secondary" className="gap-1 pr-1">
+                      <Badge key={s} variant="neutral" className="gap-1 pr-1">
                         {s}
                         <button
                           type="button"
@@ -539,7 +571,7 @@ export default function AdminUsers() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>
+            <Button variant="secondary" onClick={() => setEditing(null)}>
               Cancel
             </Button>
             <Button onClick={submitEdit} disabled={updateMut.isPending}>
@@ -578,7 +610,7 @@ export default function AdminUsers() {
                 </code>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => {
                     navigator.clipboard.writeText(tempPw);
                     toast.success('Copied');
@@ -597,7 +629,7 @@ export default function AdminUsers() {
                 onChange={(e) => setResetPw(e.target.value)}
                 placeholder="Leave blank to auto-generate"
               />
-              <p className="text-xs text-gray-500">
+              <p className="t-caption">
                 Minimum 8 characters. This also signs the user out everywhere.
               </p>
             </div>
@@ -616,7 +648,7 @@ export default function AdminUsers() {
               </Button>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setResetting(null)}>
+                <Button variant="secondary" onClick={() => setResetting(null)}>
                   Cancel
                 </Button>
                 <Button onClick={submitReset} disabled={resetMut.isPending}>

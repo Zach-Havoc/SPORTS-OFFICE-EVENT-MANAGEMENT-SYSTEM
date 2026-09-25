@@ -226,7 +226,7 @@ export default function CoachAthletes() {
                   </button>
                 </div>
               )}
-              <Button variant="outline" size="sm" onClick={openSetup}>
+              <Button variant="secondary" size="sm" onClick={openSetup}>
                 <Settings className="h-4 w-4 mr-2" />
                 {hasSetUpSport ? 'Change Sports' : 'Set Up Sports'}
               </Button>
@@ -296,7 +296,7 @@ export default function CoachAthletes() {
                 <Button
                   key={s}
                   size="sm"
-                  variant={statusFilter === s ? 'default' : 'outline'}
+                  variant={statusFilter === s ? 'primary' : 'secondary'}
                   onClick={() => setStatusFilter(s)}
                   className="capitalize"
                 >
@@ -338,7 +338,7 @@ export default function CoachAthletes() {
                     <Button onClick={openSetup}>Set Up Sports</Button>
                   )}
                   <Link to="/coach/athletes/new">
-                    <Button variant="outline"><UserPlus className="h-4 w-4 mr-2" />Add Manually</Button>
+                    <Button variant="secondary"><UserPlus className="h-4 w-4 mr-2" />Add Manually</Button>
                   </Link>
                 </div>
               )}
@@ -410,7 +410,7 @@ export default function CoachAthletes() {
                     key={s}
                     type="button"
                     size="sm"
-                    variant={selected ? 'default' : 'outline'}
+                    variant={selected ? 'primary' : 'secondary'}
                     className="justify-start"
                     onClick={() => toggleSportDraft(s)}
                   >
@@ -437,7 +437,7 @@ export default function CoachAthletes() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSetupOpen(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setSetupOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveSport} disabled={savingSport || !departmentDraft || sportsDraft.length === 0 || !genderCategoryDraft}>
               {savingSport ? 'Saving…' : 'Save'}
             </Button>
@@ -458,7 +458,7 @@ export default function CoachAthletes() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRemoveTarget(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setRemoveTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleRemove}>Remove</Button>
           </DialogFooter>
         </DialogContent>

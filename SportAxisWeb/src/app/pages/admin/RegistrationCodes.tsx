@@ -216,7 +216,7 @@ export default function AdminRegistrationCodes() {
                         <code className="text-2xl font-mono font-bold bg-gray-100 px-3 py-1 rounded">
                           {code.code}
                         </code>
-                        <Badge variant={code.role === 'admin' ? 'default' : 'secondary'}>
+                        <Badge variant={code.role === 'admin' ? 'brand' : 'neutral'}>
                           {code.role === 'admin' && <><Shield className="h-3 w-3 mr-1" /> Admin</>}
                           {code.role === 'coach' && <><User className="h-3 w-3 mr-1" /> Coach</>}
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
@@ -242,14 +242,14 @@ export default function AdminRegistrationCodes() {
                     <div className="flex shrink-0 gap-2">
                       <Button 
                         size="sm" 
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => handleCopyCode(code.code)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
                       <Button 
                         size="sm" 
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => handleRevoke(code.code)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -286,7 +286,7 @@ export default function AdminRegistrationCodes() {
                           {code.role === 'athlete' && <><User className="h-3 w-3 mr-1" /> Athlete</>}
                           {code.role === 'judge' && <><User className="h-3 w-3 mr-1" /> Committee</>}
                         </Badge>
-                        <Badge variant="secondary">Used</Badge>
+                        <Badge variant="neutral">Used</Badge>
                       </div>
                       <p className="truncate text-sm text-gray-600 mb-1">{code.label}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -335,7 +335,7 @@ export default function AdminRegistrationCodes() {
                     </div>
                     <Button 
                       size="sm" 
-                      variant="outline"
+                      variant="secondary"
                       onClick={() => handleRevoke(code.code)}
                       className="border-red-300"
                     >
@@ -404,7 +404,7 @@ export default function AdminRegistrationCodes() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={generating}>

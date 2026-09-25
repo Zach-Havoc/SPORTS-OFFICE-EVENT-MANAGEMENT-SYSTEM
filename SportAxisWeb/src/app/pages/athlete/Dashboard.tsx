@@ -246,7 +246,7 @@ function EnrolledDashboard({
           </p>
         </div>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="border-red-200 text-red-600 hover:bg-red-50"
           onClick={handleUnenroll}
@@ -356,7 +356,7 @@ function EnrolledDashboard({
                   <p className="text-lg font-bold text-gray-900">
                     {latestFeedback.overallRating}/10
                   </p>
-                  <Badge variant="secondary">{latestFeedback.sport}</Badge>
+                  <Badge variant="neutral">{latestFeedback.sport}</Badge>
                 </div>
                 <p className="mt-1 text-sm text-gray-600 line-clamp-2">
                   {latestFeedback.coachNotes || latestFeedback.eventName}

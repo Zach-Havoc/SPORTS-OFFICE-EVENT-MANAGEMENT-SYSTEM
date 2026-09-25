@@ -887,7 +887,7 @@ export default function AdminBracketing() {
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={selectAllParticipants}
                   className="flex-1"
@@ -896,7 +896,7 @@ export default function AdminBracketing() {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={clearParticipants}
                   className="flex-1"
@@ -1019,7 +1019,7 @@ export default function AdminBracketing() {
                                         </span>
                                       </div>
                                       {match.winner && (
-                                        <Badge variant="secondary" className="mt-1 text-xs">
+                                        <Badge variant="neutral" className="mt-1 text-xs">
                                           Winner: {match.winner}
                                         </Badge>
                                       )}
@@ -1061,7 +1061,7 @@ export default function AdminBracketing() {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button onClick={() => { setBracket(null); setPreviewedOrder(null); setSaveConflict(null); }} variant="outline" className="flex-1">
+                  <Button onClick={() => { setBracket(null); setPreviewedOrder(null); setSaveConflict(null); }} variant="secondary" className="flex-1">
                     Clear Bracket
                   </Button>
                   <Button onClick={handleSaveBracket} disabled={generating} className="flex-1">

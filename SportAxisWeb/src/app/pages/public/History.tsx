@@ -277,7 +277,7 @@ export default function PublicHistory() {
                         {event.status}
                       </span>
                       <Badge
-                        variant="outline"
+                        variant="neutral"
                         className="font-normal text-gray-600"
                       >
                         {event.category}

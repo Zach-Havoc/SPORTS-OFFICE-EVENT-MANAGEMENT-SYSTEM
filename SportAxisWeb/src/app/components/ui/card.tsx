@@ -3,20 +3,31 @@ import * as React from "react";
 import { cn } from "./utils";
 
 /**
- * Elevation here comes from surface contrast, not from a drop shadow: the
- * page sits on an off-white background and the card is true white, so it
- * reads as raised with a hairline and no shadow at rest. A shadow only
- * appears when the card is actually interactive (`data-interactive`), which
- * keeps "this is clickable" a real signal instead of decoration on every box.
+ * A card is for content that genuinely needs to be lifted off the page. Most
+ * grouping in this product does not: use `.section-divide`, a heading and
+ * space, or `variant="flat"` instead of boxing everything.
+ *
+ * Elevation comes from surface contrast first. The page is paper, the card is
+ * white; a shadow is only spent when the card is interactive or floating.
  */
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({
+  className,
+  variant = "outlined",
+  ...props
+}: React.ComponentProps<"div"> & {
+  variant?: "outlined" | "flat" | "raised";
+}) {
   return (
     <div
       data-slot="card"
+      data-variant={variant}
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border border-border/80",
+        "flex flex-col rounded-lg text-text",
+        variant === "outlined" && "border border-border bg-surface",
+        variant === "flat" && "bg-surface-sunken",
+        variant === "raised" && "border border-border bg-surface shadow-sm",
         "transition-[box-shadow,border-color,transform] duration-200",
-        "data-[interactive]:cursor-pointer data-[interactive]:hover:shadow-md data-[interactive]:hover:border-border",
+        "data-[interactive]:cursor-pointer data-[interactive]:hover:border-border-strong data-[interactive]:hover:shadow-sm",
         "data-[interactive]:active:translate-y-px motion-reduce:transition-none",
         className,
       )}
@@ -30,7 +41,8 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 pt-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1 px-5 pt-5",
+        "has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-5",
         className,
       )}
       {...props}
@@ -39,20 +51,14 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <h4
-      data-slot="card-title"
-      className={cn("leading-none tracking-[-0.006em]", className)}
-      {...props}
-    />
-  );
+  return <h3 data-slot="card-title" className={cn("t-section", className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-muted-foreground text-sm text-pretty", className)}
+      className={cn("t-supporting", className)}
       {...props}
     />
   );
@@ -62,10 +68,7 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-action"
-      className={cn(
-        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
-        className,
-      )}
+      className={cn("col-start-2 row-span-2 row-start-1 self-start justify-self-end", className)}
       {...props}
     />
   );
@@ -75,7 +78,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-6 [&:last-child]:pb-6", className)}
+      className={cn("px-5 pt-4 [&:first-child]:pt-5 [&:last-child]:pb-5", className)}
       {...props}
     />
   );
@@ -85,7 +88,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center px-6 pb-6 [.border-t]:pt-6", className)}
+      className={cn("flex items-center px-5 pb-5 pt-4 [.border-t]:pt-5", className)}
       {...props}
     />
   );

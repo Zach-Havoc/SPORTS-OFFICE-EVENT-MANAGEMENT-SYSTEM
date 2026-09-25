@@ -90,7 +90,7 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
                 value={webUrl}
                 className="flex-1 px-3 py-2 text-xs border rounded-md bg-gray-50 truncate"
               />
-              <Button size="sm" variant="outline" onClick={() => copy(webUrl, 'Link copied!')}>
+              <Button size="sm" variant="secondary" onClick={() => copy(webUrl, 'Link copied!')}>
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>

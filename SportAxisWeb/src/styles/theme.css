@@ -1,90 +1,133 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================================
-   SportAxis design tokens
+   SportAxis design system
 
-   One accent (BatStateU red), one neutral family (warm-tinted), three
-   semantic status families, one categorical chart palette, one motion
-   vocabulary. Everything downstream reads from here.
+   Foundation: a near-achromatic ink scale on paper. Colour appears only where
+   it carries meaning, so the one brand hue stays legible as a signal.
 
-   The palette blocks below deliberately REDEFINE Tailwind's own `gray`,
-   `slate`, `red`, `blue`, `green`, `amber` (etc.) ramps. The app carries
-   ~1700 hand-written `bg-gray-100` / `text-red-600` style utilities across
-   63 files; rather than rewrite every one of them, the ramps they point at
-   are retuned so the whole app lands on a single harmonised system. New
-   code should still prefer the semantic tokens (`bg-muted`, `text-primary`).
+   The critical structural decision: the primary action is ink, not the brand
+   red. This system's brand colour IS red, and when the primary button, the
+   active nav item and the delete button are all the same red, nothing reads
+   as dangerous and nothing reads as important. So:
+
+     - ink      drives primary actions and text hierarchy
+     - crimson  is identity: active navigation, selection, brand moments,
+                the first chart series
+     - danger   is a distinct scarlet, and because no primary button is red,
+                a red button now unambiguously means destructive
+
+   The palette blocks redefine Tailwind's own ramps. ~1,700 hand-written
+   `bg-gray-100` / `text-red-600` utilities exist across the app; repointing
+   the ramps moves all of them onto this system at once. New code should use
+   the semantic tokens.
    ========================================================================= */
 
-/* ---------------------------------------------------------------- palette */
 @theme {
-  /* Neutral: one warm-tinted family. Replaces the previous gray/slate/zinc
-     mix, which put cool-blue grays next to warm ones on the same screen. */
-  --color-gray-50: oklch(0.985 0.002 60);
-  --color-gray-100: oklch(0.967 0.003 60);
-  --color-gray-200: oklch(0.928 0.005 60);
-  --color-gray-300: oklch(0.869 0.007 55);
-  --color-gray-400: oklch(0.715 0.010 50);
-  --color-gray-500: oklch(0.565 0.012 48);
-  --color-gray-600: oklch(0.452 0.012 45);
-  --color-gray-700: oklch(0.372 0.011 42);
-  --color-gray-800: oklch(0.275 0.009 40);
-  --color-gray-900: oklch(0.208 0.008 40);
-  --color-gray-950: oklch(0.145 0.006 40);
+  /* ---------------------------------------------------------------- ink */
+  /* Achromatic through the light range so surfaces read as paper, with a
+     whisper of blue arriving at the dark end so shadow reads as depth. */
+  --color-ink-50: oklch(0.988 0.001 250);
+  --color-ink-100: oklch(0.972 0.002 250);
+  --color-ink-150: oklch(0.958 0.003 250);
+  --color-ink-200: oklch(0.929 0.004 252);
+  --color-ink-300: oklch(0.874 0.006 252);
+  --color-ink-400: oklch(0.716 0.009 254);
+  --color-ink-500: oklch(0.578 0.010 256);
+  --color-ink-600: oklch(0.472 0.011 258);
+  --color-ink-700: oklch(0.388 0.012 260);
+  --color-ink-800: oklch(0.288 0.012 262);
+  --color-ink-900: oklch(0.214 0.011 264);
+  --color-ink-950: oklch(0.158 0.010 264);
+  --color-ink-1000: oklch(0.118 0.009 264);
 
-  /* slate/zinc/stone/neutral all collapse onto the same ramp, so a page that
-     reaches for `slate-500` can no longer drift cool against its neighbours. */
-  --color-slate-50: var(--color-gray-50);
-  --color-slate-100: var(--color-gray-100);
-  --color-slate-200: var(--color-gray-200);
-  --color-slate-300: var(--color-gray-300);
-  --color-slate-400: var(--color-gray-400);
-  --color-slate-500: var(--color-gray-500);
-  --color-slate-600: var(--color-gray-600);
-  --color-slate-700: var(--color-gray-700);
-  --color-slate-800: var(--color-gray-800);
-  --color-slate-900: var(--color-gray-900);
-  --color-slate-950: var(--color-gray-950);
-  --color-zinc-50: var(--color-gray-50);
-  --color-zinc-100: var(--color-gray-100);
-  --color-zinc-200: var(--color-gray-200);
-  --color-zinc-300: var(--color-gray-300);
-  --color-zinc-400: var(--color-gray-400);
-  --color-zinc-500: var(--color-gray-500);
-  --color-zinc-600: var(--color-gray-600);
-  --color-zinc-700: var(--color-gray-700);
-  --color-zinc-800: var(--color-gray-800);
-  --color-zinc-900: var(--color-gray-900);
-  --color-zinc-950: var(--color-gray-950);
+  /* Tailwind's neutral families all resolve here. */
+  --color-gray-50: var(--color-ink-50);
+  --color-gray-100: var(--color-ink-100);
+  --color-gray-200: var(--color-ink-200);
+  --color-gray-300: var(--color-ink-300);
+  --color-gray-400: var(--color-ink-400);
+  --color-gray-500: var(--color-ink-500);
+  --color-gray-600: var(--color-ink-600);
+  --color-gray-700: var(--color-ink-700);
+  --color-gray-800: var(--color-ink-800);
+  --color-gray-900: var(--color-ink-900);
+  --color-gray-950: var(--color-ink-950);
+  --color-slate-50: var(--color-ink-50);
+  --color-slate-100: var(--color-ink-100);
+  --color-slate-200: var(--color-ink-200);
+  --color-slate-300: var(--color-ink-300);
+  --color-slate-400: var(--color-ink-400);
+  --color-slate-500: var(--color-ink-500);
+  --color-slate-600: var(--color-ink-600);
+  --color-slate-700: var(--color-ink-700);
+  --color-slate-800: var(--color-ink-800);
+  --color-slate-900: var(--color-ink-900);
+  --color-slate-950: var(--color-ink-950);
+  --color-zinc-50: var(--color-ink-50);
+  --color-zinc-100: var(--color-ink-100);
+  --color-zinc-200: var(--color-ink-200);
+  --color-zinc-300: var(--color-ink-300);
+  --color-zinc-400: var(--color-ink-400);
+  --color-zinc-500: var(--color-ink-500);
+  --color-zinc-600: var(--color-ink-600);
+  --color-zinc-700: var(--color-ink-700);
+  --color-zinc-800: var(--color-ink-800);
+  --color-zinc-900: var(--color-ink-900);
+  --color-zinc-950: var(--color-ink-950);
 
-  /* Accent: BatStateU red, tuned as a real ramp. 700 is the institutional
-     #B91C1C the brand marks are drawn in; everything else is derived so
-     tints and shades of it stay on one hue line. */
-  --color-red-50: oklch(0.971 0.017 25);
-  --color-red-100: oklch(0.936 0.037 25);
-  --color-red-200: oklch(0.881 0.072 25.5);
-  --color-red-300: oklch(0.808 0.114 26);
-  --color-red-400: oklch(0.706 0.161 26.5);
-  --color-red-500: oklch(0.615 0.198 27);
-  --color-red-600: oklch(0.555 0.205 27.2);
-  --color-red-700: oklch(0.505 0.192 27.5);
-  --color-red-800: oklch(0.444 0.165 27.5);
-  --color-red-900: oklch(0.396 0.138 27.5);
-  --color-red-950: oklch(0.258 0.092 28);
+  /* ------------------------------------------------------------ crimson */
+  /* Batangas State University red. 700 holds the institutional value; the
+     mid-range carries slightly less chroma than the source so large fills
+     read as considered rather than as an alarm. */
+  --color-crimson-50: oklch(0.973 0.013 22);
+  --color-crimson-100: oklch(0.940 0.031 22);
+  --color-crimson-200: oklch(0.886 0.060 23);
+  --color-crimson-300: oklch(0.814 0.098 24);
+  --color-crimson-400: oklch(0.712 0.143 25);
+  --color-crimson-500: oklch(0.614 0.178 26);
+  --color-crimson-600: oklch(0.554 0.188 26.5);
+  --color-crimson-700: oklch(0.505 0.185 27);
+  --color-crimson-800: oklch(0.441 0.156 27);
+  --color-crimson-900: oklch(0.386 0.126 27);
+  --color-crimson-950: oklch(0.252 0.084 27);
 
-  /* Status families, desaturated to sit beside the neutrals instead of
-     competing with them. green/emerald collapse to one green; amber/yellow/
-     orange to one ochre; blue/sky/indigo to one steel blue. */
-  --color-green-50: oklch(0.972 0.016 155);
-  --color-green-100: oklch(0.941 0.036 155);
-  --color-green-200: oklch(0.887 0.060 155);
-  --color-green-300: oklch(0.806 0.086 155);
-  --color-green-400: oklch(0.696 0.104 155);
-  --color-green-500: oklch(0.596 0.108 155);
-  --color-green-600: oklch(0.520 0.100 155);
-  --color-green-700: oklch(0.440 0.084 155);
-  --color-green-800: oklch(0.372 0.068 155);
-  --color-green-900: oklch(0.316 0.056 155);
-  --color-green-950: oklch(0.212 0.040 155);
+  --color-red-50: var(--color-crimson-50);
+  --color-red-100: var(--color-crimson-100);
+  --color-red-200: var(--color-crimson-200);
+  --color-red-300: var(--color-crimson-300);
+  --color-red-400: var(--color-crimson-400);
+  --color-red-500: var(--color-crimson-500);
+  --color-red-600: var(--color-crimson-600);
+  --color-red-700: var(--color-crimson-700);
+  --color-red-800: var(--color-crimson-800);
+  --color-red-900: var(--color-crimson-900);
+  --color-red-950: var(--color-crimson-950);
+  --color-rose-50: var(--color-crimson-50);
+  --color-rose-100: var(--color-crimson-100);
+  --color-rose-500: var(--color-crimson-500);
+  --color-rose-600: var(--color-crimson-600);
+  --color-rose-700: var(--color-crimson-700);
+  --color-pink-50: var(--color-crimson-50);
+  --color-pink-100: var(--color-crimson-100);
+  --color-pink-500: var(--color-crimson-500);
+  --color-pink-600: var(--color-crimson-600);
+  --color-pink-700: var(--color-crimson-700);
+
+  /* ----------------------------------------------------------- semantic */
+  /* Matched in lightness so a row of status chips reads as one family
+     differing by hue, not as four unrelated colours. */
+  --color-green-50: oklch(0.970 0.015 158);
+  --color-green-100: oklch(0.938 0.034 158);
+  --color-green-200: oklch(0.884 0.057 158);
+  --color-green-300: oklch(0.802 0.082 158);
+  --color-green-400: oklch(0.690 0.099 158);
+  --color-green-500: oklch(0.592 0.103 158);
+  --color-green-600: oklch(0.516 0.095 158);
+  --color-green-700: oklch(0.436 0.080 158);
+  --color-green-800: oklch(0.368 0.065 158);
+  --color-green-900: oklch(0.312 0.053 158);
+  --color-green-950: oklch(0.208 0.038 158);
   --color-emerald-50: var(--color-green-50);
   --color-emerald-100: var(--color-green-100);
   --color-emerald-200: var(--color-green-200);
@@ -100,17 +143,17 @@
   --color-teal-600: var(--color-green-600);
   --color-teal-700: var(--color-green-700);
 
-  --color-amber-50: oklch(0.977 0.019 80);
-  --color-amber-100: oklch(0.950 0.045 80);
-  --color-amber-200: oklch(0.899 0.080 78);
-  --color-amber-300: oklch(0.831 0.110 76);
-  --color-amber-400: oklch(0.753 0.128 74);
-  --color-amber-500: oklch(0.686 0.130 72);
-  --color-amber-600: oklch(0.606 0.122 68);
-  --color-amber-700: oklch(0.510 0.104 64);
-  --color-amber-800: oklch(0.432 0.086 62);
-  --color-amber-900: oklch(0.372 0.072 60);
-  --color-amber-950: oklch(0.248 0.050 58);
+  --color-amber-50: oklch(0.975 0.018 82);
+  --color-amber-100: oklch(0.948 0.043 82);
+  --color-amber-200: oklch(0.896 0.077 80);
+  --color-amber-300: oklch(0.828 0.106 78);
+  --color-amber-400: oklch(0.750 0.123 76);
+  --color-amber-500: oklch(0.682 0.125 73);
+  --color-amber-600: oklch(0.602 0.117 70);
+  --color-amber-700: oklch(0.506 0.100 66);
+  --color-amber-800: oklch(0.428 0.083 63);
+  --color-amber-900: oklch(0.368 0.069 61);
+  --color-amber-950: oklch(0.245 0.048 59);
   --color-yellow-50: var(--color-amber-50);
   --color-yellow-100: var(--color-amber-100);
   --color-yellow-200: var(--color-amber-200);
@@ -134,17 +177,17 @@
   --color-orange-900: var(--color-amber-900);
   --color-orange-950: var(--color-amber-950);
 
-  --color-blue-50: oklch(0.972 0.013 245);
-  --color-blue-100: oklch(0.939 0.029 245);
-  --color-blue-200: oklch(0.885 0.052 246);
-  --color-blue-300: oklch(0.800 0.080 247);
-  --color-blue-400: oklch(0.690 0.104 249);
-  --color-blue-500: oklch(0.590 0.112 251);
-  --color-blue-600: oklch(0.516 0.108 253);
-  --color-blue-700: oklch(0.444 0.094 255);
-  --color-blue-800: oklch(0.382 0.078 256);
-  --color-blue-900: oklch(0.330 0.064 257);
-  --color-blue-950: oklch(0.224 0.044 258);
+  --color-blue-50: oklch(0.970 0.013 248);
+  --color-blue-100: oklch(0.936 0.028 248);
+  --color-blue-200: oklch(0.882 0.050 249);
+  --color-blue-300: oklch(0.796 0.077 250);
+  --color-blue-400: oklch(0.686 0.100 252);
+  --color-blue-500: oklch(0.586 0.108 254);
+  --color-blue-600: oklch(0.512 0.104 256);
+  --color-blue-700: oklch(0.440 0.090 258);
+  --color-blue-800: oklch(0.378 0.075 259);
+  --color-blue-900: oklch(0.326 0.061 260);
+  --color-blue-950: oklch(0.220 0.042 261);
   --color-sky-50: var(--color-blue-50);
   --color-sky-100: var(--color-blue-100);
   --color-sky-500: var(--color-blue-500);
@@ -161,195 +204,280 @@
   --color-cyan-600: var(--color-blue-600);
   --color-cyan-700: var(--color-blue-700);
 
-  /* The AI-fingerprint families. Nothing in a sports-office system needs a
-     violet badge; they resolve to the neutral ramp so stray usages fade into
-     the design instead of reading as a second accent. */
-  --color-purple-50: var(--color-gray-100);
-  --color-purple-100: var(--color-gray-200);
-  --color-purple-200: var(--color-gray-200);
-  --color-purple-300: var(--color-gray-300);
-  --color-purple-400: var(--color-gray-400);
-  --color-purple-500: var(--color-gray-500);
-  --color-purple-600: var(--color-gray-600);
-  --color-purple-700: var(--color-gray-700);
-  --color-purple-800: var(--color-gray-800);
-  --color-purple-900: var(--color-gray-900);
-  --color-violet-50: var(--color-gray-100);
-  --color-violet-100: var(--color-gray-200);
-  --color-violet-500: var(--color-gray-500);
-  --color-violet-600: var(--color-gray-600);
-  --color-violet-700: var(--color-gray-700);
-  --color-fuchsia-500: var(--color-gray-500);
-  --color-fuchsia-600: var(--color-gray-600);
-  --color-pink-50: var(--color-red-50);
-  --color-pink-100: var(--color-red-100);
-  --color-pink-500: var(--color-red-500);
-  --color-pink-600: var(--color-red-600);
-  --color-pink-700: var(--color-red-700);
-  --color-rose-50: var(--color-red-50);
-  --color-rose-100: var(--color-red-100);
-  --color-rose-500: var(--color-red-500);
-  --color-rose-600: var(--color-red-600);
-  --color-rose-700: var(--color-red-700);
+  /* No violet in a sports-office system. These resolve to ink so stray
+     usages recede instead of reading as a second accent. */
+  --color-purple-50: var(--color-ink-100);
+  --color-purple-100: var(--color-ink-150);
+  --color-purple-200: var(--color-ink-200);
+  --color-purple-300: var(--color-ink-300);
+  --color-purple-400: var(--color-ink-400);
+  --color-purple-500: var(--color-ink-500);
+  --color-purple-600: var(--color-ink-600);
+  --color-purple-700: var(--color-ink-700);
+  --color-purple-800: var(--color-ink-800);
+  --color-purple-900: var(--color-ink-900);
+  --color-violet-50: var(--color-ink-100);
+  --color-violet-100: var(--color-ink-150);
+  --color-violet-500: var(--color-ink-500);
+  --color-violet-600: var(--color-ink-600);
+  --color-violet-700: var(--color-ink-700);
+  --color-fuchsia-500: var(--color-ink-500);
+  --color-fuchsia-600: var(--color-ink-600);
 
-  /* -------------------------------------------------------------- type */
-  /* Archivo: a grotesque with a real width axis, so scoreboards and result
-     tables can widen without a second family. Not Inter, not Roboto. */
+  /* ---------------------------------------------------------------- type */
   --font-sans: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Archivo', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* ------------------------------------------------------------ motion */
-  /* Exponential deceleration, the way real objects stop. No bounce, no
-     elastic, no ease-in-out on entry. These override Tailwind's defaults,
-     so every `transition-*` utility in the app inherits the curve. */
+  /* -------------------------------------------------------------- motion */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --duration-instant: 90ms;
+  --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
   --default-transition-timing-function: var(--ease-out-quart);
-  --default-transition-duration: 180ms;
+  --default-transition-duration: 140ms;
+
+  /* --------------------------------------------------------- breakpoints */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
 }
 
 :root {
-  /* Root size the whole app scales from (all rem-based text + spacing follow it).
-     Raised from 16px for low-vision readability - tune 17-19px to taste. */
+  color-scheme: light;
+
+  /* Root size the whole app scales from. Raised from 16px for low-vision
+     readability, a deliberate accessibility decision. */
   --font-size: 18px;
 
-  /* Surfaces. Off-white rather than #ffffff so cards can sit a step brighter
-     than the page and elevation reads without a heavy shadow. */
-  --background: oklch(0.985 0.002 60);
-  --foreground: oklch(0.208 0.008 40);
-  --card: #ffffff;
-  --card-foreground: oklch(0.208 0.008 40);
-  --popover: #ffffff;
-  --popover-foreground: oklch(0.208 0.008 40);
+  /* ---- Surfaces ---------------------------------------------------------
+     Four steps, so depth can be expressed by luminance before any border or
+     shadow is spent on it. */
+  --bg: var(--color-ink-50);
+  --bg-subtle: var(--color-ink-100);
+  --surface: #ffffff;
+  --surface-hover: var(--color-ink-50);
+  --surface-active: var(--color-ink-100);
+  --surface-sunken: var(--color-ink-100);
+  --surface-raised: #ffffff;
+  --overlay: oklch(0.214 0.011 264 / 0.45);
 
-  /* Batangas State University Red */
-  --primary: oklch(0.505 0.192 27.5);
-  --primary-foreground: #ffffff;
-  --secondary: oklch(0.967 0.003 60);
-  --secondary-foreground: oklch(0.275 0.009 40);
-  --muted: oklch(0.967 0.003 60);
-  --muted-foreground: oklch(0.510 0.012 46);
-  --accent: oklch(0.936 0.037 25);
-  --accent-foreground: oklch(0.396 0.138 27.5);
-  --destructive: oklch(0.505 0.192 27.5);
+  /* ---- Borders ---------------------------------------------------------- */
+  --border-subtle: oklch(0.929 0.004 252 / 0.7);
+  --border: var(--color-ink-200);
+  --border-strong: var(--color-ink-300);
+
+  /* ---- Text ------------------------------------------------------------- */
+  --text: var(--color-ink-900);
+  --text-secondary: var(--color-ink-600);
+  --text-muted: var(--color-ink-500);
+  --text-disabled: var(--color-ink-400);
+  --text-inverse: var(--color-ink-50);
+
+  /* ---- Brand (identity, navigation, selection) -------------------------- */
+  --brand: var(--color-crimson-700);
+  --brand-hover: var(--color-crimson-800);
+  --brand-active: var(--color-crimson-900);
+  --brand-subtle: var(--color-crimson-50);
+  --brand-subtle-hover: var(--color-crimson-100);
+  --brand-border: var(--color-crimson-200);
+  --brand-text: var(--color-crimson-800);
+  --brand-on: #ffffff;
+
+  /* ---- Action (primary buttons: ink, not brand) ------------------------- */
+  --action: var(--color-ink-900);
+  --action-hover: var(--color-ink-800);
+  --action-active: var(--color-ink-950);
+  --action-on: var(--color-ink-50);
+
+  /* ---- Status ----------------------------------------------------------- */
+  --success: var(--color-green-600);
+  --success-subtle: var(--color-green-50);
+  --success-border: var(--color-green-200);
+  --success-text: var(--color-green-800);
+  --warning: var(--color-amber-600);
+  --warning-subtle: var(--color-amber-50);
+  --warning-border: var(--color-amber-200);
+  --warning-text: var(--color-amber-800);
+  --danger: var(--color-crimson-600);
+  --danger-subtle: var(--color-crimson-50);
+  --danger-border: var(--color-crimson-200);
+  --danger-text: var(--color-crimson-800);
+  --info: var(--color-blue-600);
+  --info-subtle: var(--color-blue-50);
+  --info-border: var(--color-blue-200);
+  --info-text: var(--color-blue-800);
+
+  /* ---- Focus ------------------------------------------------------------ */
+  --focus-ring: var(--color-ink-900);
+  --focus-ring-offset: var(--bg);
+
+  /* ---- Elevation --------------------------------------------------------
+     Tinted with the ink hue and given real offset, so a raised surface reads
+     as lit from above rather than as a grey halo. */
+  --shadow-1: 0 1px 2px -1px oklch(0.214 0.011 264 / 0.08);
+  --shadow-2: 0 1px 3px -1px oklch(0.214 0.011 264 / 0.10), 0 2px 8px -4px oklch(0.214 0.011 264 / 0.06);
+  --shadow-3: 0 4px 12px -4px oklch(0.214 0.011 264 / 0.12), 0 2px 4px -2px oklch(0.214 0.011 264 / 0.06);
+  --shadow-4: 0 16px 40px -12px oklch(0.214 0.011 264 / 0.18), 0 4px 10px -6px oklch(0.214 0.011 264 / 0.08);
+
+  /* ---- Radius -----------------------------------------------------------
+     Restrained and concentric: a control inside a surface sits one step
+     tighter than the surface holding it. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius: var(--radius-md);
+
+  /* ---- Spacing (4px base) ----------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ---- shadcn compatibility --------------------------------------------
+     The component library reads these names. They are mapped onto the system
+     above rather than maintained separately, so there is one source of truth.
+     Note --primary is ink: that is the structural decision, not an oversight. */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--action);
+  --primary-foreground: var(--action-on);
+  --secondary: var(--color-ink-100);
+  --secondary-foreground: var(--color-ink-800);
+  --muted: var(--color-ink-100);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--brand-subtle);
+  --accent-foreground: var(--brand-text);
+  --destructive: var(--danger);
   --destructive-foreground: #ffffff;
-
-  /* Semantic status colors - one consistent shade family each, so pages stop
-     inventing their own green/emerald/blue mixes. Paired with a light "wash"
-     background the same way --accent/--accent-foreground already work. */
-  --success: oklch(0.520 0.100 155);
-  --success-bg: oklch(0.941 0.036 155);
-  --success-foreground: oklch(0.372 0.068 155);
-  --warning: oklch(0.606 0.122 68);
-  --warning-bg: oklch(0.950 0.045 80);
-  --warning-foreground: oklch(0.432 0.086 62);
-  --info: oklch(0.516 0.108 253);
-  --info-bg: oklch(0.939 0.029 245);
-  --info-foreground: oklch(0.382 0.078 256);
-
-  --border: oklch(0.905 0.005 55);
+  --success-bg: var(--success-subtle);
+  --success-foreground: var(--success-text);
+  --warning-bg: var(--warning-subtle);
+  --warning-foreground: var(--warning-text);
+  --info-bg: var(--info-subtle);
+  --info-foreground: var(--info-text);
   --input: transparent;
-  --input-background: oklch(0.975 0.003 60);
-  --switch-background: oklch(0.869 0.007 55);
+  --input-background: var(--surface);
+  --switch-background: var(--color-ink-300);
+  --ring: var(--focus-ring);
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
-  --ring: oklch(0.505 0.192 27.5);
 
-  /* Categorical chart palette. The old scale was five tints of the same red,
-     which is a sequential ramp wearing a categorical hat - two series next to
-     each other were indistinguishable. These are separated by hue at roughly
-     equal lightness, brand red first. */
-  --chart-1: oklch(0.555 0.205 27.2);
-  --chart-2: oklch(0.550 0.090 200);
-  --chart-3: oklch(0.686 0.130 72);
-  --chart-4: oklch(0.500 0.080 255);
-  --chart-5: oklch(0.480 0.090 350);
-  --chart-6: oklch(0.550 0.080 155);
+  /* Categorical series: brand first, then hues at even lightness. */
+  --chart-1: var(--color-crimson-600);
+  --chart-2: oklch(0.548 0.088 202);
+  --chart-3: var(--color-amber-500);
+  --chart-4: oklch(0.498 0.078 256);
+  --chart-5: oklch(0.478 0.088 350);
+  --chart-6: var(--color-green-500);
 
-  --radius: 0.625rem;
-
-  /* Elevation scale. Shadows carry the neutral's warm hue rather than a cool
-     slate, so they read as the page dimming rather than a gray wash laid on
-     top. Deliberately subtle - this is restraint, not drop-shadow drama.
-     Named "-raw" to avoid colliding with the Tailwind-recognized --shadow-*
-     token names emitted below in @theme inline (self-referencing var() there). */
-  --shadow-xs-raw: 0 1px 2px 0 oklch(0.208 0.008 40 / 0.05);
-  --shadow-sm-raw: 0 1px 3px 0 oklch(0.208 0.008 40 / 0.07), 0 1px 2px -1px oklch(0.208 0.008 40 / 0.06);
-  --shadow-md-raw: 0 4px 12px -2px oklch(0.208 0.008 40 / 0.09), 0 2px 4px -2px oklch(0.208 0.008 40 / 0.05);
-  --shadow-lg-raw: 0 12px 28px -6px oklch(0.208 0.008 40 / 0.12), 0 4px 8px -4px oklch(0.208 0.008 40 / 0.06);
-
-  --sidebar: oklch(0.208 0.008 40);
-  --sidebar-foreground: oklch(0.928 0.005 60);
-  --sidebar-primary: oklch(0.555 0.205 27.2);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: oklch(0.275 0.009 40);
-  --sidebar-accent-foreground: oklch(0.985 0.002 60);
-  --sidebar-border: oklch(0.275 0.009 40);
-  --sidebar-ring: oklch(0.555 0.205 27.2);
+  /* Navigation shell */
+  --nav: var(--color-ink-950);
+  --nav-fg: var(--color-ink-300);
+  --nav-fg-strong: var(--color-ink-50);
+  --nav-hover: oklch(1 0 0 / 0.07);
+  --nav-active: oklch(1 0 0 / 0.14);
+  --nav-border: oklch(1 0 0 / 0.08);
+  --nav-section: var(--color-ink-500);
 }
 
 .dark {
-  /* Warm-tinted dark, not pure black, and the brand red survives the switch.
-     The previous dark block dropped --primary to plain white and swapped the
-     chart palette for unrelated violets, so the product lost its identity the
-     moment anyone turned the lights off. */
-  --background: oklch(0.165 0.006 40);
-  --foreground: oklch(0.945 0.004 60);
-  --card: oklch(0.208 0.008 40);
-  --card-foreground: oklch(0.945 0.004 60);
-  --popover: oklch(0.225 0.008 40);
-  --popover-foreground: oklch(0.945 0.004 60);
+  color-scheme: dark;
 
-  --primary: oklch(0.615 0.198 27);
-  --primary-foreground: #ffffff;
-  --secondary: oklch(0.275 0.009 40);
-  --secondary-foreground: oklch(0.945 0.004 60);
-  --muted: oklch(0.262 0.008 40);
-  --muted-foreground: oklch(0.715 0.010 50);
-  --accent: oklch(0.312 0.048 28);
-  --accent-foreground: oklch(0.881 0.072 25.5);
-  --destructive: oklch(0.615 0.198 27);
-  --destructive-foreground: #ffffff;
+  --bg: var(--color-ink-1000);
+  --bg-subtle: var(--color-ink-950);
+  --surface: var(--color-ink-950);
+  --surface-hover: var(--color-ink-900);
+  --surface-active: var(--color-ink-800);
+  --surface-sunken: var(--color-ink-1000);
+  --surface-raised: var(--color-ink-900);
+  --overlay: oklch(0.118 0.009 264 / 0.7);
 
-  --success: oklch(0.696 0.104 155);
-  --success-bg: oklch(0.300 0.048 155);
-  --success-foreground: oklch(0.887 0.060 155);
-  --warning: oklch(0.753 0.128 74);
-  --warning-bg: oklch(0.322 0.058 66);
-  --warning-foreground: oklch(0.899 0.080 78);
-  --info: oklch(0.690 0.104 249);
-  --info-bg: oklch(0.298 0.052 254);
-  --info-foreground: oklch(0.885 0.052 246);
+  --border-subtle: oklch(1 0 0 / 0.06);
+  --border: oklch(1 0 0 / 0.10);
+  --border-strong: oklch(1 0 0 / 0.16);
 
-  --border: oklch(0.302 0.008 40);
-  --input: oklch(0.275 0.009 40);
-  --input-background: oklch(0.242 0.008 40);
-  --switch-background: oklch(0.372 0.011 42);
-  --ring: oklch(0.615 0.198 27);
+  --text: var(--color-ink-50);
+  --text-secondary: var(--color-ink-300);
+  --text-muted: var(--color-ink-400);
+  --text-disabled: var(--color-ink-600);
+  --text-inverse: var(--color-ink-950);
 
-  --chart-1: oklch(0.655 0.190 27.2);
-  --chart-2: oklch(0.660 0.088 200);
-  --chart-3: oklch(0.775 0.120 74);
-  --chart-4: oklch(0.620 0.080 255);
-  --chart-5: oklch(0.600 0.090 350);
-  --chart-6: oklch(0.660 0.078 155);
+  --brand: var(--color-crimson-500);
+  --brand-hover: var(--color-crimson-400);
+  --brand-active: var(--color-crimson-600);
+  --brand-subtle: oklch(0.505 0.185 27 / 0.16);
+  --brand-subtle-hover: oklch(0.505 0.185 27 / 0.24);
+  --brand-border: oklch(0.505 0.185 27 / 0.38);
+  --brand-text: var(--color-crimson-300);
 
-  --shadow-xs-raw: 0 1px 2px 0 oklch(0 0 0 / 0.30);
-  --shadow-sm-raw: 0 1px 3px 0 oklch(0 0 0 / 0.36), 0 1px 2px -1px oklch(0 0 0 / 0.30);
-  --shadow-md-raw: 0 4px 12px -2px oklch(0 0 0 / 0.44), 0 2px 4px -2px oklch(0 0 0 / 0.30);
-  --shadow-lg-raw: 0 12px 28px -6px oklch(0 0 0 / 0.52), 0 4px 8px -4px oklch(0 0 0 / 0.32);
+  --action: var(--color-ink-50);
+  --action-hover: #ffffff;
+  --action-active: var(--color-ink-200);
+  --action-on: var(--color-ink-950);
 
-  --sidebar: oklch(0.145 0.006 40);
-  --sidebar-foreground: oklch(0.928 0.005 60);
-  --sidebar-primary: oklch(0.615 0.198 27);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: oklch(0.242 0.008 40);
-  --sidebar-accent-foreground: oklch(0.985 0.002 60);
-  --sidebar-border: oklch(0.262 0.008 40);
-  --sidebar-ring: oklch(0.615 0.198 27);
+  --success: var(--color-green-400);
+  --success-subtle: oklch(0.516 0.095 158 / 0.18);
+  --success-border: oklch(0.516 0.095 158 / 0.40);
+  --success-text: var(--color-green-300);
+  --warning: var(--color-amber-400);
+  --warning-subtle: oklch(0.602 0.117 70 / 0.18);
+  --warning-border: oklch(0.602 0.117 70 / 0.40);
+  --warning-text: var(--color-amber-300);
+  --danger: var(--color-crimson-500);
+  --danger-subtle: oklch(0.554 0.188 26.5 / 0.18);
+  --danger-border: oklch(0.554 0.188 26.5 / 0.40);
+  --danger-text: var(--color-crimson-300);
+  --info: var(--color-blue-400);
+  --info-subtle: oklch(0.512 0.104 256 / 0.18);
+  --info-border: oklch(0.512 0.104 256 / 0.40);
+  --info-text: var(--color-blue-300);
+
+  --focus-ring: var(--color-ink-200);
+
+  --shadow-1: 0 1px 2px -1px oklch(0 0 0 / 0.5);
+  --shadow-2: 0 1px 3px -1px oklch(0 0 0 / 0.55), 0 2px 8px -4px oklch(0 0 0 / 0.4);
+  --shadow-3: 0 4px 12px -4px oklch(0 0 0 / 0.6), 0 2px 4px -2px oklch(0 0 0 / 0.4);
+  --shadow-4: 0 16px 40px -12px oklch(0 0 0 / 0.7), 0 4px 10px -6px oklch(0 0 0 / 0.45);
+
+  --secondary: var(--color-ink-800);
+  --secondary-foreground: var(--color-ink-100);
+  --muted: var(--color-ink-900);
+  --switch-background: var(--color-ink-700);
+  --input-background: var(--color-ink-900);
+
+  --chart-1: var(--color-crimson-400);
+  --chart-2: oklch(0.658 0.086 202);
+  --chart-3: var(--color-amber-400);
+  --chart-4: oklch(0.618 0.078 256);
+  --chart-5: oklch(0.598 0.088 350);
+  --chart-6: var(--color-green-400);
+
+  --nav: var(--color-ink-1000);
+  --nav-fg: var(--color-ink-400);
+  --nav-fg-strong: var(--color-ink-50);
+  --nav-hover: oklch(1 0 0 / 0.05);
+  --nav-active: oklch(1 0 0 / 0.09);
+  --nav-border: oklch(1 0 0 / 0.07);
+  --nav-section: var(--color-ink-600);
 }
 
 @theme inline {
@@ -369,20 +497,58 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-bg-subtle: var(--bg-subtle);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-subtle-hover: var(--brand-subtle-hover);
+  --color-brand-border: var(--brand-border);
+  --color-brand-text: var(--brand-text);
+  --color-brand-on: var(--brand-on);
+
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-action-on: var(--action-on);
+
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-border: var(--success-border);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-border: var(--warning-border);
   --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-border: var(--danger-border);
+  --color-danger-text: var(--danger-text);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-border: var(--info-border);
   --color-info-foreground: var(--info-foreground);
+
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-input-background: var(--input-background);
   --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -390,36 +556,31 @@
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
 
-  /* One radius rule, documented: controls (buttons, inputs, badges) sit a
-     step tighter than the surfaces that hold them, so nested corners stay
-     concentric instead of fighting. */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 10px);
+  --color-nav: var(--nav);
+  --color-nav-fg: var(--nav-fg);
+  --color-nav-fg-strong: var(--nav-fg-strong);
+  --color-nav-hover: var(--nav-hover);
+  --color-nav-active: var(--nav-active);
+  --color-nav-border: var(--nav-border);
+  --color-nav-section: var(--nav-section);
 
-  /* Overrides Tailwind's default shadow-xs/sm/md utilities with the subtler
-     scale above, so every existing shadow-* usage in the app (Dialog,
-     Popover, Dropdown, etc.) benefits too, not just newly-touched components. */
-  --shadow-xs: var(--shadow-xs-raw);
-  --shadow-sm: var(--shadow-sm-raw);
-  --shadow-md: var(--shadow-md-raw);
-  --shadow-lg: var(--shadow-lg-raw);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: 18px;
 
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-2);
+  --shadow-md: var(--shadow-3);
+  --shadow-lg: var(--shadow-4);
+  --shadow-xl: var(--shadow-4);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
@@ -428,9 +589,36 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
-    /* Archivo carries an optical-size-ish width axis; hold it at normal for
-       body copy and widen it deliberately on scoreboard numerals. */
     font-variation-settings: 'wdth' 100;
+    scrollbar-color: var(--color-ink-300) transparent;
+    scrollbar-width: thin;
+    caret-color: var(--brand);
+    accent-color: var(--brand);
+    text-size-adjust: 100%;
+  }
+
+  .dark html {
+    scrollbar-color: var(--color-ink-700) transparent;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--brand-subtle);
+    color: var(--brand-text);
+  }
+
+  /* One focus treatment for the whole product: a ring that sits off the
+     element so it reads on any surface, and never `outline: none` without a
+     replacement. */
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -448,13 +636,8 @@
     }
   }
 
-  body {
-    @apply bg-background text-foreground;
-    text-rendering: optimizeLegibility;
-  }
-
-  /* This is a results system: every figure on screen is a score, a rank, a
-     count or a time, and proportional digits make columns of them jitter. */
+  /* This is a results system: nearly every figure is a score, rank, count or
+     time, and proportional digits make columns of them jitter. */
   table,
   input[type='number'],
   time,
@@ -462,244 +645,195 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
-
-  /* Each level gets its own weight, not a shared "medium" - real hierarchy
-     instead of hierarchy implied by size alone. Negative tracking grows with
-     size, which is how type behaves when it is set rather than defaulted. */
-  h1 {
-    font-size: var(--text-2xl);
-    font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.021em;
+  h1, h2, h3, h4 {
+    color: var(--text);
     text-wrap: balance;
   }
 
-  h2 {
-    font-size: var(--text-xl);
-    font-weight: 650;
-    line-height: 1.28;
-    letter-spacing: -0.016em;
-    text-wrap: balance;
-  }
+  h1 { font-size: 1.5rem; font-weight: 640; line-height: 1.2; letter-spacing: -0.022em; }
+  h2 { font-size: 1.25rem; font-weight: 620; line-height: 1.28; letter-spacing: -0.018em; }
+  h3 { font-size: 1.0625rem; font-weight: 600; line-height: 1.38; letter-spacing: -0.012em; }
+  h4 { font-size: 0.9375rem; font-weight: 600; line-height: 1.45; letter-spacing: -0.006em; }
 
-  h3 {
-    font-size: var(--text-lg);
-    font-weight: 600;
-    line-height: 1.38;
-    letter-spacing: -0.011em;
-    text-wrap: balance;
-  }
+  p { text-wrap: pretty; }
 
-  h4 {
-    font-size: var(--text-base);
-    font-weight: 600;
-    line-height: 1.5;
-    letter-spacing: -0.006em;
-  }
-
-  p {
-    text-wrap: pretty;
-  }
-
-  label {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
+  label, button, input {
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 
-  button {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  input {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-normal);
-    line-height: 1.5;
-  }
-}
-
-@layer base {
-  /* ---- Browser surfaces -------------------------------------------------
-     The parts nobody draws still ship with somebody's defaults. Selection,
-     caret, scrollbars and underline offsets arrive from the browser
-     belonging to no design system, and they are visible on every screen of
-     a product people use all day. */
-
-  ::selection {
-    background-color: oklch(0.936 0.037 25);
-    color: oklch(0.396 0.138 27.5);
-  }
-
-  .dark ::selection {
-    background-color: oklch(0.312 0.048 28);
-    color: oklch(0.881 0.072 25.5);
-  }
-
-  html {
-    /* Standard property, not a rebuilt scrollbar widget: the native control
-       keeps its platform behaviour and takes the palette's neutrals. */
-    scrollbar-color: var(--color-gray-300) transparent;
-    scrollbar-width: thin;
-    caret-color: var(--primary);
-    accent-color: var(--primary);
-  }
-
-  .dark html,
-  .dark body {
-    scrollbar-color: var(--color-gray-700) transparent;
-  }
-
-  /* Inline links inside prose: the underline sits clear of descenders and
-     thins out, instead of the browser's default flush 1px rule. */
   a:not([class]) {
-    color: var(--primary);
+    color: var(--brand-text);
     text-decoration-line: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
-    text-decoration-color: color-mix(in oklch, var(--primary) 35%, transparent);
-    transition: text-decoration-color 150ms var(--ease-out-quart);
+    text-decoration-color: color-mix(in oklch, var(--brand) 32%, transparent);
+    transition: text-decoration-color var(--duration-fast) var(--ease-out-quart);
   }
 
   a:not([class]):hover {
-    text-decoration-color: var(--primary);
+    text-decoration-color: var(--brand);
   }
 }
 
 @layer utilities {
   /* ---- Type roles -------------------------------------------------------
-     Five roles, fixed rem, ratio ~1.2. Every page used to re-invent its own
-     heading (six competing patterns, three of them coloring the h1 green or
-     red, which asks color to do work that weight should do). */
+     Ten roles, fixed rem, ratio ~1.18. Three weights only (400/500/620),
+     because hierarchy is carried by size, colour and space before weight. */
+
+  .t-display {
+    font-size: 2rem;
+    font-weight: 640;
+    line-height: 1.12;
+    letter-spacing: -0.028em;
+    text-wrap: balance;
+  }
 
   .t-page-title {
     font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1.18;
-    letter-spacing: -0.023em;
+    font-weight: 640;
+    line-height: 1.2;
+    letter-spacing: -0.022em;
     text-wrap: balance;
-    color: var(--foreground);
+    color: var(--text);
   }
 
-  .t-page-lede {
-    font-size: 0.875rem;
-    font-weight: 400;
-    line-height: 1.55;
-    color: var(--muted-foreground);
-    max-width: 68ch;
-    text-wrap: pretty;
-  }
-
-  .t-section-title {
+  .t-section {
     font-size: 1rem;
     font-weight: 600;
     line-height: 1.35;
     letter-spacing: -0.012em;
-    color: var(--foreground);
+    color: var(--text);
+  }
+
+  .t-subsection {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.006em;
+    color: var(--text);
+  }
+
+  .t-body {
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--text);
+    max-width: 70ch;
+    text-wrap: pretty;
+  }
+
+  .t-page-lede,
+  .t-supporting {
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    max-width: 68ch;
+    text-wrap: pretty;
   }
 
   .t-label {
     font-size: 0.8125rem;
     font-weight: 500;
     line-height: 1.4;
-    color: var(--muted-foreground);
+    color: var(--text-secondary);
   }
 
+  .t-caption,
   .t-meta {
     font-size: 0.75rem;
     font-weight: 400;
     line-height: 1.45;
-    color: var(--muted-foreground);
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
 
-  /* ---- Spatial rhythm ---------------------------------------------------
-     The app repeated one interval (gap-6 / mb-6 / py-8) until every group
-     carried the same weight. These are the two intervals that matter:
-     tight inside a group, generous between them, and more room above a
-     heading than below it. */
-
-  .stack-tight > * + * {
-    margin-top: 0.375rem;
+  .t-nav {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.004em;
   }
 
-  .stack-section > * + * {
-    margin-top: 2.5rem;
+  .t-overline {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
   }
 
-  .stack-section > * + .t-section-title,
-  .stack-section > * + h2,
-  .stack-section > * + h3 {
-    margin-top: 3rem;
-  }
-
-  /* Scoreboard numerals: Archivo widened and tightened, for the few places a
-     figure is the content rather than a label on it (live score, medal count,
-     final standing). */
+  /* Figures. The width axis widens the numerals so a score reads as the
+     content it is, without pulling in a second family. */
   .numeral {
     font-variant-numeric: tabular-nums;
-    font-variation-settings: 'wdth' 112;
-    letter-spacing: -0.02em;
-    font-weight: 700;
+    font-variation-settings: 'wdth' 110;
+    letter-spacing: -0.018em;
+    font-weight: 640;
   }
 
-  /* Body copy measure. Roughly 65 characters, the point past which the eye
-     starts losing the line it is on. */
-  .prose-measure {
-    max-width: 65ch;
-  }
+  .prose-measure { max-width: 68ch; }
 
-  /* Page container. Wide enough for a 12-column results table, bounded so
-     copy does not stretch the full width of a 27-inch monitor. */
+  /* ---- Layout -----------------------------------------------------------*/
   .page-container {
     width: 100%;
     max-width: 80rem;
     margin-inline: auto;
+    padding-inline: 1rem;
   }
+
+  @media (min-width: 40rem) {
+    .page-container { padding-inline: 1.5rem; }
+  }
+
+  @media (min-width: 64rem) {
+    .page-container { padding-inline: 2rem; }
+  }
+
+  /* Vertical rhythm: tight inside a group, generous between groups, and
+     more room above a heading than below it. */
+  .stack-tight > * + * { margin-top: 0.375rem; }
+  .stack-form > * + * { margin-top: 1.25rem; }
+  .stack-section > * + * { margin-top: 2.5rem; }
+  .stack-section > * + .t-section,
+  .stack-section > * + h2,
+  .stack-section > * + h3 { margin-top: 3rem; }
+
+  /* A grouped region that is not a card: content separated by a rule and
+     space instead of by a box. Most "cards" in this app are this. */
+  .section-divide > * + * {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .safe-b { padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
 
 @layer base {
-  /* Route-transition progress bar (MainLayout, shown while a lazy page chunk loads) */
   @keyframes loading-bar {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(300%);
-    }
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
   }
 
-  /* Replaces the old bounce loader. Weight settling, not a ball bouncing:
-     exponential deceleration with no overshoot. */
   @keyframes settle {
-    0% {
-      opacity: 0.35;
-      transform: scale(0.82);
-    }
-    45% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    100% {
-      opacity: 0.35;
-      transform: scale(0.82);
-    }
+    0% { opacity: 0.35; transform: scale(0.84); }
+    45% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0.35; transform: scale(0.84); }
   }
 
   .animate-settle {
     animation: settle 1.4s cubic-bezier(0.25, 1, 0.5, 1) infinite;
   }
 
-  /* Skeleton shimmer, travelling on transform rather than background-position
-     so it stays on the compositor. */
   @keyframes shimmer {
-    100% {
-      transform: translateX(100%);
-    }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
   }
 }

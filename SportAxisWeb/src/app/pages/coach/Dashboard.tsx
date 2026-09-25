@@ -385,7 +385,7 @@ export default function CoachDashboard() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {a.sport && <Badge variant="secondary">{a.sport}</Badge>}
+                    {a.sport && <Badge variant="neutral">{a.sport}</Badge>}
                     <Link
                       to="/coach/athletes"
                       className="text-[11px] font-medium text-primary hover:underline"

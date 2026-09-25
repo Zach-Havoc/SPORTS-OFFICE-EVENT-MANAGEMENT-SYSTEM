@@ -147,7 +147,7 @@ export default function AdminCoaches() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave}>
@@ -195,7 +195,7 @@ const CoachCard = memo(function CoachCard({
           </div>
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="shrink-0"
             onClick={() => onAssign(coach)}
           >

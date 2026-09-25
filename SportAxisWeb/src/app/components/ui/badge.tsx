@@ -4,28 +4,36 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "./utils";
 
+/**
+ * Status badges share the button's role vocabulary so the same word means the
+ * same thing wherever it appears. Every filled variant is a subtle tint with
+ * a matching border and a darker text, never a saturated block: a row of ten
+ * of these sits beside body copy and must not shout over it.
+ */
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-sm border px-2 py-0.5 text-xs font-medium tracking-[0.005em] w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/45 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,background-color,box-shadow] overflow-hidden",
+  [
+    "inline-flex w-fit shrink-0 items-center justify-center gap-1 whitespace-nowrap",
+    "rounded-sm border px-1.5 py-0.5 text-xs font-medium",
+    "[&>svg]:pointer-events-none [&>svg]:size-3",
+    "transition-colors duration-[140ms]",
+    "overflow-hidden",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive:
-          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "border-border text-muted-foreground [a&]:hover:bg-muted [a&]:hover:text-foreground",
-        // Semantic status variants — use these instead of inventing a
-        // per-page color map (e.g. a hardcoded ROLE_BADGE/STATUS hex table).
-        success: "border-transparent bg-success-bg text-success-foreground",
-        warning: "border-transparent bg-warning-bg text-warning-foreground",
-        info: "border-transparent bg-info-bg text-info-foreground",
+        neutral: "border-border bg-surface-sunken text-text-secondary",
+        brand: "border-brand-border bg-brand-subtle text-brand-text",
+        outline: "border-border bg-transparent text-text-secondary",
+        success: "border-success-border bg-success-subtle text-success-foreground",
+        warning: "border-warning-border bg-warning-subtle text-warning-foreground",
+        danger: "border-danger-border bg-danger-subtle text-danger-text",
+        info: "border-info-border bg-info-subtle text-info-foreground",
+        /** Solid ink. For the rare badge that must read as a count, not a status. */
+        solid: "border-transparent bg-action text-action-on",
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "neutral",
     },
   },
 );

@@ -315,7 +315,7 @@ export default function AdminVenues() {
                 <div className="flex gap-2 mt-4 pt-4 border-t">
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => handleEdit(venue)}
                     className="flex-1"
                   >
@@ -324,7 +324,7 @@ export default function AdminVenues() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => handleDelete(venue.id, venue.name)}
                     className="text-red-600 hover:text-red-700"
                   >
@@ -446,7 +446,7 @@ export default function AdminVenues() {
                     key={sport}
                     type="button"
                     size="sm"
-                    variant={formData.sports.includes(sport) ? "default" : "outline"}
+                    variant={formData.sports.includes(sport) ? "primary" : "secondary"}
                     onClick={() => {
                       if (formData.sports.includes(sport)) {
                         removeSport(sport);
@@ -482,7 +482,7 @@ export default function AdminVenues() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>

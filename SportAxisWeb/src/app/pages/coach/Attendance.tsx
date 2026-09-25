@@ -338,7 +338,7 @@ function SessionDialog({
               <input className={inputCls} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} />
               <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
               <Button size="sm" onClick={saveMeta} disabled={updateMut.isPending}>Save</Button>
-              <Button size="sm" variant="outline" onClick={() => { setEditMeta(false); setTitle(session.title); setDate(session.date); }}>Cancel</Button>
+              <Button size="sm" variant="secondary" onClick={() => { setEditMeta(false); setTitle(session.title); setDate(session.date); }}>Cancel</Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">

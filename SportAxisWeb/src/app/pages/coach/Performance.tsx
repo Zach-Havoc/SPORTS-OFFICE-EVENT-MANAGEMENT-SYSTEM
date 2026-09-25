@@ -274,7 +274,7 @@ export default function CoachPerformance() {
                     <div className="min-w-0 flex-1">
                       <h4 className="truncate font-semibold text-lg">{record.athleteName}</h4>
                       <div className="flex min-w-0 items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="shrink-0">{record.sport}</Badge>
+                        <Badge variant="neutral" className="shrink-0">{record.sport}</Badge>
                         <span className="min-w-0 truncate text-sm text-gray-600">{record.eventName}</span>
                       </div>
                     </div>
@@ -396,7 +396,7 @@ export default function CoachPerformance() {
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium">Metrics (Optional)</h4>
-                  <Button type="button" variant="outline" size="sm" onClick={addMetricRow}>
+                  <Button type="button" variant="secondary" size="sm" onClick={addMetricRow}>
                     <Plus className="h-3.5 w-3.5 mr-1" />
                     Add metric
                   </Button>
@@ -445,7 +445,7 @@ export default function CoachPerformance() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>

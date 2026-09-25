@@ -215,7 +215,7 @@ const ProtestCard = memo(function ProtestCard({
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant={decision === "upheld" ? "default" : "outline"}
+                    variant={decision === "upheld" ? "primary" : "secondary"}
                     onClick={() => setDecision("upheld")}
                   >
                     <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
@@ -223,7 +223,7 @@ const ProtestCard = memo(function ProtestCard({
                   </Button>
                   <Button
                     size="sm"
-                    variant={decision === "dismissed" ? "default" : "outline"}
+                    variant={decision === "dismissed" ? "primary" : "secondary"}
                     onClick={() => setDecision("dismissed")}
                   >
                     <XCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -250,7 +250,7 @@ const ProtestCard = memo(function ProtestCard({
                 </div>
               </div>
             ) : (
-              <Button size="sm" variant="outline" onClick={startReview}>
+              <Button size="sm" variant="secondary" onClick={startReview}>
                 Review &amp; resolve
               </Button>
             )}

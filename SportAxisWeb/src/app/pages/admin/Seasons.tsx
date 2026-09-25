@@ -248,7 +248,7 @@ export default function AdminSeasons() {
                     {!s.isActive && (
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => onActivate(s)}
                         disabled={activate.isPending}
                       >

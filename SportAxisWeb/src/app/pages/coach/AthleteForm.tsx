@@ -383,7 +383,7 @@ export default function AthleteForm() {
 
         <div className="flex justify-end gap-4">
           <Link to="/coach/athletes">
-            <Button type="button" variant="outline">
+            <Button type="button" variant="secondary">
               Cancel
             </Button>
           </Link>

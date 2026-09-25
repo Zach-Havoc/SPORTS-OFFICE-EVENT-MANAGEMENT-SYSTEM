@@ -421,7 +421,7 @@ export default function AdminSettings() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeptDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setDeptDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSaveDepartment}>
@@ -482,7 +482,7 @@ export default function AdminSettings() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCatDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setCatDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSaveCategory}>

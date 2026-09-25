@@ -109,11 +109,11 @@ export default function AdminRequirements() {
 
   const statusVariant = (
     status: string,
-  ): "success" | "destructive" | "warning" =>
+  ): "success" | "danger" | "warning" =>
     status === "approved"
       ? "success"
       : status === "rejected"
-        ? "destructive"
+        ? "danger"
         : "warning";
 
   const statusIcon = (status: string) =>
@@ -222,7 +222,7 @@ export default function AdminRequirements() {
                         </p>
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => handleView(req)}>
+                    <Button size="sm" variant="secondary" className="shrink-0" onClick={() => handleView(req)}>
                       <Eye className="mr-1 h-4 w-4" />
                       Review
                     </Button>
@@ -349,12 +349,12 @@ export default function AdminRequirements() {
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               className="border-red-300 text-red-700 hover:bg-red-50"
               onClick={() => handleReview("rejected")}
               disabled={processing}

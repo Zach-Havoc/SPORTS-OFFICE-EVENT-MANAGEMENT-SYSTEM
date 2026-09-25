@@ -146,7 +146,7 @@ export default function JudgeScoring() {
               {event.departments.map(dept => (
                 <Button
                   key={dept}
-                  variant={selectedDept === dept ? 'default' : 'outline'}
+                  variant={selectedDept === dept ? 'primary' : 'secondary'}
                   onClick={() => setSelectedDept(dept)}
                   className="justify-start"
                 >

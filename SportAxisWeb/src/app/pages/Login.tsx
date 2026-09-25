@@ -140,17 +140,17 @@ export default function Login() {
           who this belongs to, the right column does the one job the page has.
           Collapses to a single column below md. */}
       <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-md md:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
-        <aside className="hidden flex-col justify-between bg-sidebar p-8 text-sidebar-foreground md:flex">
+        <aside className="hidden flex-col justify-between bg-nav p-8 text-nav-fg md:flex">
           <img src="/sportaxis-mark-white.png" alt="" aria-hidden="true" className="h-11 w-11 object-contain" />
           <div>
-            <h2 className="text-2xl font-bold leading-[1.15] tracking-[-0.022em] text-white">
+            <h2 className="t-page-title text-nav-fg-strong">
               SportAxis
             </h2>
-            <p className="mt-3 max-w-[28ch] text-sm leading-relaxed text-sidebar-foreground/65">
+            <p className="mt-3 max-w-[28ch] text-sm leading-relaxed text-nav-fg">
               The scoring and event record for the BatStateU-TNEU ARASOF Sports Office.
             </p>
           </div>
-          <p className="text-xs text-sidebar-foreground/60">
+          <p className="text-xs text-nav-section">
             Results are official once the Sports Office confirms them.
           </p>
         </aside>

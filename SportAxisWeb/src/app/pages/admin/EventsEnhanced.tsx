@@ -131,10 +131,10 @@ interface FormData {
 
 // Maps onto the shared Badge semantic variants (theme.css tokens) instead of
 // this page inventing its own green/gray/blue — "completed" stays neutral
-// (secondary) since finishing an event isn't itself a positive/negative signal.
-const getStatusVariant = (s: string): 'success' | 'secondary' | 'info' =>
+// (neutral) since finishing an event isn't itself a positive/negative signal.
+const getStatusVariant = (s: string): 'success' | 'neutral' | 'info' =>
   s === 'ongoing' ? 'success' :
-  s === 'completed' ? 'secondary' :
+  s === 'completed' ? 'neutral' :
   'info';
 
 const getStatusIcon = (s: string) =>
@@ -483,7 +483,7 @@ export default function AdminEventsEnhanced() {
             <p className="text-gray-500 mt-1">Create and manage sports competition events</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleExport} variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Export</Button>
+            <Button onClick={handleExport} variant="secondary" size="sm"><Download className="h-4 w-4 mr-2" />Export</Button>
             <Button onClick={() => handleOpenDialog()}><Plus className="h-4 w-4 mr-2" />New Event</Button>
           </div>
         </div>
@@ -514,12 +514,12 @@ export default function AdminEventsEnhanced() {
                 <Input placeholder="Search by name or sport..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
+                <Button variant="secondary" size="sm" onClick={() => setShowFilters(!showFilters)}>
                   <Filter className="h-4 w-4 mr-2" />Filters
                 </Button>
                 <div className="flex border rounded-md">
-                  <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="rounded-r-none"><Grid3x3 className="h-4 w-4" /></Button>
-                  <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="rounded-l-none"><List className="h-4 w-4" /></Button>
+                  <Button variant={viewMode === 'grid' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="rounded-r-none"><Grid3x3 className="h-4 w-4" /></Button>
+                  <Button variant={viewMode === 'list' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="rounded-l-none"><List className="h-4 w-4" /></Button>
                 </div>
               </div>
             </div>
@@ -560,7 +560,7 @@ export default function AdminEventsEnhanced() {
                         <SelectItem value="category">Sport</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="outline" size="sm" onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}>
+                    <Button variant="secondary" size="sm" onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}>
                       <ArrowUpDown className="h-4 w-4" />
                     </Button>
                   </div>
@@ -581,7 +581,7 @@ export default function AdminEventsEnhanced() {
                     </SelectContent>
                   </Select>
                   <Button variant="destructive" size="sm" onClick={handleBulkDelete}><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
-                  <Button variant="outline" size="sm" onClick={() => setSelectedEvents(new Set())}>Clear</Button>
+                  <Button variant="secondary" size="sm" onClick={() => setSelectedEvents(new Set())}>Clear</Button>
                 </div>
               </div>
             )}
@@ -856,7 +856,7 @@ export default function AdminEventsEnhanced() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? 'Saving...' : editingEvent ? 'Update Event' : 'Create Event'}
             </Button>
@@ -874,7 +874,7 @@ export default function AdminEventsEnhanced() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete}>Delete Event</Button>
           </DialogFooter>
         </DialogContent>
@@ -955,13 +955,13 @@ const EventCard = memo(function EventCard({
             <Badge variant={getStatusVariant(event.status)}>{event.status}</Badge>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(event)}>
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => onEdit(event)}>
               <Edit className="h-3 w-3 mr-1" />Edit
             </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => onQR(event)}>
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => onQR(event)}>
               <QrCode className="h-3 w-3 mr-1" />QR
             </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => onPrint(event)} title="Print score sheet">
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => onPrint(event)} title="Print score sheet">
               <Printer className="h-3 w-3 mr-1" />Sheet
             </Button>
           </div>

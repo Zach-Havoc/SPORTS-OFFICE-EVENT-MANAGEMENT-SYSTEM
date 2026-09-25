@@ -216,21 +216,21 @@ export default function AdminReports() {
         <CardContent>
           <div className="flex flex-wrap gap-3">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => runExport(() => exportLeaderboard("html"))}
             >
               <FileText className="mr-2 h-4 w-4" />
               Standings (print / PDF)
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => runExport(() => exportLeaderboard("csv"))}
             >
               <FileDown className="mr-2 h-4 w-4" />
               Standings (CSV)
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => runExport(() => exportCertificates())}
             >
               <FileText className="mr-2 h-4 w-4" />
@@ -272,7 +272,7 @@ export default function AdminReports() {
                 runExport(() => exportEventReport(selectedEvent, "csv"))
               }
               disabled={!selectedEvent}
-              variant="outline"
+              variant="secondary"
             >
               <FileText className="mr-2 h-4 w-4" />
               CSV
@@ -293,7 +293,7 @@ export default function AdminReports() {
               </div>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={!hasVerified || allOfficial || busy === "officialize"}
                 onClick={() =>
                   act("officialize", () => officializeEvent(selectedEvent))

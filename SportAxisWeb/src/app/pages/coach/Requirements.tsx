@@ -164,7 +164,7 @@ function RequirementTypeManager() {
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() =>
                       update.mutate({
                         id: t.id,
@@ -177,7 +177,7 @@ function RequirementTypeManager() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() =>
                       update.mutate({ id: t.id, data: { active: !t.active } })
                     }
@@ -185,7 +185,7 @@ function RequirementTypeManager() {
                   >
                     {t.active ? "Active" : "Hidden"}
                   </Button>
-                  <Button size="sm" variant="outline" asChild>
+                  <Button size="sm" variant="secondary" asChild>
                     <label className="cursor-pointer">
                       <Upload className="h-4 w-4" />
                       <input
@@ -474,7 +474,7 @@ export default function CoachRequirements() {
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => handleViewRequirement(req)}
                       >
                         <Eye className="h-4 w-4 mr-1" />
@@ -623,14 +623,14 @@ export default function CoachRequirements() {
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => setDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               className="border-red-300 text-red-700 hover:bg-red-50"
               onClick={() => handleReview("rejected")}
               disabled={processing}

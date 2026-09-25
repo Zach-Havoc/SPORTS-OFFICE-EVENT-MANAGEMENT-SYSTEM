@@ -19,7 +19,7 @@ interface QuickAction {
   label: string;
   icon: any;
   path: string;
-  variant?: 'default' | 'outline' | 'ghost' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'destructive';
   newTab?: boolean;
 }
 
@@ -28,17 +28,17 @@ interface QuickActionsProps {
 }
 
 const defaultActions: QuickAction[] = [
-  { label: 'Create Event', icon: Calendar, path: '/admin/events', variant: 'outline' },
-  { label: 'Assign Committees', icon: UserPlus, path: '/admin/events', variant: 'outline' },
-  { label: 'Generate QR Code', icon: QrCode, path: '/admin/registration-codes', variant: 'outline' },
-  { label: 'Manage Users', icon: UserCog, path: '/admin/users', variant: 'outline' },
-  { label: 'View Reports', icon: FileText, path: '/admin/reports', variant: 'outline' },
-  { label: 'Manage Venues', icon: MapPin, path: '/admin/venues', variant: 'outline' },
-  { label: 'Generate Brackets', icon: Trophy, path: '/admin/bracketing', variant: 'outline' },
-  { label: 'Site Content', icon: ImageIcon, path: '/admin/carousel', variant: 'outline' },
-  { label: 'System Settings', icon: Settings, path: '/admin/settings', variant: 'outline' },
-  { label: 'View Leaderboard', icon: Award, path: '/leaderboard', variant: 'outline' },
-  { label: 'Standings Board (TV)', icon: MonitorPlay, path: '/standings', variant: 'outline', newTab: true },
+  { label: 'Create Event', icon: Calendar, path: '/admin/events', variant: 'secondary' },
+  { label: 'Assign Committees', icon: UserPlus, path: '/admin/events', variant: 'secondary' },
+  { label: 'Generate QR Code', icon: QrCode, path: '/admin/registration-codes', variant: 'secondary' },
+  { label: 'Manage Users', icon: UserCog, path: '/admin/users', variant: 'secondary' },
+  { label: 'View Reports', icon: FileText, path: '/admin/reports', variant: 'secondary' },
+  { label: 'Manage Venues', icon: MapPin, path: '/admin/venues', variant: 'secondary' },
+  { label: 'Generate Brackets', icon: Trophy, path: '/admin/bracketing', variant: 'secondary' },
+  { label: 'Site Content', icon: ImageIcon, path: '/admin/carousel', variant: 'secondary' },
+  { label: 'System Settings', icon: Settings, path: '/admin/settings', variant: 'secondary' },
+  { label: 'View Leaderboard', icon: Award, path: '/leaderboard', variant: 'secondary' },
+  { label: 'Standings Board (TV)', icon: MonitorPlay, path: '/standings', variant: 'secondary', newTab: true },
 ];
 
 export default function QuickActions({ actions = defaultActions }: QuickActionsProps) {
@@ -59,7 +59,7 @@ export default function QuickActions({ actions = defaultActions }: QuickActionsP
                 {...(action.newTab ? { target: '_blank', rel: 'noreferrer' } : {})}
               >
                 <Button
-                  variant={action.variant || 'outline'}
+                  variant={action.variant || 'secondary'}
                   className="w-full justify-start"
                 >
                   <Icon className="h-4 w-4 mr-2" />

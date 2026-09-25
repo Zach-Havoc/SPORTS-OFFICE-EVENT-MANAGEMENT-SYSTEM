@@ -194,7 +194,7 @@ export function TeamScheduleView({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <CardTitle className="text-xl">{abbr(event.name)}</CardTitle>
-                        <Badge variant="secondary">{event.category}</Badge>
+                        <Badge variant="neutral">{event.category}</Badge>
                         <Badge className={STATUS_COLOR[event.status] ?? STATUS_COLOR.completed}>
                           {event.status}
                         </Badge>

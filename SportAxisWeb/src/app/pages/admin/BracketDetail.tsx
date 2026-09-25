@@ -68,7 +68,7 @@ function MatchActions({ m, onAdvance, busy }: { m: BMatch; onAdvance: Advance; b
           <Button size="sm" className="h-8 flex-1 text-xs" disabled={busy} onClick={() => onAdvance(m.id)}>
             Use result
           </Button>
-          <Button size="sm" variant="outline" className="h-8 text-xs" disabled={busy} onClick={() => setPicking(true)}>
+          <Button size="sm" variant="secondary" className="h-8 text-xs" disabled={busy} onClick={() => setPicking(true)}>
             Pick winner
           </Button>
         </div>
@@ -82,7 +82,7 @@ function MatchActions({ m, onAdvance, busy }: { m: BMatch; onAdvance: Advance; b
               <Button
                 key={t}
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 className="h-8 justify-start text-xs"
                 disabled={busy}
                 title={t ?? undefined}
@@ -254,7 +254,7 @@ export default function BracketDetail() {
     <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Link to="/admin/bracketing">
-          <Button variant="outline" size="sm"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
+          <Button variant="secondary" size="sm"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="t-page-title break-words">{bracket.name}</h1>

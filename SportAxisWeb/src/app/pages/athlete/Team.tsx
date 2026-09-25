@@ -144,7 +144,7 @@ export default function AthleteTeam() {
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <p className="font-semibold text-gray-900">{a.title}</p>
                     <div className="flex shrink-0 items-center gap-2">
-                      {a.isTryout && <Badge variant="secondary">Tryout</Badge>}
+                      {a.isTryout && <Badge variant="neutral">Tryout</Badge>}
                       <span className="text-xs text-gray-400">
                         {fmt(a.createdAt)}
                       </span>

@@ -146,7 +146,7 @@ function RecycleBin() {
                       </div>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         disabled={restore.isPending}
                         onClick={() => onRestore(kind, item)}
                       >

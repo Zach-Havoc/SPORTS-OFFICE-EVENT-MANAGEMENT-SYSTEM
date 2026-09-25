@@ -354,7 +354,7 @@ export default function AthleteDetail() {
                           {p.sport} &middot; {formatDate(p.recordedAt)}
                         </p>
                       </div>
-                      <Badge variant="secondary" className="shrink-0">{p.overallRating}/10</Badge>
+                      <Badge variant="neutral" className="shrink-0">{p.overallRating}/10</Badge>
                     </div>
                     {p.coachNotes && <p className="text-xs text-gray-600 mt-2">{p.coachNotes}</p>}
                   </div>

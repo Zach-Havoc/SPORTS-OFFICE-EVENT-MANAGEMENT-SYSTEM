@@ -322,7 +322,7 @@ export default function PublicAnnouncements() {
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <CardTitle className="text-lg font-semibold">{announcement.title}</CardTitle>
                       {announcement.sport && (
-                        <Badge variant="secondary" className="font-normal">{announcement.sport}</Badge>
+                        <Badge variant="neutral" className="font-normal">{announcement.sport}</Badge>
                       )}
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600">
@@ -531,7 +531,7 @@ export default function PublicAnnouncements() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>
+                <Button type="button" variant="secondary" onClick={() => handleDialogClose(false)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
@@ -568,7 +568,7 @@ export default function PublicAnnouncements() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setStep('form')}>
+                <Button type="button" variant="secondary" onClick={() => setStep('form')}>
                   Back
                 </Button>
                 <Button type="submit" disabled={submitting}>

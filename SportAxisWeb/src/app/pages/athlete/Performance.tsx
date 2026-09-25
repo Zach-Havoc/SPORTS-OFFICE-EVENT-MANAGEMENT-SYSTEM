@@ -205,7 +205,7 @@ export default function AthletePerformance() {
                         <h4 className="font-semibold text-lg">
                           {record.eventName}
                         </h4>
-                        <Badge variant="secondary">{record.sport}</Badge>
+                        <Badge variant="neutral">{record.sport}</Badge>
                       </div>
                       <p className="text-sm text-gray-600 flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
