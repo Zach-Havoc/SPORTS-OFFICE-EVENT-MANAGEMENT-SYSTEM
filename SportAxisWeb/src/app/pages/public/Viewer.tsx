@@ -2,15 +2,23 @@ import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { getEventRankings } from '../../services/api';
 import type { LiveScore } from '../../services/api';
-import { useEvents, useEventRankings, useLiveScores, qk } from '../../hooks/api';
+import {
+  useDepartments, useEvents, useEventRankings, useLiveScores, useMatches, useSeasons, qk,
+} from '../../hooks/api';
 import { STALE } from '../../lib/queryClient';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import {
   Trophy, Calendar, Users, Clock, MapPin,
   ChevronLeft, ChevronRight, Award,
-  Activity, CheckCircle2, Timer, ArrowRight
+  Activity, CheckCircle2, Timer, X,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { TeamLogo } from '../../components/public/TeamLogo';
+import {
+  formatRecord, recordsBySport, scoreboardFor,
+  type MatchRow, type Record3, type Scoreboard,
+} from '../../utils/games';
 import Loading from '../../components/Loading';
 import { RefreshStatus } from '../../components/RefreshStatus';
 import { useDeptAbbreviator } from '../../utils/departments';
@@ -29,6 +37,13 @@ interface Event {
   venue?: string;
   status: 'upcoming' | 'ongoing' | 'completed';
   departments: string[];
+  seasonId?: string | null;
+}
+
+/** Logo + short label for a college, and its record in a sport. */
+interface TeamLookup {
+  info: (name: string) => { logoUrl?: string | null; label: string };
+  record: (sport: string, team: string) => Record3 | undefined;
 }
 
 interface Ranking {
@@ -126,186 +141,220 @@ function RankMedal({ rank }: { rank: number }) {
   return <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-slate-100 text-slate-600">{rank}</span>;
 }
 
-// ─── Event Card ───────────────────────────────────────────────────────────────
+// ─── Game Card ────────────────────────────────────────────────────────────────
 
-function LiveScoreStrip({ live }: { live: LiveScore }) {
-  const abbr = useDeptAbbreviator();
-  const homeLead = live.homeScore > live.awayScore;
-  const awayLead = live.awayScore > live.homeScore;
+/** The small filled triangle that points at the winning side. */
+function WinnerCaret({ dir }: { dir: 'left' | 'right' }) {
   return (
-    <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Live Score</span>
-        {live.period && <span className="text-[10px] font-semibold text-emerald-600">{live.period}</span>}
-      </div>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <span className={`truncate text-right text-xs font-medium ${homeLead ? 'text-gray-900' : 'text-gray-500'}`} title={live.homeTeam ?? ''}>
-          {abbr(live.homeTeam ?? 'Home')}
-        </span>
-        <span className="tabular-nums text-lg font-extrabold text-gray-900">
-          {live.homeScore} <span className="text-gray-300">–</span> {live.awayScore}
-        </span>
-        <span className={`truncate text-xs font-medium ${awayLead ? 'text-gray-900' : 'text-gray-500'}`} title={live.awayTeam ?? ''}>
-          {abbr(live.awayTeam ?? 'Away')}
-        </span>
-      </div>
+    <svg viewBox="0 0 6 8" className="h-2 w-1.5 fill-current" aria-hidden>
+      {dir === 'right' ? <path d="M0 0L6 4L0 8z" /> : <path d="M6 0L0 4L6 8z" />}
+    </svg>
+  );
+}
+
+/** One side of the scoreboard: logo over the college and its record. */
+function TeamColumn({
+  team,
+  sport,
+  teams,
+  size,
+}: {
+  team: string;
+  sport: string;
+  teams: TeamLookup;
+  size: 'md' | 'lg';
+}) {
+  const { logoUrl, label } = teams.info(team);
+  const record = formatRecord(teams.record(sport, team));
+  return (
+    <div className="flex min-w-0 flex-col items-center text-center">
+      <TeamLogo name={team} logoUrl={logoUrl} label={label} size={size === 'lg' ? 56 : 40} />
+      <span
+        className={`mt-1.5 max-w-full truncate font-medium text-gray-900 ${size === 'lg' ? 'text-base' : 'text-sm'}`}
+        title={team}
+      >
+        {label}
+      </span>
+      <span className="h-4 text-xs tabular-nums text-gray-500">{record}</span>
     </div>
   );
 }
 
-function FinalScoreStrip({ live }: { live: LiveScore }) {
-  const abbr = useDeptAbbreviator();
-  const homeWon = live.homeScore > live.awayScore;
-  const awayWon = live.awayScore > live.homeScore;
-  const draw = live.homeScore === live.awayScore;
+/**
+ * Logo, college and record on each side; the scores between them; the state
+ * of the game in the middle — LIVE, FINAL pointing at the winner, or the tip-
+ * off time before it starts.
+ */
+function ScoreRow({
+  board,
+  event,
+  teams,
+  size = 'md',
+}: {
+  board: Scoreboard;
+  event: Event;
+  teams: TeamLookup;
+  size?: 'md' | 'lg';
+}) {
+  const hasScore = board.home.score !== null && board.away.score !== null;
+  const scoreCls = (side: 'home' | 'away') =>
+    `tabular-nums font-bold tracking-tight ${size === 'lg' ? 'text-5xl' : 'text-3xl'} ${
+      board.winner && board.winner !== 'draw' && board.winner !== side ? 'text-gray-400' : 'text-gray-900'
+    }`;
+  const fmt = (n: number | null) => (n === null ? '' : Number.isInteger(n) ? String(n) : n.toFixed(2));
+
+  let middle: React.ReactNode;
+  if (board.live) {
+    middle = (
+      <div className="flex flex-col items-center">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-red-600">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75 motion-reduce:hidden" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+          </span>
+          Live
+        </span>
+        {board.period && <span className="mt-0.5 text-[11px] font-medium text-gray-500">{board.period}</span>}
+      </div>
+    );
+  } else if (event.status === 'completed' || hasScore) {
+    middle = (
+      <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-900">
+        {board.winner === 'home' && <WinnerCaret dir="left" />}
+        Final
+        {board.winner === 'away' && <WinnerCaret dir="right" />}
+      </span>
+    );
+  } else {
+    middle = (
+      <div className="flex flex-col items-center">
+        <span className="text-sm font-bold text-gray-900 tabular-nums">
+          {event.startTime ? formatTime(event.startTime) : 'TBA'}
+        </span>
+        <span className="text-[11px] font-medium uppercase text-gray-400">vs</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">Final Score</p>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <div className={`flex items-center justify-end gap-1.5 min-w-0 ${homeWon || draw ? '' : 'opacity-60'}`}>
-          {homeWon && <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
-          <span className={`truncate text-xs ${homeWon ? 'font-bold text-gray-900' : 'font-medium text-gray-500'}`} title={live.homeTeam ?? ''}>
-            {abbr(live.homeTeam ?? 'Home')}
-          </span>
-        </div>
-        <span className="tabular-nums text-lg font-extrabold">
-          <span className={homeWon ? 'text-emerald-600' : 'text-gray-400'}>{live.homeScore}</span>
-          <span className="mx-1 text-gray-300">–</span>
-          <span className={awayWon ? 'text-emerald-600' : 'text-gray-400'}>{live.awayScore}</span>
-        </span>
-        <div className={`flex items-center gap-1.5 min-w-0 ${awayWon || draw ? '' : 'opacity-60'}`}>
-          <span className={`truncate text-xs ${awayWon ? 'font-bold text-gray-900' : 'font-medium text-gray-500'}`} title={live.awayTeam ?? ''}>
-            {abbr(live.awayTeam ?? 'Away')}
-          </span>
-          {awayWon && <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
-        </div>
-      </div>
-      {draw && <p className="mt-1 text-center text-[10px] font-semibold text-gray-500">Drawn game</p>}
+    <div className={`grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center ${size === 'lg' ? 'gap-4' : 'gap-2.5'}`}>
+      <TeamColumn team={board.home.team} sport={event.category} teams={teams} size={size} />
+      <span className={scoreCls('home')}>{fmt(board.home.score)}</span>
+      <div className="flex min-w-[4.5rem] justify-center">{middle}</div>
+      <span className={scoreCls('away')}>{fmt(board.away.score)}</span>
+      <TeamColumn team={board.away.team} sport={event.category} teams={teams} size={size} />
     </div>
   );
 }
 
-function EventCard({
+/** A judged event with more than two colleges: the top of its ranking. */
+function RankedRows({
+  event,
+  rankings,
+  teams,
+}: {
+  event: Event;
+  rankings?: Ranking[];
+  teams: TeamLookup;
+}) {
+  const nameOf = (r: Ranking) => event.departments[Number(r.department)] || r.department;
+
+  if (!rankings || rankings.length === 0) {
+    const shown = event.departments.slice(0, 5);
+    return (
+      <div className="flex flex-col items-center gap-2 py-1">
+        <div className="flex -space-x-2">
+          {shown.map((d) => {
+            const { logoUrl, label } = teams.info(d);
+            return (
+              <span key={d} className="rounded-full ring-2 ring-white">
+                <TeamLogo name={d} logoUrl={logoUrl} label={label} size={32} />
+              </span>
+            );
+          })}
+        </div>
+        <span className="text-xs text-gray-500">
+          {event.departments.length} colleges ·{' '}
+          {event.status === 'upcoming' ? `starts ${event.startTime ? formatTime(event.startTime) : 'TBA'}` : 'awaiting scores'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <ol className="space-y-1.5">
+      {rankings.slice(0, 3).map((r) => {
+        const name = nameOf(r);
+        const { logoUrl, label } = teams.info(name);
+        return (
+          <li key={r.department} className="flex items-center gap-2.5">
+            <RankMedal rank={r.rank} />
+            <TeamLogo name={name} logoUrl={logoUrl} label={label} size={24} />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900" title={name}>{label}</span>
+            <span className="text-sm font-bold tabular-nums text-gray-900">{Number(r.totalScore || 0).toFixed(2)}</span>
+          </li>
+        );
+      })}
+      {rankings.length > 3 && (
+        <li className="pl-9 text-xs text-gray-500">+{rankings.length - 3} more</li>
+      )}
+    </ol>
+  );
+}
+
+function GameCard({
   event,
   rankings,
   live,
+  match,
+  teams,
   onClick,
 }: {
   event: Event;
   rankings?: Ranking[];
   live?: LiveScore;
+  match?: MatchRow;
+  teams: TeamLookup;
   onClick: () => void;
 }) {
-  const cfg = STATUS_CONFIG[event.status];
-  const topRanking = rankings?.[0];
-  const abbr = useDeptAbbreviator();
-
-  // A two-college event is a match (win/loss), not a ranking — the score says it all.
   const isVersus = (event.departments || []).length <= 2;
+  const board = isVersus ? scoreboardFor(event.departments, live, match) : null;
+  const isLive = board?.live || (event.status === 'ongoing' && !isVersus);
 
   return (
-    <div
-      onClick={onClick}
-      className={`
-        group relative bg-white rounded-xl border border-gray-200 shadow-sm
-        ${cfg.borderClass}
-        hover:shadow-md hover:border-gray-300
-        transition-all duration-200 cursor-pointer overflow-hidden
-      `}
+    <article
+      className={`flex flex-col rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md ${
+        isLive ? 'border-red-200 ring-1 ring-red-100' : 'border-gray-200'
+      }`}
     >
-      <div className="p-5">
-        {/* Top row: badge + sport icon */}
-        <div className="flex items-start justify-between mb-3">
-          <StatusBadge status={event.status} />
-          <div className={`p-1.5 rounded-lg ${
-            event.status === 'ongoing' ? 'bg-green-50 text-green-600' :
-            event.status === 'upcoming' ? 'bg-blue-50 text-blue-600' :
-            'bg-gray-100 text-gray-500'
-          }`}>
-            <Trophy className="h-4 w-4" />
-          </div>
-        </div>
-
-        {/* Event name & category */}
-        <h3 className="font-semibold text-gray-900 text-base leading-tight mb-1 group-hover:text-gray-600 transition-colors">
-          {abbr(event.name)}
-        </h3>
-        <p className="text-sm text-gray-500 mb-4">{event.category}</p>
-
-        {/* Meta info */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Calendar className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span>{new Date(event.schedule).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            {event.startTime && event.endTime && (
-              <span className="text-blue-600 font-medium">
-                · {formatTime(event.startTime)}
-              </span>
-            )}
-          </div>
-
-          {(event.venueName || event.venue) && (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-red-400" />
-              <span className="font-medium truncate">{event.venueName || event.venue}</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Users className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span>{(event.departments || []).length} colleges</span>
-          </div>
-        </div>
-
-        {/* Live running score (objective sports) */}
-        {event.status === 'ongoing' && live && live.status === 'in_progress' && (
-          <LiveScoreStrip live={live} />
-        )}
-
-        {/* Mini ranking for ongoing / winner chip for completed */}
-        {event.status === 'ongoing' && !isVersus && rankings && rankings.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Live Rankings</p>
-            <div className="space-y-1.5">
-              {rankings.slice(0, 3).map((r) => (
-                <div key={r.department} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <RankMedal rank={r.rank} />
-                    <span className="font-medium text-gray-800 truncate max-w-[120px]">
-                      {abbr(event.departments[Number(r.department)] || r.department)}
-                    </span>
-                  </div>
-                  <span className="font-bold text-blue-600 tabular-nums">{Number(r.totalScore || 0).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {event.status === 'completed' && live && live.status === 'final' ? (
-          <FinalScoreStrip live={live} />
-        ) : event.status === 'completed' && topRanking ? (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Winner</p>
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
-              <span className="font-semibold text-gray-800 text-sm">
-                {abbr(event.departments[Number(topRanking.department)] || topRanking.department)}
-              </span>
-            </div>
-          </div>
-        ) : null}
-
-        {/* "View Details" hover hint */}
-        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end">
-          <span className="inline-flex items-center gap-1 text-xs text-gray-400 group-hover:text-gray-700 transition-colors font-medium">
-            View full details
-            <ArrowRight className="h-3.5 w-3.5" />
-          </span>
-        </div>
+      <div className="flex items-center justify-between gap-2 px-4 pt-3 text-[11px] text-gray-500">
+        <span className="truncate">
+          {new Date(event.schedule).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+        </span>
+        <span className="shrink-0 font-medium text-gray-600">{event.category}</span>
       </div>
-    </div>
+
+      <div className="flex-1 px-4 pt-4 pb-4">
+        {board ? <ScoreRow board={board} event={event} teams={teams} /> : <RankedRows event={event} rankings={rankings} teams={teams} />}
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-gray-100 px-4 py-2.5">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
+          {(event.venueName || event.venue) && (
+            <>
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <span className="truncate">{event.venueName || event.venue}</span>
+            </>
+          )}
+        </span>
+        <button
+          onClick={onClick}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors hover:bg-gray-50"
+        >
+          Game Details
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -316,12 +365,16 @@ function MatchSection({
   events,
   rankings,
   liveByEvent,
+  matchByEvent,
+  teams,
   onSelect,
 }: {
   status: Event['status'];
   events: Event[];
   rankings: Record<string, Ranking[]>;
   liveByEvent: Record<string, LiveScore>;
+  matchByEvent: Record<string, MatchRow>;
+  teams: TeamLookup;
   onSelect: (e: Event) => void;
 }) {
   const cfg = STATUS_CONFIG[status];
@@ -329,30 +382,31 @@ function MatchSection({
 
   return (
     <section className="mb-10">
-      {/* Section header */}
-      <div className="flex items-center gap-3 mb-5 pb-2 border-b border-gray-200">
+      <div className="mb-4 flex items-center gap-3 border-b border-gray-200 pb-2">
         <div className={`flex items-center gap-2 ${cfg.sectionColor}`}>
           <SectionIcon className="h-4 w-4" />
           <h2 className="text-sm font-semibold uppercase tracking-wide">{cfg.sectionLabel}</h2>
         </div>
-        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
           {events.length}
         </span>
       </div>
 
       {events.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400">
-          <SectionIcon className="h-7 w-7 mx-auto mb-2 opacity-40" />
+        <div className="rounded-xl border border-gray-200 bg-white py-10 text-center text-gray-400">
+          <SectionIcon className="mx-auto mb-2 h-7 w-7 opacity-40" />
           <p className="text-sm">No {cfg.sectionLabel.toLowerCase()} matches</p>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {events.map(event => (
-            <EventCard
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {events.map((event) => (
+            <GameCard
               key={event.id}
               event={event}
               rankings={rankings[event.id]}
               live={liveByEvent[event.id]}
+              match={matchByEvent[event.id]}
+              teams={teams}
               onClick={() => onSelect(event)}
             />
           ))}
@@ -362,17 +416,58 @@ function MatchSection({
   );
 }
 
+// ─── Filters ──────────────────────────────────────────────────────────────────
+
+const ALL = 'all';
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  allLabel,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  allLabel: string;
+}) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-full bg-white" aria-label={label}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{allLabel}</SelectItem>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
+  );
+}
+
 // ─── Match Detail Modal ───────────────────────────────────────────────────────
 
 function MatchDetailModal({
   event,
   rankings,
   live,
+  match,
+  teams,
   onClose,
 }: {
   event: Event | null;
   rankings: Ranking[];
   live?: LiveScore;
+  match?: MatchRow;
+  teams: TeamLookup;
   onClose: () => void;
 }) {
   const abbr = useDeptAbbreviator();
@@ -402,8 +497,11 @@ function MatchDetailModal({
 
           <div className="space-y-6">
             {/* Game score */}
-            {live && live.status === 'in_progress' && <LiveScoreStrip live={live} />}
-            {live && live.status === 'final' && <FinalScoreStrip live={live} />}
+            {isVersus && (
+              <div className="rounded-xl border border-gray-200 px-4 py-5">
+                <ScoreRow board={scoreboardFor(event.departments, live, match)} event={event} teams={teams} size="lg" />
+              </div>
+            )}
 
             {/* Info grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -659,13 +757,88 @@ export default function PublicViewer() {
   const [selectedDate, setSelectedDate] = useState<string | null>(toDateKey(new Date()));
   const [centerDate, setCenterDate] = useState<Date>(new Date());
 
-  // ── Filter events client-side by selectedDate ─────────────────────────────
-  const filteredEvents = selectedDate
-    ? allEvents.filter(e => {
-        const evDate = e.schedule?.split('T')[0] ?? e.schedule;
-        return evDate === selectedDate;
-      })
-    : allEvents;
+  // ── Season / college / game filters ───────────────────────────────────────
+  const seasonsQuery = useSeasons();
+  const deptsQuery = useDepartments();
+  const matchesQuery = useMatches();
+  const abbr = useDeptAbbreviator();
+
+  const seasons = seasonsQuery.data ?? [];
+  const activeSeasonId = seasons.find((x) => x.isActive)?.id ?? null;
+  // null = not touched yet, which means "the running season".
+  const [seasonPick, setSeasonPick] = useState<string | null>(null);
+  const seasonId = seasonPick ?? activeSeasonId ?? ALL;
+  const [team, setTeam] = useState<string>(ALL);
+  const [game, setGame] = useState<string>(ALL);
+
+  // Events saved before seasons existed have none; they count as the running one.
+  const inSeason = (e: Event) =>
+    seasonId === ALL || (e.seasonId ?? activeSeasonId) === seasonId;
+
+  const depts = (deptsQuery.data as any[] | undefined) ?? [];
+  const sameTeam = (a: string, b: string) => {
+    const k = (v: string) => v.trim().toLowerCase();
+    if (k(a) === k(b)) return true;
+    const d = depts.find((x) => k(x.name) === k(b) || (x.abbreviation && k(x.abbreviation) === k(b)));
+    return !!d && (k(d.name) === k(a) || (!!d.abbreviation && k(d.abbreviation) === k(a)));
+  };
+
+  const seasonEvents = allEvents.filter(inSeason);
+  const gameOptions = [...new Set(seasonEvents.map((e) => e.category).filter(Boolean))]
+    .sort()
+    .map((c) => ({ value: c, label: c }));
+  const teamOptions = depts.map((d) => ({ value: d.name as string, label: (d.abbreviation as string) || d.name }));
+
+  const filtersActive = team !== ALL || game !== ALL;
+  const matchesFilters = (e: Event) =>
+    inSeason(e) &&
+    (game === ALL || e.category === game) &&
+    (team === ALL || e.departments.some((d) => sameTeam(team, d)));
+
+  // Picking a college or a game means "show me their games", not just today's.
+  const pickTeam = (v: string) => { setTeam(v); if (v !== ALL) setSelectedDate(null); };
+  const pickGame = (v: string) => { setGame(v); if (v !== ALL) setSelectedDate(null); };
+  const clearFilters = () => { setTeam(ALL); setGame(ALL); setSeasonPick(null); };
+
+  // ── Results, logos and records ────────────────────────────────────────────
+  const eventById = useMemo(() => new Map(allEvents.map((e) => [e.id, e])), [allEvents]);
+  const matches = useMemo<MatchRow[]>(() => (matchesQuery.data as MatchRow[] | undefined) ?? [], [matchesQuery.data]);
+  const matchByEvent = useMemo<Record<string, MatchRow>>(
+    () => Object.fromEntries(matches.filter((m) => m.eventId).map((m) => [m.eventId as string, m])),
+    [matches],
+  );
+  const records = useMemo(
+    () =>
+      recordsBySport(matches, (m) => {
+        if (seasonId === ALL) return true;
+        const ev = m.eventId ? eventById.get(m.eventId) : undefined;
+        return !!ev && (ev.seasonId ?? activeSeasonId) === seasonId;
+      }),
+    [matches, eventById, seasonId, activeSeasonId],
+  );
+  const teams = useMemo<TeamLookup>(() => {
+    const k = (v: string) => v.trim().toLowerCase();
+    const byKey = new Map<string, { logoUrl?: string | null; abbreviation?: string | null; name: string }>();
+    for (const d of depts) {
+      byKey.set(k(d.name), d);
+      if (d.abbreviation) byKey.set(k(d.abbreviation), d);
+    }
+    return {
+      info: (name) => {
+        const d = byKey.get(k(name));
+        return { logoUrl: d?.logoUrl, label: d?.abbreviation || abbr(name) };
+      },
+      record: (sport, t) => records.get(`${sport}|${t}`),
+    };
+  }, [depts, records, abbr]);
+
+  // ── Filter events client-side ─────────────────────────────────────────────
+  const filteredEvents = allEvents.filter(e => {
+    if (!matchesFilters(e)) return false;
+    if (!selectedDate) return true;
+    const evDate = e.schedule?.split('T')[0] ?? e.schedule;
+    return evDate === selectedDate;
+  });
 
   const ongoingEvents = filteredEvents.filter(e => e.status === 'ongoing');
   const upcomingEvents = filteredEvents.filter(e => e.status === 'upcoming');
@@ -758,6 +931,27 @@ export default function PublicViewer() {
         />
       </header>
 
+      {/* Season / College / Game */}
+      <div className="mb-3 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto] sm:items-end">
+        <FilterSelect
+          label="Season"
+          value={seasonId}
+          onChange={setSeasonPick}
+          allLabel="All seasons"
+          options={seasons.map((x) => ({ value: x.id, label: x.isActive ? `${x.name} (current)` : x.name }))}
+        />
+        <FilterSelect label="College" value={team} onChange={pickTeam} allLabel="All colleges" options={teamOptions} />
+        <FilterSelect label="Game" value={game} onChange={pickGame} allLabel="All games" options={gameOptions} />
+        <button
+          onClick={clearFilters}
+          disabled={!filtersActive && seasonPick === null}
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40"
+        >
+          <X className="h-4 w-4" />
+          Clear
+        </button>
+      </div>
+
       {/* Date Filter Bar */}
       <DateFilterBar
         selectedDate={selectedDate}
@@ -767,27 +961,31 @@ export default function PublicViewer() {
         resultCount={filteredEvents.length}
       />
 
-      {/* No results for selected date */}
-      {selectedDate && filteredEvents.length === 0 && (
+      {/* Nothing matches */}
+      {filteredEvents.length === 0 && (selectedDate || filtersActive) && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-white py-14 text-center">
           <Calendar className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-3 text-sm font-medium text-gray-700">No matches on this date</p>
-          <p className="mt-1 text-sm text-gray-500">Pick another date, or view every scheduled match.</p>
+          <p className="mt-3 text-sm font-medium text-gray-700">
+            {selectedDate ? 'No matches on this date' : 'No matches for these filters'}
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            {selectedDate ? 'Pick another date, or view every scheduled match.' : 'Try another college, game or season.'}
+          </p>
           <button
-            onClick={() => setSelectedDate(null)}
+            onClick={() => (selectedDate ? setSelectedDate(null) : clearFilters())}
             className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            Show all matches
+            {selectedDate ? 'Show all dates' : 'Clear filters'}
           </button>
         </div>
       )}
 
       {/* Three Swimlane Sections */}
-      {(filteredEvents.length > 0 || !selectedDate) && (
+      {(filteredEvents.length > 0 || (!selectedDate && !filtersActive)) && (
         <>
-          <MatchSection status="ongoing" events={ongoingEvents} rankings={rankings} liveByEvent={liveByEvent} onSelect={setSelectedEvent} />
-          <MatchSection status="upcoming" events={upcomingEvents} rankings={rankings} liveByEvent={liveByEvent} onSelect={setSelectedEvent} />
-          <MatchSection status="completed" events={completedEvents} rankings={rankings} liveByEvent={liveByEvent} onSelect={setSelectedEvent} />
+          <MatchSection status="ongoing" events={ongoingEvents} rankings={rankings} liveByEvent={liveByEvent} matchByEvent={matchByEvent} teams={teams} onSelect={setSelectedEvent} />
+          <MatchSection status="upcoming" events={upcomingEvents} rankings={rankings} liveByEvent={liveByEvent} matchByEvent={matchByEvent} teams={teams} onSelect={setSelectedEvent} />
+          <MatchSection status="completed" events={completedEvents} rankings={rankings} liveByEvent={liveByEvent} matchByEvent={matchByEvent} teams={teams} onSelect={setSelectedEvent} />
         </>
       )}
 
@@ -796,6 +994,8 @@ export default function PublicViewer() {
         event={selectedEvent}
         rankings={selectedEvent ? (rankings[selectedEvent.id] ?? []) : []}
         live={selectedEvent ? liveByEvent[selectedEvent.id] : undefined}
+        match={selectedEvent ? matchByEvent[selectedEvent.id] : undefined}
+        teams={teams}
         onClose={() => setSelectedEvent(null)}
       />
     </div>
