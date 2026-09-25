@@ -873,10 +873,16 @@ export const deleteAnnouncement = (id: string) =>
 // Tryout Applications
 // ─────────────────────────────────────────────────────────────────────
 
-export const verifyTryoutEmail = (email: string) =>
+/** Checks the SR Code + email against the campus roster, then emails a code. */
+export const verifyTryoutEmail = (applicant: {
+  email: string;
+  studentId: string;
+  firstName: string;
+  lastName: string;
+}) =>
   apiRequest("/tryouts/verify-email", {
     method: "POST",
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(applicant),
   });
 export const applyForTryout = (data: any) =>
   apiRequest("/tryouts/apply", { method: "POST", body: JSON.stringify(data) });

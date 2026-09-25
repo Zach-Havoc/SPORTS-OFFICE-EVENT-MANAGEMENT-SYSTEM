@@ -126,7 +126,12 @@ export default function PublicAnnouncements() {
 
     try {
       setSubmitting(true);
-      const res: any = await verifyTryoutEmail(formData.email);
+      const res: any = await verifyTryoutEmail({
+        email: formData.email.trim(),
+        studentId: formData.studentId.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+      });
       if (res?.dev_code) {
         toast.success(`Verification code: ${res.dev_code} (Code sent to your email/log)`);
       } else {
@@ -524,7 +529,7 @@ export default function PublicAnnouncements() {
                     <p className="text-xs text-red-600">{errors.email}</p>
                   ) : (
                     <p className="text-xs text-gray-500">
-                      Must be your BatStateU email (ending in <span className="font-medium">@batstate-u.edu.ph</span>). A verification code will be sent.
+                      Use the BatStateU email the registrar has on record for your SR Code. We check both against the campus student list, then send a verification code.
                     </p>
                   )}
                 </div>

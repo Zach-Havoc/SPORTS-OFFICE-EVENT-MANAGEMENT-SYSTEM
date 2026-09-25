@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CampusStudent;
 use App\Models\EmailVerification;
 use App\Models\TryoutApplication;
 use Illuminate\Http\Request;
@@ -15,7 +16,18 @@ class TryoutController extends Controller
     /** POST /api/tryouts/verify-email (public) */
     public function verifyEmail(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $request->validate([
+            'email' => 'required|email',
+            'studentId' => 'required|string|max:20',
+            'firstName' => 'nullable|string|max:255',
+            'lastName' => 'nullable|string|max:255',
+        ]);
+
+        // Check the applicant against the campus roster before mailing a
+        // code, so a non-student is told why up front instead of after.
+        if ($error = $this->campusMismatch($request)) {
+            return response()->json(['message' => $error], 422);
+        }
 
         // Cryptographically secure OTP (rand() is predictable / seedable).
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -72,6 +84,12 @@ class TryoutController extends Controller
             'verificationCode' => 'required|string|max:10',
         ]);
 
+        // Re-checked here: the code only proves the email is theirs, and this
+        // endpoint is public, so it can't trust that verify-email ran first.
+        if ($error = $this->campusMismatch($request)) {
+            return response()->json(['message' => $error], 422);
+        }
+
         // Validate verification code
         $verification = EmailVerification::where('email', $request->email)->first();
 
@@ -102,6 +120,31 @@ class TryoutController extends Controller
         ]);
 
         return response()->json($app, 201);
+    }
+
+    /**
+     * Why this applicant isn't a verified campus student, or null if they are.
+     * The SR Code must be on the registrar roster (Settings → Students), and
+     * the email must be the one on record for it. Rows imported without an
+     * email fall back to matching the applicant's name instead.
+     */
+    private function campusMismatch(Request $request): ?string
+    {
+        $student = CampusStudent::find(CampusStudent::normalizeCode($request->studentId));
+
+        if (! $student) {
+            return "We couldn't find that SR Code in the campus student list. Check it with your college registrar.";
+        }
+
+        if ($student->email) {
+            return strcasecmp(trim($student->email), trim((string) $request->email)) === 0
+                ? null
+                : 'That email is not the school email on record for this SR Code.';
+        }
+
+        return $student->nameMatches("{$request->firstName} {$request->lastName}")
+            ? null
+            : 'The name you entered does not match the registrar record for that SR Code.';
     }
 
     /** GET /api/tryouts (authenticated coach/admin) */

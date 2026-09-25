@@ -14,6 +14,16 @@ class TryoutValidationVerificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->campusStudents()->create([
+            'sr_code' => '24-00001', 'first_name' => 'Sam', 'last_name' => 'Cruz',
+            'email' => 'applicant@batstate-u.edu.ph',
+        ]);
+    }
+
     private function applyPayload(array $overrides = []): array
     {
         return array_merge([
