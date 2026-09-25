@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,17 +13,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Haptics from "expo-haptics";
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from "../../../constants/theme";
-import { LivePublishPanel } from "../../../src/components/scoring/LivePublishPanel";
-import { LiveScoreTracker } from "../../../src/components/scoring/LiveScoreTracker";
+import { MatchScoreboard, type MatchScoreboardHandle } from "../../../src/components/scoring/MatchScoreboard";
 import { OCRScoreMapper } from "../../../src/components/scoring/OCRScoreMapper";
 import { PrintableScoreSheetView } from "../../../src/components/scoring/PrintableScoreSheetView";
 import { Badge } from "../../../src/components/ui/Badge";
 import { Button } from "../../../src/components/ui/Button";
-import { Card } from "../../../src/components/ui/Card";
 import { Icon, type IconName } from "../../../src/components/ui/Icon";
-import { useDeptAbbreviator } from "../../../src/hooks/use-dept-abbr";
+import { TeamLogo } from "../../../src/components/ui/TeamLogo";
+import { useDeptAbbreviator, useDeptLogos } from "../../../src/hooks/use-dept-abbr";
 import { useNetwork } from "../../../src/hooks/use-network";
 import api from "../../../src/services/api";
 import { scoreService } from "../../../src/services/score.service";
@@ -33,29 +31,26 @@ import { useOfflineStore } from "../../../src/store/offline.store";
 import { getSportConfigFromEvent } from "../../../src/utils/sport-config";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Scoring Screen — one overall score (0–100) per college, split into tabs:
-//   Score  · pick a college, enter its score, submit
-//   Sheet  · live digital score sheet for the sport
-//   Tools  · OCR scan, printable form, complete event
+// Scoring — one screen, shaped by the kind of event:
+//
+//   Two colleges (a game) · the scoreboard. Keep it live with +/−, or scan
+//     the paper sheet to record the final. Finalizing completes the game.
+//   Three or more (judged) · every college's 0–100 score in one list. Type
+//     them, or scan the paper sheet to fill them, then submit.
+//
+// Both committee methods — app entry and paper + scan — are always there,
+// as two actions under the scores, not as separate tabs.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ScoringMethod = "manual" | "ocr";
-type Tab = "score" | "sheet" | "tools";
 
-const TABS: { key: Tab; label: string; icon: IconName }[] = [
-  { key: "score", label: "Score", icon: "pencil" },
-  { key: "sheet", label: "Sheet", icon: "list" },
-  { key: "tools", label: "Tools", icon: "settings" },
-];
-
-const clamp100 = (n: number) => Math.max(0, Math.min(100, n));
 const isValidScore = (raw: string | undefined) => {
   const n = parseFloat(raw ?? "");
   return !isNaN(n) && n >= 0 && n <= 100;
 };
 
 export default function ScoringScreen() {
-  const { eventId } = useLocalSearchParams<{ eventId: string }>();
+  useLocalSearchParams<{ eventId: string }>();
   const router = useRouter();
   const { isConnected } = useNetwork();
 
@@ -63,59 +58,43 @@ export default function ScoringScreen() {
   const user = useAuthStore((s) => s.user);
   const enqueue = useOfflineStore((s) => s.enqueue);
 
-  const [tab, setTab] = useState<Tab>("score");
   const [departmentScores, setDepartmentScores] = useState<Record<string, string>>({});
   const [method, setMethod] = useState<ScoringMethod>("manual");
-  const [department, setDepartment] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOCR, setShowOCR] = useState(false);
   const [showPrintableForm, setShowPrintableForm] = useState(false);
   const [ocrImageUri, setOcrImageUri] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const scoreboard = useRef<MatchScoreboardHandle>(null);
 
   const sportConfig = getSportConfigFromEvent(event?.category, event?.name);
-  const accent = sportConfig.color;
   const abbr = useDeptAbbreviator();
+  const logoOf = useDeptLogos();
 
   const depts = useMemo(() => event?.departments ?? [], [event?.departments]);
-  const currentScore = department ? (departmentScores[department] ?? "") : "";
+  // Same rule as the web schedule: two colleges is a game, more is judged.
+  const isMatch = depts.length <= 2;
 
-  useEffect(() => {
-    if (!depts.length) return;
-    setDepartment((current) => (current && depts.includes(current) ? current : depts[0]));
-  }, [event?.id, depts]);
-
-  const setScore = useCallback(
-    (value: string) => {
-      if (!department) return;
-      setDepartmentScores((prev) => ({ ...prev, [department]: value }));
-      setMethod("manual");
-    },
-    [department],
-  );
-
-  const nudge = useCallback(
-    (delta: number) => {
-      if (!department) return;
-      Haptics.selectionAsync().catch(() => {});
-      const base = parseFloat(currentScore);
-      setScore(String(clamp100((isNaN(base) ? 0 : base) + delta)));
-    },
-    [department, currentScore, setScore],
-  );
+  const setScore = useCallback((dept: string, value: string) => {
+    setDepartmentScores((prev) => ({ ...prev, [dept]: value }));
+    setMethod("manual");
+  }, []);
 
   const handleOcrConfirm = useCallback(
     (scores: Record<string, number>, imageUri: string) => {
+      setShowOCR(false);
+      if (isMatch) {
+        scoreboard.current?.recordFromSheet(scores[depts[0]] ?? 0, scores[depts[1]] ?? 0, imageUri);
+        return;
+      }
       setDepartmentScores((prev) => ({
         ...prev,
-        ...Object.fromEntries(Object.entries(scores).map(([d, s]) => [d, String(s)])),
+        ...Object.fromEntries(Object.entries(scores).map(([d, v]) => [d, String(v)])),
       }));
       setOcrImageUri(imageUri);
       setMethod("ocr");
-      setShowOCR(false);
-      setTab("score");
     },
-    [],
+    [isMatch, depts],
   );
 
   // ── Submit every scored college in one go ────────────────────────────────
@@ -231,11 +210,11 @@ export default function ScoringScreen() {
   if (!event) {
     return (
       <SafeAreaView style={styles.guard}>
-        <View style={[styles.guardIcon, { backgroundColor: COLORS.primaryTint }]}>
-          <Icon name="qr" size={28} color={COLORS.primary} />
+        <View style={styles.guardIcon}>
+          <Icon name="qr" size={28} color={COLORS.textSecondary} />
         </View>
         <Text style={styles.guardTitle}>No event loaded</Text>
-        <Text style={styles.guardSub}>Scan a QR code first.</Text>
+        <Text style={styles.guardSub}>Scan the event QR code first.</Text>
         <Button
           label="Go to scanner"
           onPress={() => router.replace("/(app)/scanner")}
@@ -248,143 +227,99 @@ export default function ScoringScreen() {
   }
 
   const scoredCount = depts.filter((d) => isValidScore(departmentScores[d])).length;
-  const overallPct = depts.length ? scoredCount / depts.length : 0;
 
   return (
     <>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          {/* Header — sport colour band */}
-          <View style={[styles.header, { backgroundColor: accent }]}>
-            <Pressable style={styles.iconBtn} onPress={() => router.back()} hitSlop={8}>
-              <Icon name="arrow-left" size={20} color="#fff" strokeWidth={2.2} />
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable style={styles.back} onPress={() => router.back()} hitSlop={8} accessibilityLabel="Back">
+              <Icon name="arrow-left" size={20} color={COLORS.textPrimary} strokeWidth={2.2} />
             </Pressable>
-            <View style={styles.headerCenter}>
-              <Icon name={sportConfig.icon as IconName} size={18} color="#fff" strokeWidth={2.2} />
-              <View style={styles.headerText}>
-                <Text style={styles.headerTitle} numberOfLines={1}>{event.name}</Text>
-                <Text style={styles.headerSub} numberOfLines={1}>
+            <View style={styles.flex}>
+              <Text style={styles.title} numberOfLines={1}>{abbr(event.name)}</Text>
+              <View style={styles.metaRow}>
+                <Icon name={sportConfig.icon as IconName} size={13} color={COLORS.textMuted} />
+                <Text style={styles.meta} numberOfLines={1}>
                   {sportConfig.label}{event.venueName ? ` · ${event.venueName}` : ""}
                 </Text>
               </View>
             </View>
-            <View style={styles.headerRight}>
-              {!isConnected && <Badge label="Offline" variant="offline" dot />}
+            {!isConnected ? (
+              <Badge label="Offline" variant="offline" dot />
+            ) : (
               <Badge
                 label={event.status}
-                variant={event.status === "ongoing" ? "success" : event.status === "completed" ? "default" : "warning"}
+                variant={event.status === "ongoing" ? "red" : event.status === "completed" ? "default" : "warning"}
                 dot
               />
-            </View>
+            )}
           </View>
 
-          {/* Segmented tabs */}
-          <View style={styles.tabWrap}>
-            <View style={styles.tabTrack}>
-              {TABS.map((t) => {
-                const active = tab === t.key;
-                return (
-                  <Pressable
-                    key={t.key}
-                    style={[styles.tab, active && [styles.tabActive, { shadowColor: accent }]]}
-                    onPress={() => setTab(t.key)}
-                  >
-                    <Icon name={t.icon} size={15} color={active ? accent : COLORS.textMuted} strokeWidth={active ? 2.4 : 2} />
-                    <Text style={[styles.tabLabel, active && { color: accent }]}>{t.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* ═══ SCORE ═══ */}
-          {tab === "score" && (
-            <>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressBar, { width: `${Math.round(overallPct * 100)}%`, backgroundColor: overallPct === 1 ? COLORS.success : accent }]} />
+          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {isMatch ? (
+              <MatchScoreboard ref={scoreboard} event={event} />
+            ) : (
+              <View style={styles.card}>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle}>Scores</Text>
+                  <Text style={styles.cardMeta}>
+                    {scoredCount} of {depts.length} scored · out of 100
+                  </Text>
+                </View>
+                {depts.length === 0 ? (
+                  <Text style={styles.muted}>No colleges are assigned to this event.</Text>
+                ) : (
+                  depts.map((d, i) => {
+                    const raw = departmentScores[d] ?? "";
+                    const bad = raw !== "" && !isValidScore(raw);
+                    return (
+                      <View key={d} style={[styles.row, i > 0 && styles.rowDivider]}>
+                        <TeamLogo name={d} label={abbr(d)} logoUrl={logoOf(d)} size={36} />
+                        <View style={styles.flex}>
+                          <Text style={styles.rowName} numberOfLines={1}>{abbr(d)}</Text>
+                          {abbr(d) !== d && <Text style={styles.rowSub} numberOfLines={1}>{d}</Text>}
+                        </View>
+                        <TextInput
+                          style={[styles.rowInput, bad && styles.rowInputBad]}
+                          value={raw}
+                          onChangeText={(v) => setScore(d, v)}
+                          keyboardType="decimal-pad"
+                          placeholder="—"
+                          placeholderTextColor={COLORS.textMuted}
+                          editable={!isSubmitting}
+                          maxLength={6}
+                          accessibilityLabel={`Score for ${abbr(d)}`}
+                        />
+                      </View>
+                    );
+                  })
+                )}
+                {ocrImageUri && method === "ocr" && (
+                  <Badge label="Filled from the scanned sheet" variant="ocr" style={styles.ocrBadge} />
+                )}
               </View>
+            )}
 
-              <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <View style={styles.sectionRow}>
-                  <Text style={styles.section}>College</Text>
-                  <Text style={styles.sectionMeta}>{scoredCount} / {depts.length} scored</Text>
-                </View>
+            {/* The paper side of scoring — same two actions for every event */}
+            <View style={styles.actions}>
+              <ActionTile
+                icon="scan"
+                title="Scan paper sheet"
+                sub={isMatch ? "Record the final from the sheet" : "Fill the scores from the sheet"}
+                onPress={() => setShowOCR(true)}
+              />
+              <ActionTile
+                icon="print"
+                title="Score sheet"
+                sub="Preview, print or share"
+                onPress={() => setShowPrintableForm(true)}
+              />
+            </View>
 
-                <View style={styles.deptList}>
-                  {depts.length === 0 ? (
-                    <Text style={styles.muted}>No colleges assigned to this event.</Text>
-                  ) : (
-                    depts.map((d) => {
-                      const selected = d === department;
-                      const raw = departmentScores[d];
-                      const scored = isValidScore(raw);
-                      return (
-                        <Pressable
-                          key={d}
-                          style={({ pressed }) => [
-                            styles.deptRow,
-                            selected && { borderColor: accent, backgroundColor: `${accent}0D` },
-                            pressed && !selected && styles.deptPressed,
-                          ]}
-                          onPress={() => setDepartment(d)}
-                        >
-                          <Icon
-                            name={scored ? "check-circle" : selected ? "target" : "circle-dot"}
-                            size={19}
-                            color={scored ? COLORS.success : selected ? accent : COLORS.textMuted}
-                            strokeWidth={2.2}
-                          />
-                          <View style={styles.deptText}>
-                            <Text style={[styles.deptName, selected && { color: accent }]} numberOfLines={1}>{abbr(d)}</Text>
-                            {abbr(d) !== d && <Text style={styles.deptSub} numberOfLines={1}>{d}</Text>}
-                          </View>
-                          {scored && (
-                            <View style={[styles.scorePill, { backgroundColor: `${accent}18` }]}>
-                              <Text style={[styles.scorePillText, { color: accent }]}>{parseFloat(raw).toFixed(0)}</Text>
-                            </View>
-                          )}
-                        </Pressable>
-                      );
-                    })
-                  )}
-                </View>
-
-                <View style={styles.sectionRow}>
-                  <Text style={styles.section}>Overall score</Text>
-                  <View style={styles.methodSeg}>
-                    <Pressable style={[styles.methodBtn, method === "manual" && styles.methodBtnOn]} onPress={() => setMethod("manual")}>
-                      <Text style={[styles.methodBtnText, method === "manual" && styles.methodBtnTextOn]}>Manual</Text>
-                    </Pressable>
-                    <Pressable style={[styles.methodBtn, method === "ocr" && styles.methodBtnOn]} onPress={() => setShowOCR(true)}>
-                      <Icon name="scan" size={12} color={method === "ocr" ? COLORS.primary : COLORS.textMuted} />
-                      <Text style={[styles.methodBtnText, method === "ocr" && styles.methodBtnTextOn]}>Scan</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                <View style={styles.scoreCard}>
-                  <View style={styles.stepperRow}>
-                    <Pressable style={({ pressed }) => [styles.stepBtn, { borderColor: `${accent}40` }, pressed && { backgroundColor: `${accent}10` }]} onPress={() => nudge(-1)} disabled={!department}>
-                      <Icon name="minus" size={22} color={accent} strokeWidth={2.6} />
-                    </Pressable>
-                    <TextInput
-                      style={[styles.scoreInput, { color: accent }]}
-                      value={currentScore}
-                      onChangeText={setScore}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor={COLORS.textMuted}
-                      editable={!isSubmitting && !!department}
-                      maxLength={5}
-                    />
-                    <Pressable style={({ pressed }) => [styles.stepBtn, { borderColor: `${accent}40` }, pressed && { backgroundColor: `${accent}10` }]} onPress={() => nudge(1)} disabled={!department}>
-                      <Icon name="plus" size={22} color={accent} strokeWidth={2.6} />
-                    </Pressable>
-                  </View>
-                  <Text style={styles.scoreScale}>out of 100</Text>
-                  {ocrImageUri && <Badge label="From scanned sheet" variant="ocr" style={styles.ocrBadge} />}
-                </View>
-
+            {!isMatch && (
+              <>
                 <Button
                   label={
                     isSubmitting
@@ -398,115 +333,40 @@ export default function ScoringScreen() {
                   disabled={scoredCount === 0}
                   size="lg"
                   fullWidth
-                  style={[styles.submit, { backgroundColor: scoredCount > 0 ? accent : `${accent}70` }]}
-                  icon={<Icon name={isConnected ? "check-circle" : "cloud-off"} size={18} color="#fff" strokeWidth={2.2} />}
+                  icon={<Icon name={isConnected ? "check-circle" : "cloud-off"} size={18} color={COLORS.textInverse} strokeWidth={2.2} />}
                 />
-                {scoredCount < depts.length && scoredCount > 0 && (
-                  <Text style={styles.submitHint}>
-                    {depts.length - scoredCount} not scored — submit later.
-                  </Text>
+                {scoredCount > 0 && scoredCount < depts.length && (
+                  <Text style={styles.hint}>{depts.length - scoredCount} not scored yet — you can submit them later.</Text>
                 )}
-                <View style={{ height: SPACING.xxl }} />
-              </ScrollView>
-            </>
-          )}
 
-          {/* ═══ SHEET ═══ */}
-          {tab === "sheet" && (
-            <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <View style={styles.sheetHead}>
-                <View style={[styles.sheetHeadIcon, { backgroundColor: `${accent}15` }]}>
-                  <Icon name={sportConfig.icon as IconName} size={18} color={accent} strokeWidth={2.2} />
-                </View>
-                <View style={styles.flex}>
-                  <Text style={styles.sheetHeadTitle}>{sportConfig.label} · Live score</Text>
-                  <Text style={styles.sheetHeadSub}>Publish live to the public board.</Text>
-                </View>
-              </View>
-
-              <LivePublishPanel event={event} />
-
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerLabel}>DETAILED TRACKER · LOCAL ONLY</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
-              {sportConfig.type === "default" && (
-                <View style={styles.note}>
-                  <Icon name="info" size={14} color={COLORS.warning} />
-                  <Text style={styles.noteText}>Generic points sheet.</Text>
-                </View>
-              )}
-
-              <LiveScoreTracker event={event} embedded />
-              <View style={{ height: SPACING.xxl }} />
-            </ScrollView>
-          )}
-
-          {/* ═══ TOOLS ═══ */}
-          {tab === "tools" && (
-            <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-              <Text style={styles.section}>Tools</Text>
-
-              <Card variant="tint" onPress={() => setShowOCR(true)} style={styles.toolCard}>
-                <View style={[styles.toolIcon, { backgroundColor: COLORS.ocrLight }]}>
-                  <Icon name="scan" size={18} color={COLORS.ocr} />
-                </View>
-                <View style={styles.flex}>
-                  <Text style={styles.toolTitle}>Scan score sheet</Text>
-                  <Text style={styles.toolDesc}>Read the total from a photo.</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color={COLORS.textMuted} />
-              </Card>
-
-              <Card variant="tint" onPress={() => setShowPrintableForm(true)} style={styles.toolCard}>
-                <View style={[styles.toolIcon, { backgroundColor: `${accent}15` }]}>
-                  <Icon name="file-text" size={18} color={accent} />
-                </View>
-                <View style={styles.flex}>
-                  <Text style={styles.toolTitle}>Official score sheet</Text>
-                  <Text style={styles.toolDesc}>Preview, print or share.</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color={COLORS.textMuted} />
-              </Card>
-
-              {event.status === "ongoing" && (
-                <View style={styles.dangerCard}>
-                  <View style={styles.dangerHead}>
-                    <Icon name="alert-triangle" size={16} color={COLORS.destructive} strokeWidth={2.2} />
-                    <Text style={styles.dangerTitle}>Complete event</Text>
-                  </View>
-                  <Text style={styles.dangerDesc}>
-                    Marks the event finished. Cannot be undone.
-                  </Text>
-                  <Button
-                    label={isCompleting ? "Completing…" : "Mark event complete"}
+                {event.status === "ongoing" && (
+                  <Pressable
                     onPress={handleCompleteEvent}
-                    variant="danger"
-                    loading={isCompleting}
-                    disabled={!isConnected}
-                    fullWidth
-                    icon={<Icon name="flag" size={16} color={COLORS.textInverse} />}
-                  />
-                  {!isConnected && <Text style={styles.dangerHint}>Requires an internet connection.</Text>}
-                </View>
-              )}
+                    disabled={!isConnected || isCompleting}
+                    style={({ pressed }) => [styles.complete, pressed && { opacity: 0.6 }]}
+                  >
+                    <Icon name="flag" size={15} color={isConnected ? COLORS.destructive : COLORS.textDisabled} />
+                    <Text style={[styles.completeText, !isConnected && { color: COLORS.textDisabled }]}>
+                      {isCompleting ? "Completing…" : isConnected ? "Mark event completed" : "Go online to complete the event"}
+                    </Text>
+                  </Pressable>
+                )}
+              </>
+            )}
 
-              <View style={{ height: SPACING.xxl }} />
-            </ScrollView>
-          )}
+            <View style={{ height: SPACING.xxl }} />
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
       <Modal visible={showOCR} animationType="slide" onRequestClose={() => setShowOCR(false)}>
         <OCRScoreMapper
           departments={depts}
+          maxScore={isMatch ? null : 100}
           onConfirm={handleOcrConfirm}
           onCancel={(imageUri) => {
-            // A photo may already be captured/stored even though the judge
-            // is backing out to type the number themselves — keep it
-            // attached rather than losing that evidence.
+            // A photo may already be stored even though the judge is backing
+            // out to type the scores — keep it attached as evidence.
             if (imageUri) setOcrImageUri(imageUri);
             setShowOCR(false);
           }}
@@ -519,122 +379,93 @@ export default function ScoringScreen() {
   );
 }
 
+function ActionTile({ icon, title, sub, onPress }: { icon: IconName; title: string; sub: string; onPress: () => void }) {
+  return (
+    <Pressable style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]} onPress={onPress}>
+      <View style={styles.tileIcon}>
+        <Icon name={icon} size={18} color={COLORS.textPrimary} />
+      </View>
+      <Text style={styles.tileTitle}>{title}</Text>
+      <Text style={styles.tileSub} numberOfLines={2}>{sub}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   flex: { flex: 1 },
 
-  // Guard
   guard: { flex: 1, backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center", padding: SPACING.xl, gap: SPACING.xs },
-  guardIcon: { width: 64, height: 64, borderRadius: RADIUS.full, alignItems: "center", justifyContent: "center", marginBottom: SPACING.sm },
+  guardIcon: { width: 64, height: 64, borderRadius: RADIUS.full, alignItems: "center", justifyContent: "center", marginBottom: SPACING.sm, backgroundColor: COLORS.surfaceAlt },
   guardTitle: { ...TYPE.title, color: COLORS.textPrimary },
   guardSub: { ...TYPE.body, color: COLORS.textSecondary, textAlign: "center" },
 
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-  },
-  iconBtn: { width: 34, height: 34, borderRadius: RADIUS.full, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
-  headerCenter: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flex: 1 },
-  headerText: { flex: 1 },
-  headerTitle: { ...TYPE.subhead, color: "#fff" },
-  headerSub: { ...TYPE.caption, textTransform: "none", color: "rgba(255,255,255,0.8)", marginTop: 1 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
-
-  // Segmented tabs
-  tabWrap: { backgroundColor: COLORS.surface, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
-  tabTrack: { flexDirection: "row", backgroundColor: COLORS.surfaceAlt, borderRadius: RADIUS.lg, padding: 4, gap: 4 },
-  tab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: SPACING.sm, borderRadius: RADIUS.md },
-  tabActive: { backgroundColor: COLORS.surface, ...SHADOWS.sm },
-  tabLabel: { ...TYPE.label, color: COLORS.textMuted },
-
-  progressTrack: { height: 3, backgroundColor: COLORS.surfaceMuted },
-  progressBar: { height: 3 },
-
-  body: { padding: SPACING.lg, gap: SPACING.sm },
-
-  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: SPACING.sm },
-  section: { ...TYPE.caption, textTransform: "uppercase", color: COLORS.textSecondary },
-  sectionMeta: { ...TYPE.bodySm, color: COLORS.textMuted },
-  muted: { ...TYPE.body, color: COLORS.textMuted, padding: SPACING.md },
-
-  deptList: { gap: SPACING.sm, marginTop: SPACING.xs },
-  deptRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1.5,
-    borderColor: "transparent",
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-  },
-  deptPressed: { backgroundColor: COLORS.pressed },
-  deptText: { flex: 1 },
-  deptName: { ...TYPE.subhead, color: COLORS.textPrimary },
-  deptSub: { ...TYPE.caption, textTransform: "none", color: COLORS.textMuted, marginTop: 1 },
-  scorePill: { minWidth: 32, paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.full, alignItems: "center" },
-  scorePillText: { ...TYPE.label },
-
-  methodSeg: { flexDirection: "row", backgroundColor: COLORS.surfaceAlt, borderRadius: RADIUS.sm, padding: 2, gap: 2 },
-  methodBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: SPACING.sm, paddingVertical: 4, borderRadius: RADIUS.sm - 2 },
-  methodBtnOn: { backgroundColor: COLORS.surface, ...SHADOWS.sm },
-  methodBtnText: { ...TYPE.caption, textTransform: "none", color: COLORS.textMuted },
-  methodBtnTextOn: { color: COLORS.primary },
-
-  scoreCard: {
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginTop: SPACING.xs,
-    alignItems: "center",
-    gap: SPACING.sm,
-  },
-  stepperRow: { flexDirection: "row", alignItems: "center", gap: SPACING.md },
-  stepBtn: { width: 46, height: 46, borderRadius: RADIUS.md, borderWidth: 1.5, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.surface },
-  scoreInput: { minWidth: 120, textAlign: "center", fontSize: 44, fontWeight: "800", paddingVertical: SPACING.xs },
-  scoreScale: { ...TYPE.bodySm, color: COLORS.textMuted },
-  ocrBadge: { alignSelf: "center" },
-
-  submit: { marginTop: SPACING.lg },
-  submitHint: { ...TYPE.bodySm, color: COLORS.textMuted, textAlign: "center", marginTop: SPACING.xs },
-
-  sheetHead: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginBottom: SPACING.xs },
-  sheetHeadIcon: { width: 38, height: 38, borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center" },
-  sheetHeadTitle: { ...TYPE.subhead, color: COLORS.textPrimary },
-  sheetHeadSub: { ...TYPE.bodySm, color: COLORS.textSecondary, marginTop: 1 },
-  divider: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginVertical: SPACING.sm },
-  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.hairline },
-  dividerLabel: { ...TYPE.caption, color: COLORS.textMuted },
-  note: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, backgroundColor: COLORS.warningLight, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
-  noteText: { flex: 1, ...TYPE.bodySm, color: COLORS.warning },
-
-  toolCard: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: SPACING.md,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.md,
-    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.hairline,
   },
-  toolIcon: { width: 40, height: 40, borderRadius: RADIUS.lg, alignItems: "center", justifyContent: "center" },
-  toolTitle: { ...TYPE.subhead, color: COLORS.textPrimary },
-  toolDesc: { ...TYPE.bodySm, color: COLORS.textSecondary },
+  back: { width: 36, height: 36, borderRadius: RADIUS.full, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.surfaceAlt },
+  title: { ...TYPE.heading, color: COLORS.textPrimary },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 1 },
+  meta: { ...TYPE.bodySm, color: COLORS.textMuted, flexShrink: 1 },
 
-  dangerCard: {
-    backgroundColor: COLORS.errorLight,
+  body: { padding: SPACING.lg, gap: SPACING.md },
+  muted: { ...TYPE.body, color: COLORS.textMuted, paddingVertical: SPACING.md },
+
+  card: {
+    backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginTop: SPACING.lg,
-    gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+    ...SHADOWS.card,
   },
-  dangerHead: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
-  dangerTitle: { ...TYPE.subhead, color: COLORS.textPrimary },
-  dangerDesc: { ...TYPE.bodySm, color: COLORS.textSecondary },
-  dangerHint: { ...TYPE.bodySm, color: COLORS.warning, textAlign: "center" },
+  cardHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingBottom: SPACING.sm },
+  cardTitle: { ...TYPE.heading, color: COLORS.textPrimary },
+  cardMeta: { ...TYPE.bodySm, color: COLORS.textMuted },
+
+  row: { flexDirection: "row", alignItems: "center", gap: SPACING.md, paddingVertical: SPACING.md },
+  rowDivider: { borderTopWidth: 1, borderTopColor: COLORS.hairline },
+  rowName: { ...TYPE.subhead, color: COLORS.textPrimary },
+  rowSub: { ...TYPE.caption, color: COLORS.textMuted, marginTop: 1 },
+  rowInput: {
+    width: 84,
+    height: 46,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderStrong,
+    backgroundColor: COLORS.surface,
+    textAlign: "center",
+    ...TYPE.numeral,
+    color: COLORS.textPrimary,
+  },
+  rowInputBad: { borderColor: COLORS.destructive, backgroundColor: COLORS.errorLight },
+  ocrBadge: { alignSelf: "flex-start", marginBottom: SPACING.sm },
+
+  actions: { flexDirection: "row", gap: SPACING.md },
+  tile: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    gap: 2,
+  },
+  tilePressed: { backgroundColor: COLORS.surfaceAlt },
+  tileIcon: { width: 34, height: 34, borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.surfaceAlt, marginBottom: SPACING.xs },
+  tileTitle: { ...TYPE.subhead, color: COLORS.textPrimary },
+  tileSub: { ...TYPE.caption, color: COLORS.textMuted },
+
+  hint: { ...TYPE.bodySm, color: COLORS.textMuted, textAlign: "center" },
+  complete: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.xs, paddingVertical: SPACING.md, marginTop: SPACING.sm },
+  completeText: { ...TYPE.label, color: COLORS.destructive },
 });

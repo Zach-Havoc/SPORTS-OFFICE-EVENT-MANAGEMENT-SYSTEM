@@ -88,14 +88,14 @@ export const eventService = {
    * Department list with abbreviations (for showing "CICS" instead of the full
    * college name). Public endpoint; cached locally for offline use.
    */
-  async getDepartments(): Promise<{ id: string; name: string; abbreviation: string | null }[]> {
+  async getDepartments(): Promise<{ id: string; name: string; abbreviation: string | null; logo_url?: string | null }[]> {
     try {
       const response = await api.get('/departments');
       await storage.setJSON('departments', response.data);
       return response.data;
     } catch (error: any) {
       if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-        const cached = await storage.getJSON<{ id: string; name: string; abbreviation: string | null }[]>('departments');
+        const cached = await storage.getJSON<{ id: string; name: string; abbreviation: string | null; logo_url?: string | null }[]>('departments');
         if (cached) return cached;
       }
       throw error;

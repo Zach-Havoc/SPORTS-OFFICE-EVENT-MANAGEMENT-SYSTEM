@@ -31,6 +31,12 @@ interface OCRScoreMapperProps {
   // judge backs out to manual entry (OCR misread it, or they just prefer to
   // type it themselves) — pass it along so that evidence isn't discarded.
   onCancel:  (imageUri?: string | null) => void;
+  /**
+   * Highest valid score. Judged events are marked out of 100; a head-to-head
+   * game's sheet carries its real points (a basketball final can be 114), so
+   * it passes null for no ceiling.
+   */
+  maxScore?: number | null;
 }
 
 type OcrStep = 'capture' | 'processing' | 'review' | 'error';
@@ -50,13 +56,14 @@ const confidenceColor = (confidence: number | undefined) => {
   return COLORS.error;
 };
 
-const isRowValid = (raw: string | undefined) => {
-  if (raw === undefined || raw.trim() === '') return false;
-  const value = Number(raw);
-  return !Number.isNaN(value) && value >= 0 && value <= 100;
-};
+export function OCRScoreMapper({ departments, onConfirm, onCancel, maxScore = 100 }: OCRScoreMapperProps) {
+  const isRowValid = (raw: string | undefined) => {
+    if (raw === undefined || raw.trim() === '') return false;
+    const value = Number(raw);
+    return !Number.isNaN(value) && value >= 0 && (maxScore === null || value <= maxScore);
+  };
+  const rangeText = maxScore === null ? 'a score of 0 or more' : `a number from 0 to ${maxScore}`;
 
-export function OCRScoreMapper({ departments, onConfirm, onCancel }: OCRScoreMapperProps) {
   const [step,           setStep]           = useState<OcrStep>('capture');
   const [imageUri,       setImageUri]       = useState<string | null>(null);
   const [serverImageUrl, setServerImageUrl] = useState<string | null>(null);
@@ -97,7 +104,7 @@ export function OCRScoreMapper({ departments, onConfirm, onCancel }: OCRScoreMap
       const initialScores: Record<string, string> = {};
       for (const dept of departments) {
         const match = ocrData.scores.find((s) => s.department === dept);
-        initialScores[dept] = match ? String(Math.max(0, Math.min(100, match.score))) : '';
+        initialScores[dept] = match ? String(Math.max(0, maxScore === null ? match.score : Math.min(maxScore, match.score))) : '';
       }
       setEditedScores(initialScores);
       setStep('review');
@@ -156,7 +163,7 @@ export function OCRScoreMapper({ departments, onConfirm, onCancel }: OCRScoreMap
     for (const dept of departments) {
       const raw = editedScores[dept];
       if (!isRowValid(raw)) {
-        Alert.alert('Invalid Score', `Enter a number from 0 to 100 for ${dept}.`);
+        Alert.alert('Invalid Score', `Enter ${rangeText} for ${dept}.`);
         return;
       }
       scores[dept] = Number(raw);
@@ -269,7 +276,7 @@ export function OCRScoreMapper({ departments, onConfirm, onCancel }: OCRScoreMap
                 placeholder={notRead ? 'Enter score' : '0'}
                 placeholderTextColor={COLORS.textMuted}
               />
-              <Text style={styles.maxLabel}>/ 100</Text>
+              {maxScore !== null && <Text style={styles.maxLabel}>/ {maxScore}</Text>}
             </View>
           </View>
         );
