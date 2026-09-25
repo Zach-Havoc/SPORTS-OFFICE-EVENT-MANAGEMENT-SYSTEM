@@ -410,6 +410,21 @@ class BracketService
             }
         }
 
+        // "The match with no next match" is the final only in elimination.
+        // In round-robin every fixture has no next match, so the loop above
+        // would crown whoever won the first game played. A round-robin has a
+        // champion only once every fixture is decided, and only if one team
+        // has outright the most wins — a tie is left for the office to settle.
+        if ($bracket->format === 'round_robin') {
+            $champion = null;
+            $playable = $matches->reject(fn ($m) => $m->is_bye);
+            if ($playable->isNotEmpty() && $playable->every(fn ($m) => $m->status === 'completed')) {
+                $wins = $playable->countBy('winner')->sortDesc()->values();
+                $leader = $playable->countBy('winner')->sortDesc()->keys()->first();
+                $champion = ($wins->count() === 1 || $wins[0] > $wins[1]) ? $leader : null;
+            }
+        }
+
         $bracket->update([
             'champion' => $champion,
             'status' => $champion ? 'completed' : ($bracket->status === 'draft' ? 'draft' : 'active'),

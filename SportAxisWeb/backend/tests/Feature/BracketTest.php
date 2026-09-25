@@ -67,6 +67,51 @@ class BracketTest extends TestCase
         $this->assertSame($semis->firstWhere('slot', 1)->id, $final->away_source_match_id);
     }
 
+    public function test_a_round_robin_has_no_champion_until_every_fixture_is_played(): void
+    {
+        $bracket = $this->service()->generate($this->config([
+            'format' => 'round_robin',
+            'participants' => ['CICS', 'CET', 'CAS'],   // 3 fixtures
+        ]));
+        $fixtures = $bracket->matches->sortBy('slot')->values();
+
+        // First result in — previously this alone crowned CICS champion,
+        // because every round-robin fixture has no "next match".
+        $this->service()->advance($fixtures[0], $fixtures[0]->home_team);
+        $bracket->refresh();
+        $this->assertNull($bracket->champion);
+        $this->assertNotSame('completed', $bracket->status);
+
+        // Play the rest so one team finishes with outright the most wins.
+        $winsFor = fn ($m) => in_array('CICS', [$m->home_team, $m->away_team], true) ? 'CICS' : $m->home_team;
+        foreach ($fixtures->slice(1) as $m) {
+            $this->service()->advance($m->fresh(), $winsFor($m));
+        }
+        $bracket->refresh();
+        $this->assertSame('CICS', $bracket->champion);
+        $this->assertSame('completed', $bracket->status);
+    }
+
+    public function test_a_round_robin_tie_on_wins_leaves_the_champion_undecided(): void
+    {
+        $bracket = $this->service()->generate($this->config([
+            'format' => 'round_robin',
+            'participants' => ['CICS', 'CET', 'CAS'],
+        ]));
+
+        // A cycle, so each team finishes 1-1: CICS > CET > CAS > CICS.
+        $beats = ['CICS' => 'CET', 'CET' => 'CAS', 'CAS' => 'CICS'];
+        foreach ($bracket->matches as $m) {
+            $winner = $beats[$m->home_team] === $m->away_team ? $m->home_team : $m->away_team;
+            $this->service()->advance($m->fresh(), $winner);
+        }
+        $this->assertCount(3, $bracket->fresh('matches')->matches->pluck('winner')->unique());
+
+        $bracket->refresh();
+        $this->assertNull($bracket->champion);
+        $this->assertNotSame('completed', $bracket->status);
+    }
+
     public function test_odd_team_counts_never_produce_a_bye_vs_bye_match(): void
     {
         foreach ([3, 5, 6, 7, 9, 11] as $count) {

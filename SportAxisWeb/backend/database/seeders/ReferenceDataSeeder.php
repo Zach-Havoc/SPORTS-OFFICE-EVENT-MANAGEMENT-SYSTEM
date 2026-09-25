@@ -96,7 +96,7 @@ class ReferenceDataSeeder extends Seeder
      * category and the existing bracket/standings/medal machinery applies
      * unchanged.
      */
-    private function seedRacquetDisciplines(): void
+    public function seedRacquetDisciplines(): void
     {
         $sports = ['Badminton', 'Table Tennis'];
         $divisions = ['M Singles A', 'M Singles B', 'M Doubles', 'W Singles A', 'W Singles B', 'W Doubles'];
@@ -124,7 +124,7 @@ class ReferenceDataSeeder extends Seeder
     }
 
     /** The eligibility checklist every athlete sees, until a coach/admin customizes it. */
-    private function seedDefaultRequirementTypes(): void
+    public function seedDefaultRequirementTypes(): void
     {
         if (DB::table('requirement_types')->count() > 0) {
             return;
@@ -156,7 +156,7 @@ class ReferenceDataSeeder extends Seeder
      * default one if this database has none yet — new events attach to it
      * automatically via `Event::creating()` -> `Season::current()`.
      */
-    private function seedDefaultSeason(): void
+    public function seedDefaultSeason(): void
     {
         if (DB::table('seasons')->exists()) {
             return;
