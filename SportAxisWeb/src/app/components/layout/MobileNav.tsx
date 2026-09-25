@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { LogOut, MoreHorizontal, X } from "lucide-react";
 
@@ -28,6 +28,25 @@ export function MobileNav({
   const { pathname } = useLocation();
   const { groups, footer } = getNavigation(role);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // `shown` trails `sheetOpen` by a frame on the way in and leads it on the
+  // way out, which is what gives the sheet a symmetric entrance and exit.
+  const [shown, setShown] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (exitTimer.current) clearTimeout(exitTimer.current);
+    if (sheetOpen) {
+      setMounted(true);
+      const raf = requestAnimationFrame(() => setShown(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setShown(false);
+    exitTimer.current = setTimeout(() => setMounted(false), 240);
+    return () => {
+      if (exitTimer.current) clearTimeout(exitTimer.current);
+    };
+  }, [sheetOpen]);
 
   const all = groups.flatMap((g) => g.items);
   const primary = all.filter((i) => i.primary).slice(0, 4);
@@ -73,13 +92,18 @@ export function MobileNav({
 
   return (
     <>
-      {sheetOpen && (
+      {mounted && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
             aria-label="Close menu"
             onClick={() => setSheetOpen(false)}
-            className="absolute inset-0 bg-[--overlay] backdrop-blur-[2px]"
+            className={cn(
+              "absolute inset-0 bg-[--overlay] backdrop-blur-[2px]",
+              "transition-opacity duration-200 ease-[--ease-out-expo]",
+              shown ? "opacity-100" : "opacity-0",
+              "motion-reduce:transition-none",
+            )}
           />
           <div
             role="dialog"
@@ -88,7 +112,10 @@ export function MobileNav({
             className={cn(
               "safe-b absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto",
               "rounded-t-xl border-t border-border bg-surface shadow-lg",
-              "[animation:rise_220ms_cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none",
+              // Leaves through the bottom because that is where it came from.
+              "transition-transform duration-[240ms] ease-[--ease-drawer]",
+              shown ? "translate-y-0" : "translate-y-full",
+              "motion-reduce:transition-none motion-reduce:translate-y-0",
             )}
           >
             <div className="sticky top-0 flex items-center justify-between border-b border-border-subtle bg-surface px-4 py-3">

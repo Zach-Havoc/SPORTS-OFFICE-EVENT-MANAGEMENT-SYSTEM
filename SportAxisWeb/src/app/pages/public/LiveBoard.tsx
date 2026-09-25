@@ -1,3 +1,4 @@
+import { ScoreValue } from '../../components/ScoreValue';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useLiveScores } from '../../hooks/api';
@@ -59,9 +60,17 @@ function ScoreCard({ game }: { game: LiveScore }) {
             </p>
           </div>
           <div className="flex items-center gap-2 tabular-nums">
-            <span className={`text-4xl font-extrabold ${homeLead ? 'text-red-600' : 'text-gray-800'}`}>{game.homeScore}</span>
-            <span className="text-lg font-medium text-gray-300">–</span>
-            <span className={`text-4xl font-extrabold ${awayLead ? 'text-red-600' : 'text-gray-800'}`}>{game.awayScore}</span>
+            <ScoreValue
+              value={game.homeScore}
+              className={`numeral text-4xl ${homeLead ? 'text-brand' : 'text-text'}`}
+            />
+            <span className="text-lg font-medium text-text-muted" aria-hidden="true">
+              -
+            </span>
+            <ScoreValue
+              value={game.awayScore}
+              className={`numeral text-4xl ${awayLead ? 'text-brand' : 'text-text'}`}
+            />
           </div>
           <div className="min-w-0">
             <p className={`truncate text-sm font-semibold ${awayLead ? 'text-gray-900' : 'text-gray-500'}`} title={game.awayTeam ?? ''}>

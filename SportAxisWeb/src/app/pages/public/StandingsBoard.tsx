@@ -29,20 +29,36 @@ const RANK_TINT = ['', 'bg-muted/70', 'bg-muted/70'];
 
 /** Tween a number toward its new value whenever it changes. */
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
-  const [display, setDisplay] = useState(value);
+  const ref = useRef<HTMLSpanElement | null>(null);
   const fromRef = useRef(value);
 
   useEffect(() => {
+    const node = ref.current;
     const a = fromRef.current;
     const b = value;
-    if (a === b) return;
+    if (!node || a === b) {
+      if (node) node.textContent = String(b);
+      fromRef.current = b;
+      return;
+    }
+
+    // A total can jump by twenty points when a result is confirmed, so the
+    // count carries the size of the change. Reduced motion gets the value.
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      node.textContent = String(b);
+      fromRef.current = b;
+      return;
+    }
+
     const start = performance.now();
-    const dur = 550;
+    const dur = 480;
     let raf = 0;
     const tick = (t: number) => {
       const k = Math.min(1, (t - start) / dur);
       const eased = 1 - Math.pow(1 - k, 3);
-      setDisplay(Math.round(a + (b - a) * eased));
+      // Direct DOM write: no React render in the frame loop.
+      node.textContent = String(Math.round(a + (b - a) * eased));
       if (k < 1) raf = requestAnimationFrame(tick);
       else fromRef.current = b;
     };
@@ -50,7 +66,11 @@ function AnimatedNumber({ value, className }: { value: number; className?: strin
     return () => cancelAnimationFrame(raf);
   }, [value]);
 
-  return <span className={className}>{display}</span>;
+  return (
+    <span ref={ref} className={className}>
+      {value}
+    </span>
+  );
 }
 
 /** FLIP: when the row order changes, glide each row to its new position. */
@@ -68,10 +88,13 @@ function useFlip(order: string[]) {
       if (p == null || n == null) return;
       const dy = p - n;
       if (Math.abs(dy) < 1) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       el.style.transition = 'none';
       el.style.transform = `translateY(${dy}px)`;
       requestAnimationFrame(() => {
-        el.style.transition = 'transform 640ms cubic-bezier(.2,.7,.2,1)';
+        // Movement on screen, so ease-in-out rather than ease-out: the row
+        // leaves its old place and settles into the new one.
+        el.style.transition = 'transform 520ms cubic-bezier(0.77, 0, 0.175, 1)';
         el.style.transform = '';
       });
     });
