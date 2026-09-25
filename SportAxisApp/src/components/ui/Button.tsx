@@ -91,12 +91,12 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.4 },
 
   // ── Variants ────────────────────────────────────────────────────────────
-  primary:   { backgroundColor: COLORS.primary, ...SHADOWS.sm },
-  secondary: { backgroundColor: COLORS.surface, borderWidth: 1.5, borderColor: COLORS.borderStrong },
+  primary:   { backgroundColor: COLORS.action, ...SHADOWS.sm },
+  secondary: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
   tonal:     { backgroundColor: COLORS.primaryTint },
   danger:    { backgroundColor: COLORS.destructive, ...SHADOWS.sm },
-  ghost:     { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.primary },
-  ocr:       { backgroundColor: COLORS.ocr, ...SHADOWS.sm },
+  ghost:     { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.border },
+  ocr:       { backgroundColor: COLORS.action, ...SHADOWS.sm },
 
   // ── Sizes (a11y min heights) ────────────────────────────────────────────
   sm: { paddingVertical: SPACING.xs + 2, paddingHorizontal: SPACING.md, minHeight: 40 },
@@ -105,10 +105,10 @@ const styles = StyleSheet.create({
 
   // ── Labels ──────────────────────────────────────────────────────────────
   label: { ...TYPE.label, fontSize: 14, letterSpacing: 0.2 },
-  primaryLabel:   { color: COLORS.textInverse },
+  primaryLabel:   { color: COLORS.actionOn },
   secondaryLabel: { color: COLORS.textPrimary },
   tonalLabel:     { color: COLORS.primary },
   dangerLabel:    { color: COLORS.textInverse },
-  ghostLabel:     { color: COLORS.primary },
-  ocrLabel:       { color: COLORS.textInverse },
+  ghostLabel:     { color: COLORS.textPrimary },
+  ocrLabel:       { color: COLORS.actionOn },
 });

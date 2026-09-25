@@ -3,8 +3,9 @@ import { Platform, StyleSheet, Text, TextInput } from 'react-native';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Global text defaults — applied once, before the first render.
-//   1. Inter is the app font. RN doesn't synthesize weights for custom fonts,
-//      so a style's `fontWeight` is translated to the matching Inter *face*.
+//   1. Archivo is the app font, the same face the web client uses. RN does
+//      not synthesize weights for custom fonts, so a style's `fontWeight` is
+//      translated to the matching Archivo *face*.
 //   2. Every explicit `fontSize` is multiplied by FONT_SCALE (low-vision bump).
 // Patches <Text>/<TextInput>.render. Fully defensive: any failure falls back to
 // the untouched element so a stray text node can never crash the app.
@@ -12,18 +13,21 @@ import { Platform, StyleSheet, Text, TextInput } from 'react-native';
 
 export const FONT_SCALE = 1.12;
 
+// 800 and 900 resolve to Bold rather than a heavier face: the system carries
+// hierarchy with size, colour and space, and the extra-bold weight was only
+// ever used to shout.
 const FACE: Record<string, string> = {
-  '100': 'Inter_400Regular',
-  '200': 'Inter_400Regular',
-  '300': 'Inter_400Regular',
-  '400': 'Inter_400Regular',
-  '500': 'Inter_500Medium',
-  '600': 'Inter_600SemiBold',
-  '700': 'Inter_700Bold',
-  '800': 'Inter_800ExtraBold',
-  '900': 'Inter_800ExtraBold',
-  normal: 'Inter_400Regular',
-  bold: 'Inter_700Bold',
+  '100': 'Archivo_400Regular',
+  '200': 'Archivo_400Regular',
+  '300': 'Archivo_400Regular',
+  '400': 'Archivo_400Regular',
+  '500': 'Archivo_500Medium',
+  '600': 'Archivo_600SemiBold',
+  '700': 'Archivo_700Bold',
+  '800': 'Archivo_700Bold',
+  '900': 'Archivo_700Bold',
+  normal: 'Archivo_400Regular',
+  bold: 'Archivo_700Bold',
 };
 
 type Patchable = { render?: (...args: any[]) => unknown; __textPatched?: boolean };

@@ -5,11 +5,10 @@ import { AppState, PanResponder, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 // Sub-path imports so Metro only bundles these 5 faces, not the whole family.
-import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
-import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
-import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
-import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
+import { Archivo_400Regular } from '@expo-google-fonts/archivo/400Regular';
+import { Archivo_500Medium } from '@expo-google-fonts/archivo/500Medium';
+import { Archivo_600SemiBold } from '@expo-google-fonts/archivo/600SemiBold';
+import { Archivo_700Bold } from '@expo-google-fonts/archivo/700Bold';
 import { useAuthStore } from '../src/store/auth.store';
 import { useOfflineStore } from '../src/store/offline.store';
 import { useOfflineSync } from '../src/hooks/use-offline-sync';
@@ -18,10 +17,10 @@ import { applyTextDefaults } from '../src/utils/text-defaults';
 import { ToastHost } from '../src/components/ui/Toast';
 import { COLORS } from '../constants/theme';
 
-// Inter everywhere + low-vision size bump (patches <Text>/<TextInput>).
+// Archivo everywhere (matching the web client) + low-vision size bump.
 applyTextDefaults();
 
-// Keep the native splash up until Inter is ready.
+// Keep the native splash up until the faces are ready.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // 5 minutes in milliseconds
@@ -39,11 +38,10 @@ export default function RootLayout() {
   const logout         = useAuthStore((s) => s.logout);
 
   const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
+    Archivo_400Regular,
+    Archivo_500Medium,
+    Archivo_600SemiBold,
+    Archivo_700Bold,
   });
 
   const onLayout = useCallback(() => {
