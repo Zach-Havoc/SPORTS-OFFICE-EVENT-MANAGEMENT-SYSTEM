@@ -14,6 +14,13 @@ import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -162,31 +169,30 @@ function RequirementTypeManager() {
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() =>
+                  <Select
+                    value={!t.active ? "hidden" : t.required ? "required" : "optional"}
+                    onValueChange={(v) =>
                       update.mutate({
                         id: t.id,
-                        data: { required: !t.required },
+                        data:
+                          v === "hidden"
+                            ? { active: false }
+                            : { active: true, required: v === "required" },
                       })
                     }
                     disabled={update.isPending}
                   >
-                    {t.required ? "Required" : "Optional"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() =>
-                      update.mutate({ id: t.id, data: { active: !t.active } })
-                    }
-                    disabled={update.isPending}
-                  >
-                    {t.active ? "Active" : "Hidden"}
-                  </Button>
+                    <SelectTrigger size="sm" className="w-40" aria-label={`Status of ${t.name}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="required">Required</SelectItem>
+                      <SelectItem value="optional">Optional</SelectItem>
+                      <SelectItem value="hidden">Hidden from athletes</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button size="sm" variant="secondary" asChild>
-                    <label className="cursor-pointer">
+                    <label className="cursor-pointer" title="Upload blank template">
                       <Upload className="h-4 w-4" />
                       <input
                         type="file"
@@ -216,6 +222,7 @@ function RequirementTypeManager() {
                     variant="ghost"
                     className="text-red-600 hover:bg-red-50"
                     onClick={() => setRemoveTarget({ id: t.id, name: t.name })}
+                    title="Remove from checklist"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
