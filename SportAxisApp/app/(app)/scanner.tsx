@@ -1,4 +1,5 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, scanFromURLAsync, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -38,8 +39,10 @@ export default function ScannerScreen() {
 
   useEffect(() => { loadCache(); }, []);
 
-  const handleBarcodeScanned = async ({ data }: { data: string }) => {
-    if (scanned || isLoading) return;
+  const [reading, setReading] = useState(false);
+
+  // One path for every source of a QR code: the camera, or a saved image.
+  const openFromQr = async (data: string) => {
     setScanned(true);
     setCameraActive(false);
     setScanError(null);
@@ -55,6 +58,36 @@ export default function ScannerScreen() {
     }
   };
 
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    if (scanned || isLoading) return;
+    openFromQr(data);
+  };
+
+  /**
+   * The QR code the office emails arrives as a picture — read it straight
+   * from the photo library (a saved attachment or a screenshot), no second
+   * screen needed.
+   */
+  const uploadQrImage = async () => {
+    if (isLoading || reading) return;
+    setScanError(null);
+    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+    if (picked.canceled || !picked.assets?.[0]) return;
+    setReading(true);
+    try {
+      const found = await scanFromURLAsync(picked.assets[0].uri, ['qr']);
+      if (!found.length) {
+        setScanError('No QR code found in that picture. Try a clearer image or scan it with the camera.');
+        return;
+      }
+      await openFromQr(found[0].data);
+    } catch {
+      setScanError('Could not read that picture. Try another one or scan with the camera.');
+    } finally {
+      setReading(false);
+    }
+  };
+
   if (!permission) return <View style={styles.black} />;
 
   if (!permission.granted) {
@@ -63,10 +96,19 @@ export default function ScannerScreen() {
         <EmptyState
           icon="camera-off"
           title="Camera access needed"
-          hint="SportsAxis scans the event QR code to open its score sheet."
+          hint="SportsAxis scans the event QR code to open its score sheet. You can also upload the QR image the office emailed you."
           actionLabel="Allow camera"
           onAction={requestPermission}
         />
+        <View style={styles.permUpload}>
+          <Button
+            label={reading ? 'Reading…' : 'Upload QR image'}
+            variant="secondary"
+            onPress={uploadQrImage}
+            loading={reading}
+            icon={<Icon name="file-text" size={16} color={COLORS.textPrimary} />}
+          />
+        </View>
       </View>
     );
   }
@@ -104,9 +146,9 @@ export default function ScannerScreen() {
             <View style={[styles.corner, styles.br]} />
             <Animated.View style={[styles.scanLine, { transform: [{ translateY: scanLineY }] }]} />
           </View>
-          {isLoading && (
+          {(isLoading || reading) && (
             <View style={styles.statusChip}>
-              <Text style={styles.statusText}>Loading event…</Text>
+              <Text style={styles.statusText}>{reading ? 'Reading the picture…' : 'Loading event…'}</Text>
             </View>
           )}
           {!!scanError && (
@@ -131,6 +173,15 @@ export default function ScannerScreen() {
             </Pressable>
           )}
 
+          <Button
+            label="Upload QR image"
+            variant="secondary"
+            fullWidth
+            onPress={uploadQrImage}
+            disabled={isLoading || reading}
+            icon={<Icon name="file-text" size={16} color={COLORS.textPrimary} />}
+          />
+
           {scanned && !isLoading && (
             <Button
               label="Scan again"
@@ -149,6 +200,7 @@ export default function ScannerScreen() {
 const styles = StyleSheet.create({
   black: { flex: 1, backgroundColor: '#000' },
   permWrap: { flex: 1, backgroundColor: COLORS.background },
+  permUpload: { alignItems: 'center', paddingBottom: SPACING.xxl },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between' },
 
   top: { paddingTop: SPACING.xxl, paddingHorizontal: SPACING.lg, alignItems: 'center', gap: SPACING.sm },

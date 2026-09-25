@@ -47,6 +47,7 @@ export type NotificationKind =
   | 'protest_resolved'
   | 'requirement_reviewed'
   | 'score_disputed'
+  | 'committee_assigned'
   | (string & {});
 
 export interface AppNotification {

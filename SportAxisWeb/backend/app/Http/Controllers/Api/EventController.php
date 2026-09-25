@@ -7,8 +7,11 @@ use App\Http\Controllers\Concerns\ResolvesSeason;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\User;
 use App\Models\Venue;
+use App\Notifications\CommitteeAssigned;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class EventController extends Controller
@@ -151,6 +154,8 @@ class EventController extends Controller
             'qr_token' => Str::random(32),
         ]);
 
+        $this->notifyCommittee($event);
+
         return response()->json($event->toApiFormat(), 201);
     }
 
@@ -234,7 +239,13 @@ class EventController extends Controller
             $data['venue_id'] = $venue?->id;
         }
 
+        $before = $this->judgeIds($event);
         $event->update($data);
+
+        // Only the members added by this edit — the rest already have it.
+        if ($request->has('judges')) {
+            $this->notifyCommittee($event, $before);
+        }
 
         return response()->json($event->fresh()->toApiFormat());
     }
@@ -286,5 +297,54 @@ class EventController extends Controller
         $events->each(fn (Event $event) => $event->update(['status' => $data['status']]));
 
         return response()->json(['updated' => $events->count()]);
+    }
+
+    /**
+     * POST /api/events/{id}/send-qr (admin) — email the QR code to every
+     * assigned committee member again, e.g. after one lost it.
+     */
+    public function sendQr(string $id)
+    {
+        $event = Event::findOrFail($id);
+        $sent = $this->notifyCommittee($event);
+
+        if ($sent === 0) {
+            return response()->json(['error' => 'No committee members are assigned to this event yet.'], 422);
+        }
+
+        return response()->json(['sent' => $sent]);
+    }
+
+    /** @return array<int, string> */
+    private function judgeIds(Event $event): array
+    {
+        return collect($event->judges ?? [])->pluck('id')->filter()->values()->all();
+    }
+
+    /**
+     * Send the assignment (email with the QR code + in-app notification) to
+     * the event's committee members, skipping $except. A failed email never
+     * fails the save — the admin can resend from the QR dialog.
+     *
+     * @param  array<int, string>  $except
+     */
+    private function notifyCommittee(Event $event, array $except = []): int
+    {
+        $ids = array_diff($this->judgeIds($event), $except);
+        if (! $ids) {
+            return 0;
+        }
+
+        $sent = 0;
+        foreach (User::whereIn('id', $ids)->where('role', 'judge')->get() as $judge) {
+            try {
+                $judge->notify(new CommitteeAssigned($event));
+                $sent++;
+            } catch (\Throwable $e) {
+                Log::warning("Committee QR email to {$judge->email} failed: ".$e->getMessage());
+            }
+        }
+
+        return $sent;
     }
 }

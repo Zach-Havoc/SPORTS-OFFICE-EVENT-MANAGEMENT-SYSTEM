@@ -1,12 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
 import { Icon, type IconName } from '../../src/components/ui/Icon';
 import { Screen, ScreenHeader } from '../../src/components/ui/Screen';
 import { SkeletonList } from '../../src/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '../../src/components/ui/States';
 import { notificationService } from '../../src/services/notification.service';
+import { useEventStore } from '../../src/store/event.store';
 import type { AppNotification, NotificationKind } from '../../src/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,12 +25,14 @@ const KIND_ICON: Partial<Record<NotificationKind, IconName>> = {
   protest_resolved: 'check-circle',
   requirement_reviewed: 'verified',
   score_disputed: 'alert-triangle',
+  committee_assigned: 'qr',
 };
 const KIND_COLOR: Partial<Record<NotificationKind, { fg: string; bg: string }>> = {
   protest_filed: { fg: COLORS.warning, bg: COLORS.warningLight },
   protest_resolved: { fg: COLORS.success, bg: COLORS.successLight },
   requirement_reviewed: { fg: COLORS.info, bg: COLORS.infoLight },
   score_disputed: { fg: COLORS.destructive, bg: COLORS.errorLight },
+  committee_assigned: { fg: COLORS.textPrimary, bg: COLORS.surfaceAlt },
 };
 const DEFAULT_ICON: IconName = 'bell';
 const DEFAULT_TONE = { fg: COLORS.textSecondary, bg: COLORS.surfaceAlt };
@@ -52,6 +55,7 @@ function timeAgo(iso: string): string {
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const loadEvent = useEventStore((st) => st.loadByQrToken);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +88,19 @@ export default function NotificationsScreen() {
         await notificationService.markRead(n.id);
       } catch {
         // Non-critical — the unread badge will simply recount on next visit.
+      }
+    }
+
+    // "You're on the committee" carries the event's QR link: open its score
+    // sheet straight away instead of making them scan the emailed code.
+    const token = n.kind === 'committee_assigned' ? n.url?.match(/judge-qr\/[^/]+\/([^/?#]+)/)?.[1] : null;
+    if (token) {
+      try {
+        await loadEvent(token);
+        const id = useEventStore.getState().event?.id;
+        if (id) router.push(`/(app)/scoring/${id}`);
+      } catch (e: any) {
+        Alert.alert('Could not open the game', e?.message ?? 'Try scanning its QR code instead.');
       }
     }
   };

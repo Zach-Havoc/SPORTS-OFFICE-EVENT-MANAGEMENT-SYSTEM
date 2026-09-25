@@ -353,12 +353,17 @@ export default function AdminEventsEnhanced() {
 
     try {
       setSubmitting(true);
+      // The server emails the QR code to committee members newly assigned by
+      // this save; say so, so the office knows they don't need to send it.
+      const before = new Set((editingEvent?.judges ?? []).map((j: JudgeRef) => j.id));
+      const added = selectedJudges.filter(j => !before.has(j.id)).length;
+      const emailed = added ? ` QR code emailed to ${added} committee member${added === 1 ? '' : 's'}.` : '';
       if (editingEvent) {
         await updateEvent(editingEvent.id, cleanPayload);
-        toast.success('Event updated successfully');
+        toast.success(`Event updated.${emailed}`);
       } else {
         await createEvent(cleanPayload);
-        toast.success('Event created successfully');
+        toast.success(`Event created.${emailed}`);
       }
       setDialogOpen(false);
       loadData();

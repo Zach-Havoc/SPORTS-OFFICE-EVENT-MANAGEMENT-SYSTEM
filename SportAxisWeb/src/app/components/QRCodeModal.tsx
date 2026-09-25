@@ -1,7 +1,8 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Download, Copy, Check } from 'lucide-react';
+import { Download, Copy, Check, Mail } from 'lucide-react';
+import { sendEventQr } from '../services/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -16,6 +17,19 @@ interface QRCodeModalProps {
 
 export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }: QRCodeModalProps) {
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const emailCommittee = async () => {
+    try {
+      setSending(true);
+      const { sent } = await sendEventQr(eventId);
+      toast.success(`QR code emailed to ${sent} committee member${sent === 1 ? '' : 's'}.`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not email the QR code');
+    } finally {
+      setSending(false);
+    }
+  };
 
   // Web URL — used by browsers to open the web scoring page
   // The mobile app reads its API base URL from its own env config (EXPO_PUBLIC_API_URL)
@@ -77,7 +91,7 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
               />
             </div>
             <p className="text-xs text-gray-500 text-center">
-              Scan to open web scoring page <em>or</em> parse in the mobile app
+              Scan with the SportsAxis app, or open it in a browser to score on the web
             </p>
           </div>
 
@@ -96,10 +110,19 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
             </div>
           </div>
 
-          <Button onClick={handleDownloadQR} className="w-full">
-            <Download className="h-4 w-4 mr-2" />
-            Download QR Code (PNG)
-          </Button>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button onClick={handleDownloadQR}>
+              <Download className="h-4 w-4 mr-2" />
+              Download PNG
+            </Button>
+            <Button variant="secondary" onClick={emailCommittee} disabled={sending}>
+              <Mail className="h-4 w-4 mr-2" />
+              {sending ? 'Sending…' : 'Email to committee'}
+            </Button>
+          </div>
+          <p className="-mt-2 text-center text-xs text-gray-500">
+            Committee members get this QR code by email when they're assigned. Use this to send it again.
+          </p>
         </div>
       </DialogContent>
     </Dialog>

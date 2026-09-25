@@ -205,6 +205,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/events/bulk-delete', [EventController::class, 'bulkDestroy']);
         Route::post('/events/bulk-status', [EventController::class, 'bulkStatus']);
         Route::put('/events/{id}', [EventController::class, 'update']);
+        Route::post('/events/{id}/send-qr', [EventController::class, 'sendQr']);
         Route::delete('/events/{id}', [EventController::class, 'destroy']);
         Route::delete('/events/{id}/live', [LiveScoreController::class, 'destroy']);
         Route::post('/events/{id}/officialize', [ScoreController::class, 'officialize']);
