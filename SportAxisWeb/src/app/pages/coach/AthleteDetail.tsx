@@ -58,11 +58,12 @@ interface Athlete {
   coachId: string;
   teamIds: string[];
   status: 'active' | 'inactive' | 'injured';
+  // Null until the athlete fills it in (it's theirs to edit, not the coach's).
   emergencyContact: {
     name: string;
     relationship: string;
     phone: string;
-  };
+  } | null;
   createdAt: string;
 }
 
@@ -257,13 +258,13 @@ export default function AthleteDetail() {
             <CardDescription>In case of emergency</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {athlete.emergencyContact.name ? (
+            {athlete.emergencyContact?.name ? (
               <>
                 <div className="flex items-start gap-3">
                   <User className="h-5 w-5 text-gray-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Name</p>
-                    <p className="text-base">{athlete.emergencyContact.name}</p>
+                    <p className="text-base">{athlete.emergencyContact.name || '—'}</p>
                   </div>
                 </div>
 
@@ -271,7 +272,7 @@ export default function AthleteDetail() {
                   <User className="h-5 w-5 text-gray-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Relationship</p>
-                    <p className="text-base">{athlete.emergencyContact.relationship}</p>
+                    <p className="text-base">{athlete.emergencyContact.relationship || '—'}</p>
                   </div>
                 </div>
 
@@ -279,7 +280,7 @@ export default function AthleteDetail() {
                   <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Phone</p>
-                    <p className="text-base">{athlete.emergencyContact.phone}</p>
+                    <p className="text-base">{athlete.emergencyContact.phone || '—'}</p>
                   </div>
                 </div>
               </>
