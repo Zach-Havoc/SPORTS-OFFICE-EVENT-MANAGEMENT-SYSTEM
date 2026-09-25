@@ -1,3 +1,4 @@
+import { PageHeader } from "../page/PageHeader";
 import { ReactNode } from "react";
 import {
   ResponsiveContainer,
@@ -79,19 +80,9 @@ export function DashboardCanvas({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-full bg-surface-sunken px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1440px]">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-text">
-              {title}
-            </h1>
-            {subtitle && <p className="text-xs text-text-secondary">{subtitle}</p>}
-          </div>
-          {right && <div className="flex items-center gap-2">{right}</div>}
-        </div>
-        {children}
-      </div>
+    <div className="page-container py-6 sm:py-8">
+      <PageHeader title={title} description={subtitle} actions={right} />
+      {children}
     </div>
   );
 }
@@ -120,6 +111,7 @@ export function Tile({
   subtitle,
   right,
   span = 6,
+  variant = "boxed",
   className,
   bodyClassName,
   children,
@@ -128,6 +120,7 @@ export function Tile({
   subtitle?: string;
   right?: ReactNode;
   span?: Span;
+  variant?: "boxed" | "plain";
   className?: string;
   bodyClassName?: string;
   children: ReactNode;
@@ -135,36 +128,39 @@ export function Tile({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-white shadow-xs transition-shadow hover:shadow-sm",
         SPAN[span],
+        // `plain` is for a group that needs a heading and some space but not
+        // a box. Most dashboard regions are that, and boxing all of them is
+        // what makes a dashboard read as a pile of equal containers.
+        variant === "boxed"
+          ? "rounded-lg border border-border bg-surface"
+          : "rounded-lg",
         className,
       )}
     >
       {(title || right) && (
-        <div className="flex items-start justify-between gap-2 border-b border-border-subtle px-4 py-3">
+        <div
+          className={cn(
+            "flex items-start justify-between gap-2 px-4 py-3",
+            variant === "boxed" && "border-b border-border-subtle",
+            variant === "plain" && "px-0 pb-2 pt-0",
+          )}
+        >
           <div className="min-w-0">
-            {title && (
-              <h3 className="truncate text-[13px] font-semibold tracking-wide text-slate-700 uppercase">
-                {title}
-              </h3>
-            )}
-            {subtitle && (
-              <p className="mt-0.5 truncate text-[11px] text-text-muted">
-                {subtitle}
-              </p>
-            )}
+            {title && <h3 className="t-subsection truncate">{title}</h3>}
+            {subtitle && <p className="t-caption mt-0.5 truncate">{subtitle}</p>}
           </div>
           {right && <div className="shrink-0">{right}</div>}
         </div>
       )}
-      <div className={cn("p-4", bodyClassName)}>{children}</div>
+      <div className={cn(variant === "boxed" ? "p-4" : "p-0", bodyClassName)}>{children}</div>
     </div>
   );
 }
 
 export function Empty({
   h = 120,
-  msg = "No data yet",
+  msg = "Nothing recorded yet",
 }: {
   h?: number;
   msg?: string;
@@ -274,22 +270,37 @@ export function Metric({
   sparkType?: "area" | "line";
   color?: string;
 }) {
+  // A window with no records used to render "0", a delta of "0% vs. 0
+  // (prev.)", and a flat sparkline: three elements combining to say nothing,
+  // on a page where that was often every metric at once. When there is
+  // genuinely nothing to compare, the metric says so once and stops.
+  const isDormant =
+    (value === 0 || value === "0") &&
+    (prev == null || prev === 0 || prev === "0") &&
+    (!spark || spark.every((n) => n === 0));
+
   return (
     <div className="flex-1 px-3 py-1 text-center">
-      <p className="text-[13px] text-text-secondary">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-text sm:text-[2.5rem] sm:leading-tight">
-        {value}
-      </p>
-      {(pct != null || prev != null) && (
-        <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] text-text-muted">
-          <Delta pct={pct} />
-          {prev != null && <span>vs. {prev} (prev.)</span>}
-        </p>
-      )}
-      {spark && (
-        <div className="mt-2">
-          <Sparkline data={spark} color={color} type={sparkType} height={44} />
-        </div>
+      <p className="t-label">{label}</p>
+      {isDormant ? (
+        <p className="mt-3 text-sm text-text-muted">None in this window</p>
+      ) : (
+        <>
+          <p className="numeral mt-1 text-3xl text-text sm:text-[2.5rem] sm:leading-tight">
+            {value}
+          </p>
+          {(pct != null || prev != null) && (
+            <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] text-text-muted">
+              <Delta pct={pct} />
+              {prev != null && <span>vs. {prev} (prev.)</span>}
+            </p>
+          )}
+          {spark && (
+            <div className="mt-2">
+              <Sparkline data={spark} color={color} type={sparkType} height={44} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -310,7 +321,7 @@ export function HeroTile({
 }) {
   return (
     <Tile title={title} subtitle={subtitle} right={right} span={span}>
-      <div className="flex divide-x divide-slate-100">{children}</div>
+      <div className="flex divide-x divide-border-subtle">{children}</div>
     </Tile>
   );
 }
@@ -538,20 +549,20 @@ export function RankList({
   color?: string;
   unit?: string;
 }) {
-  if (!items.length || items.every((i) => !i.value)) return <Empty />;
+  if (!items.length || items.every((i) => !i.value)) return <Empty h={72} />;
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
     <div className="space-y-2.5">
       {items.map((i) => (
         <div key={i.label}>
           <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="truncate text-slate-600">{i.label}</span>
-            <span className="ml-2 shrink-0 font-semibold tabular-nums text-slate-700">
+            <span className="truncate text-text-secondary">{i.label}</span>
+            <span className="ml-2 shrink-0 font-semibold tabular-nums text-text">
               {i.value.toLocaleString()}
               {unit ? ` ${unit}` : ""}
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-slate-100">
+          <div className="h-1.5 w-full rounded-full bg-surface-sunken">
             <div
               className="h-full rounded-full"
               style={{ width: `${(i.value / max) * 100}%`, background: color }}

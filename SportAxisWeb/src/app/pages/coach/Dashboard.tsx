@@ -1,3 +1,5 @@
+import { AttentionBand } from "../../components/dashboard/AttentionBand";
+import { StatStrip } from "../../components/page/StatStrip";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { useAuth } from "../../context/AuthContext";
@@ -18,7 +20,6 @@ import {
   Tile,
   HeroTile,
   Metric,
-  IconStat,
   BareStat,
   MetricTable,
   DistBar,
@@ -35,7 +36,6 @@ import {
   CHART_COLORS,
 } from "../../components/dashboard/DashboardKit";
 import {
-  Users,
   CalendarClock,
   ClipboardCheck,
   UserPlus,
@@ -206,39 +206,50 @@ export default function CoachDashboard() {
         />
       }
     >
-      <Grid>
-        {/* Row A */}
-        <Tile title="Team Totals" span={3}>
-          <div className="grid grid-cols-2 gap-3">
-            <IconStat
-              icon={Users}
-              iconClass="text-muted-foreground"
-              value={athletes.length}
-              caption="Athletes"
-            />
-            <IconStat
-              icon={CalendarClock}
-              iconClass="text-muted-foreground"
-              value={upcomingGames.length}
-              caption="Upcoming"
-            />
-            <IconStat
-              icon={ClipboardCheck}
-              iconClass="text-muted-foreground"
-              value={pendingRequirements}
-              caption="Pending reqs"
-            />
-            <IconStat
-              icon={UserPlus}
-              iconClass="text-muted-foreground"
-              value={tryouts.length}
-              caption="Tryouts"
-            />
-          </div>
-        </Tile>
+      {/* What a coach opens this page to find out. Each entry hides itself
+          when there is nothing to report, so a settled week shows a settled
+          band instead of a row of zeroes. */}
+      <AttentionBand
+        items={[
+          {
+            count: pendingRequirements,
+            label: pendingRequirements === 1 ? "document to review" : "documents to review",
+            detail: "Athletes are waiting on your decision",
+            to: "/coach/requirements",
+            icon: ClipboardCheck,
+            tone: "action",
+          },
+          {
+            count: tryouts.length,
+            label: tryouts.length === 1 ? "tryout application" : "tryout applications",
+            detail: "New athletes asking to join your roster",
+            to: "/coach/athletes",
+            icon: UserPlus,
+            tone: "action",
+          },
+          {
+            count: upcomingGames.length,
+            label: upcomingGames.length === 1 ? "upcoming game" : "upcoming games",
+            detail: "Check your line-up before each fixture",
+            to: "/coach/schedule",
+            icon: CalendarClock,
+            tone: "info",
+          },
+        ]}
+      />
 
+      <StatStrip
+        stats={[
+          { label: "Athletes", value: athletes.length },
+          { label: "Upcoming", value: upcomingGames.length },
+          { label: "Pending reqs", value: pendingRequirements },
+          { label: "Tryouts", value: tryouts.length },
+        ]}
+      />
+
+      <Grid>
         <HeroTile
-          title="Session Activity"
+          title="Session activity"
           subtitle="Records logged in the selected window"
           span={6}
           right={<RangePicker value={rangeA} onChange={setRangeA} />}
@@ -261,7 +272,7 @@ export default function CoachDashboard() {
           />
         </HeroTile>
 
-        <Tile title="Team Health" span={3}>
+        <Tile title="Team health" span={3}>
           <div className="flex items-center justify-around gap-3">
             {attendanceRate == null ? (
               <BareStat value="—" label="Attendance rate" />
@@ -276,12 +287,12 @@ export default function CoachDashboard() {
         </Tile>
 
         {/* Row B */}
-        <Tile title="Requirements by Status" span={3}>
+        <Tile title="Requirements by status" span={3}>
           <DistBar segments={requirementSegments} />
         </Tile>
 
         <HeroTile
-          title="Requirements Review"
+          title="Requirements review"
           subtitle="Documents from your athletes"
           span={6}
           right={<RangePicker value={rangeB} onChange={setRangeB} />}
@@ -300,13 +311,13 @@ export default function CoachDashboard() {
           />
         </HeroTile>
 
-        <Tile title="Roster by Sport" span={3}>
+        <Tile title="Roster by sport" span={3}>
           <RankList items={rosterBySport} unit="" />
         </Tile>
 
         {/* Row C */}
         <Tile
-          title="Roster Activity Metrics"
+          title="Roster activity metrics"
           subtitle="Last 30 days vs previous 30 days"
           span={8}
         >
@@ -314,7 +325,7 @@ export default function CoachDashboard() {
         </Tile>
 
         <Tile
-          title="Attendance Breakdown"
+          title="Attendance breakdown"
           subtitle="Every mark you have recorded"
           span={4}
         >
@@ -322,7 +333,7 @@ export default function CoachDashboard() {
         </Tile>
 
         {/* Row D */}
-        <Tile title="Upcoming Games" subtitle="Your next fixtures" span={6}>
+        <Tile title="Upcoming games" subtitle="Your next fixtures" span={6}>
           {upcomingGames.length === 0 ? (
             <Empty h={180} msg="No upcoming games scheduled" />
           ) : (
@@ -363,7 +374,7 @@ export default function CoachDashboard() {
         </Tile>
 
         <Tile
-          title="Recent Tryout Applications"
+          title="Recent tryout applications"
           subtitle="Students applying through your announcements"
           span={6}
         >

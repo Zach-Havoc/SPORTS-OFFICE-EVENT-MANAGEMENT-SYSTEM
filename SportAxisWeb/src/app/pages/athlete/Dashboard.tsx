@@ -1,3 +1,4 @@
+import { EmptyState } from "../../components/page/EmptyState";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router";
 import { useAuth } from "../../context/AuthContext";
@@ -17,7 +18,6 @@ import { Badge } from "../../components/ui/badge";
 import {
   Calendar,
   TrendingUp,
-  FileText,
   Trophy,
   UserCheck,
   Loader2,
@@ -28,7 +28,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   CalendarCheck,
-  Users,
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -82,17 +81,17 @@ function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
           <h1 className="t-page-title mb-2">
             Join a Sports Team
           </h1>
-          <p className="text-gray-500 leading-relaxed">
+          <p className="t-page-lede mx-auto">
             Ask your coach for their <strong>enrollment code</strong> and enter
             it below to join their team.
           </p>
         </div>
 
-        <Card className="border-2 border-primary/20">
+        <Card>
           <CardContent className="pt-6 pb-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-text">
                   Enrollment Code
                 </label>
                 <Input
@@ -101,12 +100,12 @@ function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === "Enter" && handleEnroll()}
                   placeholder="e.g. AB1CD2"
-                  className="text-center text-2xl font-black tracking-[0.3em] uppercase h-14 font-mono"
+                  className="numeral h-14 text-center text-2xl uppercase tracking-[0.3em]"
                   maxLength={8}
                   disabled={loading}
                   autoFocus
                 />
-                <p className="text-xs text-gray-400 text-center mt-2">
+                <p className="t-caption mt-2 text-center">
                   6-character code from your coach
                 </p>
               </div>
@@ -132,7 +131,7 @@ function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
+        <p className="t-caption mt-4 text-center">
           You can only be enrolled in one sports team at a time.
         </p>
       </div>
@@ -174,6 +173,19 @@ function EnrolledDashboard({
           return isNaN(t) || t >= now - 86_400_000;
         })
         .sort((a, b) => (a.schedule < b.schedule ? -1 : 1))[0] ?? null,
+    [scheduleEvents, now],
+  );
+
+  const upcomingFixtures = useMemo(
+    () =>
+      scheduleEvents
+        .filter((e) => e.status !== "completed")
+        .filter((e) => {
+          const t = new Date(e.schedule).getTime();
+          return isNaN(t) || t >= now - 86_400_000;
+        })
+        .sort((a, b) => (a.schedule < b.schedule ? -1 : 1))
+        .slice(0, 5),
     [scheduleEvents, now],
   );
 
@@ -223,14 +235,6 @@ function EnrolledDashboard({
     return fmtDay(s);
   };
 
-  const quickLinks = [
-    { to: "/athlete/schedule", icon: Calendar, label: "Schedule" },
-    { to: "/athlete/performance", icon: TrendingUp, label: "Performance" },
-    { to: "/athlete/requirements", icon: FileText, label: "Requirements" },
-    { to: "/athlete/attendance", icon: CalendarCheck, label: "Attendance" },
-    { to: "/athlete/team", icon: Users, label: "My Team" },
-    { to: "/live", icon: Trophy, label: "Live Scores" },
-  ];
 
   return (
     <div className="container page-container px-4 py-6 sm:py-8">
@@ -240,25 +244,12 @@ function EnrolledDashboard({
           <h1 className="t-page-title">
             Hello, {userName.split(" ")[0]}
           </h1>
-          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-500">
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-text-secondary">
             <Trophy className="h-4 w-4 text-primary" />
             {enrollment.sport} · Coach {enrollment.coach?.name}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="border-red-200 text-red-600 hover:bg-red-50"
-          onClick={handleUnenroll}
-          disabled={unenrolling}
-        >
-          {unenrolling ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <LogOut className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          Leave team
-        </Button>
+
       </div>
 
       {/* The four answers an athlete opens the app for */}
@@ -266,19 +257,19 @@ function EnrolledDashboard({
         {/* Next game */}
         <Card>
           <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-3 flex items-center gap-2 t-label">
               <Calendar className="h-4 w-4" />
-              Next Game
+              Next game
             </div>
             {nextGame ? (
               <>
-                <p className="text-lg font-bold text-gray-900">
+                <p className="t-section">
                   {daysUntil(nextGame.schedule)}
                 </p>
-                <p className="mt-0.5 truncate text-sm text-gray-700">
+                <p className="mt-0.5 truncate text-sm text-text-secondary">
                   {nextGame.name}
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 t-caption">
                   {nextGame.startTime && (
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -294,7 +285,7 @@ function EnrolledDashboard({
                 </div>
               </>
             ) : (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-text-muted">
                 No upcoming games scheduled.
               </p>
             )}
@@ -308,7 +299,7 @@ function EnrolledDashboard({
           }
         >
           <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-3 flex items-center gap-2 t-label">
               {clearance?.cleared ? (
                 <ShieldCheck className="h-4 w-4" />
               ) : (
@@ -325,13 +316,13 @@ function EnrolledDashboard({
                     ? "Cleared to play"
                     : `${clearance.missing.length} outstanding`}
                 </p>
-                <p className="mt-0.5 text-sm text-gray-500">
+                <p className="mt-0.5 text-sm text-text-secondary">
                   {clearance.approvedCount}/{clearance.requiredCount} required
                   documents approved
                 </p>
               </>
             ) : (
-              <p className="text-sm text-gray-400">Loading…</p>
+              <p className="text-sm text-text-muted">Loading…</p>
             )}
             <Link
               to="/athlete/requirements"
@@ -346,24 +337,24 @@ function EnrolledDashboard({
         {/* Latest coach feedback */}
         <Card>
           <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-3 flex items-center gap-2 t-label">
               <TrendingUp className="h-4 w-4" />
-              Latest Feedback
+              Latest feedback
             </div>
             {latestFeedback ? (
               <>
                 <div className="flex items-center gap-2">
-                  <p className="text-lg font-bold text-gray-900">
+                  <p className="t-section">
                     {latestFeedback.overallRating}/10
                   </p>
                   <Badge variant="neutral">{latestFeedback.sport}</Badge>
                 </div>
-                <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
                   {latestFeedback.coachNotes || latestFeedback.eventName}
                 </p>
               </>
             ) : (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-text-muted">
                 No performance records yet.
               </p>
             )}
@@ -373,12 +364,12 @@ function EnrolledDashboard({
         {/* This week's attendance */}
         <Card>
           <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-3 flex items-center gap-2 t-label">
               <CalendarCheck className="h-4 w-4" />
-              This Week
+              This week
             </div>
             {thisWeek.length === 0 ? (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-text-muted">
                 No attendance marked this week.
               </p>
             ) : (
@@ -398,7 +389,7 @@ function EnrolledDashboard({
                     title={`${a.status} · ${a.date}`}
                   />
                 ))}
-                <span className="ml-1 text-sm text-gray-500">
+                <span className="ml-1 text-sm text-text-secondary">
                   {thisWeek.length} marked
                 </span>
               </div>
@@ -407,18 +398,61 @@ function EnrolledDashboard({
         </Card>
       </div>
 
-      {/* Quick links */}
-      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {quickLinks.map((l) => (
-          <Link
-            key={l.to}
-            to={l.to}
-            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 text-sm font-medium text-gray-700 transition-colors hover:border-primary/40 hover:bg-primary/5"
-          >
-            <l.icon className="h-4 w-4 text-gray-400" />
-            {l.label}
-          </Link>
-        ))}
+      {/* The four cards answer "how am I doing". This answers "what is
+          coming", which is the other half of why an athlete opens this page,
+          and it used to be a grid of shortcuts repeating the navigation
+          two inches to the left. */}
+      <section className="mt-8">
+        <h2 className="t-section mb-3">Your fixtures</h2>
+        {upcomingFixtures.length === 0 ? (
+          <div className="rounded-lg border border-border bg-surface">
+            <EmptyState
+              compact
+              icon={Calendar}
+              title="No fixtures scheduled"
+              description="Games appear here once the Sports Office schedules your team."
+            />
+          </div>
+        ) : (
+          <ul className="overflow-hidden rounded-lg border border-border bg-surface">
+            {upcomingFixtures.map((e, i) => (
+              <li
+                key={e.id ?? i}
+                className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-border-subtle px-4 py-3 last:border-0"
+              >
+                <span className="w-24 shrink-0 text-sm font-medium text-text">
+                  {daysUntil(e.schedule)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm text-text">{e.name}</span>
+                {e.startTime && <span className="t-caption">{e.startTime}</span>}
+                {e.venueName && <span className="t-caption">{e.venueName}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Live scores is the one destination an athlete reaches for that is
+          not in their own navigation. Leaving the team is a rare, reversible
+          decision, not a header action. */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-5">
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/live">Live scores</Link>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-text-muted hover:text-danger"
+          onClick={handleUnenroll}
+          disabled={unenrolling}
+        >
+          {unenrolling ? (
+            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+          ) : (
+            <LogOut className="mr-1.5 size-3.5" />
+          )}
+          Leave team
+        </Button>
       </div>
     </div>
   );

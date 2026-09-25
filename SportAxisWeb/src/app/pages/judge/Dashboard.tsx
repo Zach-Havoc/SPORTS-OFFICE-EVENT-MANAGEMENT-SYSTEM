@@ -1,3 +1,5 @@
+import { EmptyState } from "../../components/page/EmptyState";
+import { PageHeader } from "../../components/page/PageHeader";
 import { useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
@@ -7,7 +9,7 @@ import { RefreshStatus } from '../../components/RefreshStatus';
 import { useDeptAbbreviator } from '../../utils/departments';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Calendar, Users, ArrowRight } from 'lucide-react';
+import { Calendar, Users, ArrowRight, Gavel } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -42,47 +44,49 @@ export default function JudgeDashboard() {
   if (isLoading) {
     return (
       <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">Loading...</div>
+        <div className="py-12 text-center text-text-muted">Loading your events</div>
       </div>
     );
   }
 
   return (
     <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-3">
-          <h1 className="t-page-title">Committee Panel</h1>
+      <PageHeader
+        title="Committee Panel"
+        description={`Welcome, ${user?.name ?? ""}. Pick an event to start scoring.`}
+        actions={
           <RefreshStatus
             fetching={isFetching && !isLoading}
             error={isRefetchError}
             onRetry={() => refetch()}
           />
-        </div>
-        <p className="text-gray-500 mt-1">Welcome, {user?.name}. Select an event to start scoring.</p>
-      </div>
+        }
+      />
 
       {events.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-gray-500">
-            No ongoing events available for scoring at the moment
-          </CardContent>
+          <EmptyState
+            icon={Gavel}
+            title="No events to score right now"
+            description="Events appear here once the Sports Office marks them ongoing and assigns you to the committee."
+          />
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {events.map(event => (
-            <Card key={event.id} className="hover:shadow-lg transition-shadow">
+            <Card key={event.id} variant="raised">
               <CardHeader>
-                <Badge className="bg-green-500 w-fit mb-2">Ongoing</Badge>
-                <CardTitle className="text-xl">{abbr(event.name)}</CardTitle>
+                <Badge variant="success" className="mb-2 w-fit">Ongoing</Badge>
+                <CardTitle>{abbr(event.name)}</CardTitle>
                 <CardDescription>{event.category}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-text-secondary">
                     <Calendar className="h-4 w-4 mr-2" />
                     {new Date(event.schedule).toLocaleDateString()}
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-text-secondary">
                     <Users className="h-4 w-4 mr-2" />
                     {(event.departments || []).length} departments
                   </div>

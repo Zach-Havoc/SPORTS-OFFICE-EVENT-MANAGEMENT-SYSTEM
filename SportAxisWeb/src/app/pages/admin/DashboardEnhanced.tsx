@@ -1,3 +1,5 @@
+import { useDeptAbbreviator, shortDeptLabel } from "../../utils/departments";
+import { StatStrip } from "../../components/page/StatStrip";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
@@ -21,7 +23,6 @@ import {
   Tile,
   HeroTile,
   Metric,
-  IconStat,
   MetricTable,
   DistBar,
   RankList,
@@ -35,7 +36,7 @@ import {
   MEDAL_COLORS,
   CHART_COLORS,
 } from "../../components/dashboard/DashboardKit";
-import { Calendar, GraduationCap, Users, Gavel, Radio, UserX, ClipboardCheck } from "lucide-react";
+import { Radio, UserX, ClipboardCheck } from "lucide-react";
 import { AttentionBand, type AttentionItem } from "../../components/dashboard/AttentionBand";
 
 export default function DashboardEnhanced() {
@@ -46,6 +47,7 @@ export default function DashboardEnhanced() {
     if (!user || user.role !== "admin") navigate("/login");
   }, [user, navigate]);
 
+  const abbreviate = useDeptAbbreviator();
   const eventsQuery = useEvents();
   const departmentsQuery = useDepartments();
   const categoriesQuery = useCategories();
@@ -191,20 +193,20 @@ export default function DashboardEnhanced() {
     () =>
       leaderboard
         .map((r) => ({
-          label: r.department ?? "—",
+          label: shortDeptLabel(abbreviate, r.department, 28) || "Unassigned",
           value: Number(r.total ?? 0),
         }))
         .filter((r) => r.value > 0)
         .sort((a, b) => b.value - a.value)
         .slice(0, 8),
-    [leaderboard],
+    [leaderboard, abbreviate],
   );
 
   const medalsByCollege = useMemo(
     () =>
       leaderboard
         .map((r) => ({
-          name: (r.department ?? "—").split(" ")[0],
+          name: shortDeptLabel(abbreviate, r.department) || "Unassigned",
           gold: Number(r.gold ?? 0),
           silver: Number(r.silver ?? 0),
           bronze: Number(r.bronze ?? 0),
@@ -215,7 +217,7 @@ export default function DashboardEnhanced() {
             b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze,
         )
         .slice(0, 7),
-    [leaderboard],
+    [leaderboard, abbreviate],
   );
 
   const eventsBySport = useMemo(
@@ -288,122 +290,28 @@ export default function DashboardEnhanced() {
     >
       <AttentionBand items={attention} />
 
+      {/* Twelve counts used to live in three separate boxes (System Totals,
+          Configuration, Season Records). They are one line of figures: none
+          of them is a finding, they are the shape of the season. */}
+      <StatStrip
+        stats={[
+          { label: "Events", value: totals.events },
+          { label: "Athletes", value: totals.athletes },
+          { label: "Coaches", value: totals.coaches },
+          { label: "Committee", value: totals.committee },
+          { label: "Colleges", value: totals.colleges },
+          { label: "Sports", value: totals.sports },
+          { label: "Venues", value: totals.venues },
+          { label: "Brackets", value: totals.brackets },
+        ]}
+      />
+
       <Grid>
-        {/* Row A */}
-        <Tile title="System Totals" span={3}>
-          <div className="grid grid-cols-2 gap-3">
-            <IconStat
-              icon={Calendar}
-              iconClass="text-muted-foreground"
-              value={totals.events}
-              caption="Events"
-            />
-            <IconStat
-              icon={GraduationCap}
-              iconClass="text-muted-foreground"
-              value={totals.athletes}
-              caption="Athletes"
-            />
-            <IconStat
-              icon={Users}
-              iconClass="text-muted-foreground"
-              value={totals.coaches}
-              caption="Coaches"
-            />
-            <IconStat
-              icon={Gavel}
-              iconClass="text-muted-foreground"
-              value={totals.committee}
-              caption="Committee"
-            />
-          </div>
-        </Tile>
-
-        <HeroTile
-          title="Event & Account Activity"
-          subtitle="New records created in the selected window"
-          span={6}
-          right={<RangePicker value={rangeA} onChange={setRangeA} />}
-        >
-          <Metric
-            label="Events Created"
-            value={evCreated.current.toLocaleString()}
-            pct={evCreated.pct}
-            prev={evCreated.prev.toLocaleString()}
-            spark={dailyCounts(events, "createdAt", rangeA)}
-          />
-          <Metric
-            label="Accounts Created"
-            value={acctCreated.current.toLocaleString()}
-            pct={acctCreated.pct}
-            prev={acctCreated.prev.toLocaleString()}
-            spark={dailyCounts(users, "createdAt", rangeA)}
-          />
-        </HeroTile>
-
-        <Tile title="Configuration" span={3}>
-          <div className="grid grid-cols-2 gap-x-5">
-            <RecordLine label="Colleges" value={totals.colleges} />
-            <RecordLine label="Sports" value={totals.sports} />
-            <RecordLine label="Venues" value={totals.venues} />
-            <RecordLine label="Brackets" value={totals.brackets} />
-          </div>
-        </Tile>
-
-        {/* Row B */}
-        <Tile title="Events by Status" span={3}>
-          <DistBar segments={statusSegments} />
-        </Tile>
-
-        <HeroTile
-          title="New Registrations"
-          subtitle="Accounts joining by role"
-          span={6}
-          right={<RangePicker value={rangeB} onChange={setRangeB} />}
-        >
-          <Metric
-            label="New Athletes"
-            value={newAthletes.current.toLocaleString()}
-            pct={newAthletes.pct}
-            prev={newAthletes.prev.toLocaleString()}
-            spark={dailyCounts(athleteUsers, "createdAt", rangeB)}
-            color={CHART_COLORS[0]}
-          />
-          <Metric
-            label="New Coaches"
-            value={newCoaches.current.toLocaleString()}
-            pct={newCoaches.pct}
-            prev={newCoaches.prev.toLocaleString()}
-            spark={dailyCounts(coachUsers, "createdAt", rangeB)}
-            color={CHART_COLORS[1]}
-          />
-        </HeroTile>
-
-        <Tile title="Accounts by Role" span={3}>
-          <DistBar segments={roleSegments} />
-        </Tile>
-
-        {/* Row C */}
+        {/* Competition state first. This is a sports office: how the colleges
+            are placed matters more than how many accounts were created last
+            week, and the old order had it the other way round. */}
         <Tile
-          title="Key Activity Metrics"
-          subtitle="Last 30 days vs previous 30 days"
-          span={8}
-        >
-          <MetricTable rows={activityRows} />
-        </Tile>
-
-        <Tile title="Season Records" span={4}>
-          <div className="grid grid-cols-2 gap-x-6">
-            <RecordLine label="Completed events" value={totals.completed} />
-            <RecordLine label="Events ongoing" value={totals.ongoing} />
-            <RecordLine label="Active accounts" value={totals.activeAccounts} />
-            <RecordLine label="Athletes" value={totals.athletes} />
-          </div>
-        </Tile>
-
-        {/* Row D */}
-        <Tile
-          title="Points by College"
+          title="Points by college"
           subtitle="Team standings from scored events"
           span={6}
         >
@@ -411,7 +319,7 @@ export default function DashboardEnhanced() {
         </Tile>
 
         <Tile
-          title="Medal Tally by College"
+          title="Medal tally by college"
           subtitle="Gold, silver and bronze finishes"
           span={6}
         >
@@ -425,9 +333,62 @@ export default function DashboardEnhanced() {
           />
         </Tile>
 
-        {/* Row E */}
+        <Tile title="Events by status" span={4}>
+          <DistBar segments={statusSegments} />
+        </Tile>
+
+        <HeroTile
+          title="Event and account activity"
+          subtitle="New records created in the selected window"
+          span={8}
+          right={<RangePicker value={rangeA} onChange={setRangeA} />}
+        >
+          <Metric
+            label="Events created"
+            value={evCreated.current.toLocaleString()}
+            pct={evCreated.pct}
+            prev={evCreated.prev.toLocaleString()}
+            spark={dailyCounts(events, "createdAt", rangeA)}
+          />
+          <Metric
+            label="Accounts created"
+            value={acctCreated.current.toLocaleString()}
+            pct={acctCreated.pct}
+            prev={acctCreated.prev.toLocaleString()}
+            spark={dailyCounts(users, "createdAt", rangeA)}
+          />
+        </HeroTile>
+
+        <Tile title="Accounts by role" span={4}>
+          <DistBar segments={roleSegments} />
+        </Tile>
+
+        <HeroTile
+          title="New registrations"
+          subtitle="Accounts joining by role"
+          span={8}
+          right={<RangePicker value={rangeB} onChange={setRangeB} />}
+        >
+          <Metric
+            label="New athletes"
+            value={newAthletes.current.toLocaleString()}
+            pct={newAthletes.pct}
+            prev={newAthletes.prev.toLocaleString()}
+            spark={dailyCounts(athleteUsers, "createdAt", rangeB)}
+            color={CHART_COLORS[0]}
+          />
+          <Metric
+            label="New coaches"
+            value={newCoaches.current.toLocaleString()}
+            pct={newCoaches.pct}
+            prev={newCoaches.prev.toLocaleString()}
+            spark={dailyCounts(coachUsers, "createdAt", rangeB)}
+            color={CHART_COLORS[1]}
+          />
+        </HeroTile>
+
         <Tile
-          title="Events by Sport"
+          title="Events by sport"
           subtitle="Fixture count per discipline"
           span={6}
         >
@@ -435,24 +396,22 @@ export default function DashboardEnhanced() {
         </Tile>
 
         <Tile
-          title="Athletes by College"
+          title="Athletes by college"
           subtitle="Registered athlete accounts"
           span={6}
         >
           <RankList items={athletesByCollege} color={CHART_COLORS[1]} />
+        </Tile>
+
+        <Tile
+          title="Key activity metrics"
+          subtitle="Last 30 days vs previous 30 days"
+          span={12}
+        >
+          <MetricTable rows={activityRows} />
         </Tile>
       </Grid>
     </DashboardCanvas>
   );
 }
 
-function RecordLine({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between border-b border-border-subtle py-2 last:border-0">
-      <span className="t-caption">{label}</span>
-      <span className="text-sm font-semibold tabular-nums text-text">
-        {value.toLocaleString()}
-      </span>
-    </div>
-  );
-}
