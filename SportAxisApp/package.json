@@ -4,8 +4,6 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "start:local": "node scripts/start-with-api.js local",
-    "start:prod": "node scripts/start-with-api.js prod",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",

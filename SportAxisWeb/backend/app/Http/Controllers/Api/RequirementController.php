@@ -123,7 +123,7 @@ class RequirementController extends Controller
             $extension = strtolower($file->extension() ?: $file->getClientOriginalExtension());
             $fileName = Str::uuid().($extension ? ('.'.$extension) : '');
             $filePath = $file->storeAs('requirements', $fileName, 'public');
-            $fileUrl = Storage::disk('public')->url($filePath);
+            $fileUrl = Storage::url($filePath);
         }
 
         $req = Requirement::create([

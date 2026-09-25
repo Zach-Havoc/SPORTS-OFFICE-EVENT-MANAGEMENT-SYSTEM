@@ -29,13 +29,6 @@ return Application::configure(basePath: dirname(__DIR__))
             ThrottleRequests::class.':api',
         ]);
 
-        // Behind a TLS-terminating load balancer (Render), trust its
-        // X-Forwarded-* headers so request()->secure() and the client IP are
-        // right. Unset everywhere else, so nothing changes on other hosts.
-        if ($proxies = env('TRUSTED_PROXIES')) {
-            $middleware->trustProxies(at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
-        }
-
         // Register role middleware alias
         $middleware->alias([
             'role' => CheckRole::class,

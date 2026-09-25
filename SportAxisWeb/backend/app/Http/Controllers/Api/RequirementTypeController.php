@@ -99,7 +99,7 @@ class RequirementTypeController extends Controller
         $fileName = Str::uuid().($extension ? ('.'.$extension) : '');
         $filePath = $file->storeAs('requirement_type_templates', $fileName, 'public');
 
-        $type->update(['template_file_url' => Storage::disk('public')->url($filePath)]);
+        $type->update(['template_file_url' => Storage::url($filePath)]);
 
         return response()->json($type->fresh()->toApiFormat());
     }
@@ -119,12 +119,9 @@ class RequirementTypeController extends Controller
         if (! $url) {
             return;
         }
-        // Works for both a local "/storage/…" URL and a bucket URL that may
-        // carry the bucket name in its path.
-        $path = parse_url($url, PHP_URL_PATH) ?? '';
-        $at = strpos($path, 'requirement_type_templates/');
-        $rel = $at === false ? null : substr($path, $at);
-        if ($rel) {
+        $rel = ltrim(parse_url($url, PHP_URL_PATH) ?? '', '/');
+        $rel = preg_replace('#^storage/#', '', $rel);
+        if ($rel && str_starts_with($rel, 'requirement_type_templates/')) {
             Storage::disk('public')->delete($rel);
         }
     }
