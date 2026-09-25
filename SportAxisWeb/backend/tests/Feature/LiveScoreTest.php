@@ -47,11 +47,11 @@ class LiveScoreTest extends TestCase
 
     public function test_a_committee_member_starts_and_updates_a_live_score(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->create([
             'status' => 'upcoming',
             'departments' => ['College of Engineering', 'College of Business'],
         ]);
+        $this->actingAsJudgeFor($event);
 
         $first = $this->putJson("/api/events/{$event->id}/live", [
             'homeScore' => 4, 'awayScore' => 2, 'period' => 'Q1',
@@ -74,11 +74,11 @@ class LiveScoreTest extends TestCase
 
     public function test_finalising_completes_the_event_and_records_the_head_to_head(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->ongoing()->create([
             'category' => 'Basketball',
             'departments' => ['Team A', 'Team B'],
         ]);
+        $this->actingAsJudgeFor($event);
 
         $this->putJson("/api/events/{$event->id}/live", [
             'homeScore' => 77, 'awayScore' => 64, 'status' => 'final',
@@ -94,8 +94,8 @@ class LiveScoreTest extends TestCase
 
     public function test_a_stale_write_is_rejected_with_409(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->create();
+        $this->actingAsJudgeFor($event);
         LiveScore::create([
             'id' => 'ls-1', 'event_id' => $event->id, 'sport' => 'Basketball',
             'home_score' => 20, 'away_score' => 18, 'status' => 'in_progress', 'version' => 5,
@@ -105,6 +105,27 @@ class LiveScoreTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('live.version', 5)
             ->assertJsonPath('live.homeScore', 20);
+    }
+
+    public function test_a_committee_member_not_assigned_to_the_game_cannot_push_a_live_score(): void
+    {
+        $assigned = $this->users()->judge()->create();
+        $event = $this->events()->judgedBy($assigned)->create();
+
+        $this->actingAsRole('judge');
+        $this->putJson("/api/events/{$event->id}/live", ['homeScore' => 1])->assertForbidden();
+        $this->assertDatabaseCount('live_scores', 0);
+
+        $this->loginAs($assigned);
+        $this->putJson("/api/events/{$event->id}/live", ['homeScore' => 1])->assertOk();
+    }
+
+    public function test_the_office_can_push_a_live_score_without_being_assigned(): void
+    {
+        $event = $this->events()->create();
+
+        $this->actingAsRole('admin');
+        $this->putJson("/api/events/{$event->id}/live", ['homeScore' => 3])->assertOk();
     }
 
     public function test_coaches_and_athletes_cannot_push_a_live_score(): void

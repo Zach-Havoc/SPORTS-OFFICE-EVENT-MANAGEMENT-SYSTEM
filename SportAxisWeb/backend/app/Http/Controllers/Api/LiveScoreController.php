@@ -58,6 +58,10 @@ class LiveScoreController extends Controller
     {
         $event = Event::findOrFail($eventId);
 
+        if (! $event->isScorableBy($request->user())) {
+            return response()->json(['error' => 'You are not assigned to score this game.'], 403);
+        }
+
         $data = $request->validate([
             'homeTeam' => 'sometimes|nullable|string|max:255',
             'awayTeam' => 'sometimes|nullable|string|max:255',

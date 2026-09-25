@@ -61,6 +61,10 @@ class ScoreController extends Controller
         // rigging the event rankings.
         $judge = $request->user();
 
+        if (! Event::find($request->eventId)?->isScorableBy($judge)) {
+            return $this->notAssigned();
+        }
+
         $score = Score::updateOrCreate(
             [
                 'event_id' => $request->eventId,
@@ -118,7 +122,10 @@ class ScoreController extends Controller
     /** POST /api/scores/{id}/verify — clear a dispute; the score counts again. */
     public function verify(string $id)
     {
-        $score = Score::findOrFail($id);
+        $score = Score::with('event')->findOrFail($id);
+        if (! $score->event?->isScorableBy(request()->user())) {
+            return $this->notAssigned();
+        }
         $score->update([
             'status' => $score->status === 'official' ? 'official' : 'verified',
             'dispute_reason' => null,
@@ -136,6 +143,9 @@ class ScoreController extends Controller
         $data = $request->validate(['reason' => 'required|string|min:5|max:1000']);
 
         $score = Score::with('event')->findOrFail($id);
+        if (! $score->event?->isScorableBy($request->user())) {
+            return $this->notAssigned();
+        }
         $score->update(['status' => 'disputed', 'dispute_reason' => $data['reason']]);
         self::recalculateRankings($score->event_id);
 
@@ -160,7 +170,10 @@ class ScoreController extends Controller
             'reason' => 'required|string|min:5|max:1000',
         ]);
 
-        $score = Score::findOrFail($id);
+        $score = Score::with('event')->findOrFail($id);
+        if (! $score->event?->isScorableBy($request->user())) {
+            return $this->notAssigned();
+        }
 
         ScoreAmendment::create([
             'id' => (string) Str::uuid(),
@@ -195,6 +208,11 @@ class ScoreController extends Controller
         self::recalculateRankings($eventId);
 
         return response()->json(['officialized' => $scores->count()]);
+    }
+
+    private function notAssigned()
+    {
+        return response()->json(['error' => 'You are not assigned to score this game.'], 403);
     }
 
     public static function recalculateRankings(string $eventId): void

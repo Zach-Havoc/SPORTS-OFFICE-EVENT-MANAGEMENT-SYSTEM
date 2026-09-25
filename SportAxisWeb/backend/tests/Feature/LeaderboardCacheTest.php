@@ -48,7 +48,7 @@ class LeaderboardCacheTest extends TestCase
     {
         $this->categories()->create(['name' => 'Cheerdance', 'format' => 'ranked']);
         $event = $this->events()->create(['category' => 'Cheerdance']);
-        $judge = $this->actingAsRole('judge');
+        $judge = $this->actingAsJudgeFor($event);
         // Same judge_id as the resubmission below, so the update replaces this
         // row instead of averaging in as a second judge's score.
         $this->scores()->create(['event_id' => $event->id, 'department' => 'CET', 'total_score' => 95, 'judge_id' => $judge->id]);

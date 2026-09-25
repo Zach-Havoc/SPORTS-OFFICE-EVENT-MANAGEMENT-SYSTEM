@@ -50,8 +50,8 @@ class ScoreRankingTest extends TestCase
 
     public function test_a_judge_can_submit_a_score(): void
     {
-        $judge = $this->actingAsRole('judge', ['name' => 'Judge Judy']);
         $event = $this->events()->ongoing()->create();
+        $judge = $this->actingAsJudgeFor($event, ['name' => 'Judge Judy']);
 
         $this->postJson('/api/scores', $this->scorePayload($event->id))
             ->assertCreated()
@@ -67,8 +67,8 @@ class ScoreRankingTest extends TestCase
 
     public function test_judge_id_in_the_body_is_ignored_no_spoofing(): void
     {
-        $judge = $this->actingAsRole('judge');
         $event = $this->events()->ongoing()->create();
+        $judge = $this->actingAsJudgeFor($event);
 
         $this->postJson('/api/scores', $this->scorePayload($event->id, [
             'judgeId' => 'some-other-judge-id',
@@ -78,6 +78,44 @@ class ScoreRankingTest extends TestCase
         // Stored under the authenticated judge, not the spoofed id.
         $this->assertSame($judge->id, Score::first()->judge_id);
         $this->assertDatabaseMissing('scores', ['judge_id' => 'some-other-judge-id']);
+    }
+
+    public function test_a_judge_not_assigned_to_the_game_cannot_submit_a_score(): void
+    {
+        $assigned = $this->users()->judge()->create();
+        $event = $this->events()->ongoing()->judgedBy($assigned)->create();
+
+        $this->actingAsRole('judge');   // a committee member, but not on this game
+        $this->postJson('/api/scores', $this->scorePayload($event->id))
+            ->assertForbidden()
+            ->assertJsonFragment(['error' => 'You are not assigned to score this game.']);
+
+        $this->assertDatabaseCount('scores', 0);
+    }
+
+    public function test_a_game_with_no_committee_assigned_cannot_be_scored_by_a_judge(): void
+    {
+        $event = $this->events()->ongoing()->create();   // judges: []
+
+        $this->actingAsRole('judge');
+        $this->postJson('/api/scores', $this->scorePayload($event->id))->assertForbidden();
+    }
+
+    public function test_a_judge_cannot_verify_dispute_or_amend_another_games_score(): void
+    {
+        $assigned = $this->users()->judge()->create();
+        $event = $this->events()->ongoing()->judgedBy($assigned)->create();
+        $this->loginAs($assigned);
+        $this->postJson('/api/scores', $this->scorePayload($event->id))->assertCreated();
+        $score = Score::first();
+
+        $this->actingAsRole('judge');   // not assigned
+        $this->postJson("/api/scores/{$score->id}/verify")->assertForbidden();
+        $this->postJson("/api/scores/{$score->id}/dispute", ['reason' => 'Looks wrong to me'])->assertForbidden();
+        $this->postJson("/api/scores/{$score->id}/amend", ['totalScore' => 1, 'reason' => 'Changing it'])->assertForbidden();
+
+        $this->assertEquals(85, $score->fresh()->total_score);
+        $this->assertSame($score->status, $score->fresh()->status);
     }
 
     public function test_admin_may_also_submit_scores(): void
@@ -103,8 +141,8 @@ class ScoreRankingTest extends TestCase
 
     public function test_resubmitting_updates_the_same_row(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->ongoing()->create();
+        $this->actingAsJudgeFor($event);
 
         $this->postJson('/api/scores', $this->scorePayload($event->id, ['totalScore' => 70]))->assertCreated();
         $this->postJson('/api/scores', $this->scorePayload($event->id, ['totalScore' => 95]))->assertCreated();
@@ -115,15 +153,15 @@ class ScoreRankingTest extends TestCase
 
     public function test_submitting_a_score_recalculates_rankings_highest_average_first(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->ongoing()->create();
+        $this->actingAsJudgeFor($event);
 
         $this->postJson('/api/scores', $this->scorePayload($event->id, [
             'department' => 'Team A', 'totalScore' => 90,
         ]))->assertCreated();
 
-        // A different judge scores Team B lower.
-        $this->actingAsRole('judge');
+        // A different (also assigned) judge scores Team B lower.
+        $this->actingAsJudgeFor($event);
         $this->postJson('/api/scores', $this->scorePayload($event->id, [
             'department' => 'Team B', 'totalScore' => 60,
         ]))->assertCreated();

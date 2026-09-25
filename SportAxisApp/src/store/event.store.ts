@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { eventService } from '../services/event.service';
 import type { EventSession } from '../types';
+import { useAuthStore } from './auth.store';
+import { isAssignedCommittee, NOT_ASSIGNED_MESSAGE } from '../utils/committee';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event Store — Current event session state
@@ -30,6 +32,11 @@ export const useEventStore = create<EventStore>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { event } = await eventService.getEventByQrToken(qrToken);
+      // Only the committee the office assigned to this game may open its
+      // score sheet — scanning another game's QR must not let anyone in.
+      if (!isAssignedCommittee(event, useAuthStore.getState().user)) {
+        throw new Error(NOT_ASSIGNED_MESSAGE);
+      }
       set({ event, isLoading: false });
     } catch (error: any) {
       set({

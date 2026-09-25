@@ -10,6 +10,7 @@ import { EmptyState, ErrorState } from '../../src/components/ui/States';
 import { eventService } from '../../src/services/event.service';
 import { useEventStore } from '../../src/store/event.store';
 import { useAuthStore } from '../../src/store/auth.store';
+import { isAssignedCommittee } from '../../src/utils/committee';
 import { useOfflineStore } from '../../src/store/offline.store';
 import type { EventSummary } from '../../src/types';
 import { useNetwork } from '../../src/hooks/use-network';
@@ -84,16 +85,19 @@ export default function EventsScreen() {
     [openingId, loadEvent, router],
   );
 
+  // Only the games the office assigned this committee member to.
+  const myEvents = useMemo(() => events.filter((e) => isAssignedCommittee(e, user)), [events, user]);
+
   const counts = useMemo(
     () => ({
-      ongoing: events.filter((e) => e.status === 'ongoing').length,
-      upcoming: events.filter((e) => e.status === 'upcoming').length,
-      completed: events.filter((e) => e.status === 'completed').length,
+      ongoing: myEvents.filter((e) => e.status === 'ongoing').length,
+      upcoming: myEvents.filter((e) => e.status === 'upcoming').length,
+      completed: myEvents.filter((e) => e.status === 'completed').length,
     }),
-    [events],
+    [myEvents],
   );
 
-  const statusFiltered = filter === 'all' ? events : events.filter((e) => e.status === filter);
+  const statusFiltered = filter === 'all' ? myEvents : myEvents.filter((e) => e.status === filter);
   const visibleEvents = query.trim()
     ? statusFiltered.filter((e) => `${e.name} ${abbr(e.name)}`.toLowerCase().includes(query.trim().toLowerCase()))
     : statusFiltered;
@@ -249,7 +253,7 @@ export default function EventsScreen() {
             <EmptyState
               icon={query ? 'search' : 'calendar'}
               title={query ? `No events match "${query}"` : filter === 'all' ? 'No events' : `No ${filter} events`}
-              hint={query ? 'Try a different search term.' : undefined}
+              hint={query ? 'Try a different search term.' : 'Only games the Sports Office assigned you to appear here.'}
             />
           }
         />

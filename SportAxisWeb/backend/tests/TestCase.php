@@ -170,6 +170,22 @@ abstract class TestCase extends BaseTestCase
         return $user;
     }
 
+    /**
+     * Create a committee member, assign them to this game, and sign in as
+     * them — only assigned committee members (or an admin) may score it.
+     */
+    protected function actingAsJudgeFor(\App\Models\Event $event, array $attrs = []): User
+    {
+        $judge = $this->actingAsRole('judge', $attrs);
+        $event->refresh();
+        $event->update(['judges' => [
+            ...($event->judges ?? []),
+            ['id' => $judge->id, 'name' => $judge->name, 'email' => $judge->email],
+        ]]);
+
+        return $judge;
+    }
+
     /** Authenticate as an existing user via Sanctum. */
     protected function loginAs(User $user): User
     {

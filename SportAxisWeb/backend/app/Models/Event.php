@@ -148,6 +148,24 @@ class Event extends Model
         static::saved(fn (Event $event) => $event->syncTaxonomyKeys());
     }
 
+    /**
+     * Whether this user may score this game: a committee member (judge) only
+     * if the office assigned them to it, and the office (admin) always, so a
+     * game can still be recorded if its committee can't make it.
+     */
+    public function isScorableBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        return $user->role === 'judge'
+            && collect($this->judges ?? [])->contains(fn ($j) => ($j['id'] ?? null) === $user->id);
+    }
+
     /** The tournament edition this event belongs to. */
     public function season()
     {

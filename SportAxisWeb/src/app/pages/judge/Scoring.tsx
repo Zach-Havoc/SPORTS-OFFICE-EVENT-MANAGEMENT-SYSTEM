@@ -9,6 +9,7 @@ import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { isAssignedCommittee } from '../../utils/committee';
 
 interface Event {
   id: string;
@@ -16,6 +17,7 @@ interface Event {
   category: string;
   schedule: string;
   departments: string[];
+  judges?: Array<{ id: string; name: string }>;
 }
 
 export default function JudgeScoring() {
@@ -47,6 +49,11 @@ export default function JudgeScoring() {
       const data = await getEvent(eventId);
       if (!data || !data.id) {
         throw new Error('Invalid event data received');
+      }
+      if (!isAssignedCommittee(data, user)) {
+        toast.error('You are not assigned to score this game.');
+        navigate('/judge');
+        return;
       }
       setEvent(data);
     } catch (error: any) {

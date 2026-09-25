@@ -21,8 +21,8 @@ class MatchStandingsTest extends TestCase
 
     public function test_scoring_a_two_team_event_creates_a_match_record(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->ongoing()->create(['category' => 'Basketball']);
+        $this->actingAsJudgeFor($event);
 
         $this->postJson('/api/scores', [
             'eventId' => $event->id,
@@ -34,7 +34,7 @@ class MatchStandingsTest extends TestCase
         // Only one team scored so far → no match yet.
         $this->assertDatabaseCount('team_matches', 0);
 
-        $this->actingAsRole('judge');
+        $this->actingAsJudgeFor($event);
         $this->postJson('/api/scores', [
             'eventId' => $event->id,
             'department' => 'CABEIHM',
@@ -52,11 +52,10 @@ class MatchStandingsTest extends TestCase
 
     public function test_multi_team_judged_event_does_not_create_a_match(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->ongoing()->create(['category' => 'Cheerdance']);
 
         foreach (['A' => 90, 'B' => 85, 'C' => 80] as $dept => $score) {
-            $this->actingAsRole('judge');
+            $this->actingAsJudgeFor($event);
             $this->postJson('/api/scores', [
                 'eventId' => $event->id, 'department' => $dept,
                 'scores' => ['x' => 1], 'totalScore' => $score,
@@ -68,21 +67,21 @@ class MatchStandingsTest extends TestCase
 
     public function test_a_re_score_updates_the_same_match_and_can_flip_the_winner(): void
     {
-        $this->actingAsRole('judge');
         $event = $this->events()->ongoing()->create(['category' => 'Basketball']);
+        $this->actingAsJudgeFor($event);
 
         $post = fn (string $dept, float $total) => $this->postJson('/api/scores', [
             'eventId' => $event->id, 'department' => $dept, 'scores' => ['x' => 1], 'totalScore' => $total,
         ]);
 
         $post('CICS', 70)->assertCreated();
-        $this->actingAsRole('judge');
+        $this->actingAsJudgeFor($event);
         $post('CABEIHM', 80)->assertCreated(); // CABEIHM leads
 
         $this->assertSame('CABEIHM', TeamMatch::where('event_id', $event->id)->first()->winner);
 
         // A correction comes in for CICS.
-        $this->actingAsRole('judge');
+        $this->actingAsJudgeFor($event);
         $post('CICS', 95)->assertCreated();
 
         $this->assertSame(1, TeamMatch::where('event_id', $event->id)->count());

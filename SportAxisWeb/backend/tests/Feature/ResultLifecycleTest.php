@@ -64,7 +64,7 @@ class ResultLifecycleTest extends TestCase
     public function test_amending_a_score_writes_a_trail_and_reranks(): void
     {
         [$event, $a, $b] = $this->twoScores();
-        $this->actingAsRole('judge');
+        $this->actingAsJudgeFor($event);
 
         // CET overtakes CICS after the correction.
         $this->postJson("/api/scores/{$b->id}/amend", [

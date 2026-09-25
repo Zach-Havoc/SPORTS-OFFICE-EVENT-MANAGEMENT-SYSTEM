@@ -35,6 +35,14 @@ class EventFactory extends Factory
         return $this->state(fn () => ['status' => 'ongoing']);
     }
 
+    /** Assign committee members — only they (or an admin) may score it. */
+    public function judgedBy(\App\Models\User ...$judges): static
+    {
+        return $this->state(fn () => [
+            'judges' => array_map(fn ($j) => ['id' => $j->id, 'name' => $j->name, 'email' => $j->email], $judges),
+        ]);
+    }
+
     public function completed(): static
     {
         return $this->state(fn () => ['status' => 'completed']);

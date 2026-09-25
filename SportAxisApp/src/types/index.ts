@@ -65,6 +65,12 @@ export interface AppNotification {
  * Matches the shape returned by GET /api/events and GET /api/events/{id}
  * (the EventController::toApiFormat() method).
  */
+/** An assigned committee member, as the public event payloads expose it. */
+export interface CommitteeMember {
+  id: string | null;
+  name: string | null;
+}
+
 export interface EventSummary {
   id: string;
   name: string;
@@ -75,7 +81,7 @@ export interface EventSummary {
   venueId: string | null;
   venueName: string | null;
   departments: string[];
-  judges: string[];
+  judges: CommitteeMember[];
   status: 'upcoming' | 'ongoing' | 'completed';
   qrToken: string;
   createdAt: string;
@@ -90,7 +96,7 @@ export interface EventSession {
   endTime: string;
   venueName: string | null;
   departments: string[];
-  judges: string[];
+  judges: CommitteeMember[];
   status: 'upcoming' | 'ongoing' | 'completed';
   qrToken: string;
 }

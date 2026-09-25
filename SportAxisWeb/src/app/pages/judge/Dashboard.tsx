@@ -7,6 +7,7 @@ import { useEvents } from '../../hooks/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { RefreshStatus } from '../../components/RefreshStatus';
 import { useDeptAbbreviator } from '../../utils/departments';
+import { isAssignedCommittee } from '../../utils/committee';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Calendar, Users, ArrowRight, Gavel } from 'lucide-react';
@@ -18,6 +19,7 @@ interface Event {
   schedule: string;
   status: string;
   departments: string[];
+  judges?: Array<{ id: string; name: string }>;
 }
 
 export default function JudgeDashboard() {
@@ -37,8 +39,9 @@ export default function JudgeDashboard() {
     () =>
       (data ?? [])
         .map((e: any) => ({ ...e, departments: e.departments || [] }))
-        .filter((e: Event) => e.status === 'ongoing'),
-    [data],
+        // Only the games the office assigned this committee member to.
+        .filter((e: Event) => e.status === 'ongoing' && isAssignedCommittee(e, user)),
+    [data, user],
   );
 
   if (isLoading) {
@@ -68,7 +71,7 @@ export default function JudgeDashboard() {
           <EmptyState
             icon={Gavel}
             title="No events to score right now"
-            description="Events appear here once the Sports Office marks them ongoing and assigns you to the committee."
+            description="You only see games the Sports Office assigned you to. They appear here once a game you are assigned to is marked ongoing."
           />
         </Card>
       ) : (
