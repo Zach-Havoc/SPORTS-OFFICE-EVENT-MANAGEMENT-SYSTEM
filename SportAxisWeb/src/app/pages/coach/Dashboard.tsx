@@ -49,6 +49,7 @@ interface TryoutApplication {
   lastName: string;
   department: string;
   yearLevel: string;
+  status: "pending" | "accepted" | "rejected";
   appliedAt: string;
 }
 
@@ -82,6 +83,7 @@ export default function CoachDashboard() {
   const performance: any[] = performanceQuery.data ?? [];
   const requirements: any[] = requirementsQuery.data ?? [];
   const tryouts: TryoutApplication[] = tryoutsQuery.data ?? [];
+  const pendingTryouts = tryouts.filter((t) => t.status === "pending");
 
   const loading = queries.some((q) => q.isLoading);
   const fetching = queries.some((q) => q.isFetching) && !loading;
@@ -220,10 +222,10 @@ export default function CoachDashboard() {
             tone: "action",
           },
           {
-            count: tryouts.length,
-            label: tryouts.length === 1 ? "tryout application" : "tryout applications",
-            detail: "New athletes asking to join your roster",
-            to: "/coach/athletes",
+            count: pendingTryouts.length,
+            label: pendingTryouts.length === 1 ? "tryout applicant to decide" : "tryout applicants to decide",
+            detail: "Accept to add them to your roster",
+            to: "/coach/tryouts",
             icon: UserPlus,
             tone: "action",
           },
@@ -243,7 +245,7 @@ export default function CoachDashboard() {
           { label: "Athletes", value: athletes.length },
           { label: "Upcoming", value: upcomingGames.length },
           { label: "Pending reqs", value: pendingRequirements },
-          { label: "Tryouts", value: tryouts.length },
+          { label: "Tryouts", value: pendingTryouts.length },
         ]}
       />
 
@@ -374,15 +376,15 @@ export default function CoachDashboard() {
         </Tile>
 
         <Tile
-          title="Recent tryout applications"
-          subtitle="Students applying through your announcements"
+          title="Tryout applicants to decide"
+          subtitle="Students who applied through your announcements"
           span={6}
         >
-          {tryouts.length === 0 ? (
-            <Empty h={180} msg="No tryout applications yet" />
+          {pendingTryouts.length === 0 ? (
+            <Empty h={180} msg="No tryout applicants waiting on you" />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {tryouts.slice(0, 6).map((a) => (
+              {pendingTryouts.slice(0, 6).map((a) => (
                 <li
                   key={a.id}
                   className="flex items-center justify-between gap-3 py-2.5"
@@ -398,7 +400,7 @@ export default function CoachDashboard() {
                   <div className="flex shrink-0 items-center gap-2">
                     {a.sport && <Badge variant="neutral">{a.sport}</Badge>}
                     <Link
-                      to="/coach/athletes"
+                      to="/coach/tryouts"
                       className="text-[11px] font-medium text-primary hover:underline"
                     >
                       Review

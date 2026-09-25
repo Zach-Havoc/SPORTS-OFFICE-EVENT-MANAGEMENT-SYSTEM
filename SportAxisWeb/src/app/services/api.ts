@@ -887,6 +887,16 @@ export const verifyTryoutEmail = (applicant: {
 export const applyForTryout = (data: any) =>
   apiRequest("/tryouts/apply", { method: "POST", body: JSON.stringify(data) });
 export const getTryoutApplications = () => apiRequest("/tryouts", {}, true);
+/** Accept (adds them to the roster) or reject a tryout applicant. */
+export const updateTryoutStatus = (
+  id: string,
+  data: { status: "accepted" | "rejected"; note?: string },
+) =>
+  apiRequest(
+    `/tryouts/${id}/status`,
+    { method: "PUT", body: JSON.stringify(data) },
+    true,
+  );
 
 // ─────────────────────────────────────────────────────────────────────
 // Attendance (coach)

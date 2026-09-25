@@ -2,7 +2,7 @@ import {
   Archive, BarChart3, Calendar, CalendarCheck, CalendarRange, ClipboardList,
   FileBadge, FileText, Flag, Gavel, History, Home, Image as ImageIcon,
   LayoutDashboard, MapPin, Medal, Megaphone, Radio, Settings, Shield, Swords,
-  TrendingUp, Trophy, UserCog, Users,
+  TrendingUp, Trophy, UserCog, UserPlus, Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -67,6 +67,7 @@ export function getNavigation(role: string | undefined): {
           items: [
             { name: "Users", path: "/admin/users", icon: UserCog, primary: true },
             { name: "Coaches", path: "/admin/coaches", icon: Users },
+            { name: "Tryout Applicants", path: "/admin/tryouts", icon: UserPlus },
             { name: "Requirements", path: "/admin/requirements", icon: FileBadge },
             { name: "Registration Codes", path: "/admin/registration-codes", icon: Shield },
           ],
@@ -95,6 +96,7 @@ export function getNavigation(role: string | undefined): {
           label: "My team",
           items: [
             { name: "Athletes", path: "/coach/athletes", icon: Users, primary: true },
+            { name: "Tryout Applicants", path: "/coach/tryouts", icon: UserPlus },
             { name: "Line-up", path: "/coach/lineup", icon: Swords },
             { name: "Attendance", path: "/coach/attendance", icon: ClipboardList, primary: true },
             { name: "Performance", path: "/coach/performance", icon: TrendingUp },

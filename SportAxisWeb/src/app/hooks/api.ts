@@ -1071,6 +1071,19 @@ export const useApplyForTryout = () => {
   });
 };
 
+export const useUpdateTryoutStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { status: "accepted" | "rejected"; note?: string } }) =>
+      api.updateTryoutStatus(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.tryoutApplications });
+      // Accepting adds the student to the roster.
+      qc.invalidateQueries({ queryKey: qk.athletes });
+    },
+  });
+};
+
 export const useMarkAttendance = () => {
   const qc = useQueryClient();
   return useMutation({

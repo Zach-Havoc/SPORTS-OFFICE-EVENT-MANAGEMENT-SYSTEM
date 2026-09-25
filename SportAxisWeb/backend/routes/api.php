@@ -141,9 +141,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // ─── MOBILE JUDGE APP — Authenticated Routes ──────────────────────────────
     Route::post('/ocr/extract', [OcrController::class, 'extract']);
 
-    // Tryouts (coach/admin read)
-    Route::get('/tryouts', [TryoutController::class, 'index'])
-        ->middleware('role:admin,coach');
+    // Tryouts (coach/admin: list, and accept/reject an applicant)
+    Route::middleware('role:admin,coach')->group(function () {
+        Route::get('/tryouts', [TryoutController::class, 'index']);
+        Route::put('/tryouts/{id}/status', [TryoutController::class, 'updateStatus']);
+    });
 
     // Judges list (admin/coach)
     Route::get('/judges', [JudgeController::class, 'index'])

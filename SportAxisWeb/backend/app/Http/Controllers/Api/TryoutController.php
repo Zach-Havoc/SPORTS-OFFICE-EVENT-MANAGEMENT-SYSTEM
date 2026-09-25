@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Athlete;
 use App\Models\CampusStudent;
 use App\Models\EmailVerification;
 use App\Models\TryoutApplication;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -120,6 +123,133 @@ class TryoutController extends Controller
         ]);
 
         return response()->json($app, 201);
+    }
+
+    /**
+     * PUT /api/tryouts/{id}/status (coach: own applicants; admin: any)
+     *
+     * Accepting puts the student on the announcing coach's roster, so the
+     * decision actually does something; rejecting just closes it. Either way
+     * the applicant is emailed, since they have no account to check.
+     */
+    public function updateStatus(Request $request, string $id)
+    {
+        $data = $request->validate([
+            'status' => 'required|in:accepted,rejected',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $user = $request->user();
+        $app = TryoutApplication::findOrFail($id);
+
+        if ($user->role === 'coach' && $app->coach_id !== $user->id) {
+            return response()->json(['error' => 'This applicant applied to another coach.'], 403);
+        }
+        if ($app->status !== 'pending') {
+            return response()->json(['error' => "This application was already {$app->status}."], 422);
+        }
+
+        $athlete = null;
+        if ($data['status'] === 'accepted') {
+            $coachId = $app->coach_id ?? ($user->role === 'coach' ? $user->id : null);
+            if (! $coachId) {
+                return response()->json(['error' => 'This application has no coach to add the student to.'], 422);
+            }
+
+            $existing = $this->rosterRowFor($app, $coachId);
+            if ($existing === false) {
+                return response()->json(['error' => "This student is already on another coach's roster."], 422);
+            }
+        }
+
+        DB::transaction(function () use ($app, $data, $user, &$athlete, &$existing, &$coachId) {
+            if ($data['status'] === 'accepted') {
+                $athlete = $existing ?: $this->addToRoster($app, $coachId);
+            }
+
+            $app->update([
+                'status' => $data['status'],
+                'review_note' => $data['note'] ?? null,
+                'reviewed_by' => $user->id,
+                'reviewed_at' => now(),
+            ]);
+        });
+
+        $this->emailDecision($app);
+
+        return response()->json([
+            'application' => $app->fresh(),
+            'athleteId' => $athlete?->id,
+        ]);
+    }
+
+    /**
+     * The coach's existing roster row for this applicant, null if there is
+     * none yet, or false if another coach's unlinked row already holds the SR
+     * Code (athletes.student_id is unique, so a second row can't be made).
+     */
+    private function rosterRowFor(TryoutApplication $app, string $coachId): Athlete|null|false
+    {
+        $account = $this->accountFor($app);
+
+        $mine = Athlete::where('coach_id', $coachId)
+            ->where(fn ($q) => $account
+                ? $q->where('user_id', $account->id)->orWhere('student_id', $app->student_id)
+                : $q->where('student_id', $app->student_id))
+            ->first();
+        if ($mine) {
+            return $mine;
+        }
+
+        return ! $account && Athlete::where('student_id', $app->student_id)->exists() ? false : null;
+    }
+
+    /** Same shape AthleteController::store gives a coach-added athlete. */
+    private function addToRoster(TryoutApplication $app, string $coachId): Athlete
+    {
+        $account = $this->accountFor($app);
+
+        return Athlete::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $account?->id,
+            'coach_id' => $coachId,
+            'sport' => $app->sport,
+            'status' => 'active',
+            // A linked athlete's identity lives on their account.
+            'student_id' => $account ? null : $app->student_id,
+            'first_name' => $account ? '' : $app->first_name,
+            'last_name' => $account ? '' : $app->last_name,
+            'email' => $app->email,
+            'department' => $account ? null : $app->department,
+            'year_level' => $account ? null : $app->year_level,
+        ]);
+    }
+
+    /** The applicant's athlete account, if they already signed up. */
+    private function accountFor(TryoutApplication $app): ?User
+    {
+        return User::where('role', 'athlete')
+            ->where(fn ($q) => $q->where('sr_code', CampusStudent::normalizeCode($app->student_id))
+                ->orWhereRaw('LOWER(email) = ?', [mb_strtolower(trim($app->email))]))
+            ->first();
+    }
+
+    private function emailDecision(TryoutApplication $app): void
+    {
+        $sport = $app->sport ? "{$app->sport} " : '';
+        $body = $app->status === 'accepted'
+            ? "Dear {$app->first_name},\n\nCongratulations! You have been accepted into the {$sport}team after tryouts. Your coach has added you to the roster.\n\nIf you don't have a SportsAxis account yet, sign up as an athlete using your SR Code ({$app->student_id}) to see your schedule, attendance and requirements."
+            : "Dear {$app->first_name},\n\nThank you for trying out for the {$sport}team. After careful consideration, we are unable to offer you a slot this time.";
+        if ($app->review_note) {
+            $body .= "\n\nNote from your coach: {$app->review_note}";
+        }
+        $body .= "\n\nBest regards,\nThe SportsAxis Team";
+
+        try {
+            Mail::raw($body, fn ($m) => $m->to($app->email)->subject('Your SportsAxis tryout result'));
+        } catch (\Exception $e) {
+            Log::error('Tryout decision email failed to send: '.$e->getMessage());
+        }
     }
 
     /**

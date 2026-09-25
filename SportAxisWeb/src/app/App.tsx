@@ -62,6 +62,7 @@ const CoachSchedule = page(() => import("./pages/coach/Schedule"));
 const CoachPerformance = page(() => import("./pages/coach/Performance"));
 const CoachRequirements = page(() => import("./pages/coach/Requirements"));
 const CoachProtests = page(() => import("./pages/coach/Protests"));
+const Tryouts = page(() => import("./pages/coach/Tryouts"));
 const AthleteDashboard = page(() => import("./pages/athlete/Dashboard"));
 const AthleteSchedule = page(() => import("./pages/athlete/Schedule"));
 const AthletePerformance = page(() => import("./pages/athlete/Performance"));
@@ -186,6 +187,7 @@ export default function App() {
               path: "admin/requirements",
               lazy: AdminRequirements,
             },
+            { path: "admin/tryouts", lazy: Tryouts },
             { path: "admin/seasons", lazy: AdminSeasons },
             { path: "admin/protests", lazy: AdminProtests },
             { path: "admin/trash", lazy: AdminTrash },
@@ -236,6 +238,7 @@ export default function App() {
               path: "coach/requirements",
               lazy: CoachRequirements,
             },
+            { path: "coach/tryouts", lazy: Tryouts },
             {
               path: "coach/protests",
               lazy: CoachProtests,
