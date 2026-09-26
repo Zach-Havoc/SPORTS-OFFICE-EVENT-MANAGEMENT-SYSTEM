@@ -886,9 +886,18 @@ export const verifyTryoutEmail = (applicant: {
   });
 export const applyForTryout = (data: any) =>
   apiRequest("/tryouts/apply", { method: "POST", body: JSON.stringify(data) });
-/** Email the event's QR code to its whole committee again. */
+/**
+ * Who the committee QR email reached. `noEmail` members only got the in-app
+ * notice (their account has no email address).
+ */
+export interface CommitteeEmailResult {
+  sent: { name: string; email: string }[];
+  failed: { name: string; email: string }[];
+  noEmail: { name: string }[];
+}
+/** Email the event's QR code to its committee again. */
 export const sendEventQr = (eventId: string) =>
-  apiRequest(`/events/${eventId}/send-qr`, { method: "POST" }, true) as Promise<{ sent: number }>;
+  apiRequest(`/events/${eventId}/send-qr`, { method: "POST" }, true) as Promise<CommitteeEmailResult>;
 
 export const getTryoutApplications = () => apiRequest("/tryouts", {}, true);
 /** Accept (adds them to the roster) or reject a tryout applicant. */

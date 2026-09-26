@@ -27,25 +27,58 @@ class CommitteeQrTest extends TestCase
         ];
     }
 
-    public function test_creating_an_event_notifies_each_assigned_committee_member(): void
+    public function test_creating_an_event_emails_the_committee_member_and_reports_who_got_it(): void
     {
         Notification::fake();
-        [$a, $b] = [$this->users()->judge()->create(), $this->users()->judge()->create()];
+        $judge = $this->users()->judge()->create();
 
         $this->actingAsRole('admin');
-        $this->postJson('/api/events', $this->eventPayload([$this->judgeRef($a), $this->judgeRef($b)]))->assertCreated();
+        $this->postJson('/api/events', $this->eventPayload([$this->judgeRef($judge)]))
+            ->assertCreated()
+            ->assertJsonPath('committeeEmail.sent.0.email', $judge->email)
+            ->assertJsonPath('committeeEmail.failed', []);
 
-        Notification::assertSentTo([$a, $b], CommitteeAssigned::class);
+        Notification::assertSentTo($judge, CommitteeAssigned::class);
     }
 
-    public function test_editing_only_notifies_the_newly_added_members(): void
+    public function test_an_event_takes_only_one_committee_member(): void
+    {
+        [$a, $b] = [$this->users()->judge()->create(), $this->users()->judge()->create()];
+        $this->actingAsRole('admin');
+
+        $this->postJson('/api/events', $this->eventPayload([$this->judgeRef($a), $this->judgeRef($b)]))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.judges.0', 'Only one committee member can be assigned to an event.');
+
+        $event = $this->events()->judgedBy($a)->create();
+        $this->putJson("/api/events/{$event->id}", ['judges' => [$this->judgeRef($a), $this->judgeRef($b)]])
+            ->assertStatus(422);
+    }
+
+    public function test_a_failed_email_is_reported_not_hidden(): void
+    {
+        // Nothing listens on port 1, so the SMTP send throws.
+        config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => '127.0.0.1', 'mail.mailers.smtp.port' => 1]);
+        $judge = $this->users()->judge()->create();
+        $event = $this->events()->judgedBy($judge)->create();
+
+        $this->actingAsRole('admin');
+        $this->postJson("/api/events/{$event->id}/send-qr")
+            ->assertOk()
+            ->assertJsonPath('sent', [])
+            ->assertJsonPath('failed.0.email', $judge->email);
+    }
+
+    public function test_replacing_the_committee_member_notifies_only_the_new_one(): void
     {
         Notification::fake();
         [$old, $new] = [$this->users()->judge()->create(), $this->users()->judge()->create()];
         $event = $this->events()->judgedBy($old)->create();
 
         $this->actingAsRole('admin');
-        $this->putJson("/api/events/{$event->id}", ['judges' => [$this->judgeRef($old), $this->judgeRef($new)]])->assertOk();
+        $this->putJson("/api/events/{$event->id}", ['judges' => [$this->judgeRef($new)]])
+            ->assertOk()
+            ->assertJsonPath('committeeEmail.sent.0.email', $new->email);
 
         Notification::assertSentTo($new, CommitteeAssigned::class);
         Notification::assertNotSentTo($old, CommitteeAssigned::class);
@@ -80,16 +113,19 @@ class CommitteeQrTest extends TestCase
         $this->assertSame("/judge-qr/{$event->id}/{$event->qr_token}", $data['url']);
     }
 
-    public function test_the_office_can_resend_the_qr_to_the_whole_committee(): void
+    public function test_the_office_can_resend_the_qr_to_the_committee(): void
     {
         Notification::fake();
-        [$a, $b] = [$this->users()->judge()->create(), $this->users()->judge()->create()];
-        $event = $this->events()->judgedBy($a, $b)->create();
+        $judge = $this->users()->judge()->create();
+        $event = $this->events()->judgedBy($judge)->create();
 
         $this->actingAsRole('admin');
-        $this->postJson("/api/events/{$event->id}/send-qr")->assertOk()->assertJsonPath('sent', 2);
+        $this->postJson("/api/events/{$event->id}/send-qr")
+            ->assertOk()
+            ->assertJsonPath('sent.0.name', $judge->name)
+            ->assertJsonPath('sent.0.email', $judge->email);
 
-        Notification::assertSentTo([$a, $b], CommitteeAssigned::class);
+        Notification::assertSentTo($judge, CommitteeAssigned::class);
     }
 
     public function test_resending_with_no_committee_says_so(): void

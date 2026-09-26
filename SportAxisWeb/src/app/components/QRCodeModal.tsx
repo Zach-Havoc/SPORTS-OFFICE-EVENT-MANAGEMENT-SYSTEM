@@ -2,7 +2,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Download, Copy, Check, Mail } from 'lucide-react';
-import { sendEventQr } from '../services/api';
+import { sendEventQr, type CommitteeEmailResult } from '../services/api';
+import { CommitteeEmailDialog } from './CommitteeEmailDialog';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -18,12 +19,12 @@ interface QRCodeModalProps {
 export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }: QRCodeModalProps) {
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<CommitteeEmailResult | null>(null);
 
   const emailCommittee = async () => {
     try {
       setSending(true);
-      const { sent } = await sendEventQr(eventId);
-      toast.success(`QR code emailed to ${sent} committee member${sent === 1 ? '' : 's'}.`);
+      setEmailResult(await sendEventQr(eventId));
     } catch (e: any) {
       toast.error(e?.message || 'Could not email the QR code');
     } finally {
@@ -67,6 +68,8 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
   };
 
   return (
+    <>
+    <CommitteeEmailDialog result={emailResult} eventName={eventName} onClose={() => setEmailResult(null)} />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -126,5 +129,6 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

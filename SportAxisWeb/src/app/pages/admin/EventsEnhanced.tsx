@@ -2,7 +2,9 @@ import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { getEvents, getDepartments, getVenues, getJudges, getCategories, createEvent, updateEvent, deleteEvent, bulkDeleteEvents, bulkUpdateEventStatus, unwrapList, getPageMeta } from '../../services/api';
+import { getEvents, getDepartments, getVenues, getJudges, getCategories, createEvent, updateEvent, deleteEvent, bulkDeleteEvents, bulkUpdateEventStatus, unwrapList, getPageMeta, type CommitteeEmailResult } from '../../services/api';
+import { CommitteeEmailDialog } from '../../components/CommitteeEmailDialog';
+import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { makeAbbreviator } from '../../utils/departments';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -182,6 +184,7 @@ export default function AdminEventsEnhanced() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [emailResult, setEmailResult] = useState<{ result: CommitteeEmailResult; eventName: string } | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -266,7 +269,8 @@ export default function AdminEventsEnhanced() {
     if (timeToMinutes(data.startTime) >= timeToMinutes(data.endTime))
       return 'End time must be after start time.';
     if (!data.venueId) return 'Venue is required.';
-    if (data.judgeIds.length === 0) return 'At least one judge must be assigned.';
+    if (data.judgeIds.length === 0) return 'Assign a committee member.';
+    if (data.judgeIds.length > 1) return 'Only one committee member can be assigned to an event.';
     {
       const picked = data.departments.filter(Boolean);
       if (formatOf(data.category) === 'versus') {
@@ -322,7 +326,8 @@ export default function AdminEventsEnhanced() {
         status: event.status,
         venueId: event.venueId || '',
         venueName: event.venueName || '',
-        judgeIds: (event.judges || []).map((j: JudgeRef) => j.id),
+        // One committee member per event; an older event with several keeps the first.
+        judgeIds: (event.judges || []).slice(0, 1).map((j: JudgeRef) => j.id),
         departments: event.departments || [],
       });
     } else {
@@ -353,17 +358,14 @@ export default function AdminEventsEnhanced() {
 
     try {
       setSubmitting(true);
-      // The server emails the QR code to committee members newly assigned by
-      // this save; say so, so the office knows they don't need to send it.
-      const before = new Set((editingEvent?.judges ?? []).map((j: JudgeRef) => j.id));
-      const added = selectedJudges.filter(j => !before.has(j.id)).length;
-      const emailed = added ? ` QR code emailed to ${added} committee member${added === 1 ? '' : 's'}.` : '';
-      if (editingEvent) {
-        await updateEvent(editingEvent.id, cleanPayload);
-        toast.success(`Event updated.${emailed}`);
-      } else {
-        await createEvent(cleanPayload);
-        toast.success(`Event created.${emailed}`);
+      // The server emails the QR code to a newly assigned committee member and
+      // reports who it reached; show that in a popup so the office knows.
+      const saved = editingEvent
+        ? await updateEvent(editingEvent.id, cleanPayload)
+        : await createEvent(cleanPayload);
+      toast.success(editingEvent ? 'Event updated.' : 'Event created.');
+      if (saved?.committeeEmail) {
+        setEmailResult({ result: saved.committeeEmail, eventName: cleanPayload.name });
       }
       setDialogOpen(false);
       loadData();
@@ -756,39 +758,32 @@ export default function AdminEventsEnhanced() {
               )}
             </div>
 
-            {/* Judges */}
+            {/* Committee — one member scores each event */}
             <div>
               <Label>
-                Assign Committees <span className="text-red-500">*</span>
-                <span className="ml-2 text-xs text-gray-500 font-normal">({formData.judgeIds.length} selected)</span>
+                Assign Committee <span className="text-red-500">*</span>
+                <span className="ml-2 text-xs text-gray-500 font-normal">one member per event</span>
               </Label>
               {judges.length === 0 ? (
                 <p className="text-sm text-amber-600 mt-1 p-2 bg-amber-50 rounded border border-amber-200">
                   No judge accounts found. Register judge users first.
                 </p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-h-36 overflow-y-auto border rounded p-3 bg-gray-50">
+                <RadioGroup
+                  value={formData.judgeIds[0] ?? ''}
+                  onValueChange={id => setFormData(f => ({ ...f, judgeIds: [id] }))}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-h-36 overflow-y-auto border rounded p-3 bg-gray-50"
+                >
                   {judges.map((j: any) => (
                     <div key={j.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`judge-${j.id}`}
-                        checked={formData.judgeIds.includes(j.id)}
-                        onCheckedChange={checked => {
-                          setFormData(f => ({
-                            ...f,
-                            judgeIds: checked
-                              ? [...f.judgeIds, j.id]
-                              : f.judgeIds.filter(id => id !== j.id),
-                          }));
-                        }}
-                      />
+                      <RadioGroupItem id={`judge-${j.id}`} value={j.id} />
                       <label htmlFor={`judge-${j.id}`} className="text-sm cursor-pointer">
                         <span className="font-medium">{j.name}</span>
                         <span className="text-gray-500 ml-1 text-xs">{j.email}</span>
                       </label>
                     </div>
                   ))}
-                </div>
+                </RadioGroup>
               )}
             </div>
 
@@ -884,6 +879,12 @@ export default function AdminEventsEnhanced() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CommitteeEmailDialog
+        result={emailResult?.result ?? null}
+        eventName={emailResult?.eventName}
+        onClose={() => setEmailResult(null)}
+      />
 
       {/* QR Modal */}
       {selectedEventForQR && selectedEventForQR.qrToken && (

@@ -19,6 +19,9 @@ use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
+    /** One committee member scores each event. */
+    private const ONE_COMMITTEE = ['judges.max' => 'Only one committee member can be assigned to an event.'];
+
     use Paginates, ResolvesSeason;
 
     /**
@@ -116,8 +119,9 @@ class EventController extends Controller
             'startTime' => 'required|string',
             'endTime' => ['required', 'string', $this->endAfterStart(fn () => $request->startTime)],
             'departments' => 'required|array',
+            'judges' => 'sometimes|array|max:1',
             'status' => 'in:upcoming,ongoing,completed',
-        ], [], ['category' => 'sport']);
+        ], self::ONE_COMMITTEE, ['category' => 'sport']);
 
         if ($rosterError = $this->rosterError($request->category, (array) $request->departments)) {
             return response()->json(['error' => $rosterError], 422);
@@ -159,10 +163,10 @@ class EventController extends Controller
             'qr_token' => Str::random(32),
         ]);
 
-        $this->notifyCommittee($event);
+        $emailed = $this->notifyCommittee($event);
         app(ScheduleNotifier::class)->created($event);
 
-        return response()->json($event->toApiFormat(), 201);
+        return response()->json($event->toApiFormat() + ['committeeEmail' => $emailed], 201);
     }
 
     public function update(Request $request, string $id)
@@ -180,7 +184,7 @@ class EventController extends Controller
             'venueId' => 'sometimes|nullable|string',
             'venueName' => 'sometimes|string',
             'departments' => 'sometimes|array',
-            'judges' => 'sometimes|array',
+            'judges' => 'sometimes|array|max:1',
             'status' => 'sometimes|in:upcoming,ongoing,completed',
         ];
         if ($request->has('endTime')) {
@@ -190,7 +194,7 @@ class EventController extends Controller
         } elseif ($request->has('startTime')) {
             $rules['startTime'][] = $this->startBeforeEnd(fn () => $event->end_time);
         }
-        $request->validate($rules, [], ['category' => 'sport']);
+        $request->validate($rules, self::ONE_COMMITTEE, ['category' => 'sport']);
 
         // Same rule as store: only a venue id that resolves may be stored.
         $venue = $request->venueId ? Venue::find($request->venueId) : null;
@@ -251,11 +255,9 @@ class EventController extends Controller
         app(ScheduleNotifier::class)->updated($event->fresh(), $scheduleBefore);
 
         // Only the members added by this edit — the rest already have it.
-        if ($request->has('judges')) {
-            $this->notifyCommittee($event, $before);
-        }
+        $emailed = $request->has('judges') ? $this->notifyCommittee($event, $before) : null;
 
-        return response()->json($event->fresh()->toApiFormat());
+        return response()->json($event->fresh()->toApiFormat() + ['committeeEmail' => $emailed]);
     }
 
     public function destroy(string $id)
@@ -320,13 +322,13 @@ class EventController extends Controller
     public function sendQr(string $id)
     {
         $event = Event::findOrFail($id);
-        $sent = $this->notifyCommittee($event);
+        $emailed = $this->notifyCommittee($event);
 
-        if ($sent === 0) {
-            return response()->json(['error' => 'No committee members are assigned to this event yet.'], 422);
+        if ($emailed === null) {
+            return response()->json(['error' => 'No committee member is assigned to this event yet.'], 422);
         }
 
-        return response()->json(['sent' => $sent]);
+        return response()->json($emailed);
     }
 
     /** @return array<int, string> */
@@ -337,29 +339,39 @@ class EventController extends Controller
 
     /**
      * Send the assignment (email with the QR code + in-app notification) to
-     * the event's committee members, skipping $except. A failed email never
-     * fails the save — the admin can resend from the QR dialog.
+     * the event's committee, skipping $except. A failed email never fails the
+     * save — the admin sees it in the result and can resend from the QR dialog.
+     * Mail is sent in the request (not queued), so "sent" means the mail
+     * server accepted it.
      *
      * @param  array<int, string>  $except
+     * @return array{sent: array<int, array{name: string, email: string}>, failed: array<int, array{name: string, email: string}>, noEmail: array<int, array{name: string}>}|null
+     *     null when nobody needed notifying
      */
-    private function notifyCommittee(Event $event, array $except = []): int
+    private function notifyCommittee(Event $event, array $except = []): ?array
     {
         $ids = array_diff($this->judgeIds($event), $except);
-        if (! $ids) {
-            return 0;
+        $judges = $ids ? User::whereIn('id', $ids)->where('role', 'judge')->get() : collect();
+        if ($judges->isEmpty()) {
+            return null;
         }
 
-        $sent = 0;
-        foreach (User::whereIn('id', $ids)->where('role', 'judge')->get() as $judge) {
+        $result = ['sent' => [], 'failed' => [], 'noEmail' => []];
+        foreach ($judges as $judge) {
             try {
                 $judge->notify(new CommitteeAssigned($event));
-                $sent++;
+                if ($judge->email) {
+                    $result['sent'][] = ['name' => $judge->name, 'email' => $judge->email];
+                } else {
+                    $result['noEmail'][] = ['name' => $judge->name];
+                }
             } catch (\Throwable $e) {
                 Log::warning("Committee QR email to {$judge->email} failed: ".$e->getMessage());
+                $result['failed'][] = ['name' => $judge->name, 'email' => (string) $judge->email];
             }
         }
 
-        return $sent;
+        return $result;
     }
 
     /**
