@@ -44,3 +44,16 @@ export function seededSlotOrder(teamsBySeed: string[]): (string | null)[] {
   const size = nextPowerOfTwo(teamsBySeed.length)
   return seedSlots(size).map((seedNo) => teamsBySeed[seedNo - 1] ?? null)
 }
+
+/**
+ * Fisher–Yates (Durstenfeld) shuffle: every ordering of the teams is equally
+ * likely. Returns a new array. `random` is injectable for tests.
+ */
+export function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}

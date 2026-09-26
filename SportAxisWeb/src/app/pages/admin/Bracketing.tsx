@@ -11,7 +11,7 @@ import { getStandings } from '../../services/api';
 import { useBrackets, useCategories, useDepartments, useVenues, useCreateBracket, usePublishBracket } from '../../hooks/api';
 import { Badge } from '../../components/ui/badge';
 import { SingleEliminationBracket, Match as BracketMatch } from '@g-loot/react-tournament-brackets';
-import { seededSlotOrder } from '../../utils/bracket';
+import { seededSlotOrder, shuffle } from '../../utils/bracket';
 import { makeAbbreviator, shortDeptLabel } from '../../utils/departments';
 
 interface Venue {
@@ -270,7 +270,7 @@ export default function AdminBracketing() {
     if (seededOrder && seededOrder.length === totalSlots) {
       slots = [...seededOrder];
     } else {
-      const shuffled = [...participants].sort(() => Math.random() - 0.5);
+      const shuffled = shuffle(participants);
       slots = [];
       for (let i = 0; i < totalSlots; i++) {
         slots.push(i < shuffled.length ? shuffled[i] : null);
@@ -418,7 +418,7 @@ export default function AdminBracketing() {
           }
           ordered.sort((a, b) => (rank.get(a) ?? 9999) - (rank.get(b) ?? 9999));
         } else if (config.drawMethod === 'random') {
-          ordered = ordered.sort(() => Math.random() - 0.5);
+          ordered = shuffle(ordered);
         }
         // 'manual' → keep the order the admin selected them in.
 

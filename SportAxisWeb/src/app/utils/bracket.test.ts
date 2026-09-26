@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextPowerOfTwo, seedSlots, seededSlotOrder } from './bracket'
+import { nextPowerOfTwo, seedSlots, seededSlotOrder, shuffle } from './bracket'
 
 describe('nextPowerOfTwo', () => {
   it('rounds up to a power of two', () => {
@@ -64,5 +64,27 @@ describe('seededSlotOrder', () => {
 
   it('is a clean 1v4 / 2v3 for four teams', () => {
     expect(seededSlotOrder(['A', 'B', 'C', 'D'])).toEqual(['A', 'D', 'B', 'C'])
+  })
+})
+
+describe('shuffle', () => {
+  it('keeps every team exactly once and leaves the input untouched', () => {
+    const teams = ['A', 'B', 'C', 'D', 'E']
+    const out = shuffle(teams)
+    expect([...out].sort()).toEqual(teams)
+    expect(teams).toEqual(['A', 'B', 'C', 'D', 'E'])
+  })
+
+  it('makes every ordering about equally likely', () => {
+    const counts = new Map<string, number>()
+    const runs = 60000
+    for (let k = 0; k < runs; k++) {
+      const key = shuffle(['A', 'B', 'C']).join('')
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    expect(counts.size).toBe(6)
+    for (const n of counts.values()) {
+      expect(Math.abs(n - runs / 6)).toBeLessThan(runs / 6 * 0.1)
+    }
   })
 })
