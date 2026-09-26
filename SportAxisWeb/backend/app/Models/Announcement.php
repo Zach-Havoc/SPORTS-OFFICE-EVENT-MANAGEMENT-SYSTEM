@@ -15,9 +15,13 @@ class Announcement extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'title', 'content', 'sport', 'coach_id', 'coach_name', 'is_tryout'];
+    protected $fillable = [
+        'id', 'title', 'content', 'sport', 'coach_id', 'coach_name', 'is_tryout',
+        'tryout_date', 'tryout_start_time', 'tryout_end_time', 'tryout_venue',
+    ];
 
     protected $casts = [
         'is_tryout' => 'boolean',
+        'tryout_date' => 'date:Y-m-d',
     ];
 }

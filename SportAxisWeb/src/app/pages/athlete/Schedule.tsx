@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { useAthleteSchedule } from '../../hooks/api';
+import { useAthleteSchedule, useAthleteTraining } from '../../hooks/api';
+import { TrainingList } from '../../components/schedule/TrainingList';
 import { TeamScheduleView, teamLabelOf } from '../../components/schedule/TeamScheduleView';
 
 /** The athlete's own fixtures — see TeamScheduleView for the shared UI. */
@@ -14,6 +15,7 @@ export default function AthleteSchedule() {
   }, [user, navigate]);
 
   const query = useAthleteSchedule();
+  const training = useAthleteTraining();
 
   if (!user) return null;
 
@@ -25,7 +27,8 @@ export default function AthleteSchedule() {
       loading={query.isLoading}
       fetching={query.isFetching}
       error={query.isRefetchError}
-      onRetry={() => query.refetch()}
+      onRetry={() => { query.refetch(); training.refetch(); }}
+      extra={<TrainingList sessions={training.data ?? []} loading={training.isLoading} />}
     />
   );
 }

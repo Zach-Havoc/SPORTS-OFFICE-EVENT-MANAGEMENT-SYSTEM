@@ -10,13 +10,13 @@ import {
 } from '../../components/ui/alert-dialog';
 import {
   Users, Search, AlertTriangle,
-  CalendarDays, Trash2, Plus, Check, Loader2, Pencil,
+  CalendarDays, Trash2, Plus, Check, Loader2, Pencil, Clock, MapPin, Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useAthletes, useAttendanceRecords, useAttendanceSessions, useAttendanceSession,
   useCreateAttendanceSession, useUpdateAttendanceSession, useDeleteAttendanceSession,
-  useSaveSessionRecords,
+  useSaveSessionRecords, useCreateRecurringSessions,
 } from '../../hooks/api';
 import type { AttendanceSession } from '../../services/api';
 import { RefreshStatus } from '../../components/RefreshStatus';
@@ -42,6 +42,17 @@ function rateOf(recs: { status: Status }[]) {
   return { attended, denom, pct: denom ? attended / denom : null };
 }
 
+/** "16:00" → "4:00 PM". */
+const fmtTime = (t: string | null | undefined) => {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+};
+const timeRange = (s: { startTime: string | null; endTime: string | null }) =>
+  s.startTime ? `${fmtTime(s.startTime)}${s.endTime ? ` – ${fmtTime(s.endTime)}` : ''}` : '';
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 const inputCls =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
 
@@ -59,6 +70,7 @@ export default function CoachAttendance() {
   const athletesQ = useAthletes();
   const recordsQ = useAttendanceRecords();
   const createMut = useCreateAttendanceSession();
+  const recurringMut = useCreateRecurringSessions();
   const deleteMut = useDeleteAttendanceSession();
 
   const sessions = sessionsQ.data ?? [];
@@ -74,25 +86,60 @@ export default function CoachAttendance() {
 
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(today());
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [venue, setVenue] = useState('');
+  const [repeat, setRepeat] = useState(false);
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [until, setUntil] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<AttendanceSession | null>(null);
 
   const openSession = sessions.find((s) => s.id === openId) ?? null;
 
+  const timing = { startTime: startTime || null, endTime: endTime || null, venueName: venue.trim() || null };
+  const resetForm = () => {
+    setTitle(''); setDate(today()); setStartTime(''); setEndTime(''); setVenue('');
+    setRepeat(false); setWeekdays([]); setUntil('');
+  };
+
   const create = () => {
     if (!title.trim()) return toast.error('Give the session a title.');
+    if (startTime && endTime && endTime <= startTime) return toast.error('End time must be after the start time.');
+
+    if (repeat) {
+      if (!weekdays.length) return toast.error('Pick at least one day of the week.');
+      if (!until || until < date) return toast.error('Pick an end date on or after the start date.');
+      recurringMut.mutate(
+        { title: title.trim(), from: date, to: until, weekdays, ...timing },
+        {
+          onSuccess: ({ created, skipped }) => {
+            toast.success(
+              `${created.length} training session${created.length === 1 ? '' : 's'} scheduled. Your athletes were notified.`,
+              skipped.length
+                ? { description: `Skipped ${skipped.length}: ${skipped.map((x) => `${x.date} — ${x.reason}`).join(' ')}`, duration: 10000 }
+                : undefined,
+            );
+            resetForm();
+          },
+          onError: (e: any) => toast.error(e?.message || 'Could not create the schedule.'),
+        },
+      );
+      return;
+    }
+
     createMut.mutate(
-      { title: title.trim(), date },
+      { title: title.trim(), date, ...timing },
       {
         onSuccess: (s) => {
-          setTitle('');
-          setDate(today());
+          resetForm();
           setOpenId(s.id);
         },
         onError: (e: any) => toast.error(e?.message || 'Could not create the session.'),
       },
     );
   };
+  const busy = createMut.isPending || recurringMut.isPending;
 
   const loading = sessionsQ.isLoading || athletesQ.isLoading;
 
@@ -112,23 +159,82 @@ export default function CoachAttendance() {
       {/* New session */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>New session</CardTitle>
-          <CardDescription>Create a session for a training, meeting, or match call.</CardDescription>
+          <CardTitle>Schedule training</CardTitle>
+          <CardDescription>
+            Add one session, or repeat it weekly. Your athletes are notified and see it on their schedule.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3">
-            <input
-              className={inputCls}
-              placeholder="e.g. Morning training"
-              value={title}
-              maxLength={120}
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && create()}
-            />
-            <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
-            <Button onClick={create} disabled={createMut.isPending}>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1.5fr]">
+            <label className="space-y-1 sm:col-span-2 lg:col-span-1">
+              <span className="text-xs font-medium text-gray-600">Title</span>
+              <input
+                className={inputCls}
+                placeholder="e.g. Team training"
+                value={title}
+                maxLength={120}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-gray-600">{repeat ? 'Starts' : 'Date'}</span>
+              <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-gray-600">From</span>
+              <input type="time" className={inputCls} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-gray-600">To</span>
+              <input type="time" className={inputCls} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-gray-600">Venue</span>
+              <input className={inputCls} placeholder="e.g. Main Gym" value={venue} maxLength={120} onChange={(e) => setVenue(e.target.value)} />
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3 sm:flex-row sm:items-center">
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm font-medium text-gray-800">
+              <input type="checkbox" className="h-4 w-4 accent-gray-900" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+              <Repeat className="h-4 w-4 text-gray-500" />
+              Repeat weekly
+            </label>
+            {repeat && (
+              <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEKDAYS.map((d, i) => {
+                    const on = weekdays.includes(i);
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setWeekdays((w) => (on ? w.filter((x) => x !== i) : [...w, i]))}
+                        className={`h-8 w-11 rounded-md border text-xs font-medium transition-colors ${
+                          on ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    );
+                  })}
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  until
+                  <input type="date" className={`${inputCls} w-auto`} value={until} min={date} onChange={(e) => setUntil(e.target.value)} />
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-gray-500">
+              {repeat ? 'Days when the venue is booked for a game are skipped and listed.' : 'Leave time and venue blank if they are not set yet.'}
+            </p>
+            <Button onClick={create} disabled={busy}>
               <Plus className="h-4 w-4 mr-1" />
-              {createMut.isPending ? 'Creating…' : 'Create'}
+              {busy ? 'Scheduling…' : repeat ? 'Create schedule' : 'Create session'}
             </Button>
           </div>
         </CardContent>
@@ -157,6 +263,12 @@ export default function CoachAttendance() {
                         <CalendarDays className="h-3.5 w-3.5" />
                         {fmtDate(s.date)}
                       </p>
+                      {(s.startTime || s.venueName) && (
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                          {s.startTime && <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{timeRange(s)}</span>}
+                          {s.venueName && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{s.venueName}</span>}
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); setToDelete(s); }}
@@ -267,6 +379,9 @@ function SessionDialog({
   const [editMeta, setEditMeta] = useState(false);
   const [title, setTitle] = useState(session.title);
   const [date, setDate] = useState(session.date);
+  const [startTime, setStartTime] = useState(session.startTime ?? '');
+  const [endTime, setEndTime] = useState(session.endTime ?? '');
+  const [venue, setVenue] = useState(session.venueName ?? '');
 
   // Hydrate from what's saved for this session.
   useEffect(() => {
@@ -316,7 +431,10 @@ function SessionDialog({
   const saveMeta = () => {
     if (!title.trim()) return toast.error('Title is required.');
     updateMut.mutate(
-      { id: session.id, patch: { title: title.trim(), date } },
+      {
+        id: session.id,
+        patch: { title: title.trim(), date, startTime: startTime || null, endTime: endTime || null, venueName: venue.trim() || null },
+      },
       { onSuccess: () => setEditMeta(false), onError: (e: any) => toast.error(e?.message || 'Could not update.') },
     );
   };
@@ -334,11 +452,19 @@ function SessionDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           {editMeta ? (
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input className={inputCls} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} />
-              <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
-              <Button size="sm" onClick={saveMeta} disabled={updateMut.isPending}>Save</Button>
-              <Button size="sm" variant="secondary" onClick={() => { setEditMeta(false); setTitle(session.title); setDate(session.date); }}>Cancel</Button>
+            <div className="grid grid-cols-2 gap-2 pr-6 sm:grid-cols-6">
+              <input className={`${inputCls} col-span-2 sm:col-span-3`} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} aria-label="Title" />
+              <input type="date" className={`${inputCls} col-span-2 sm:col-span-3`} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
+              <input type="time" className={`${inputCls} sm:col-span-1`} value={startTime} onChange={(e) => setStartTime(e.target.value)} aria-label="Start time" />
+              <input type="time" className={`${inputCls} sm:col-span-1`} value={endTime} onChange={(e) => setEndTime(e.target.value)} aria-label="End time" />
+              <input className={`${inputCls} col-span-2 sm:col-span-4`} placeholder="Venue" value={venue} maxLength={120} onChange={(e) => setVenue(e.target.value)} aria-label="Venue" />
+              <div className="col-span-2 flex gap-2 sm:col-span-6">
+                <Button size="sm" onClick={saveMeta} disabled={updateMut.isPending}>Save</Button>
+                <Button size="sm" variant="secondary" onClick={() => {
+                  setEditMeta(false); setTitle(session.title); setDate(session.date);
+                  setStartTime(session.startTime ?? ''); setEndTime(session.endTime ?? ''); setVenue(session.venueName ?? '');
+                }}>Cancel</Button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -349,9 +475,10 @@ function SessionDialog({
             </div>
           )}
           <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1 text-gray-500">
-              <CalendarDays className="h-3.5 w-3.5" />
-              {fmtDate(session.date)}
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-gray-500">
+              <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{fmtDate(session.date)}</span>
+              {session.startTime && <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{timeRange(session)}</span>}
+              {session.venueName && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{session.venueName}</span>}
             </span>
             <SaveIndicator state={saveState} count={markedCount} total={athletes.length} />
           </div>

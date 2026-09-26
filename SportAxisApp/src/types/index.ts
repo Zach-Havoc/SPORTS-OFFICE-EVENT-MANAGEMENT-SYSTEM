@@ -48,6 +48,7 @@ export type NotificationKind =
   | 'requirement_reviewed'
   | 'score_disputed'
   | 'committee_assigned'
+  | 'schedule_changed'
   | (string & {});
 
 export interface AppNotification {

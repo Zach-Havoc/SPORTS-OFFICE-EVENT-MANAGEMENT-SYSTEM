@@ -12,6 +12,7 @@ use App\Models\TeamMatch;
 use App\Models\User;
 use App\Models\Venue;
 use App\Notifications\CommitteeAssigned;
+use App\Services\ScheduleNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -159,6 +160,7 @@ class EventController extends Controller
         ]);
 
         $this->notifyCommittee($event);
+        app(ScheduleNotifier::class)->created($event);
 
         return response()->json($event->toApiFormat(), 201);
     }
@@ -244,7 +246,9 @@ class EventController extends Controller
         }
 
         $before = $this->judgeIds($event);
+        $scheduleBefore = $event->only(ScheduleNotifier::WATCHED);
         $event->update($data);
+        app(ScheduleNotifier::class)->updated($event->fresh(), $scheduleBefore);
 
         // Only the members added by this edit — the rest already have it.
         if ($request->has('judges')) {
@@ -256,7 +260,9 @@ class EventController extends Controller
 
     public function destroy(string $id)
     {
-        Event::findOrFail($id)->delete();
+        $event = Event::findOrFail($id);
+        app(ScheduleNotifier::class)->cancelled($event);
+        $event->delete();
 
         return response()->json(['message' => 'Event deleted']);
     }
@@ -283,7 +289,11 @@ class EventController extends Controller
         ]);
 
         $events = Event::whereIn('id', $data['ids'])->get();
-        $events->each->delete();
+        $notifier = app(ScheduleNotifier::class);
+        $events->each(function (Event $event) use ($notifier) {
+            $notifier->cancelled($event);
+            $event->delete();
+        });
 
         return response()->json(['deleted' => $events->count()]);
     }

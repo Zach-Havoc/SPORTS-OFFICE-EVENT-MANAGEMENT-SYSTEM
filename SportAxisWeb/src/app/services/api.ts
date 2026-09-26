@@ -919,6 +919,9 @@ export interface AttendanceSession {
   id: string;
   title: string;
   date: string;
+  startTime: string | null;
+  endTime: string | null;
+  venueName: string | null;
   markedCount: number;
   rosterCount: number;
   complete: boolean;
@@ -926,10 +929,16 @@ export interface AttendanceSession {
 }
 export const getAttendanceSessions = () =>
   apiRequest("/attendance/sessions", {}, true) as Promise<AttendanceSession[]>;
+/** Optional when/where of a training session (times as "HH:mm"). */
+export interface SessionTiming {
+  startTime?: string | null;
+  endTime?: string | null;
+  venueName?: string | null;
+}
 export const createAttendanceSession = (data: {
   title: string;
   date: string;
-}) =>
+} & SessionTiming) =>
   apiRequest(
     "/attendance/sessions",
     { method: "POST", body: JSON.stringify(data) },
@@ -937,13 +946,39 @@ export const createAttendanceSession = (data: {
   ) as Promise<AttendanceSession>;
 export const updateAttendanceSession = (
   id: string,
-  patch: { title?: string; date?: string },
+  patch: { title?: string; date?: string } & SessionTiming,
 ) =>
   apiRequest(
     `/attendance/sessions/${id}`,
     { method: "PUT", body: JSON.stringify(patch) },
     true,
   ) as Promise<AttendanceSession>;
+/** Automated training scheduling: one session per chosen weekday (0 = Sun) in a date range. */
+export const createRecurringSessions = (data: {
+  title: string;
+  from: string;
+  to: string;
+  weekdays: number[];
+} & SessionTiming) =>
+  apiRequest(
+    "/attendance/sessions/recurring",
+    { method: "POST", body: JSON.stringify(data) },
+    true,
+  ) as Promise<{ created: AttendanceSession[]; skipped: { date: string; reason: string }[] }>;
+
+/** The signed-in athlete's upcoming training (their coach's sessions). */
+export interface TrainingSession {
+  id: string;
+  title: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  venueName: string | null;
+  coachName: string | null;
+}
+export const getAthleteTraining = () =>
+  apiRequest("/athlete/training", {}, true) as Promise<TrainingSession[]>;
+
 export const deleteAttendanceSession = (id: string) =>
   apiRequest(`/attendance/sessions/${id}`, { method: "DELETE" }, true);
 export const getAttendanceSession = (id: string) =>

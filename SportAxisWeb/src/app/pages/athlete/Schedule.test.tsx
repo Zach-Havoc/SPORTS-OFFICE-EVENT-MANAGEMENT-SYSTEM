@@ -38,6 +38,7 @@ vi.mock('../../hooks/api', () => ({
     isRefetchError: false,
     refetch: vi.fn(),
   }),
+  useAthleteTraining: () => ({ data: [], isLoading: false, refetch: vi.fn() }),
 }))
 
 vi.mock('../../utils/departments', () => ({ useDeptAbbreviator: () => (s: string) => s }))

@@ -26,6 +26,7 @@ const KIND_ICON: Partial<Record<NotificationKind, IconName>> = {
   requirement_reviewed: 'verified',
   score_disputed: 'alert-triangle',
   committee_assigned: 'qr',
+  schedule_changed: 'calendar',
 };
 const KIND_COLOR: Partial<Record<NotificationKind, { fg: string; bg: string }>> = {
   protest_filed: { fg: COLORS.warning, bg: COLORS.warningLight },
@@ -33,6 +34,7 @@ const KIND_COLOR: Partial<Record<NotificationKind, { fg: string; bg: string }>> 
   requirement_reviewed: { fg: COLORS.info, bg: COLORS.infoLight },
   score_disputed: { fg: COLORS.destructive, bg: COLORS.errorLight },
   committee_assigned: { fg: COLORS.textPrimary, bg: COLORS.surfaceAlt },
+  schedule_changed: { fg: COLORS.info, bg: COLORS.infoLight },
 };
 const DEFAULT_ICON: IconName = 'bell';
 const DEFAULT_TONE = { fg: COLORS.textSecondary, bg: COLORS.surfaceAlt };

@@ -11,6 +11,7 @@ import { Megaphone, Search, Calendar, User, UserPlus, Mail, CheckCircle, X } fro
 import { toast } from 'sonner';
 import { applyForTryout, verifyTryoutEmail } from '../../services/api';
 import { useAnnouncements, useDepartments } from '../../hooks/api';
+import { TryoutSchedule } from '../../components/public/TryoutSchedule';
 
 interface Announcement {
   id: string;
@@ -20,6 +21,10 @@ interface Announcement {
   coachId: string;
   coachName: string;
   isTryout: boolean;
+  tryoutDate?: string | null;
+  tryoutStartTime?: string | null;
+  tryoutEndTime?: string | null;
+  tryoutVenue?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -344,6 +349,14 @@ export default function PublicAnnouncements() {
                 </div>
               </CardHeader>
               <CardContent>
+                {announcement.isTryout && (
+                  <TryoutSchedule
+                    date={announcement.tryoutDate}
+                    startTime={announcement.tryoutStartTime}
+                    endTime={announcement.tryoutEndTime}
+                    venue={announcement.tryoutVenue}
+                  />
+                )}
                 <p className="text-gray-700 whitespace-pre-wrap">{announcement.content}</p>
                 {announcement.isTryout && (
                   <div className="mt-4 pt-4 border-t">

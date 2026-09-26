@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -55,6 +55,8 @@ export interface TeamScheduleViewProps {
   fetching: boolean;
   error: boolean;
   onRetry: () => void;
+  /** Rendered between the counts and the game calendar (the athlete's training). */
+  extra?: ReactNode;
 }
 
 /**
@@ -70,6 +72,7 @@ export function TeamScheduleView({
   fetching,
   error,
   onRetry,
+  extra,
 }: TeamScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const abbr = useDeptAbbreviator();
@@ -134,6 +137,8 @@ export function TeamScheduleView({
           </Card>
         ))}
       </div>
+
+      {extra}
 
       <div className="grid gap-6 lg:grid-cols-[19rem_1fr] items-start">
         <Card>

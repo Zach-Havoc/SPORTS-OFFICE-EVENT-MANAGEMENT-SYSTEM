@@ -285,6 +285,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Attendance sessions — the coach creates many, each with its own roster.
         Route::get('/attendance/sessions', [AttendanceController::class, 'sessions']);
         Route::post('/attendance/sessions', [AttendanceController::class, 'createSession']);
+        Route::post('/attendance/sessions/recurring', [AttendanceController::class, 'createRecurring']);
         Route::get('/attendance/sessions/{id}', [AttendanceController::class, 'showSession']);
         Route::put('/attendance/sessions/{id}', [AttendanceController::class, 'updateSession']);
         Route::delete('/attendance/sessions/{id}', [AttendanceController::class, 'deleteSession']);
@@ -298,6 +299,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:athlete')->group(function () {
         // Only the games this athlete's college plays in their sport.
         Route::get('/athlete/schedule', [TeamScheduleController::class, 'index']);
+        Route::get('/athlete/training', [AttendanceController::class, 'athleteTraining']);
         Route::post('/enroll', [EnrollController::class, 'enroll']);
         Route::delete('/unenroll', [EnrollController::class, 'unenroll']);
         Route::get('/my-coach', [EnrollController::class, 'myCoach']);

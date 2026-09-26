@@ -22,6 +22,7 @@ import {
   useDeleteAnnouncement,
 } from '../../hooks/api';
 import { RefreshStatus } from '../../components/RefreshStatus';
+import { TryoutSchedule } from '../../components/public/TryoutSchedule';
 
 interface Announcement {
   id: string;
@@ -31,6 +32,10 @@ interface Announcement {
   coachId: string;
   coachName: string;
   isTryout: boolean;
+  tryoutDate: string | null;
+  tryoutStartTime: string | null;
+  tryoutEndTime: string | null;
+  tryoutVenue: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +51,10 @@ export default function CoachAnnouncements() {
     content: '',
     sport: '',
     isTryout: true,
+    tryoutDate: '',
+    tryoutStartTime: '',
+    tryoutEndTime: '',
+    tryoutVenue: '',
   });
 
   useEffect(() => {
@@ -71,12 +80,25 @@ export default function CoachAnnouncements() {
       return;
     }
 
+    if (formData.isTryout && formData.tryoutStartTime && formData.tryoutEndTime && formData.tryoutEndTime <= formData.tryoutStartTime) {
+      toast.error('The tryout must end after it starts');
+      return;
+    }
+    // Blank schedule fields are sent as null so clearing one really clears it.
+    const payload = {
+      ...formData,
+      tryoutDate: formData.isTryout ? formData.tryoutDate || null : null,
+      tryoutStartTime: formData.isTryout ? formData.tryoutStartTime || null : null,
+      tryoutEndTime: formData.isTryout ? formData.tryoutEndTime || null : null,
+      tryoutVenue: formData.isTryout ? formData.tryoutVenue.trim() || null : null,
+    };
+
     try {
       if (editingId) {
-        await updateMut.mutateAsync({ id: editingId, data: formData });
+        await updateMut.mutateAsync({ id: editingId, data: payload });
         toast.success('Announcement updated successfully');
       } else {
-        await createMut.mutateAsync(formData);
+        await createMut.mutateAsync(payload);
         toast.success('Announcement created successfully');
       }
       setDialogOpen(false);
@@ -94,6 +116,10 @@ export default function CoachAnnouncements() {
       content: announcement.content,
       sport: announcement.sport || '',
       isTryout: announcement.isTryout,
+      tryoutDate: announcement.tryoutDate ? announcement.tryoutDate.slice(0, 10) : '',
+      tryoutStartTime: announcement.tryoutStartTime ?? '',
+      tryoutEndTime: announcement.tryoutEndTime ?? '',
+      tryoutVenue: announcement.tryoutVenue ?? '',
     });
     setDialogOpen(true);
   };
@@ -111,7 +137,7 @@ export default function CoachAnnouncements() {
   };
 
   const resetForm = () => {
-    setFormData({ title: '', content: '', sport: '', isTryout: true });
+    setFormData({ title: '', content: '', sport: '', isTryout: true, tryoutDate: '', tryoutStartTime: '', tryoutEndTime: '', tryoutVenue: '' });
     setEditingId(null);
   };
 
@@ -209,6 +235,14 @@ export default function CoachAnnouncements() {
                 </div>
               </CardHeader>
               <CardContent>
+                {announcement.isTryout && (
+                  <TryoutSchedule
+                    date={announcement.tryoutDate}
+                    startTime={announcement.tryoutStartTime}
+                    endTime={announcement.tryoutEndTime}
+                    venue={announcement.tryoutVenue}
+                  />
+                )}
                 <p className="text-gray-700 whitespace-pre-wrap">{announcement.content}</p>
               </CardContent>
             </Card>
@@ -262,6 +296,25 @@ export default function CoachAnnouncements() {
                 onCheckedChange={(checked) => setFormData({ ...formData, isTryout: checked })}
               />
             </div>
+
+            {formData.isTryout && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <Label>Tryout schedule</Label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Input type="date" aria-label="Tryout date" value={formData.tryoutDate}
+                    onChange={(e) => setFormData({ ...formData, tryoutDate: e.target.value })} className="col-span-2 sm:col-span-1" />
+                  <Input type="time" aria-label="Starts" value={formData.tryoutStartTime}
+                    onChange={(e) => setFormData({ ...formData, tryoutStartTime: e.target.value })} />
+                  <Input type="time" aria-label="Ends" value={formData.tryoutEndTime}
+                    onChange={(e) => setFormData({ ...formData, tryoutEndTime: e.target.value })} />
+                  <Input placeholder="Venue" aria-label="Venue" value={formData.tryoutVenue} maxLength={120}
+                    onChange={(e) => setFormData({ ...formData, tryoutVenue: e.target.value })} className="col-span-2 sm:col-span-1" />
+                </div>
+                <p className="text-xs text-gray-500">
+                  A venue already booked for a game at that time is refused. If you change the schedule later, applicants are emailed.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="content">Content *</Label>

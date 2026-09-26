@@ -13,6 +13,7 @@ import * as path from 'path';
 //   RequirementReviewed   -> 'requirement_reviewed'
 //   ScoreDisputed         -> 'score_disputed'
 //   CommitteeAssigned     -> 'committee_assigned'
+//   ScheduleChanged       -> 'schedule_changed'
 // These are copied through untouched by NotificationController::index()
 // ('kind' => $n->data['kind'] ?? 'info').
 //
@@ -39,6 +40,7 @@ const BACKEND_NOTIFICATION_KINDS = [
   'requirement_reviewed',
   'score_disputed',
   'committee_assigned',
+  'schedule_changed',
 ];
 
 describe('notifications.tsx KIND_ICON/KIND_COLOR vs real backend kinds', () => {

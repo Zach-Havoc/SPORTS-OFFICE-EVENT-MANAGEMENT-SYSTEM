@@ -11,7 +11,7 @@ class AttendanceSession extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'coach_id', 'title', 'date', 'created_by'];
+    protected $fillable = ['id', 'coach_id', 'title', 'date', 'start_time', 'end_time', 'venue_name', 'created_by'];
 
     protected $casts = [
         'date' => 'date',

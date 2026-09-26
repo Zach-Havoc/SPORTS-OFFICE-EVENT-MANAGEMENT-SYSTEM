@@ -170,6 +170,12 @@ class BracketController extends Controller
             ], 422);
         }
 
+        $bracket->load('matches');
+        app(\App\Services\ScheduleNotifier::class)->createdMany(
+            \App\Models\Event::whereIn('id', $bracket->matches->pluck('event_id')->filter())->get(),
+            "{$bracket->sport} bracket published",
+        );
+
         return response()->json($bracket->fresh('matches')->toApiFormat());
     }
 

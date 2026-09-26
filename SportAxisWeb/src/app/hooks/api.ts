@@ -1093,6 +1093,22 @@ export const useMarkAttendance = () => {
 };
 
 // Attendance sessions
+export const useCreateRecurringSessions = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.createRecurringSessions,
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.attendanceSessions }),
+  });
+};
+
+export const useAthleteTraining = (opts?: QueryOpts<api.TrainingSession[]>) =>
+  useQuery({
+    queryKey: ["athlete-training"] as const,
+    queryFn: api.getAthleteTraining,
+    staleTime: STALE.live,
+    ...opts,
+  });
+
 export const useCreateAttendanceSession = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -1108,7 +1124,7 @@ export const useUpdateAttendanceSession = () => {
       patch,
     }: {
       id: string;
-      patch: { title?: string; date?: string };
+      patch: Parameters<typeof api.updateAttendanceSession>[1];
     }) => api.updateAttendanceSession(id, patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
   });
