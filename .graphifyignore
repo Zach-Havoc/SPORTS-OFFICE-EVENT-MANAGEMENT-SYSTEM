@@ -1,0 +1,3 @@
+# Kept out of the graphify knowledge graph (on top of .gitignore)
+*.zip
+graphify-out/
