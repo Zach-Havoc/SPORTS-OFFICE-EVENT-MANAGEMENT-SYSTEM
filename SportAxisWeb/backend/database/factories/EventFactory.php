@@ -24,7 +24,6 @@ class EventFactory extends Factory
             'venue_name' => 'Main Gym',
             'departments' => ['College of Engineering', 'College of Business'],
             'judges' => [],
-            'criteria' => [],
             'status' => 'upcoming',
             'qr_token' => Str::random(32),
         ];

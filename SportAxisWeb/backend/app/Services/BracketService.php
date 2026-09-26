@@ -265,7 +265,6 @@ class BracketService
             'venue_id' => $bm->venue_id,
             'venue_name' => $bm->venue_name,
             'departments' => array_values(array_filter([$bm->home_team, $bm->away_team])),
-            'criteria' => [],
             'status' => 'upcoming',
         ];
 

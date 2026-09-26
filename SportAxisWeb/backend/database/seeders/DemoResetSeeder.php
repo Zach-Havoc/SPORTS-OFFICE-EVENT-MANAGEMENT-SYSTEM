@@ -518,7 +518,7 @@ class DemoResetSeeder extends Seeder
 
         // Ranked events: a finished athletics final and an upcoming swim meet.
         $all = array_map(fn ($x) => $x[0], array_values(self::COLLEGES));
-        $dash = $this->standaloneEvent('Athletics — 100m Dash (Men) Final', 'Athletics', $today->copy()->subDays(5), '07:30', '08:30', 'ARASOF Oval', $all, 'completed', ['Time', 'Form']);
+        $dash = $this->standaloneEvent('Athletics — 100m Dash (Men) Final', 'Athletics', $today->copy()->subDays(5), '07:30', '08:30', 'ARASOF Oval', $all, 'completed');
         $judges = DB::table('users')->where('role', 'judge')->get();
         $base = [9.6, 9.2, 8.8, 8.5, 8.1, 7.6];
         foreach ($all as $k => $dept) {
@@ -534,8 +534,8 @@ class DemoResetSeeder extends Seeder
         }
         ScoreController::recalculateRankings($dash->id);
 
-        $this->standaloneEvent('Swimming — 50m Freestyle (Women)', 'Swimming', $today->copy()->addDays(10), '08:00', '10:00', 'Nasugbu Aquatic Center', $all, 'upcoming', ['Time']);
-        $this->standaloneEvent('Chess — Rapid Team Championship', 'Chess', $today->copy()->addDays(2), '13:00', '17:00', 'Student Center Hall', $all, 'upcoming', []);
+        $this->standaloneEvent('Swimming — 50m Freestyle (Women)', 'Swimming', $today->copy()->addDays(10), '08:00', '10:00', 'Nasugbu Aquatic Center', $all, 'upcoming');
+        $this->standaloneEvent('Chess — Rapid Team Championship', 'Chess', $today->copy()->addDays(2), '13:00', '17:00', 'Student Center Hall', $all, 'upcoming');
 
         // Protests on played games.
         $coach = $this->kept['coach@university.edu']->id;
@@ -674,7 +674,7 @@ class DemoResetSeeder extends Seeder
         ]);
     }
 
-    private function standaloneEvent(string $name, string $category, Carbon $date, string $start, string $end, string $venue, array $depts, string $status, array $criteria): Event
+    private function standaloneEvent(string $name, string $category, Carbon $date, string $start, string $end, string $venue, array $depts, string $status): Event
     {
         return Event::create([
             'id' => (string) Str::uuid(), 'name' => $name, 'category' => $category,
@@ -683,7 +683,6 @@ class DemoResetSeeder extends Seeder
             'departments' => $depts,
             'judges' => DB::table('users')->where('role', 'judge')->limit(2)->get(['id', 'name', 'email'])
                 ->map(fn ($j) => (array) $j)->all(),
-            'criteria' => array_map(fn ($c) => ['name' => $c, 'weight' => intdiv(100, max(1, count($criteria)))], $criteria),
             'status' => $status, 'qr_token' => Str::random(32),
         ]);
     }

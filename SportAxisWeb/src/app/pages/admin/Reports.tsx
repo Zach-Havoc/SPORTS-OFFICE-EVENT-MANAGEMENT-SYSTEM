@@ -497,7 +497,7 @@ export default function AdminReports() {
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400">
-                    No criteria breakdown was recorded for this score.
+                    No score breakdown was recorded for this score.
                   </p>
                 )}
               </div>

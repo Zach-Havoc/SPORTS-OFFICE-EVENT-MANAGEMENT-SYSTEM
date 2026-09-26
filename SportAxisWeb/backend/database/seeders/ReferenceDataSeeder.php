@@ -80,9 +80,16 @@ class ReferenceDataSeeder extends Seeder
         Schema::disableForeignKeyConstraints();
 
         foreach (require $path as $table => $rows) {
-            if ($rows !== []) {
-                DB::table($table)->insertOrIgnore($rows);
+            if ($rows === [] || ! Schema::hasTable($table)) {
+                continue;
             }
+            // The export can predate a dropped column; insert only what the
+            // current schema still has so an old snapshot keeps loading.
+            $columns = array_flip(Schema::getColumnListing($table));
+            DB::table($table)->insertOrIgnore(array_map(
+                fn ($row) => array_intersect_key($row, $columns),
+                $rows,
+            ));
         }
 
         Schema::enableForeignKeyConstraints();

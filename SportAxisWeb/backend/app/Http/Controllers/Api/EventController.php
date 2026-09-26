@@ -154,7 +154,6 @@ class EventController extends Controller
             'venue_name' => $venueName,
             'departments' => $request->departments,
             'judges' => $request->judges ?? [],
-            'criteria' => [],
             'status' => $request->status ?? 'upcoming',
             'qr_token' => Str::random(32),
         ]);

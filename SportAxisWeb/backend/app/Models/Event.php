@@ -19,14 +19,13 @@ class Event extends Model
 
     protected $fillable = [
         'id', 'name', 'category', 'schedule', 'start_time', 'end_time',
-        'venue_id', 'venue_name', 'departments', 'judges', 'criteria', 'status', 'qr_token', 'category_id',
+        'venue_id', 'venue_name', 'departments', 'judges', 'status', 'qr_token', 'category_id',
         'season_id',
     ];
 
     protected $casts = [
         'departments' => 'array',
         'judges' => 'array',
-        'criteria' => 'array',
     ];
 
     /**
