@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Calendar, Search, Users, MapPin, X } from "lucide-react";
+import { Calendar, Search, Users, MapPin, Trophy, X } from "lucide-react";
+import { TeamLogo } from "../../components/public/TeamLogo";
 import Loading from "../../components/Loading";
 import { useDeptAbbreviator } from "../../utils/departments";
 
@@ -29,6 +30,73 @@ interface Event {
   venue?: string;
   status: "upcoming" | "ongoing" | "completed";
   departments: string[];
+  /** Set by GET /events for completed events that have a recorded result. */
+  result?: EventResult | null;
+}
+
+type EventResult =
+  | {
+      type: "match";
+      winner: string | null;
+      isDraw: boolean;
+      homeTeam: string;
+      awayTeam: string;
+      homeScore: number | null;
+      awayScore: number | null;
+    }
+  | { type: "ranked"; winner: string; score: number };
+
+const fmtScore = (n: number | null) =>
+  n === null ? "–" : Number.isInteger(n) ? String(n) : n.toFixed(2);
+
+/** The winner line on a completed event: who won, and by what. */
+function ResultLine({
+  result,
+  logoOf,
+  abbr,
+}: {
+  result: EventResult | null | undefined;
+  logoOf: (name: string) => string | null | undefined;
+  abbr: (name: string) => string;
+}) {
+  if (!result) {
+    return <p className="text-sm text-gray-400">No result recorded</p>;
+  }
+
+  if (result.type === "match" && result.isDraw) {
+    return (
+      <p className="text-sm font-medium text-gray-700">
+        Draw · {abbr(result.homeTeam)} {fmtScore(result.homeScore)} – {fmtScore(result.awayScore)}{" "}
+        {abbr(result.awayTeam)}
+      </p>
+    );
+  }
+
+  const winner = result.winner as string;
+  let detail: string;
+  if (result.type === "match") {
+    const homeWon = winner === result.homeTeam;
+    const loser = homeWon ? result.awayTeam : result.homeTeam;
+    const [w, l] = homeWon
+      ? [result.homeScore, result.awayScore]
+      : [result.awayScore, result.homeScore];
+    detail = `${fmtScore(w)} – ${fmtScore(l)} vs ${abbr(loser)}`;
+  } else {
+    detail = `1st place · ${result.score.toFixed(2)} pts`;
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <Trophy className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+      <TeamLogo name={winner} logoUrl={logoOf(winner)} label={abbr(winner)} size={28} />
+      <span className="truncate text-sm">
+        <span className="font-semibold text-gray-900" title={winner}>
+          {abbr(winner)}
+        </span>{" "}
+        <span className="text-gray-500">won · {detail}</span>
+      </span>
+    </div>
+  );
 }
 
 export default function PublicHistory() {
@@ -59,6 +127,16 @@ export default function PublicHistory() {
   // Events store a college by full name or abbreviation; match either.
   const { data: deptsData } = useDepartments();
   const depts = useMemo(() => (deptsData as any[] | undefined) ?? [], [deptsData]);
+  const logoOf = useMemo(() => {
+    const k = (v: string) => v.trim().toLowerCase();
+    const m = new Map<string, string | null>();
+    for (const d of depts) {
+      m.set(k(d.name), d.logoUrl ?? null);
+      if (d.abbreviation) m.set(k(d.abbreviation), d.logoUrl ?? null);
+    }
+    return (name: string) => m.get(k(name)) ?? null;
+  }, [depts]);
+
   const playsIn = useMemo(() => {
     if (teamFilter === "all") return () => true;
     const k = (v: string) => v.trim().toLowerCase();
@@ -334,6 +412,11 @@ export default function PublicHistory() {
                         </div>
                       )}
                     </CardDescription>
+                    {event.status === "completed" && (
+                      <div className="mt-3 border-t border-gray-100 pt-3">
+                        <ResultLine result={event.result} logoOf={logoOf} abbr={abbr} />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-600 shrink-0">
                     <Users className="h-4 w-4 text-gray-400" />

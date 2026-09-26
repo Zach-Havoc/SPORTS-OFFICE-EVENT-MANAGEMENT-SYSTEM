@@ -7,6 +7,8 @@ use App\Http\Controllers\Concerns\ResolvesSeason;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\Ranking;
+use App\Models\TeamMatch;
 use App\Models\User;
 use App\Models\Venue;
 use App\Notifications\CommitteeAssigned;
@@ -89,7 +91,10 @@ class EventController extends Controller
         }
 
         $events = $query->paginate($this->perPage($request, 50));
-        $events->getCollection()->transform(fn ($e) => $e->toApiFormat());
+        $results = $this->resultsFor($events->getCollection());
+        $events->getCollection()->transform(
+            fn ($e) => $e->toApiFormat() + ['result' => $results[$e->id] ?? null]
+        );
 
         return response()->json($events);
     }
@@ -346,5 +351,52 @@ class EventController extends Controller
         }
 
         return $sent;
+    }
+
+    /**
+     * Who won each completed event on this page, in two queries rather than
+     * one per event: a game's recorded head-to-head result, else the top of
+     * a judged event's ranking.
+     *
+     * @param  \Illuminate\Support\Collection<int, Event>  $events
+     * @return array<string, array<string, mixed>>
+     */
+    private function resultsFor($events): array
+    {
+        $ids = $events->where('status', 'completed')->pluck('id');
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $out = [];
+
+        TeamMatch::whereIn('event_id', $ids)
+            ->whereIn('status', ['completed', 'forfeit'])
+            ->orderBy('updated_at')
+            ->get()
+            ->each(function (TeamMatch $m) use (&$out) {
+                $out[$m->event_id] = [
+                    'type' => 'match',
+                    'winner' => $m->is_draw ? null : $m->winner,
+                    'isDraw' => (bool) $m->is_draw,
+                    'homeTeam' => $m->home_team,
+                    'awayTeam' => $m->away_team,
+                    'homeScore' => $m->home_score !== null ? (float) $m->home_score : null,
+                    'awayScore' => $m->away_score !== null ? (float) $m->away_score : null,
+                ];
+            });
+
+        Ranking::whereIn('event_id', $ids->diff(array_keys($out)))
+            ->where('rank', 1)
+            ->get()
+            ->each(function (Ranking $r) use (&$out) {
+                $out[$r->event_id] = [
+                    'type' => 'ranked',
+                    'winner' => $r->department,
+                    'score' => (float) $r->total_score,
+                ];
+            });
+
+        return $out;
     }
 }
