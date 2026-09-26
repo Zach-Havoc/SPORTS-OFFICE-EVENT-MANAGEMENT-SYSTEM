@@ -976,6 +976,32 @@ export interface TrainingSession {
   venueName: string | null;
   coachName: string | null;
 }
+/** One Sports Office transaction: a CMO requirement, tryout application or protest. */
+export interface OfficeTransaction {
+  id: string;
+  type: "cmo_requirement" | "tryout_application" | "protest";
+  reference: string;
+  party: string;
+  subject: string;
+  status: string;
+  open: boolean;
+  filedAt: string | null;
+  decidedAt: string | null;
+  link: string;
+}
+export interface TransactionPage {
+  data: OfficeTransaction[];
+  total: number;
+  page: number;
+  perPage: number;
+  counts: { open: number; closed: number };
+}
+export const getTransactions = (params: { type?: string; status?: string; q?: string; page?: number }) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== "" && v !== "all") qs.set(k, String(v)); });
+  return apiRequest(`/admin/transactions?${qs}`, {}, true) as Promise<TransactionPage>;
+};
+
 export const getAthleteTraining = () =>
   apiRequest("/athlete/training", {}, true) as Promise<TrainingSession[]>;
 

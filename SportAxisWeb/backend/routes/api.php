@@ -158,6 +158,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::get('/admin/trash', [TrashController::class, 'index']);
         Route::get('/admin/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/admin/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
         Route::post('/events/{id}/restore', [EventController::class, 'restore']);
         Route::post('/brackets/{id}/restore', [BracketController::class, 'restore']);
         Route::delete('/scores/{id}', [ScoreController::class, 'destroy']);

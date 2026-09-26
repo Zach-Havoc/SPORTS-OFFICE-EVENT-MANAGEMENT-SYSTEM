@@ -1101,6 +1101,14 @@ export const useCreateRecurringSessions = () => {
   });
 };
 
+export const useTransactions = (params: { type?: string; status?: string; q?: string; page?: number }) =>
+  useQuery({
+    queryKey: ["transactions", params] as const,
+    queryFn: () => api.getTransactions(params),
+    staleTime: STALE.live,
+    placeholderData: (prev) => prev,
+  });
+
 export const useAthleteTraining = (opts?: QueryOpts<api.TrainingSession[]>) =>
   useQuery({
     queryKey: ["athlete-training"] as const,

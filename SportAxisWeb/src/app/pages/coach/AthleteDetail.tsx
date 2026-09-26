@@ -6,7 +6,8 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Edit, Mail, Phone, User, Calendar, BookOpen, Building, AlertCircle, TrendingUp, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAthlete, useAttendanceRecords, usePerformanceRecords, useRequirements } from '../../hooks/api';
+import { useAthlete, useAttendanceRecords, useCoachSchedule, usePerformanceRecords, useRequirements } from '../../hooks/api';
+import { AthleteLedger, type LedgerEntry } from '../../components/coach/AthleteLedger';
 import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface PerformanceRecord {
@@ -30,9 +31,12 @@ interface RequirementRow {
 }
 
 interface AttendanceRow {
+  id?: string;
   athleteId: string;
   status: 'present' | 'absent' | 'late' | 'excused';
   date: string;
+  sessionTitle?: string | null;
+  notes?: string | null;
 }
 
 const REQ_STATUS_STYLE: Record<RequirementRow['status'], string> = {
@@ -58,6 +62,7 @@ interface Athlete {
   coachId: string;
   teamIds: string[];
   status: 'active' | 'inactive' | 'injured';
+  sport?: string | null;
   // Null until the athlete fills it in (it's theirs to edit, not the coach's).
   emergencyContact: {
     name: string;
@@ -83,6 +88,7 @@ export default function AthleteDetail() {
   const attendanceQuery = useAttendanceRecords();
   const performanceQuery = usePerformanceRecords();
   const requirementsQuery = useRequirements();
+  const scheduleQuery = useCoachSchedule();
 
   useEffect(() => {
     if (athleteQuery.isLoadingError) {
@@ -122,6 +128,49 @@ export default function AthleteDetail() {
     if (!performances.length) return null;
     return (performances.reduce((s, p) => s + Number(p.overallRating || 0), 0) / performances.length).toFixed(1);
   }, [performances]);
+
+  // Games the athlete's team played in their sport (the coach's schedule
+  // covers every sport the coach handles, so narrow it to this athlete's).
+  const games = useMemo(() => {
+    const sport = (athlete?.sport ?? '').toLowerCase();
+    return (scheduleQuery.data?.events ?? []).filter(
+      (e) => e.status === 'completed' && (!sport || e.category.toLowerCase().includes(sport)),
+    );
+  }, [scheduleQuery.data, athlete?.sport]);
+
+  const ledger = useMemo<LedgerEntry[]>(() => [
+    ...attendance.map((a, i) => ({
+      id: a.id ?? `att-${i}`,
+      kind: 'attendance' as const,
+      date: a.date,
+      title: a.sessionTitle || 'Training',
+      status: a.status,
+      remark: a.notes || undefined,
+    })),
+    ...games.map((g) => ({
+      id: g.id,
+      kind: 'game' as const,
+      date: g.schedule,
+      title: g.name,
+      detail: [g.category, g.venueName].filter(Boolean).join(' · '),
+    })),
+    ...performances.map((p) => ({
+      id: p.id,
+      kind: 'performance' as const,
+      date: p.recordedAt,
+      title: p.eventName || 'Performance review',
+      detail: `${p.sport ? `${p.sport} · ` : ''}Rating ${p.overallRating}/10`,
+      remark: p.coachNotes || undefined,
+    })),
+    ...requirements.map((q) => ({
+      id: q.id,
+      kind: 'requirement' as const,
+      date: q.submittedAt,
+      title: q.name,
+      detail: q.type,
+      status: q.status,
+    })),
+  ], [attendance, games, performances, requirements]);
 
   const approvedRequirements = requirements.filter((r) => r.status === 'approved').length;
 
@@ -183,7 +232,7 @@ export default function AthleteDetail() {
                 onRetry={() => athleteQuery.refetch()}
               />
             </div>
-            <p className="text-gray-600 mt-2">Student ID: {athlete.studentId}</p>
+            <p className="text-gray-600 mt-2">Athlete Ledger · Student ID: {athlete.studentId}</p>
           </div>
           <div className="flex gap-2">
             <Badge className={getStatusColor(athlete.status)}>
@@ -401,6 +450,8 @@ export default function AthleteDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <AthleteLedger athleteName={`${athlete.firstName} ${athlete.lastName}`} entries={ledger} />
     </div>
   );
 }
