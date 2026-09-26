@@ -1,3 +1,9 @@
-# Kept out of the graphify knowledge graph (on top of .gitignore)
+# Kept out of the graphify knowledge graph (on top of .gitignore).
+# The map should be the app — web, backend, mobile, OCR service — not tooling.
 *.zip
 graphify-out/
+.claude/
+.github/
+OCR/paddleocr-env/
+**/__pycache__/
+SportAxisApp/scripts/reset-project.js
