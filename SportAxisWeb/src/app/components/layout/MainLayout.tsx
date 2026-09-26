@@ -17,18 +17,10 @@ import {
 } from "../ui/alert-dialog";
 import Loading from "../Loading";
 import SitePopup from "../public/SitePopup";
-import NotificationBell from "./NotificationBell";
+import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
 import { MobileNav } from "./MobileNav";
 import { getNavigation, isPathActive } from "./navigation";
-
-const SECTION_LABELS: Record<string, string> = {
-  admin: "Admin",
-  coach: "Coach",
-  athlete: "Athlete",
-  judge: "Committee",
-  settings: "Settings",
-};
 
 /**
  * Application shell.
@@ -67,12 +59,10 @@ export default function MainLayout() {
 
   const roleMeta = () => {
     if (!user) return "";
-    if (user.role === "coach" && user.department) return `${user.department} coach`;
+    if (user.role === "coach" && user.department)
+      return `${user.department} coach`;
     return user.role.charAt(0).toUpperCase() + user.role.slice(1);
   };
-
-  const sectionLabel =
-    SECTION_LABELS[location.pathname.split("/")[1] ?? ""] ?? "SportAxis";
 
   const publicNav = getNavigation(undefined).groups[0].items;
 
@@ -81,8 +71,6 @@ export default function MainLayout() {
       {user && (
         <AppSidebar
           role={user.role}
-          userName={user.name}
-          userMeta={roleMeta()}
           collapsed={collapsed}
           onToggleCollapsed={() => setCollapsed((c) => !c)}
           onLogout={() => setLogoutDialogOpen(true)}
@@ -96,60 +84,56 @@ export default function MainLayout() {
             "bg-[color-mix(in_oklch,var(--surface)_88%,transparent)] backdrop-blur-md",
           )}
         >
-          <div
-            className={cn(
-              "flex h-14 items-center gap-3 px-4",
-              user ? "sm:px-6" : "page-container",
-            )}
-          >
-            {user ? (
-              <>
-                <span className="t-subsection lg:hidden">{sectionLabel}</span>
-                <div className="ml-auto flex items-center gap-1">
-                  <NotificationBell />
-                </div>
-              </>
-            ) : (
-              <>
-                <Link to="/" className="flex shrink-0 items-center gap-2.5">
-                  <img
-                    src="/sportaxis-mark.png"
-                    alt=""
-                    aria-hidden="true"
-                    className="size-7 object-contain"
-                  />
-                  <span className="t-subsection">SportAxis</span>
-                </Link>
+          {user ? (
+            <AppHeader
+              role={user.role}
+              userName={user.name}
+              userMeta={roleMeta()}
+              onLogout={() => setLogoutDialogOpen(true)}
+            />
+          ) : (
+            <div className="page-container flex h-14 items-center gap-3">
+              <Link to="/" className="flex shrink-0 items-center gap-2.5">
+                <img
+                  src="/sportaxis-mark.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="size-7 object-contain"
+                />
+                <span className="t-subsection">SportAxis</span>
+              </Link>
 
-                <nav aria-label="Main" className="ml-6 hidden items-center gap-0.5 lg:flex">
-                  {publicNav.map((item) => {
-                    const active = isPathActive(item.path, location.pathname);
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "t-nav rounded-md px-2.5 py-1.5 transition-colors duration-[140ms]",
-                          active
-                            ? "bg-brand-subtle text-brand-text"
-                            : "text-text-secondary hover:bg-surface-hover hover:text-text",
-                        )}
-                      >
-                        {item.name}
-                      </Link>
-                    );
-                  })}
-                </nav>
+              <nav
+                aria-label="Main"
+                className="ml-6 hidden items-center gap-0.5 lg:flex"
+              >
+                {publicNav.map((item) => {
+                  const active = isPathActive(item.path, location.pathname);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "t-nav rounded-md px-2.5 py-1.5 transition-colors duration-[140ms]",
+                        active
+                          ? "bg-brand-subtle text-brand-text"
+                          : "text-text-secondary hover:bg-surface-hover hover:text-text",
+                      )}
+                    >
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </nav>
 
-                <div className="ml-auto flex items-center gap-2">
-                  <Button asChild size="sm" variant="secondary">
-                    <Link to="/login">Sign in</Link>
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
+              <div className="ml-auto flex items-center gap-2">
+                <Button asChild size="sm" variant="secondary">
+                  <Link to="/login">Sign in</Link>
+                </Button>
+              </div>
+            </div>
+          )}
 
           {routerNavigation.state === "loading" && (
             <div className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-brand/20">
@@ -200,12 +184,15 @@ export default function MainLayout() {
           <AlertDialogHeader>
             <AlertDialogTitle>Sign out?</AlertDialogTitle>
             <AlertDialogDescription>
-              This ends your session on this device. Anything you have saved stays saved.
+              This ends your session on this device. Anything you have saved
+              stays saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Stay signed in</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogout}>Sign out</AlertDialogAction>
+            <AlertDialogAction onClick={handleLogout}>
+              Sign out
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

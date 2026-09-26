@@ -1101,7 +1101,7 @@ export const useCreateRecurringSessions = () => {
   });
 };
 
-export const useTransactions = (params: { type?: string; status?: string; q?: string; page?: number }) =>
+export const useTransactions = (params: { type?: string; status?: string; q?: string; page?: number; perPage?: number }) =>
   useQuery({
     queryKey: ["transactions", params] as const,
     queryFn: () => api.getTransactions(params),

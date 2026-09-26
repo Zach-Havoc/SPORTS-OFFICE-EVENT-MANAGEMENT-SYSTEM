@@ -1005,7 +1005,7 @@ export interface TransactionPage {
   perPage: number;
   counts: { open: number; closed: number };
 }
-export const getTransactions = (params: { type?: string; status?: string; q?: string; page?: number }) => {
+export const getTransactions = (params: { type?: string; status?: string; q?: string; page?: number; perPage?: number }) => {
   const qs = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== "" && v !== "all") qs.set(k, String(v)); });
   return apiRequest(`/admin/transactions?${qs}`, {}, true) as Promise<TransactionPage>;

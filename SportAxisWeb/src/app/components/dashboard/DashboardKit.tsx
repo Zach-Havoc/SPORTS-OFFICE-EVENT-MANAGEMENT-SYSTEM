@@ -28,7 +28,7 @@ import { cn } from "../ui/utils";
 export const BLUE = "#D02525"; // kept as the default series name; now brand red
 export const CHART_COLORS = [
   "#D02525", // chart-1 brand red
-  "#118186", // chart-2 teal
+  "#0092A0", // chart-2 teal (complementary accent)
   "#CB8B2E", // chart-3 ochre
   "#436590", // chart-4 steel
   "#834765", // chart-5 plum

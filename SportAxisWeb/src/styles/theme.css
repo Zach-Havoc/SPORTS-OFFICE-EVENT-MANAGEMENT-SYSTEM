@@ -385,7 +385,13 @@
 
   /* Categorical series: brand first, then hues at even lightness. */
   --chart-1: var(--color-crimson-600);
-  --chart-2: oklch(0.548 0.088 202);
+  /* Teal is the system's one complementary accent to crimson (scheduled /
+     future / second series). Stepped up from 0.088 chroma, which read gray,
+     to pass the dataviz chroma floor and CVD separation against chart-1. */
+  --chart-2: oklch(0.603 0.103 206.7);
+  --accent-teal: var(--chart-2);
+  --accent-teal-subtle: oklch(0.962 0.022 206.7);
+  --accent-teal-text: oklch(0.450 0.080 206.7);
   --chart-3: var(--color-amber-500);
   --chart-4: oklch(0.498 0.078 256);
   --chart-5: oklch(0.478 0.088 350);
@@ -467,7 +473,9 @@
   --input-background: var(--color-ink-900);
 
   --chart-1: var(--color-crimson-400);
-  --chart-2: oklch(0.658 0.086 202);
+  --chart-2: oklch(0.660 0.105 206.7);
+  --accent-teal-subtle: oklch(0.300 0.050 206.7);
+  --accent-teal-text: oklch(0.800 0.090 206.7);
   --chart-3: var(--color-amber-400);
   --chart-4: oklch(0.618 0.078 256);
   --chart-5: oklch(0.598 0.088 350);
@@ -553,6 +561,9 @@
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
+  --color-aqua: var(--accent-teal);
+  --color-aqua-subtle: var(--accent-teal-subtle);
+  --color-aqua-text: var(--accent-teal-text);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);

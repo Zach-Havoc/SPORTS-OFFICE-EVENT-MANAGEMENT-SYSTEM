@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { Skeleton } from '../../components/ui/skeleton';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { getEvents, getDepartments, getVenues, getJudges, getCategories, createEvent, updateEvent, deleteEvent, bulkDeleteEvents, bulkUpdateEventStatus, unwrapList, getPageMeta, type CommitteeEmailResult } from '../../services/api';
 import { CommitteeEmailDialog } from '../../components/CommitteeEmailDialog';
@@ -187,7 +187,9 @@ export default function AdminEventsEnhanced() {
   const [emailResult, setEmailResult] = useState<{ result: CommitteeEmailResult; eventName: string } | null>(null);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState('');
+  // Deep links: ?q= pre-fills the search (header search, dashboard), ?new=1 opens the create form.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') ?? '');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'status' | 'category'>('date');
@@ -311,6 +313,16 @@ export default function AdminEventsEnhanced() {
 
     return null;
   };
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      handleOpenDialog();
+      const next = new URLSearchParams(searchParams);
+      next.delete('new');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // ── Dialog ────────────────────────────────────────────────────────────
   const handleOpenDialog = useCallback((event?: Event) => {
