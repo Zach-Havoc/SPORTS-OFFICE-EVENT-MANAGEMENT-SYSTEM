@@ -1,0 +1,784 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-26T12:48:25.492408+00:00",
+  "title": "Design System: SportAxis",
+  "extensions": {
+    "colorMeta": {
+      "ink-50": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "oklch(0.988 0.001 250)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#FAFBFC"
+      },
+      "ink-100": {
+        "role": "neutral",
+        "displayName": "Tint",
+        "canonical": "oklch(0.972 0.002 250)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#F5F6F7"
+      },
+      "ink-200": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.929 0.004 252)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#E6E8EA"
+      },
+      "ink-300": {
+        "role": "neutral",
+        "displayName": "Strong Hairline / Rail Text",
+        "canonical": "oklch(0.874 0.006 252)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#D3D6D9"
+      },
+      "ink-400": {
+        "role": "neutral",
+        "displayName": "Disabled Text",
+        "canonical": "oklch(0.716 0.009 254)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#A0A4A9"
+      },
+      "ink-500": {
+        "role": "neutral",
+        "displayName": "Muted Text",
+        "canonical": "oklch(0.578 0.010 256)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#767A80"
+      },
+      "ink-600": {
+        "role": "neutral",
+        "displayName": "Secondary Text",
+        "canonical": "oklch(0.472 0.011 258)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#585C62"
+      },
+      "ink-800": {
+        "role": "neutral",
+        "displayName": "Ink Hover",
+        "canonical": "oklch(0.288 0.012 262)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#282B31"
+      },
+      "ink-900": {
+        "role": "neutral",
+        "displayName": "Ink (primary action and text)",
+        "canonical": "oklch(0.214 0.011 264)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#17191E"
+      },
+      "ink-950": {
+        "role": "neutral",
+        "displayName": "Charcoal Rail",
+        "canonical": "oklch(0.158 0.010 264)",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#0B0D11"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Panel White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(0.158 0.010 264)",
+          "oklch(0.288 0.012 262)",
+          "oklch(0.388 0.012 260)",
+          "oklch(0.472 0.011 258)",
+          "oklch(0.578 0.010 256)",
+          "oklch(0.716 0.009 254)",
+          "oklch(0.874 0.006 252)",
+          "oklch(0.972 0.002 250)"
+        ],
+        "hexApprox": "#FFFFFF"
+      },
+      "crimson-50": {
+        "role": "primary",
+        "displayName": "Crimson Tint",
+        "canonical": "oklch(0.973 0.013 22)",
+        "tonalRamp": [
+          "oklch(0.252 0.084 27)",
+          "oklch(0.386 0.126 27)",
+          "oklch(0.505 0.185 27)",
+          "oklch(0.614 0.178 26)",
+          "oklch(0.712 0.143 25)",
+          "oklch(0.814 0.098 24)",
+          "oklch(0.886 0.060 23)",
+          "oklch(0.973 0.013 22)"
+        ],
+        "hexApprox": "#FFF3F2"
+      },
+      "crimson-400": {
+        "role": "primary",
+        "displayName": "Crimson on Charcoal",
+        "canonical": "oklch(0.712 0.143 25)",
+        "tonalRamp": [
+          "oklch(0.252 0.084 27)",
+          "oklch(0.386 0.126 27)",
+          "oklch(0.505 0.185 27)",
+          "oklch(0.614 0.178 26)",
+          "oklch(0.712 0.143 25)",
+          "oklch(0.814 0.098 24)",
+          "oklch(0.886 0.060 23)",
+          "oklch(0.973 0.013 22)"
+        ],
+        "hexApprox": "#EE7B74"
+      },
+      "crimson-600": {
+        "role": "primary",
+        "displayName": "Scarlet Danger",
+        "canonical": "oklch(0.554 0.188 26.5)",
+        "tonalRamp": [
+          "oklch(0.252 0.084 27)",
+          "oklch(0.386 0.126 27)",
+          "oklch(0.505 0.185 27)",
+          "oklch(0.614 0.178 26)",
+          "oklch(0.712 0.143 25)",
+          "oklch(0.814 0.098 24)",
+          "oklch(0.886 0.060 23)",
+          "oklch(0.973 0.013 22)"
+        ],
+        "hexApprox": "#C93330"
+      },
+      "crimson-700": {
+        "role": "primary",
+        "displayName": "BatStateU Crimson",
+        "canonical": "oklch(0.505 0.185 27)",
+        "tonalRamp": [
+          "oklch(0.252 0.084 27)",
+          "oklch(0.386 0.126 27)",
+          "oklch(0.505 0.185 27)",
+          "oklch(0.614 0.178 26)",
+          "oklch(0.712 0.143 25)",
+          "oklch(0.814 0.098 24)",
+          "oklch(0.886 0.060 23)",
+          "oklch(0.973 0.013 22)"
+        ],
+        "hexApprox": "#B72121"
+      },
+      "crimson-800": {
+        "role": "primary",
+        "displayName": "Crimson Deep / Text",
+        "canonical": "oklch(0.441 0.156 27)",
+        "tonalRamp": [
+          "oklch(0.252 0.084 27)",
+          "oklch(0.386 0.126 27)",
+          "oklch(0.505 0.185 27)",
+          "oklch(0.614 0.178 26)",
+          "oklch(0.712 0.143 25)",
+          "oklch(0.814 0.098 24)",
+          "oklch(0.886 0.060 23)",
+          "oklch(0.973 0.013 22)"
+        ],
+        "hexApprox": "#961E1D"
+      },
+      "teal": {
+        "role": "secondary",
+        "displayName": "Scheduled Teal",
+        "canonical": "oklch(0.603 0.103 206.7)",
+        "tonalRamp": [
+          "oklch(0.25 0.060 206.7)",
+          "oklch(0.35 0.075 206.7)",
+          "oklch(0.45 0.080 206.7)",
+          "oklch(0.55 0.100 206.7)",
+          "oklch(0.603 0.103 206.7)",
+          "oklch(0.72 0.095 206.7)",
+          "oklch(0.85 0.060 206.7)",
+          "oklch(0.962 0.022 206.7)"
+        ],
+        "hexApprox": "#0092A0"
+      },
+      "teal-subtle": {
+        "role": "secondary",
+        "displayName": "Teal Tint",
+        "canonical": "oklch(0.962 0.022 206.7)",
+        "tonalRamp": [
+          "oklch(0.25 0.060 206.7)",
+          "oklch(0.35 0.075 206.7)",
+          "oklch(0.45 0.080 206.7)",
+          "oklch(0.55 0.100 206.7)",
+          "oklch(0.603 0.103 206.7)",
+          "oklch(0.72 0.095 206.7)",
+          "oklch(0.85 0.060 206.7)",
+          "oklch(0.962 0.022 206.7)"
+        ],
+        "hexApprox": "#E2F7FA"
+      },
+      "teal-text": {
+        "role": "secondary",
+        "displayName": "Teal Text",
+        "canonical": "oklch(0.450 0.080 206.7)",
+        "tonalRamp": [
+          "oklch(0.25 0.060 206.7)",
+          "oklch(0.35 0.075 206.7)",
+          "oklch(0.45 0.080 206.7)",
+          "oklch(0.55 0.100 206.7)",
+          "oklch(0.603 0.103 206.7)",
+          "oklch(0.72 0.095 206.7)",
+          "oklch(0.85 0.060 206.7)",
+          "oklch(0.962 0.022 206.7)"
+        ],
+        "hexApprox": "#00616B"
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Success Green",
+        "canonical": "oklch(0.516 0.095 158)",
+        "tonalRamp": [
+          "oklch(0.208 0.038 158)",
+          "oklch(0.312 0.053 158)",
+          "oklch(0.436 0.080 158)",
+          "oklch(0.516 0.095 158)",
+          "oklch(0.592 0.103 158)",
+          "oklch(0.802 0.082 158)",
+          "oklch(0.884 0.057 158)",
+          "oklch(0.970 0.015 158)"
+        ],
+        "hexApprox": "#2F7852"
+      },
+      "success-subtle": {
+        "role": "tertiary",
+        "displayName": "Success Tint",
+        "canonical": "oklch(0.970 0.015 158)",
+        "tonalRamp": [
+          "oklch(0.208 0.038 158)",
+          "oklch(0.312 0.053 158)",
+          "oklch(0.436 0.080 158)",
+          "oklch(0.516 0.095 158)",
+          "oklch(0.592 0.103 158)",
+          "oklch(0.802 0.082 158)",
+          "oklch(0.884 0.057 158)",
+          "oklch(0.970 0.015 158)"
+        ],
+        "hexApprox": "#EDF8F1"
+      },
+      "success-text": {
+        "role": "tertiary",
+        "displayName": "Success Text",
+        "canonical": "oklch(0.368 0.065 158)",
+        "tonalRamp": [
+          "oklch(0.208 0.038 158)",
+          "oklch(0.312 0.053 158)",
+          "oklch(0.436 0.080 158)",
+          "oklch(0.516 0.095 158)",
+          "oklch(0.592 0.103 158)",
+          "oklch(0.802 0.082 158)",
+          "oklch(0.884 0.057 158)",
+          "oklch(0.970 0.015 158)"
+        ],
+        "hexApprox": "#1C4932"
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Attention Amber",
+        "canonical": "oklch(0.602 0.117 70)",
+        "tonalRamp": [
+          "oklch(0.245 0.048 59)",
+          "oklch(0.368 0.069 61)",
+          "oklch(0.506 0.100 66)",
+          "oklch(0.602 0.117 70)",
+          "oklch(0.682 0.125 73)",
+          "oklch(0.828 0.106 78)",
+          "oklch(0.896 0.077 80)",
+          "oklch(0.975 0.018 82)"
+        ],
+        "hexApprox": "#AD7322"
+      },
+      "warning-subtle": {
+        "role": "tertiary",
+        "displayName": "Amber Tint",
+        "canonical": "oklch(0.975 0.018 82)",
+        "tonalRamp": [
+          "oklch(0.245 0.048 59)",
+          "oklch(0.368 0.069 61)",
+          "oklch(0.506 0.100 66)",
+          "oklch(0.602 0.117 70)",
+          "oklch(0.682 0.125 73)",
+          "oklch(0.828 0.106 78)",
+          "oklch(0.896 0.077 80)",
+          "oklch(0.975 0.018 82)"
+        ],
+        "hexApprox": "#FDF6EA"
+      },
+      "warning-text": {
+        "role": "tertiary",
+        "displayName": "Amber Text",
+        "canonical": "oklch(0.428 0.083 63)",
+        "tonalRamp": [
+          "oklch(0.245 0.048 59)",
+          "oklch(0.368 0.069 61)",
+          "oklch(0.506 0.100 66)",
+          "oklch(0.602 0.117 70)",
+          "oklch(0.682 0.125 73)",
+          "oklch(0.828 0.106 78)",
+          "oklch(0.896 0.077 80)",
+          "oklch(0.975 0.018 82)"
+        ],
+        "hexApprox": "#6F4417"
+      },
+      "info": {
+        "role": "tertiary",
+        "displayName": "Info Blue",
+        "canonical": "oklch(0.512 0.104 256)",
+        "tonalRamp": [
+          "oklch(0.220 0.042 261)",
+          "oklch(0.326 0.061 260)",
+          "oklch(0.440 0.090 258)",
+          "oklch(0.512 0.104 256)",
+          "oklch(0.586 0.108 254)",
+          "oklch(0.796 0.077 250)",
+          "oklch(0.882 0.050 249)",
+          "oklch(0.970 0.013 248)"
+        ],
+        "hexApprox": "#3C68A1"
+      },
+      "info-subtle": {
+        "role": "tertiary",
+        "displayName": "Info Tint",
+        "canonical": "oklch(0.970 0.013 248)",
+        "tonalRamp": [
+          "oklch(0.220 0.042 261)",
+          "oklch(0.326 0.061 260)",
+          "oklch(0.440 0.090 258)",
+          "oklch(0.512 0.104 256)",
+          "oklch(0.586 0.108 254)",
+          "oklch(0.796 0.077 250)",
+          "oklch(0.882 0.050 249)",
+          "oklch(0.970 0.013 248)"
+        ],
+        "hexApprox": "#EFF6FE"
+      },
+      "info-text": {
+        "role": "tertiary",
+        "displayName": "Info Text",
+        "canonical": "oklch(0.378 0.075 259)",
+        "tonalRamp": [
+          "oklch(0.220 0.042 261)",
+          "oklch(0.326 0.061 260)",
+          "oklch(0.440 0.090 258)",
+          "oklch(0.512 0.104 256)",
+          "oklch(0.586 0.108 254)",
+          "oklch(0.796 0.077 250)",
+          "oklch(0.882 0.050 249)",
+          "oklch(0.970 0.013 248)"
+        ],
+        "hexApprox": "#284269"
+      },
+      "chart-played": {
+        "role": "tertiary",
+        "displayName": "Played (season chart)",
+        "canonical": "#D02525",
+        "tonalRamp": [
+          "oklch(0.252 0.084 27)",
+          "oklch(0.386 0.126 27)",
+          "oklch(0.505 0.185 27)",
+          "oklch(0.614 0.178 26)",
+          "oklch(0.712 0.143 25)",
+          "oklch(0.814 0.098 24)",
+          "oklch(0.886 0.060 23)",
+          "oklch(0.973 0.013 22)"
+        ]
+      },
+      "chart-scheduled": {
+        "role": "tertiary",
+        "displayName": "Scheduled (season chart)",
+        "canonical": "#0092A0",
+        "tonalRamp": [
+          "oklch(0.25 0.060 206.7)",
+          "oklch(0.35 0.075 206.7)",
+          "oklch(0.45 0.080 206.7)",
+          "oklch(0.55 0.100 206.7)",
+          "oklch(0.603 0.103 206.7)",
+          "oklch(0.72 0.095 206.7)",
+          "oklch(0.85 0.060 206.7)",
+          "oklch(0.962 0.022 206.7)"
+        ]
+      },
+      "chart-not-closed": {
+        "role": "tertiary",
+        "displayName": "Not Closed (season chart)",
+        "canonical": "#C98A1C",
+        "tonalRamp": [
+          "oklch(0.245 0.048 59)",
+          "oklch(0.368 0.069 61)",
+          "oklch(0.506 0.100 66)",
+          "oklch(0.602 0.117 70)",
+          "oklch(0.682 0.125 73)",
+          "oklch(0.828 0.106 78)",
+          "oklch(0.896 0.077 80)",
+          "oklch(0.975 0.018 82)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Rare large moments (.t-display)."
+      },
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "The one h1 per page (.t-page-title)."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Section headings (.t-section)."
+      },
+      "panel-title": {
+        "displayName": "Panel Title",
+        "purpose": "Console panel title rows."
+      },
+      "subsection": {
+        "displayName": "Subsection",
+        "purpose": "Header page name, small headings (.t-subsection)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text, max 70ch (.t-body)."
+      },
+      "supporting": {
+        "displayName": "Supporting",
+        "purpose": "Ledes and the dashboard status sentence (.t-supporting)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Stat and field labels, breadcrumb (.t-label)."
+      },
+      "nav": {
+        "displayName": "Nav",
+        "purpose": "Sidebar items (.t-nav)."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Timestamps, descriptions, details; tabular (.t-caption)."
+      },
+      "overline": {
+        "displayName": "Overline",
+        "purpose": "Uppercase list-group labels in the mobile nav sheet only (.t-overline)."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "Every headline figure; Archivo wdth 110, tabular (.numeral)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-1",
+        "value": "0 1px 2px -1px oklch(0.214 0.011 264 / 0.08)",
+        "purpose": "Rest: panels, stat cards, buttons."
+      },
+      {
+        "name": "shadow-2",
+        "value": "0 1px 3px -1px oklch(0.214 0.011 264 / 0.10), 0 2px 8px -4px oklch(0.214 0.011 264 / 0.06)",
+        "purpose": "Lift: hover on linked cards and buttons."
+      },
+      {
+        "name": "shadow-3",
+        "value": "0 4px 12px -4px oklch(0.214 0.011 264 / 0.12), 0 2px 4px -2px oklch(0.214 0.011 264 / 0.06)",
+        "purpose": "Float: dropdowns and popovers."
+      },
+      {
+        "name": "shadow-4",
+        "value": "0 16px 40px -12px oklch(0.214 0.011 264 / 0.18), 0 4px 10px -6px oklch(0.214 0.011 264 / 0.08)",
+        "purpose": "Overlay: dialogs and sheets."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-quart",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Default easing for all state transitions."
+      },
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Overlay enter and exit keyframes."
+      },
+      {
+        "name": "ease-in-out-quart",
+        "value": "cubic-bezier(0.76, 0, 0.24, 1)",
+        "purpose": "Symmetric moves."
+      },
+      {
+        "name": "ease-drawer",
+        "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "Mobile sheet / drawer."
+      },
+      {
+        "name": "duration-instant",
+        "value": "90ms",
+        "purpose": "Press feedback."
+      },
+      {
+        "name": "duration-fast",
+        "value": "140ms",
+        "purpose": "Default transition duration (hover, colour)."
+      },
+      {
+        "name": "duration-base",
+        "value": "200ms",
+        "purpose": "Sidebar collapse width."
+      },
+      {
+        "name": "duration-slow",
+        "value": "320ms",
+        "purpose": "Larger surface moves."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "prefers-reduced-motion collapses all animation and transition durations."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "40rem (640px)"
+      },
+      {
+        "name": "md",
+        "value": "48rem (768px)"
+      },
+      {
+        "name": "lg",
+        "value": "64rem (1024px), sidebar appears"
+      },
+      {
+        "name": "xl",
+        "value": "80rem (1280px)"
+      },
+      {
+        "name": "2xl",
+        "value": "96rem (1536px)"
+      }
+    ],
+    "notes": {
+      "rootFontSize": "18px; all rem values resolve against it (media-query rem uses the 16px initial size).",
+      "tailwindRampAliases": "gray/slate/zinc->ink; red/rose/pink->crimson; green/emerald/teal-500..700->green; amber/yellow/orange->amber; blue/sky/indigo/cyan->blue; purple/violet/fuchsia->ink. Teal accent utilities are named aqua.",
+      "darkMode": ".dark class remaps semantic tokens (canvas ink-1000, surface ink-950, brand crimson-500, action ink-50, chart-2 oklch(0.660 0.105 206.7)).",
+      "printException": "src/app/utils/scoresheet.ts print CSS stays Arial for photocopy and OCR."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default action: ink, not red.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font-size:14px;font-weight:500;background:oklch(0.214 0.011 264);color:oklch(0.988 0.001 250);border:none;box-shadow:0 1px 2px -1px oklch(0.214 0.011 264 / 0.08);transition:background-color 140ms cubic-bezier(0.25,1,0.5,1),box-shadow 140ms cubic-bezier(0.25,1,0.5,1),transform 140ms;cursor:pointer;}.ds-btn-primary:hover{background:oklch(0.288 0.012 262);box-shadow:0 1px 3px -1px oklch(0.214 0.011 264 / 0.10),0 2px 8px -4px oklch(0.214 0.011 264 / 0.06);}.ds-btn-primary:active{transform:translateY(1px);box-shadow:none;}.ds-btn-primary:focus-visible{outline:2px solid var(--focus-ring, oklch(0.214 0.011 264));outline-offset:2px;}"
+    },
+    {
+      "name": "Brand Button",
+      "kind": "button",
+      "refersTo": "button-brand",
+      "description": "The role's one primary action (sidebar 'New event').",
+      "html": "<button class=\"ds-btn-brand\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg>New event</button>",
+      "css": ".ds-btn-brand{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font-size:14px;font-weight:500;background:oklch(0.505 0.185 27);color:#ffffff;border:none;box-shadow:0 1px 2px -1px oklch(0.214 0.011 264 / 0.08);transition:background-color 140ms cubic-bezier(0.25,1,0.5,1),box-shadow 140ms cubic-bezier(0.25,1,0.5,1),transform 140ms;cursor:pointer;font-size:14.6px;font-weight:600;}.ds-btn-brand:hover{background:oklch(0.441 0.156 27);box-shadow:0 1px 3px -1px oklch(0.214 0.011 264 / 0.10),0 2px 8px -4px oklch(0.214 0.011 264 / 0.06);}.ds-btn-brand:active{transform:translateY(1px);box-shadow:none;}.ds-btn-brand:focus-visible{outline:2px solid var(--focus-ring, oklch(0.214 0.011 264));outline-offset:2px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White surface on a hairline.",
+      "html": "<button class=\"ds-btn-secondary\">Export</button>",
+      "css": ".ds-btn-secondary{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font-size:14px;font-weight:500;background:#ffffff;color:oklch(0.214 0.011 264);border:none;box-shadow:0 1px 2px -1px oklch(0.214 0.011 264 / 0.08);transition:background-color 140ms cubic-bezier(0.25,1,0.5,1),box-shadow 140ms cubic-bezier(0.25,1,0.5,1),transform 140ms;cursor:pointer;border:1px solid oklch(0.929 0.004 252);}.ds-btn-secondary:hover{background:oklch(0.988 0.001 250);box-shadow:0 1px 3px -1px oklch(0.214 0.011 264 / 0.10),0 2px 8px -4px oklch(0.214 0.011 264 / 0.06);}.ds-btn-secondary:active{transform:translateY(1px);box-shadow:none;}.ds-btn-secondary:focus-visible{outline:2px solid var(--focus-ring, oklch(0.214 0.011 264));outline-offset:2px;}.ds-btn-secondary:hover{border-color:oklch(0.874 0.006 252);}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Scarlet: a red button always means destructive.",
+      "html": "<button class=\"ds-btn-danger\">Delete event</button>",
+      "css": ".ds-btn-danger{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font-size:14px;font-weight:500;background:oklch(0.554 0.188 26.5);color:#ffffff;border:none;box-shadow:0 1px 2px -1px oklch(0.214 0.011 264 / 0.08);transition:background-color 140ms cubic-bezier(0.25,1,0.5,1),box-shadow 140ms cubic-bezier(0.25,1,0.5,1),transform 140ms;cursor:pointer;}.ds-btn-danger:hover{background:oklch(0.52 0.18 26.5);box-shadow:0 1px 3px -1px oklch(0.214 0.011 264 / 0.10),0 2px 8px -4px oklch(0.214 0.011 264 / 0.06);}.ds-btn-danger:active{transform:translateY(1px);box-shadow:none;}.ds-btn-danger:focus-visible{outline:2px solid var(--focus-ring, oklch(0.214 0.011 264));outline-offset:2px;}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Hairline field; focus firms the border and adds the global outline.",
+      "html": "<input class=\"ds-input\" placeholder=\"Event name\" />",
+      "css": ".ds-input{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;height:36px;width:260px;padding:0 12px;border-radius:8px;border:1px solid oklch(0.929 0.004 252);background:#fff;color:oklch(0.214 0.011 264);font-size:14px;transition:border-color 140ms cubic-bezier(0.25,1,0.5,1);}.ds-input::placeholder{color:oklch(0.578 0.010 256);}.ds-input:hover{border-color:oklch(0.874 0.006 252);}.ds-input:focus-visible{border-color:oklch(0.874 0.006 252);outline:2px solid oklch(0.214 0.011 264);outline-offset:2px;}"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge-live",
+      "description": "Live, Scheduled, Final: the office's own words.",
+      "html": "<span class=\"ds-badge ds-live\"><span class=\"ds-dot\"></span>Live</span> <span class=\"ds-badge ds-sched\">Scheduled</span> <span class=\"ds-badge ds-final\">Final</span>",
+      "css": ".ds-badge{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;padding:2px 6px;border-radius:6px;font-size:12.4px;font-weight:600;}.ds-live{background:oklch(0.973 0.013 22);color:oklch(0.441 0.156 27);}.ds-dot{width:6px;height:6px;border-radius:999px;background:oklch(0.505 0.185 27);}.ds-sched{background:oklch(0.962 0.022 206.7);color:oklch(0.450 0.080 206.7);}.ds-final{background:oklch(0.972 0.002 250);color:oklch(0.472 0.011 258);}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "The console container: white, 1px hairline, 10px, Rest shadow, optional title-row link.",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-head\"><div><h2 class=\"ds-panel-title\">Upcoming events</h2><p class=\"ds-panel-desc\">Next 7 days</p></div><a href=\"#\" class=\"ds-panel-link\">View all<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg></a></header><div class=\"ds-panel-body\">Fixture rows go here.</div></section>",
+      "css": ".ds-panel{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;width:420px;background:#fff;border:1px solid oklch(0.929 0.004 252);border-radius:10px;box-shadow:0 1px 2px -1px oklch(0.214 0.011 264 / 0.08);color:oklch(0.214 0.011 264);}.ds-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 22px 13px;}.ds-panel-title{margin:0;font-size:17px;font-weight:600;letter-spacing:-0.004em;line-height:1.375;}.ds-panel-desc{margin:2px 0 0;font-size:13.5px;color:oklch(0.578 0.010 256);}.ds-panel-link{display:inline-flex;align-items:center;gap:4px;font-size:14.6px;font-weight:500;color:oklch(0.472 0.011 258);text-decoration:none;transition:color 140ms;}.ds-panel-link:hover{color:oklch(0.214 0.011 264);}.ds-panel-link svg{transition:transform 140ms;}.ds-panel-link:hover svg{transform:translateX(2px);}.ds-panel-link:focus-visible{outline:2px solid oklch(0.214 0.011 264);outline-offset:2px;}.ds-panel-body{padding:0 22px 22px;font-size:15.75px;color:oklch(0.472 0.011 258);}"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "custom",
+      "refersTo": "stat-card",
+      "description": "One linked headline figure on the wide numeral axis, with a tone-tinted icon well and optional live pip.",
+      "html": "<a href=\"#\" class=\"ds-stat\"><div class=\"ds-stat-top\"><p class=\"ds-stat-label\"><span class=\"ds-pip\"></span>Live now</p><span class=\"ds-stat-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/></svg></span></div><div class=\"ds-stat-value\">3</div><p class=\"ds-stat-detail\">Basketball, Volleyball, Chess</p></a>",
+      "css": ".ds-stat{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;display:block;width:240px;padding:15.75px 18px 18px;background:#fff;border:1px solid oklch(0.929 0.004 252);border-radius:10px;box-shadow:0 1px 2px -1px oklch(0.214 0.011 264 / 0.08);text-decoration:none;color:oklch(0.214 0.011 264);transition:border-color 140ms,box-shadow 140ms;}.ds-stat:hover{border-color:oklch(0.874 0.006 252);box-shadow:0 1px 3px -1px oklch(0.214 0.011 264 / 0.10),0 2px 8px -4px oklch(0.214 0.011 264 / 0.06);}.ds-stat:focus-visible{outline:2px solid oklch(0.214 0.011 264);outline-offset:2px;}.ds-stat-top{display:flex;justify-content:space-between;align-items:flex-start;}.ds-stat-label{margin:0;display:flex;align-items:center;gap:8px;font-size:14.6px;font-weight:500;color:oklch(0.472 0.011 258);}.ds-pip{width:8px;height:8px;border-radius:999px;background:oklch(0.505 0.185 27);}.ds-stat-icon{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:oklch(0.973 0.013 22);color:oklch(0.441 0.156 27);}.ds-stat-value{margin-top:4px;font-size:36px;line-height:1;font-weight:640;font-variant-numeric:tabular-nums;font-variation-settings:'wdth' 110;letter-spacing:-0.018em;}.ds-stat-detail{margin:9px 0 0;font-size:13.5px;color:oklch(0.578 0.010 256);}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-sidebar",
+      "description": "Charcoal rail; active = lifted row, crimson icon, 3px crimson pip at the edge.",
+      "html": "<nav class=\"ds-nav\"><p class=\"ds-nav-group\">Competition</p><a href=\"#\" class=\"ds-nav-item ds-active\" aria-current=\"page\"><span class=\"ds-nav-pip\"></span><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect width=\"7\" height=\"9\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"5\" x=\"14\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"9\" x=\"14\" y=\"12\" rx=\"1\"/><rect width=\"7\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\"/></svg>Dashboard</a><a href=\"#\" class=\"ds-nav-item\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/></svg>Events</a></nav>",
+      "css": ".ds-nav{font-family:Archivo,ui-sans-serif,system-ui,sans-serif;width:230px;padding:16px 12px;background:oklch(0.158 0.010 264);border-radius:8px;}.ds-nav-group{margin:0;padding:0 10px 6px;font-size:12.4px;font-weight:500;color:oklch(0.578 0.010 256);}.ds-nav-item{position:relative;display:flex;align-items:center;gap:12px;height:36px;padding:0 10px;border-radius:8px;font-size:15.75px;font-weight:500;letter-spacing:-0.004em;color:oklch(0.874 0.006 252);text-decoration:none;transition:background-color 140ms,color 140ms;}.ds-nav-item svg{opacity:.8;}.ds-nav-item:hover{background:oklch(1 0 0 / 0.07);color:oklch(0.988 0.001 250);}.ds-nav-item:focus-visible{outline:2px solid oklch(0.988 0.001 250);outline-offset:-2px;}.ds-active{background:oklch(1 0 0 / 0.14);color:oklch(0.988 0.001 250);}.ds-active svg{opacity:1;color:oklch(0.712 0.143 25);}.ds-nav-pip{position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:3px;height:16px;border-radius:0 999px 999px 0;background:oklch(0.505 0.185 27);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Match-Day Running Order",
+    "overview": "SportAxis is the Sports Office's console: a place an administrator opens many times a day in season to learn what is live, what is next and what is waiting on them, then act. The system is built like an operations board rather than an analytics showcase. Surfaces are near-achromatic ink on paper; a charcoal rail holds the navigation so the chrome recedes and the page carries the colour. Colour appears only where it carries meaning, so the one brand hue (BatStateU crimson) stays legible as a signal instead of wallpaper.\n\nThe load-bearing structural decision is that the primary action is ink, not red. The brand colour is red, and when the primary button, the active nav item and the delete button are all red, nothing reads as dangerous and nothing reads as important. So ink drives primary actions and text hierarchy, crimson carries identity (active navigation, live state, the sidebar's one primary action, the first chart series), danger is a distinct scarlet step, and a single complementary teal marks what is scheduled or still ahead.\n\nDensity is moderate and deliberate: white panels on 1px hairlines with a barely-there lit shadow, Archivo throughout, and figures set on Archivo's wide axis so scores and counts read as the content they are. The root font size is 18px (a low-vision accessibility decision), so every rem value in this file resolves against 18px.",
+    "keyCharacteristics": [
+      "Ink-on-paper neutrals with a whisper of blue at the dark end; no second neutral family.",
+      "Crimson spent sparingly: active nav, live state, one primary action, the played series.",
+      "Teal (#0092A0) as the one complementary accent, meaning scheduled / future.",
+      "Archivo variable (width + weight); wide-axis tabular numerals for every figure.",
+      "Charcoal sidebar, paper canvas, white hairline panels, 10px corners.",
+      "True numbers only: deltas render only where timestamped history exists."
+    ],
+    "rules": [
+      {
+        "name": "The Ink Leads Rule",
+        "body": "The default primary button is ink (ink-900 on ink-50). Crimson is never the default \"do the main thing\" colour on a content page; the one solid crimson control per screen is the role's primary action in the sidebar.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ramps Are the System Rule",
+        "body": "theme.css redefines Tailwind's own ramps: gray/slate/zinc resolve to ink; red/rose/pink to crimson; green/emerald (and teal-500..700) to one green; amber/yellow/orange to one amber; blue/sky/indigo/cyan to one blue; purple/violet/fuchsia to ink. Change colour in theme.css, never per page; new code should prefer the semantic tokens (`bg-surface`, `text-text-muted`, `bg-brand-subtle`, `bg-aqua-subtle`).",
+        "section": "colors"
+      },
+      {
+        "name": "The One Complement Rule",
+        "body": "Teal is the only accent beside crimson. Violet is not an accent in this system; purple utilities intentionally recede to ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Wide Figure Rule",
+        "body": "Any score, count, rank or time that is the content gets `.numeral` (tabular, wdth 110). Tables, number inputs and `<time>` are tabular by default so columns never jitter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper Exception Rule",
+        "body": "Print score sheets (src/app/utils/scoresheet.ts) stay in Arial on purpose: they are photocopied, hand-filled and OCR'd. Do not move them to Archivo.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline First Rule",
+        "body": "A panel is defined by its 1px ink-200 border and the Rest shadow; shadow never replaces the border. Hover strengthens both together (border to ink-300, shadow to Lift), never shadow alone.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do make ink-900 the primary button and keep crimson for active nav, live state, the sidebar's one primary action and the first chart series.",
+      "Do change colour in theme.css; the redefined Tailwind ramps carry ~1,700 existing utilities with it.",
+      "Do use teal (the `aqua` utilities) for scheduled and future, never `teal-*`, which is aliased to green.",
+      "Do set every headline figure with `.numeral` (tabular, wdth 110).",
+      "Do build console panels as white surface, 1px ink-200 hairline, 10px corners, Rest shadow.",
+      "Do show a delta or trend only when timestamped rows back it.",
+      "Do keep the print score sheets in Arial."
+    ],
+    "donts": [
+      "Don't make the primary button, active nav and delete button the same red.",
+      "Don't mark the active nav item with a solid crimson pill; use the lifted row, crimson icon and 3px pip.",
+      "Don't introduce violet or a second accent beside teal.",
+      "Don't hard-code hex colours in pages for UI chrome; use the semantic tokens.",
+      "Don't put an uppercase overline above a heading as an eyebrow; the overline role is for list-group labels.",
+      "Don't let a shadow stand in for the hairline border."
+    ]
+  }
+}
