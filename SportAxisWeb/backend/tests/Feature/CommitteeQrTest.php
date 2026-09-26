@@ -128,6 +128,19 @@ class CommitteeQrTest extends TestCase
         Notification::assertSentTo($judge, CommitteeAssigned::class);
     }
 
+    public function test_a_second_resend_right_away_is_refused(): void
+    {
+        Notification::fake();
+        $judge = $this->users()->judge()->create();
+        $event = $this->events()->judgedBy($judge)->create();
+
+        $this->actingAsRole('admin');
+        $this->postJson("/api/events/{$event->id}/send-qr")->assertOk();
+        $this->postJson("/api/events/{$event->id}/send-qr")->assertStatus(429);
+
+        Notification::assertSentToTimes($judge, CommitteeAssigned::class, 1);
+    }
+
     public function test_resending_with_no_committee_says_so(): void
     {
         $event = $this->events()->create();

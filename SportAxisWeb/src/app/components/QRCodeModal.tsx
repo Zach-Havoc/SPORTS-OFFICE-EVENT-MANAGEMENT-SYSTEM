@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Download, Copy, Check, Mail } from 'lucide-react';
+import { Download, Check, Mail } from 'lucide-react';
 import { sendEventQr } from '../services/api';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -16,7 +16,6 @@ interface QRCodeModalProps {
 }
 
 export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }: QRCodeModalProps) {
-  const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -64,17 +63,6 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
     img.src = 'data:image/svg+xml;base64,' + btoa(new XMLSerializer().serializeToString(svg));
   };
 
-  const copy = async (text: string, label = 'Copied!') => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      toast.success(label);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('Failed to copy');
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
@@ -104,33 +92,18 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
             </p>
           </div>
 
-          {/* Web link */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Web Scoring Link</p>
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={webUrl}
-                className="flex-1 px-3 py-2 text-xs border rounded-md bg-gray-50 truncate"
-              />
-              <Button size="sm" variant="secondary" onClick={() => copy(webUrl, 'Link copied!')}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button onClick={handleDownloadQR}>
               <Download className="h-4 w-4 mr-2" />
               Download PNG
             </Button>
-            <Button variant="secondary" onClick={emailCommittee} disabled={sending}>
+            <Button variant="secondary" onClick={emailCommittee} disabled={sending || sent}>
               {sent ? <Check className="h-4 w-4 mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
               {sending ? 'Sending…' : sent ? 'Sent' : 'Email to committee'}
             </Button>
           </div>
           <p className="-mt-2 text-center text-xs text-gray-500">
-            Committee members get this QR code by email when they're assigned. Use this to send it again.
+            The committee member gets this QR code by email when assigned. Use this if they need it again.
           </p>
         </div>
       </DialogContent>

@@ -14,12 +14,15 @@ use App\Models\Venue;
 use App\Notifications\CommitteeAssigned;
 use App\Services\ScheduleNotifier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
     /** One committee member scores each event. */
+    private const RESEND_COOLDOWN_MINUTES = 5;
+
     private const ONE_COMMITTEE = ['judges.max' => 'Only one committee member can be assigned to an event.'];
 
     use Paginates, ResolvesSeason;
@@ -322,10 +325,21 @@ class EventController extends Controller
     public function sendQr(string $id)
     {
         $event = Event::findOrFail($id);
+
+        // A resend is for a lost email, not a button to hammer: one per event
+        // every few minutes, so the committee member's inbox isn't spammed.
+        $cooldown = "send-qr:{$event->id}";
+        if (Cache::has($cooldown)) {
+            return response()->json(['error' => 'The QR code was just emailed. Please wait a few minutes before sending it again.'], 429);
+        }
+
         $emailed = $this->notifyCommittee($event);
 
         if ($emailed === null) {
             return response()->json(['error' => 'No committee member is assigned to this event yet.'], 422);
+        }
+        if ($emailed['sent']) {
+            Cache::put($cooldown, true, now()->addMinutes(self::RESEND_COOLDOWN_MINUTES));
         }
 
         return response()->json($emailed);
