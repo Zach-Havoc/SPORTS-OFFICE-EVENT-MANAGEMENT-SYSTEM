@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useEvents, useSeasons } from "../../hooks/api";
+import { useDepartments, useEvents, useSeasons } from "../../hooks/api";
 import {
   Card,
   CardDescription,
@@ -54,17 +54,31 @@ export default function PublicHistory() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [teamFilter, setTeamFilter] = useState("all");
+
+  // Events store a college by full name or abbreviation; match either.
+  const { data: deptsData } = useDepartments();
+  const depts = useMemo(() => (deptsData as any[] | undefined) ?? [], [deptsData]);
+  const playsIn = useMemo(() => {
+    if (teamFilter === "all") return () => true;
+    const k = (v: string) => v.trim().toLowerCase();
+    const d = depts.find((x) => x.name === teamFilter);
+    const keys = new Set([k(teamFilter), ...(d?.abbreviation ? [k(d.abbreviation)] : [])]);
+    return (e: Event) => e.departments.some((x) => keys.has(k(x)));
+  }, [teamFilter, depts]);
   const [statusFilter, setStatusFilter] = useState("all");
 
   const hasActiveFilters =
     searchTerm.trim() !== "" ||
     season !== "" ||
+    teamFilter !== "all" ||
     categoryFilter !== "all" ||
     statusFilter !== "all";
 
   const clearFilters = () => {
     setSearchTerm("");
     setSeason("");
+    setTeamFilter("all");
     setCategoryFilter("all");
     setStatusFilter("all");
   };
@@ -85,6 +99,9 @@ export default function PublicHistory() {
     if (categoryFilter !== "all") {
       filtered = filtered.filter((e) => e.category === categoryFilter);
     }
+    if (teamFilter !== "all") {
+      filtered = filtered.filter(playsIn);
+    }
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -97,7 +114,7 @@ export default function PublicHistory() {
     return [...filtered].sort(
       (a, b) => new Date(b.schedule).getTime() - new Date(a.schedule).getTime(),
     );
-  }, [events, searchTerm, categoryFilter, statusFilter]);
+  }, [events, searchTerm, categoryFilter, teamFilter, playsIn, statusFilter]);
 
   const categories = useMemo(
     () => Array.from(new Set(events.map((e) => e.category))).filter(Boolean).sort(),
@@ -139,7 +156,7 @@ export default function PublicHistory() {
           />
         </div>
         <p className="text-gray-500 text-sm mt-1.5">
-          Browse completed, ongoing, and upcoming events by season and game.
+          Browse completed, ongoing, and upcoming events by season, college and game.
         </p>
       </header>
 
@@ -186,6 +203,20 @@ export default function PublicHistory() {
                     </SelectItem>
                   ))}
                 <SelectItem value="all">All seasons</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="h-10 w-full sm:w-40" aria-label="College">
+                <SelectValue placeholder="All colleges" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All colleges</SelectItem>
+                {depts.map((d) => (
+                  <SelectItem key={d.id ?? d.name} value={d.name}>
+                    {d.abbreviation || d.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -247,7 +278,7 @@ export default function PublicHistory() {
             No events match your filters
           </p>
           <p className="mt-1 text-sm text-gray-500">
-            Try another season, game, status or search term.
+            Try another season, college, game, status or search term.
           </p>
           {hasActiveFilters && (
             <button
