@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Check, Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStandings } from '../../services/api';
 import { useBrackets, useCategories, useDepartments, useVenues, useCreateBracket, usePublishBracket } from '../../hooks/api';
@@ -686,19 +686,20 @@ export default function AdminBracketing() {
         {/* Configuration Panel */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Configuration</CardTitle>
-            <CardDescription>Set up your tournament</CardDescription>
+            <CardTitle>New bracket</CardTitle>
+            <CardDescription>Pick the sport, format, schedule and colleges.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="sport">Sport *</Label>
+          <CardContent className="space-y-0 divide-y divide-gray-100">
+            {/* ── Sport ── */}
+            <ConfigSection step={1} title="Sport">
               <select
                 id="sport"
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
+                aria-label="Sport"
+                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
                 value={config.sport}
                 onChange={(e) => setConfig({ ...config, sport: e.target.value })}
               >
-                <option value="">Select sport</option>
+                <option value="">Select a sport</option>
                 {[...new Set([...(plainSports.length ? plainSports : sportsList), ...racquetParents])]
                   .sort((a, b) => a.localeCompare(b))
                   .map((sport) => (
@@ -707,228 +708,241 @@ export default function AdminBracketing() {
               </select>
 
               {isRacquet && (
-                <div className="mt-2 space-y-2 rounded-md border border-red-100 bg-red-50/60 p-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Division</span>
-                    <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
-                      {(['M', 'W'] as const).map((g) => (
-                        <button
-                          key={g}
-                          type="button"
-                          onClick={() => setConfig({ ...config, division: g })}
-                          className={`px-3 py-1 text-sm ${config.division === g ? 'bg-red-700 text-white' : 'bg-white text-gray-700'}`}
-                        >
-                          {g === 'M' ? 'Men' : 'Women'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Lines to generate</span>
-                    <div className="mt-1 flex flex-wrap gap-3">
-                      {LINE_DEFS.map((l) => (
-                        <label key={l.slot} className="flex items-center gap-1.5 text-sm text-gray-700">
-                          <input
-                            type="checkbox"
-                            checked={config.lines.includes(l.slot)}
-                            onChange={(e) =>
+                <>
+                  <Field label="Division">
+                    <Segmented
+                      value={config.division}
+                      onChange={(division) => setConfig({ ...config, division })}
+                      options={[
+                        { value: 'M', label: 'Men' },
+                        { value: 'W', label: 'Women' },
+                      ]}
+                    />
+                  </Field>
+                  <Field
+                    label="Lines"
+                    hint="Each line gets its own bracket, scheduled a day apart so they don't share a court. You can move dates on each bracket afterwards."
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {LINE_DEFS.map((l) => {
+                        const on = config.lines.includes(l.slot);
+                        return (
+                          <button
+                            key={l.slot}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() =>
                               setConfig({
                                 ...config,
-                                lines: e.target.checked
-                                  ? [...config.lines, l.slot]
-                                  : config.lines.filter((s) => s !== l.slot),
+                                lines: on ? config.lines.filter((x) => x !== l.slot) : [...config.lines, l.slot],
                               })
                             }
-                          />
-                          {l.label}
-                        </label>
-                      ))}
+                            className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors ${
+                              on
+                                ? 'border-gray-900 bg-gray-900 text-white'
+                                : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                            }`}
+                          >
+                            {on && <Check className="h-3.5 w-3.5" />}
+                            {l.label}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Each line is its own bracket over the colleges you pick below. Multiple lines are
-                      scheduled a day apart so they don't clash on one court — adjust dates on each bracket after.
-                    </p>
-                  </div>
-                </div>
+                  </Field>
+                </>
               )}
-            </div>
+            </ConfigSection>
 
-            <div className="space-y-2">
-              <Label htmlFor="format">Format *</Label>
-              <select
-                id="format"
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
+            {/* ── Format ── */}
+            <ConfigSection step={2} title="Format">
+              <Segmented
                 value={config.format}
-                onChange={(e) => setConfig({ ...config, format: e.target.value as any })}
-              >
-                <option value="single-elimination">Single Elimination</option>
-                <option value="round-robin">Round Robin</option>
-              </select>
-            </div>
-
-            {config.format === 'single-elimination' && (
-              <div className="space-y-1.5 rounded-md border border-gray-200 bg-gray-50 p-3">
-                <label className="block text-sm font-medium text-gray-900">Draw method</label>
-                <select
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  value={config.drawMethod}
-                  onChange={(e) => setConfig({ ...config, drawMethod: e.target.value as typeof config.drawMethod })}
+                onChange={(format) => setConfig({ ...config, format })}
+                options={[
+                  { value: 'single-elimination', label: 'Single elimination' },
+                  { value: 'round-robin', label: 'Round robin' },
+                ]}
+              />
+              {config.format === 'single-elimination' && (
+                <Field
+                  label="Draw"
+                  hint={
+                    config.drawMethod === 'random'
+                      ? 'Shuffled, with #1 and #2 in opposite halves.'
+                      : config.drawMethod === 'standings'
+                        ? 'Ranked by wins, then point difference. #1 meets the lowest seed; byes go to the top seeds.'
+                        : 'The order you tick the colleges below — first ticked is seed #1.'
+                  }
                 >
-                  <option value="random">Random draw</option>
-                  <option value="standings">Seed from standings</option>
-                  <option value="manual">Manual order (as selected)</option>
-                </select>
-                <p className="text-xs text-gray-500">
-                  {config.drawMethod === 'random' &&
-                    'Teams are shuffled, then slotted so #1 and #2 sit in opposite halves.'}
-                  {config.drawMethod === 'standings' &&
-                    'Rank by wins, then point differential. #1 plays the lowest seed; byes go to the top seeds.'}
-                  {config.drawMethod === 'manual' &&
-                    'Uses the exact order you ticked the colleges — first = seed #1.'}
-                </p>
-              </div>
-            )}
+                  <Segmented
+                    value={config.drawMethod}
+                    onChange={(drawMethod) => setConfig({ ...config, drawMethod })}
+                    options={[
+                      { value: 'random', label: 'Random' },
+                      { value: 'standings', label: 'Standings' },
+                      { value: 'manual', label: 'Manual' },
+                    ]}
+                  />
+                </Field>
+              )}
 
-            {config.sport && (
-              <div className="rounded-md border border-gray-200 overflow-hidden">
-                <div className="flex items-center justify-between bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600">
-                  <span>Standings — {config.sport}</span>
-                  {standingsLoading && <span className="font-normal text-gray-400">loading…</span>}
-                </div>
-                {standings.length === 0 ? (
-                  <p className="px-3 py-3 text-xs text-gray-400">
-                    No completed matches recorded for this sport yet.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-left text-gray-500 border-b border-gray-100">
-                        <th className="px-3 py-1.5 font-medium">#</th>
-                        <th className="px-3 py-1.5 font-medium">Team</th>
-                        <th className="px-2 py-1.5 font-medium text-center">W‑L</th>
-                        <th className="px-2 py-1.5 font-medium text-right">Diff</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {standings.map((r: any) => (
-                        <tr key={r.department} className="border-b border-gray-50 last:border-0">
-                          <td className="px-3 py-1.5 tabular-nums text-gray-500">{r.seed}</td>
-                          <td className="px-3 py-1.5 font-medium text-gray-800">{r.department}</td>
-                          <td className="px-2 py-1.5 text-center tabular-nums">{r.wins}‑{r.losses}</td>
-                          <td className={`px-2 py-1.5 text-right tabular-nums ${Number(r.pointDiff) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                            {Number(r.pointDiff) > 0 ? '+' : ''}{r.pointDiff}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {config.sport && config.format === 'single-elimination' && config.drawMethod === 'standings' && (
+                <div className="overflow-hidden rounded-md border border-gray-200">
+                  <div className="flex items-center justify-between bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600">
+                    <span>Current standings · {config.sport}</span>
+                    {standingsLoading && <span className="font-normal text-gray-400">loading…</span>}
                   </div>
-                )}
+                  {standings.length === 0 ? (
+                    <p className="px-3 py-3 text-xs text-gray-500">
+                      No completed matches for this sport yet, so every college seeds equal.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-100 text-left text-gray-500">
+                            <th className="px-3 py-1.5 font-medium">#</th>
+                            <th className="px-3 py-1.5 font-medium">College</th>
+                            <th className="px-2 py-1.5 text-center font-medium">W‑L</th>
+                            <th className="px-2 py-1.5 text-right font-medium">Diff</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {standings.map((r: any) => (
+                            <tr key={r.department} className="border-b border-gray-50 last:border-0">
+                              <td className="px-3 py-1.5 tabular-nums text-gray-500">{r.seed}</td>
+                              <td className="px-3 py-1.5 font-medium text-gray-800">{r.department}</td>
+                              <td className="px-2 py-1.5 text-center tabular-nums">{r.wins}‑{r.losses}</td>
+                              <td className={`px-2 py-1.5 text-right tabular-nums ${Number(r.pointDiff) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                {Number(r.pointDiff) > 0 ? '+' : ''}{r.pointDiff}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </ConfigSection>
+
+            {/* ── Schedule ── */}
+            <ConfigSection step={3} title="Schedule">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Start date" htmlFor="startDate">
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={config.startDate}
+                    onChange={(e) => setConfig({ ...config, startDate: e.target.value })}
+                  />
+                </Field>
+                <Field label="First game" htmlFor="startTime">
+                  <Input
+                    id="startTime"
+                    type="time"
+                    value={config.startTime}
+                    onChange={(e) => setConfig({ ...config, startTime: e.target.value })}
+                  />
+                </Field>
               </div>
-            )}
+              <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+                <Field label="Venue" htmlFor="venue">
+                  <select
+                    id="venue"
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+                    value={config.venueId}
+                    onChange={(e) => setConfig({ ...config, venueId: e.target.value })}
+                  >
+                    <option value="">To be decided</option>
+                    {venues.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}{v.type ? ` · ${v.type}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Minutes / game" htmlFor="matchDuration">
+                  <Input
+                    id="matchDuration"
+                    type="number"
+                    min="15"
+                    step="15"
+                    value={config.matchDuration}
+                    onChange={(e) => setConfig({ ...config, matchDuration: parseInt(e.target.value) })}
+                  />
+                </Field>
+              </div>
+              {!config.venueId && (
+                <p className="text-xs text-amber-700">Games show the venue as "TBD" until you pick one.</p>
+              )}
+            </ConfigSection>
 
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date *</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={config.startDate}
-                onChange={(e) => setConfig({ ...config, startDate: e.target.value })}
-              />
-            </div>
+            {/* ── Colleges ── */}
+            <ConfigSection
+              step={4}
+              title="Colleges"
+              aside={
+                <span className="flex items-center gap-3 text-xs">
+                  <span className="tabular-nums text-gray-500">{config.participants.length} selected</span>
+                  <button type="button" onClick={selectAllParticipants} className="font-medium text-gray-900 hover:underline">
+                    All
+                  </button>
+                  <button type="button" onClick={clearParticipants} className="font-medium text-gray-500 hover:text-gray-900 hover:underline">
+                    None
+                  </button>
+                </span>
+              }
+            >
+              <div className="max-h-72 space-y-1 overflow-y-auto rounded-md border border-gray-200 p-1.5">
+                {departments.map((dept) => {
+                  const order = config.participants.indexOf(dept.name);
+                  const on = order >= 0;
+                  return (
+                    <label
+                      key={dept.id}
+                      className={`flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition-colors ${
+                        on ? 'bg-gray-100' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => toggleParticipant(dept.name)}
+                        className="h-4 w-4 rounded border-gray-300 accent-gray-900"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-gray-900">{dept.code || dept.name}</span>
+                        {dept.code && <span className="block truncate text-xs text-gray-500">{dept.name}</span>}
+                      </span>
+                      {on && config.format === 'single-elimination' && config.drawMethod === 'manual' && (
+                        <span className="text-xs tabular-nums text-gray-500">#{order + 1}</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </ConfigSection>
 
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time *</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={config.startTime}
-                onChange={(e) => setConfig({ ...config, startTime: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="venue">Venue</Label>
-              <select
-                id="venue"
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
-                value={config.venueId}
-                onChange={(e) => setConfig({ ...config, venueId: e.target.value })}
+            <div className="pt-5">
+              <Button
+                onClick={handleGenerateBracket}
+                disabled={generating || !config.sport || config.participants.length < 2 || !config.startDate || !config.startTime}
+                className="w-full"
+                size="lg"
               >
-                <option value="">Select venue</option>
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}{v.type ? ` · ${v.type}` : ''}
-                  </option>
-                ))}
-              </select>
-              {config.venueId ? (
-                <p className="text-xs text-gray-500">All matches use this venue.</p>
-              ) : (
-                <p className="text-xs text-amber-600">No venue selected — matches will be "TBD" until one is picked.</p>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Generate bracket
+              </Button>
+              {config.participants.length < 2 && (
+                <p className="mt-2 text-center text-xs text-gray-500">Pick at least two colleges.</p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="matchDuration">Match Duration (min)</Label>
-              <Input
-                id="matchDuration"
-                type="number"
-                min="15"
-                step="15"
-                value={config.matchDuration}
-                onChange={(e) => setConfig({ ...config, matchDuration: parseInt(e.target.value) })}
-              />
+            <div className="pt-5">
+              <SavedBrackets sport={config.sport} />
             </div>
-
-            <div className="space-y-2">
-              <Label>Participants ({config.participants.length} selected)</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={selectAllParticipants}
-                  className="flex-1"
-                >
-                  Select All
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={clearParticipants}
-                  className="flex-1"
-                >
-                  Clear
-                </Button>
-              </div>
-              <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-3">
-                {departments.map(dept => (
-                  <label key={dept.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                    <input
-                      type="checkbox"
-                      checked={config.participants.includes(dept.name)}
-                      onChange={() => toggleParticipant(dept.name)}
-                      className="rounded"
-                    />
-                    <span className="text-sm">{dept.name} ({dept.code})</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <Button
-              onClick={handleGenerateBracket}
-              disabled={generating || !config.sport || config.participants.length < 2 || !config.startDate || !config.startTime}
-              className="w-full"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Generate Bracket
-            </Button>
-
-            <SavedBrackets sport={config.sport} />
           </CardContent>
         </Card>
 
@@ -1080,6 +1094,90 @@ export default function AdminBracketing() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+// ─── Configuration panel pieces ──────────────────────────────────────────────
+
+function ConfigSection({
+  step,
+  title,
+  aside,
+  children,
+}: {
+  step: number;
+  title: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3 py-5 first:pt-0">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[11px] font-semibold tabular-nums text-gray-600">
+            {step}
+          </span>
+          {title}
+        </h3>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  hint,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor} className="text-xs font-medium text-gray-600">
+        {label}
+      </Label>
+      {children}
+      {hint && <p className="text-xs leading-relaxed text-gray-500">{hint}</p>}
+    </div>
+  );
+}
+
+/** Two or three mutually exclusive options as one control, ink when selected. */
+function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div role="radiogroup" className="flex w-full rounded-lg bg-gray-100 p-1">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.value)}
+            className={`flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+              on ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
