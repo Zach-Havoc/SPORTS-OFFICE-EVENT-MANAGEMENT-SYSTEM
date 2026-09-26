@@ -256,7 +256,11 @@ function DateFilterBar({
 export default function PublicViewer() {
   // The schedule loads once (refresh the browser for changes); the running
   // scores of in-progress games poll on their own every 10s.
-  const eventsQuery = useEvents();
+  // null = not touched yet, which means "the running season".
+  const [seasonPick, setSeasonPick] = useState<string | null>(null);
+  // The API scopes to the running season unless told otherwise, so another
+  // season (or all of them) has to be fetched, not filtered out of this one.
+  const eventsQuery = useEvents(seasonPick ?? undefined);
   const liveQuery = useLiveScores();
 
   const liveByEvent = useMemo<Record<string, LiveScore>>(
@@ -283,8 +287,6 @@ export default function PublicViewer() {
 
   const seasons = seasonsQuery.data ?? [];
   const activeSeasonId = seasons.find((x) => x.isActive)?.id ?? null;
-  // null = not touched yet, which means "the running season".
-  const [seasonPick, setSeasonPick] = useState<string | null>(null);
   const seasonId = seasonPick ?? activeSeasonId ?? ALL;
   const [team, setTeam] = useState<string>(ALL);
   const [game, setGame] = useState<string>(ALL);

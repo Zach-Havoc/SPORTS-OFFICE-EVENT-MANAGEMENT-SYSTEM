@@ -34,7 +34,7 @@ interface Event {
 export default function PublicHistory() {
   // Cached events show immediately; a background refetch runs on mount and
   // whenever the tab regains focus or the network reconnects.
-  // '' = the active edition; otherwise a specific season id.
+  // '' = the active edition, 'all' = every edition, otherwise a season id.
   const [season, setSeason] = useState("");
   const { data: seasonsData } = useSeasons();
   const seasons = seasonsData ?? [];
@@ -58,14 +58,23 @@ export default function PublicHistory() {
 
   const hasActiveFilters =
     searchTerm.trim() !== "" ||
+    season !== "" ||
     categoryFilter !== "all" ||
     statusFilter !== "all";
 
   const clearFilters = () => {
     setSearchTerm("");
+    setSeason("");
     setCategoryFilter("all");
     setStatusFilter("all");
   };
+
+  // A different season has different games; don't keep a game it never had.
+  const pickSeason = (v: string) => {
+    setSeason(v === "active" ? "" : v);
+    setCategoryFilter("all");
+  };
+  const activeSeason = seasons.find((s) => s.isActive);
 
   const filteredEvents = useMemo(() => {
     let filtered = events;
@@ -91,7 +100,7 @@ export default function PublicHistory() {
   }, [events, searchTerm, categoryFilter, statusFilter]);
 
   const categories = useMemo(
-    () => Array.from(new Set(events.map((e) => e.category))),
+    () => Array.from(new Set(events.map((e) => e.category))).filter(Boolean).sort(),
     [events],
   );
 
@@ -130,35 +139,13 @@ export default function PublicHistory() {
           />
         </div>
         <p className="text-gray-500 text-sm mt-1.5">
-          Browse completed, ongoing, and upcoming events across all sports.
+          Browse completed, ongoing, and upcoming events by season and game.
         </p>
-        {seasons.length > 1 && (
-          <select
-            value={season}
-            onChange={(e) => setSeason(e.target.value)}
-            className="mt-3 rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700"
-            aria-label="Season"
-          >
-            <option value="">
-              Active season
-              {seasons.find((s) => s.isActive)
-                ? ` — ${seasons.find((s) => s.isActive)!.name}`
-                : ""}
-            </option>
-            {seasons
-              .filter((s) => !s.isActive)
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-          </select>
-        )}
       </header>
 
       {/* Filters */}
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           {/* Search — primary, grows to fill */}
           <div role="search" className="relative flex-1 min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -181,17 +168,33 @@ export default function PublicHistory() {
             )}
           </div>
 
-          {/* Secondary filters — fixed width, wrap on mobile */}
-          <div className="flex gap-3">
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger
-                className="h-10 w-full sm:w-44"
-                aria-label="Filter by sport"
-              >
-                <SelectValue placeholder="All sports" />
+          {/* Season / game / status */}
+          <div className="grid grid-cols-1 gap-3 sm:flex">
+            <Select value={season || "active"} onValueChange={pickSeason}>
+              <SelectTrigger className="h-10 w-full sm:w-52" aria-label="Season">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All sports</SelectItem>
+                <SelectItem value="active">
+                  {activeSeason ? `${activeSeason.name} (current)` : "Current season"}
+                </SelectItem>
+                {seasons
+                  .filter((s) => !s.isActive)
+                  .map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                <SelectItem value="all">All seasons</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Game">
+                <SelectValue placeholder="All games" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All games</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -201,10 +204,7 @@ export default function PublicHistory() {
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger
-                className="h-10 w-full sm:w-40"
-                aria-label="Filter by status"
-              >
+              <SelectTrigger className="h-10 w-full sm:w-40" aria-label="Status">
                 <SelectValue placeholder="Any status" />
               </SelectTrigger>
               <SelectContent>
@@ -247,7 +247,7 @@ export default function PublicHistory() {
             No events match your filters
           </p>
           <p className="mt-1 text-sm text-gray-500">
-            Try a different search term or status.
+            Try another season, game, status or search term.
           </p>
           {hasActiveFilters && (
             <button
