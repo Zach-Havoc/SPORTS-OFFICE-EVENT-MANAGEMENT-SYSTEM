@@ -2,9 +2,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Download, Copy, Check, Mail } from 'lucide-react';
-import { sendEventQr, type CommitteeEmailResult } from '../services/api';
-import { CommitteeEmailDialog } from './CommitteeEmailDialog';
-import { useState } from 'react';
+import { sendEventQr } from '../services/api';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 
@@ -19,12 +18,21 @@ interface QRCodeModalProps {
 export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }: QRCodeModalProps) {
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
-  const [emailResult, setEmailResult] = useState<CommitteeEmailResult | null>(null);
+  const [sent, setSent] = useState(false);
+
+  // A different event (or reopening) starts back at "Email to committee".
+  useEffect(() => { if (open) setSent(false); }, [open, eventId]);
 
   const emailCommittee = async () => {
     try {
       setSending(true);
-      setEmailResult(await sendEventQr(eventId));
+      const result = await sendEventQr(eventId);
+      if (result.sent.length > 0) setSent(true);
+      if (result.failed.length > 0) {
+        toast.error(`Could not email ${result.failed.map(f => f.email).join(', ')}. Try again.`);
+      } else if (result.sent.length === 0) {
+        toast.error('The committee member has no email address; they got the in-app notification only.');
+      }
     } catch (e: any) {
       toast.error(e?.message || 'Could not email the QR code');
     } finally {
@@ -68,8 +76,6 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
   };
 
   return (
-    <>
-    <CommitteeEmailDialog result={emailResult} eventName={eventName} onClose={() => setEmailResult(null)} />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -119,8 +125,8 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
               Download PNG
             </Button>
             <Button variant="secondary" onClick={emailCommittee} disabled={sending}>
-              <Mail className="h-4 w-4 mr-2" />
-              {sending ? 'Sending…' : 'Email to committee'}
+              {sent ? <Check className="h-4 w-4 mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
+              {sending ? 'Sending…' : sent ? 'Sent' : 'Email to committee'}
             </Button>
           </div>
           <p className="-mt-2 text-center text-xs text-gray-500">
@@ -129,6 +135,5 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
         </div>
       </DialogContent>
     </Dialog>
-    </>
   );
 }
