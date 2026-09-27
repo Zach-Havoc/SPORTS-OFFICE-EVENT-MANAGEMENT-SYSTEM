@@ -28,7 +28,9 @@ use Illuminate\Support\Facades\DB;
  *   PUT /api/events/{id}/lineup   (coach — {players: [{playerId, jerseyNumber, rotationPosition?}]})
  *
  * A coach may line up a game when their college plays in it and it's one of
- * their sports — the same rule as their schedule. The lineup can change until
+ * their sports — the same rule as their schedule — and, for a college with a
+ * Men's and a Women's coach, when it's their division (PlayByPlay::divisionOf).
+ * Each coach sees and edits only their own players in a game's lineup. The lineup can change until
  * the game is finished, but a player whose plays are already on the board
  * stays, under the number those plays were recorded with.
  */
@@ -85,10 +87,11 @@ class GameLineupController extends Controller
             ->orderBy('schedule')
             ->orderBy('start_time')
             ->get()
-            ->filter(fn (Event $e) => PlayByPlay::sportOf($e) && count($e->departments ?? []) === 2);
+            ->filter(fn (Event $e) => PlayByPlay::sportOf($e) && count($e->departments ?? []) === 2 && $this->inDivision($coach, $e));
 
         $counts = GamePlayer::whereIn('game_id', $events->pluck('id'))
             ->where('team_id', $coach->department_id)
+            ->whereHas('athlete', fn ($q) => $q->where('coach_id', $coach->id))
             ->selectRaw('game_id, COUNT(*) as n')
             ->groupBy('game_id')
             ->pluck('n', 'game_id');
@@ -118,7 +121,7 @@ class GameLineupController extends Controller
         $event = Event::findOrFail($eventId);
         $team = $this->coachTeam($request->user(), $event);
 
-        $lineup = GamePlayer::with('athlete.account')->where('game_id', $eventId)->where('team_id', $team->id)->get();
+        $lineup = $this->ownRows($request->user(), $eventId, $team->id)->with('athlete.account')->get();
         $withPlays = $this->playersWithPlays($eventId);
 
         return response()->json([
@@ -183,8 +186,17 @@ class GameLineupController extends Controller
                 $this->fail('Only active athletes on your roster for this sport can be lined up.', ['playerId' => $stranger]);
             }
 
+            // Another coach of this college (Men's / Women's) may have players
+            // in this lineup too; their numbers are taken.
+            $theirs = GamePlayer::where('game_id', $event->id)->where('team_id', $team->id)
+                ->whereDoesntHave('athlete', fn ($q) => $q->where('coach_id', $coach->id))
+                ->pluck('jersey_number');
+            if ($clash = collect($data['players'])->pluck('jerseyNumber')->intersect($theirs)->first()) {
+                $this->fail("#{$clash} is already worn by another coach's player in this game.");
+            }
+
             // Players already on the board keep their place and number.
-            $current = GamePlayer::with('athlete.account')->where('game_id', $event->id)->where('team_id', $team->id)->get()->keyBy('player_id');
+            $current = $this->ownRows($coach, $event->id, $team->id)->with('athlete.account')->get()->keyBy('player_id');
             $withPlays = $this->playersWithPlays($event->id);
             foreach ($current as $playerId => $gp) {
                 if (! $withPlays->has($playerId)) {
@@ -199,8 +211,9 @@ class GameLineupController extends Controller
                 }
             }
 
-            // Rebuild the rest (deleting first so two players can swap numbers).
-            GamePlayer::where('game_id', $event->id)->where('team_id', $team->id)
+            // Rebuild the rest of this coach's players (deleting first so two
+            // players can swap numbers).
+            $this->ownRows($coach, $event->id, $team->id)
                 ->whereNotIn('player_id', $withPlays->keys()->all())->delete();
             $isVolleyball = PlayByPlay::sportOf($event) === 'volleyball';
             foreach ($wanted as $playerId => $p) {
@@ -240,8 +253,32 @@ class GameLineupController extends Controller
         if (! $team || ! $theirSport) {
             $this->fail('You can only set the lineup for your own college\'s games in your sport.', status: 403);
         }
+        if (! $this->inDivision($coach, $event)) {
+            $division = PlayByPlay::divisionOf($event);
+            $this->fail("This is a {$division}'s game — its lineup is set by your college's {$division}'s coach.", status: 403);
+        }
 
         return $team;
+    }
+
+    /**
+     * Whether a game is in the coach's division. A coach of Men or Women only
+     * sees that division's games; a Men & Women coach, and a game whose name
+     * doesn't say, go either way.
+     */
+    private function inDivision(User $coach, Event $event): bool
+    {
+        $mine = in_array($coach->gender_category, ['Men', 'Women'], true) ? $coach->gender_category : null;
+        $game = PlayByPlay::divisionOf($event);
+
+        return ! $mine || ! $game || $mine === $game;
+    }
+
+    /** This coach's own players in a game's lineup for their college. */
+    private function ownRows(User $coach, string $eventId, string $teamId)
+    {
+        return GamePlayer::where('game_id', $eventId)->where('team_id', $teamId)
+            ->whereHas('athlete', fn ($q) => $q->where('coach_id', $coach->id));
     }
 
     /** The coach's own active athletes in this game's sport. */

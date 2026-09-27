@@ -38,6 +38,25 @@ class PlayByPlay
     }
 
     /**
+     * 'Men' | 'Women' when the game's name or category says which division
+     * it is ("Women's Volleyball", "Basketball Men", "Badminton — W Singles
+     * A"), else null. Events have no division field, so this is how a
+     * Men's coach and a Women's coach of the same college tell their games apart.
+     */
+    public static function divisionOf(Event $event): ?string
+    {
+        $text = mb_strtolower($event->name.' '.$event->category);
+        if (preg_match("/\\bwomen\\b|\\bwomen's\\b|\\bladies\\b|\\bw (singles|doubles)\\b/", $text)) {
+            return 'Women';
+        }
+        if (preg_match("/\\bmen\\b|\\bmen's\\b|\\bm (singles|doubles)\\b/", $text)) {
+            return 'Men';
+        }
+
+        return null;
+    }
+
+    /**
      * The event's two colleges as [home, away], or null if the event doesn't
      * name two colleges that exist. Matched on full name or abbreviation,
      * the same way Event::syncTaxonomyKeys does.

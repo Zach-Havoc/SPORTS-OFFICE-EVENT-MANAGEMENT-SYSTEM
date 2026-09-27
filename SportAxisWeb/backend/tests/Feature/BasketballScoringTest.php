@@ -389,6 +389,32 @@ class BasketballScoringTest extends TestCase
         $this->getJson("/api/events/{$this->game->id}/lineup")->assertForbidden();
     }
 
+    public function test_a_colleges_mens_and_womens_coaches_each_keep_to_their_own(): void
+    {
+        $men = $this->actingAsRole('coach', ['department' => $this->home->name, 'department_id' => $this->home->id, 'sports' => ['Basketball'], 'gender_category' => 'Men']);
+        $women = $this->users()->create(['role' => 'coach', 'department' => $this->home->name, 'department_id' => $this->home->id, 'sports' => ['Basketball'], 'gender_category' => 'Women']);
+        $mensGame = $this->events()->create(['name' => "Men's Basketball", 'category' => 'Basketball', 'departments' => [$this->home->name, $this->away->name]]);
+        $womensGame = $this->events()->create(['name' => "Women's Basketball", 'category' => 'Basketball', 'departments' => [$this->home->name, $this->away->name]]);
+        $he = $this->athletes()->create(['coach_id' => $men->id]);
+        $she = $this->athletes()->create(['coach_id' => $women->id]);
+
+        // Each sees their own division's games (and the undivided one).
+        $this->assertEqualsCanonicalizing([$this->game->id, $mensGame->id], collect($this->getJson('/api/coach/lineups')->json('games'))->pluck('id')->all());
+        $this->getJson("/api/events/{$womensGame->id}/lineup")->assertForbidden()
+            ->assertJsonPath('error', "This is a Women's game — its lineup is set by your college's Women's coach.");
+
+        // In a game neither division owns, saving one coach's lineup leaves the other's alone.
+        $this->lineup([['playerId' => $he->id, 'jerseyNumber' => '4']])->assertOk();
+        $this->loginAs($women);
+        $this->lineup([['playerId' => $she->id, 'jerseyNumber' => '4']])->assertStatus(422)
+            ->assertJsonPath('error', "#4 is already worn by another coach's player in this game.");
+        $this->lineup([['playerId' => $she->id, 'jerseyNumber' => '9']])->assertOk()
+            ->assertJsonCount(1, 'players')
+            ->assertJsonPath('players.0.playerId', $she->id);   // only her own players shown
+
+        $this->assertEqualsCanonicalizing([$he->id, $she->id], GamePlayer::where('game_id', $this->game->id)->pluck('player_id')->all());
+    }
+
     public function test_players_with_plays_stay_in_the_lineup_under_their_number(): void
     {
         $coach = $this->coachOf($this->home);

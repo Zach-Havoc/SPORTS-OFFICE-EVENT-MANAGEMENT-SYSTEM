@@ -23,13 +23,24 @@ class TournamentResetSeederTest extends TestCase
 
     private const SPORTS = ['Basketball', 'Volleyball', 'Beach Volleyball', 'Sepak Takraw', 'Badminton', 'Table Tennis', 'Chess'];
 
+    private const COLLEGES = [
+        'College of Accountancy, Business, Economics, and International Hospitality Management',
+        'College of Informatics and Computing Sciences',
+        'College of Teacher Education',
+        'College of Nursing and Allied Health Sciences',
+        'College of Criminal Justice Education',
+        'College of Arts and Sciences',
+        'Laboratory School',
+    ];
+
     public function test_it_resets_to_a_full_intramurals_keeping_the_admin_and_setup(): void
     {
         // A site in use.
         $admin = $this->users()->create(['role' => 'admin', 'email' => 'office@batstate-u.edu.ph']);
         $token = $admin->createToken('web')->plainTextToken;
-        $colleges = collect(['CICS', 'CABEIHM', 'CAS', 'CoE', 'CTE', 'CIT', 'CONAHS', 'CCJE', 'CoB', 'CoEd'])
-            ->map(fn ($abbr) => $this->departments()->create(['name' => "College {$abbr} Test", 'abbreviation' => $abbr]));
+        $cics = $this->departments()->create(['name' => 'College of Informatics and Computing Sciences', 'abbreviation' => 'CICS', 'logo_url' => 'https://x.test/cics.png']);
+        $nursing = $this->departments()->create(['name' => 'Nursing (old name)', 'abbreviation' => 'CONHAS']);
+        $stray = $this->departments()->create(['name' => 'College of Engineering', 'abbreviation' => 'CoE']);
         $venue = $this->venues()->create(['created_by' => $this->users()->create(['role' => 'coach'])->id]);
         $oldCoach = $this->users()->create(['role' => 'coach', 'email' => 'old.coach@x.test']);
         $this->athletes()->create(['coach_id' => $oldCoach->id]);
@@ -38,13 +49,19 @@ class TournamentResetSeederTest extends TestCase
 
         $this->seed(TournamentResetSeeder::class);
 
-        // Kept: the admin (still signed in), colleges, venue, registry.
+        // Kept: the admin (still signed in), venue, registry.
         $this->assertNotNull(User::find($admin->id));
         $this->getJson('/api/user', ['Authorization' => "Bearer {$token}"])->assertOk();
-        $this->assertSame(10, DB::table('departments')->count());
         $this->assertNotNull(DB::table('venues')->where('id', $venue->id)->first());
         $this->assertNull(DB::table('venues')->where('id', $venue->id)->value('created_by'));   // its creator is gone
         $this->assertNotNull(CampusStudent::find($real->sr_code));
+
+        // Exactly the seven colleges; existing ones keep their row and logo.
+        $this->assertEqualsCanonicalizing(self::COLLEGES, DB::table('departments')->pluck('name')->all());
+        $this->assertSame('https://x.test/cics.png', DB::table('departments')->where('id', $cics->id)->value('logo_url'));
+        $this->assertSame('College of Nursing and Allied Health Sciences', DB::table('departments')->where('id', $nursing->id)->value('name'));
+        $this->assertNull(DB::table('departments')->where('id', $stray->id)->first());
+        $this->assertSame('LS', DB::table('departments')->where('name', 'Laboratory School')->value('abbreviation'));
 
         // Wiped: other accounts and their games.
         $this->assertNull(User::find($oldCoach->id));
@@ -56,31 +73,34 @@ class TournamentResetSeederTest extends TestCase
         }
         $this->assertSame(6, Category::where('parent_sport', 'Badminton')->whereNotNull('parent_id')->count());
 
-        // 10 coaches, one per college, all seven sports.
+        // 14 coaches: a Men's and a Women's per college, all seven sports.
         $coaches = User::where('role', 'coach')->get();
-        $this->assertCount(10, $coaches);
-        $this->assertCount(10, $coaches->pluck('department_id')->unique());
+        $this->assertCount(14, $coaches);
         $this->assertEqualsCanonicalizing(
-            array_map(fn ($n) => "coach{$n}@g.batstate-u.edu.ph", range(1, 10)),
+            array_map(fn ($n) => "coach{$n}@g.batstate-u.edu.ph", range(1, 14)),
             $coaches->pluck('email')->all(),
         );
+        foreach ($coaches->groupBy('department_id') as $pair) {
+            $this->assertEqualsCanonicalizing(['Men', 'Women'], $pair->pluck('gender_category')->all());
+        }
 
         foreach ($coaches as $coach) {
-            $this->assertSame('Men & Women', $coach->gender_category);
             $this->assertCount(7, $coach->sportCategories);
+            $gender = $coach->gender_category === 'Men' ? 'Male' : 'Female';
             $team = Athlete::where('coach_id', $coach->id)->with('account')->get();
             foreach (self::SPORTS as $sport) {
                 $players = $team->where('sport', $sport);
-                $this->assertSame(10, $players->filter(fn ($a) => $a->account->gender === 'Male')->count(), "{$coach->email} {$sport} men");
-                $this->assertSame(10, $players->filter(fn ($a) => $a->account->gender === 'Female')->count(), "{$coach->email} {$sport} women");
-                $this->assertSame(20, $players->pluck('jersey_number')->unique()->count());   // jerseys unique per sport
+                $this->assertCount(10, $players, "{$coach->email} {$sport}");
+                $this->assertTrue($players->every(fn ($a) => $a->account->gender === $gender));
+                $this->assertTrue($players->every(fn ($a) => $a->account->department_id === $coach->department_id));
+                $this->assertSame(10, $players->pluck('jersey_number')->unique()->count());
             }
         }
 
-        $this->assertSame(1400, User::where('role', 'athlete')->count());
-        $this->assertSame(1400, User::where('role', 'athlete')->distinct()->count('name'));
+        $this->assertSame(980, User::where('role', 'athlete')->count());
+        $this->assertSame(980, User::where('role', 'athlete')->distinct()->count('name'));
         $this->assertSame(10, User::where('role', 'judge')->count());
-        $this->postJson('/api/login', ['email' => 'athlete1400@g.batstate-u.edu.ph', 'password' => 'demo1234'])->assertOk();
+        $this->postJson('/api/login', ['email' => 'athlete980@g.batstate-u.edu.ph', 'password' => 'demo1234'])->assertOk();
 
         // A sample schedule: every sport, Men's and Women's, two different colleges, a judge each.
         $games = Event::all();
@@ -88,10 +108,15 @@ class TournamentResetSeederTest extends TestCase
         foreach ($games as $game) {
             $this->assertCount(2, array_unique($game->departments));
             $this->assertCount(1, $game->judges);
-            $this->assertSame('upcoming', $game->status);
             $this->assertNotNull($game->category_id, "{$game->category} not linked to a sport");
         }
-        $this->assertSame(2, $games->where('name', "Women's Sepak Takraw")->count());
+
+        // A Women's coach lines up only Women's games.
+        $womensCoach = User::where('email', 'coach2@g.batstate-u.edu.ph')->first();
+        $this->loginAs($womensCoach);
+        $names = collect($this->getJson('/api/coach/lineups')->assertOk()->json('games'))->pluck('name');
+        $this->assertNotEmpty($names);
+        $this->assertTrue($names->every(fn ($n) => str_starts_with($n, "Women's")));
     }
 
     public function test_it_refuses_to_reset_a_site_with_no_admin(): void

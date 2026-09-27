@@ -16,18 +16,23 @@ use Illuminate\Support\Str;
  * DESTRUCTIVE. Resets the site to a fresh intramurals with a full set of test
  * accounts, keeping the admin.
  *
- * Kept as they are: every admin account (and its sign-in), the colleges (with
- * their logos), venues, seasons, the eligibility checklist, registration
- * codes, the home-page slideshow and the campus student registry.
- * Everything else is wiped — every other account, events, scores, brackets,
- * lineups, announcements, attendance, requirements, notifications, logs.
+ * Kept as they are: every admin account (and its sign-in), venues, seasons,
+ * the eligibility checklist, registration codes, the home-page slideshow and
+ * the campus student registry. Everything else is wiped — every other
+ * account, events, scores, brackets, lineups, announcements, attendance,
+ * requirements, notifications, logs.
+ *
+ * The colleges become exactly the seven in COLLEGES: an existing college
+ * with the same name or abbreviation is kept (logo and all) under the
+ * canonical name; any other college is removed.
  *
  * Then it creates, all with the password `demo1234`:
- *   coach1–10@g.batstate-u.edu.ph    one per college, each handling all seven
- *                                    sports for Men & Women
- *   athlete1–1400@g.batstate-u.edu.ph  per coach, per sport: 10 men and 10 women,
- *                                    each with a jersey number, on the campus
- *                                    registry, privacy notice accepted
+ *   coach1–14@g.batstate-u.edu.ph    two per college — a Men's and a Women's
+ *                                    coach — each handling all seven sports
+ *   athlete1–980@g.batstate-u.edu.ph   per college, per sport: 10 men (on the
+ *                                    Men's coach's team) and 10 women (on the
+ *                                    Women's), each with a jersey number, on the
+ *                                    campus registry, privacy notice accepted
  *   judge1–10@g.batstate-u.edu.ph    committee members
  * the sports Basketball, Volleyball, Beach Volleyball, Sepak Takraw,
  * Badminton, Table Tennis and Chess (with the racquet sports' Men's and
@@ -45,8 +50,6 @@ class TournamentResetSeeder extends Seeder
     private const DOMAIN = '@g.batstate-u.edu.ph';
 
     private const PRIVACY_NOTICE_VERSION = '2026-09-21';
-
-    private const COACH_COUNT = 10;
 
     private const JUDGE_COUNT = 10;
 
@@ -70,23 +73,32 @@ class TournamentResetSeeder extends Seeder
         'Chess' => 'Standard chess, Men\'s and Women\'s.',
     ];
 
-    /** Used only if the site has fewer than ten colleges: abbreviation => name. */
-    private const DEFAULT_COLLEGES = [
-        'CICS' => 'College of Informatics and Computing Sciences',
+    /** The colleges, in this order: abbreviation => name. */
+    private const COLLEGES = [
         'CABEIHM' => 'College of Accountancy, Business, Economics, and International Hospitality Management',
-        'CAS' => 'College of Arts and Sciences',
-        'CoE' => 'College of Engineering',
+        'CICS' => 'College of Informatics and Computing Sciences',
         'CTE' => 'College of Teacher Education',
-        'CIT' => 'College of Industrial Technology',
         'CONAHS' => 'College of Nursing and Allied Health Sciences',
         'CCJE' => 'College of Criminal Justice Education',
-        'CAFAD' => 'College of Architecture, Fine Arts and Design',
-        'CHS' => 'College of Health Sciences',
+        'CAS' => 'College of Arts and Sciences',
+        'LS' => 'Laboratory School',
     ];
 
+    /** Other spellings an existing college might be stored under. */
+    private const ALIASES = [
+        'CONAHS' => ['CONHAS'],
+        'LS' => ['LAB', 'LABSCHOOL'],
+    ];
+
+    /** [Men's coach, Women's coach] per college, in COLLEGES order. */
     private const COACH_NAMES = [
-        'Marco Villanueva', 'Joanna Castillo', 'Rafael Dimaculangan', 'Carla Macaraig', 'Dennis Ramirez',
-        'Liza Marasigan', 'Arnel Bautista', 'Kristine Ilagan', 'Ramon Atienza', 'Teresa Magsino',
+        ['Marco Villanueva', 'Joanna Castillo'],
+        ['Rafael Dimaculangan', 'Carla Macaraig'],
+        ['Dennis Ramirez', 'Liza Marasigan'],
+        ['Arnel Bautista', 'Kristine Ilagan'],
+        ['Ramon Atienza', 'Teresa Magsino'],
+        ['Jerome Salazar', 'Rhea Tolentino'],
+        ['Allan Quinto', 'Maribel Ocampo'],
     ];
 
     private const JUDGE_NAMES = [
@@ -128,8 +140,9 @@ class TournamentResetSeeder extends Seeder
         Cache::flush();
 
         $this->command?->info(sprintf(
-            'Reset done — coach1–%d, athlete1–%d, judge1–%d %s, password %s',
-            self::COACH_COUNT, self::COACH_COUNT * count(self::SPORTS) * 2 * self::PER_TEAM, self::JUDGE_COUNT, self::DOMAIN, self::PASSWORD,
+            'Reset done — %d colleges, coach1–%d, athlete1–%d, judge1–%d %s, password %s',
+            count(self::COLLEGES), count(self::COLLEGES) * 2, count(self::COLLEGES) * count(self::SPORTS) * 2 * self::PER_TEAM,
+            self::JUDGE_COUNT, self::DOMAIN, self::PASSWORD,
         ));
     }
 
@@ -196,56 +209,73 @@ class TournamentResetSeeder extends Seeder
         $this->sportIds = DB::table('categories')->whereIn('name', array_keys(self::SPORTS))->pluck('id', 'name')->all();
     }
 
-    /** Ten colleges: the site's own, in a stable order, topped up if there are fewer. */
+    /**
+     * Exactly the seven colleges. One already on the site under the same name
+     * or abbreviation keeps its row (and logo) and takes the canonical name;
+     * missing ones are created; any other college is removed.
+     *
+     * @return array<int, object> in COLLEGES order
+     */
     private function colleges(): array
     {
-        $existing = DB::table('departments')->orderBy('name')->get(['id', 'name', 'abbreviation']);
-        $order = array_keys(self::DEFAULT_COLLEGES);
-        $colleges = $existing->sortBy(fn ($d) => [
-            ($i = array_search($d->abbreviation, $order, true)) === false ? 99 : $i, $d->name,
-        ])->values()->all();
+        $key = fn (?string $v) => mb_strtolower(trim((string) $v));
+        $existing = DB::table('departments')->get(['id', 'name', 'abbreviation']);
+        $colleges = [];
 
-        foreach (self::DEFAULT_COLLEGES as $abbr => $name) {
-            if (count($colleges) >= self::COACH_COUNT) {
-                break;
+        foreach (self::COLLEGES as $abbr => $name) {
+            $spellings = array_map($key, [$name, $abbr, ...(self::ALIASES[$abbr] ?? [])]);
+            $row = $existing->first(fn ($d) => in_array($key($d->name), $spellings, true) || in_array($key($d->abbreviation), $spellings, true));
+
+            if ($row) {
+                DB::table('departments')->where('id', $row->id)->update(['name' => $name, 'abbreviation' => $abbr, 'updated_at' => now()]);
+                $id = $row->id;
+            } else {
+                $id = (string) Str::uuid();
+                DB::table('departments')->insert(['id' => $id, 'name' => $name, 'abbreviation' => $abbr, 'created_at' => now(), 'updated_at' => now()]);
             }
-            if ($existing->contains(fn ($d) => $d->abbreviation === $abbr || $d->name === $name)) {
-                continue;
-            }
-            $id = (string) Str::uuid();
-            DB::table('departments')->insert(['id' => $id, 'name' => $name, 'abbreviation' => $abbr, 'created_at' => now(), 'updated_at' => now()]);
             $colleges[] = (object) ['id' => $id, 'name' => $name, 'abbreviation' => $abbr];
         }
 
-        return array_slice($colleges, 0, self::COACH_COUNT);
+        // Anything left over goes; an admin's college link clears itself (FK set null).
+        DB::table('departments')->whereNotIn('id', array_column($colleges, 'id'))->delete();
+
+        return $colleges;
     }
 
     // ── People ──────────────────────────────────────────────────────────
 
-    /** @return array<int, User> coach number => coach */
+    /**
+     * Two coaches per college: coach1 is the first college's Men's coach,
+     * coach2 its Women's, and so on.
+     *
+     * @return array<int, array{Men: User, Women: User}> in college order
+     */
     private function seedCoaches(array $colleges): array
     {
         $coaches = [];
+        $n = 0;
         foreach ($colleges as $i => $college) {
-            $n = $i + 1;
-            $coach = new User;
-            $coach->forceFill([
-                'id' => (string) Str::uuid(),
-                'email' => "coach{$n}".self::DOMAIN,
-                'password' => $this->password,
-                'name' => self::COACH_NAMES[$i],
-                'role' => 'coach',
-                'active' => true,
-                'department' => $college->name,
-                'department_id' => $college->id,
-                'sport' => array_key_first(self::SPORTS),
-                'sports' => array_keys(self::SPORTS),    // coach_category follows (User::syncSportKeys)
-                'gender_category' => 'Men & Women',
-                'enrollment_code' => Str::upper(Str::slug($college->abbreviation ?: "C{$n}", '')).'-2627',
-                'privacy_notice_accepted_at' => now(),
-                'privacy_notice_version' => self::PRIVACY_NOTICE_VERSION,
-            ])->save();
-            $coaches[$n] = $coach;
+            foreach (['Men', 'Women'] as $g => $division) {
+                $n++;
+                $coach = new User;
+                $coach->forceFill([
+                    'id' => (string) Str::uuid(),
+                    'email' => "coach{$n}".self::DOMAIN,
+                    'password' => $this->password,
+                    'name' => self::COACH_NAMES[$i][$g],
+                    'role' => 'coach',
+                    'active' => true,
+                    'department' => $college->name,
+                    'department_id' => $college->id,
+                    'sport' => array_key_first(self::SPORTS),
+                    'sports' => array_keys(self::SPORTS),    // coach_category follows (User::syncSportKeys)
+                    'gender_category' => $division,
+                    'enrollment_code' => "{$college->abbreviation}-".($division === 'Men' ? 'M' : 'W').'-2627',
+                    'privacy_notice_accepted_at' => now(),
+                    'privacy_notice_version' => self::PRIVACY_NOTICE_VERSION,
+                ])->save();
+                $coaches[$i][$division] = $coach;
+            }
         }
 
         return $coaches;
@@ -274,9 +304,10 @@ class TournamentResetSeeder extends Seeder
     }
 
     /**
-     * athlete1… in order coach → sport → Men, Women. Written in batches: a
-     * web request on shared hosting has a time limit, and 1,400 one-by-one
-     * saves would run past it.
+     * athlete1… in order college → sport → Men, Women: 10 men on the Men's
+     * coach's team, 10 women on the Women's. Written in batches: a web request
+     * on shared hosting has a time limit, and ~1,000 one-by-one saves would
+     * run past it.
      */
     private function seedAthletes(array $coaches): void
     {
@@ -285,9 +316,11 @@ class TournamentResetSeeder extends Seeder
         $counter = ['Male' => 0, 'Female' => 0];
         $now = now();
 
-        foreach ($coaches as $coach) {
+        foreach ($coaches as $pair) {
             foreach (array_keys(self::SPORTS) as $sport) {
                 foreach (['Male' => 0, 'Female' => self::PER_TEAM] as $gender => $jerseyOffset) {
+                    // Women wear 11–20, so a game neither division owns never has two #4s.
+                    $coach = $pair[$gender === 'Male' ? 'Men' : 'Women'];
                     for ($j = 1; $j <= self::PER_TEAM; $j++) {
                         $n++;
                         $idx = $counter[$gender]++;
@@ -345,7 +378,7 @@ class TournamentResetSeeder extends Seeder
      */
     private function seedSchedule(array $coaches, array $judges): void
     {
-        $colleges = array_values(array_map(fn (User $c) => $c->department, $coaches));
+        $colleges = array_values(array_map(fn (array $pair) => $pair['Men']->department, $coaches));
         $venues = DB::table('venues')->get(['id', 'name'])->all();
         $slots = [['08:00', '10:00'], ['10:00', '12:00'], ['13:00', '15:00'], ['15:00', '17:00']];
         $game = 0;

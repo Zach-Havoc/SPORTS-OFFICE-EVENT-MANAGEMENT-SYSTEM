@@ -347,6 +347,8 @@ class VolleyballScoringTest extends TestCase
 
     public function test_the_coach_sets_a_full_starting_rotation_or_none(): void
     {
+        // This college's lineup comes from its coach alone (not the fixture's players).
+        GamePlayer::where('game_id', $this->game->id)->where('team_id', $this->home->id)->delete();
         $coach = $this->actingAsRole('coach', ['department' => $this->home->name, 'department_id' => $this->home->id, 'sports' => ['Volleyball']]);
         $mine = collect(range(1, 7))->map(fn () => $this->athletes()->create(['coach_id' => $coach->id, 'sport' => 'Volleyball']));
         $players = fn (int $positions) => $mine->values()->map(fn ($a, $i) => [
