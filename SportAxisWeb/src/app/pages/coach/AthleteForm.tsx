@@ -20,6 +20,7 @@ interface AthleteFormData {
   yearLevel: string;
   course: string;
   status: 'active' | 'inactive' | 'injured';
+  jerseyNumber: string;
   emergencyContactName: string;
   emergencyContactRelationship: string;
   emergencyContactPhone: string;
@@ -40,6 +41,7 @@ export default function AthleteForm() {
     yearLevel: '1st Year',
     course: '',
     status: 'active',
+    jerseyNumber: '',
     emergencyContactName: '',
     emergencyContactRelationship: '',
     emergencyContactPhone: '',
@@ -64,7 +66,7 @@ export default function AthleteForm() {
 
   // A coach can enter an athlete's details only when first adding them. After
   // that, identity and personal details belong to the athlete (their account /
-  // the campus record) — the coach can view them and set the roster status.
+  // the campus record) — the coach can view them and set the roster status and jersey number.
   const readOnlyPersonal = isEditMode;
   const linkedAccount = isEditMode && !!(athleteQuery.data as any)?.userId;
 
@@ -81,6 +83,7 @@ export default function AthleteForm() {
       yearLevel: athlete.yearLevel ?? '1st Year',
       course: athlete.course ?? '',
       status: athlete.status ?? 'active',
+      jerseyNumber: athlete.jerseyNumber ?? '',
       emergencyContactName: athlete.emergencyContact?.name ?? '',
       emergencyContactRelationship: athlete.emergencyContact?.relationship ?? '',
       emergencyContactPhone: athlete.emergencyContact?.phone ?? '',
@@ -98,12 +101,17 @@ export default function AthleteForm() {
     e.preventDefault();
     setError('');
 
-    // In edit mode a coach can only change the roster status — everything else
-    // is the athlete's to manage.
+    // In edit mode a coach can only change the roster details (status and
+    // jersey number) — everything else is the athlete's to manage.
     if (isEditMode && id) {
+      const jersey = formData.jerseyNumber.trim();
+      if (jersey && !/^\d{1,2}$/.test(jersey)) {
+        setError('Jersey numbers are 0–99 (00 allowed).');
+        return;
+      }
       try {
-        await updateMut.mutateAsync({ id, data: { status: formData.status } });
-        toast.success('Status updated');
+        await updateMut.mutateAsync({ id, data: { status: formData.status, jerseyNumber: jersey || null } });
+        toast.success('Roster details updated');
         navigate('/coach/athletes');
       } catch (err: any) {
         console.error('Error saving athlete:', err);
@@ -182,7 +190,7 @@ export default function AthleteForm() {
           {isEditMode ? 'Athlete Details' : 'Add New Athlete'}
         </h1>
         <p className="text-gray-600 mt-2">
-          {isEditMode ? 'View athlete information and set their roster status' : 'Add a new athlete to your roster'}
+          {isEditMode ? 'View athlete information and set their roster status and jersey number' : 'Add a new athlete to your roster'}
         </p>
       </div>
 
@@ -235,6 +243,24 @@ export default function AthleteForm() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {isEditMode && (
+                <div className="space-y-2">
+                  <Label htmlFor="jerseyNumber">Jersey number</Label>
+                  <Input
+                    id="jerseyNumber"
+                    inputMode="numeric"
+                    maxLength={2}
+                    placeholder="e.g., 7"
+                    value={formData.jerseyNumber}
+                    onChange={(e) => handleChange('jerseyNumber', e.target.value.replace(/\D/g, ''))}
+                    className="numeral w-24"
+                  />
+                  <p className="text-xs text-text-muted">
+                    Used by the committee's play-by-play scorer. Unique on your team.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name *</Label>
@@ -389,7 +415,7 @@ export default function AthleteForm() {
           </Link>
           <Button type="submit" disabled={saving}>
             <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : isEditMode ? 'Save Status' : 'Add Athlete'}
+            {saving ? 'Saving...' : isEditMode ? 'Save Roster Details' : 'Add Athlete'}
           </Button>
         </div>
       </form>
