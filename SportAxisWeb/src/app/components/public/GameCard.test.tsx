@@ -23,6 +23,8 @@ describe('game details — lineups', () => {
   it("lists each team's players by jersey, and says when one hasn't submitted", () => {
     lineups = {
       sport: 'basketball',
+      positionName: null,
+      positions: [],
       teams: [
         { id: 'd1', side: 'home', name: 'CICS', label: 'CICS', abbreviation: 'CICS', players: [
           { jersey: '4', name: 'Ana Reyes', rotationPosition: null },
@@ -43,6 +45,8 @@ describe('game details — lineups', () => {
   it('marks the volleyball starting rotation', () => {
     lineups = {
       sport: 'volleyball',
+      positionName: 'Starting rotation',
+      positions: ['I', 'II', 'III', 'IV', 'V', 'VI'],
       teams: [
         { id: 'd1', side: 'home', name: 'CICS', label: 'CICS', abbreviation: 'CICS', players: [
           { jersey: '4', name: 'Ana Reyes', rotationPosition: 1 },
@@ -56,9 +60,25 @@ describe('game details — lineups', () => {
     expect(screen.getByText(/the starting rotation/)).toBeInTheDocument();
   });
 
-  it('has no lineup section for a sport not scored play-by-play', () => {
+  it("shows a sepak takraw regu's positions", () => {
+    lineups = {
+      sport: 'sepak takraw',
+      positionName: 'Position',
+      positions: ['Tekong', 'Feeder', 'Striker'],
+      teams: [
+        { id: 'd1', side: 'home', name: 'CICS', label: 'CICS', abbreviation: 'CICS', players: [
+          { jersey: '1', name: 'Ana Reyes', rotationPosition: 1 },
+        ] },
+      ],
+    };
+    render(<MatchDetailModal event={game('Sepak Takraw')} rankings={[]} teams={teams} onClose={() => {}} />);
+    expect(screen.getByText('Tekong')).toBeInTheDocument();
+    expect(screen.queryByText(/the starting rotation/)).not.toBeInTheDocument();
+  });
+
+  it('has no lineup section for a racquet sport', () => {
     lineups = undefined;
-    render(<MatchDetailModal event={game('Chess')} rankings={[]} teams={teams} onClose={() => {}} />);
+    render(<MatchDetailModal event={game('Badminton')} rankings={[]} teams={teams} onClose={() => {}} />);
     expect(screen.queryByText('Lineups')).not.toBeInTheDocument();
   });
 });

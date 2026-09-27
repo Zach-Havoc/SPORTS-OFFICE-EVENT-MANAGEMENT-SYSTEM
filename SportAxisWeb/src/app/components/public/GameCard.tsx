@@ -339,22 +339,22 @@ export function GameCard({
 
 // ─── Match Detail Modal ───────────────────────────────────────────────────────
 
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
-
 /**
- * Both teams' lineups — jersey numbers and names — for a game scored
- * play-by-play (basketball, volleyball). Volleyball marks the starting six
- * with their rotation position.
+ * Both teams' lineups — jersey numbers and names — for a sport with game
+ * lineups (basketball, volleyball, beach volleyball, sepak takraw, chess;
+ * racquet sports use racquet lines). Players with a position show it: the
+ * volleyball rotation I–VI, the regu's Tekong / Feeder / Striker, a board.
  */
 function Lineups({ eventId, category }: { eventId: string; category: string }) {
   const abbr = useDeptAbbreviator();
-  // Beach volleyball is scored the regular way, so it has no lineups.
-  const playByPlay = /basketball|volleyball/i.test(category) && !/beach/i.test(category);
-  const { data, isLoading } = useEventLineups(eventId, playByPlay);
-  if (!playByPlay) return null;
+  const hasLineups = /basketball|volleyball|takraw|chess/i.test(category);
+  const { data, isLoading } = useEventLineups(eventId, hasLineups);
+  if (!hasLineups || (data && !data.sport)) return null;
 
   const teams = data?.teams ?? [];
-  const hasRotation = teams.some((t) => t.players.some((p) => p.rotationPosition));
+  const positions = data?.positions ?? [];
+  const isVolleyball = data?.sport === 'volleyball';
+  const hasRotation = isVolleyball && teams.some((t) => t.players.some((p) => p.rotationPosition));
 
   return (
     <div>
@@ -385,9 +385,9 @@ function Lineups({ eventId, category }: { eventId: string; category: string }) {
                       <li key={`${p.jersey}-${p.name}`} className="flex items-center gap-2 py-1.5 text-sm">
                         <span className="numeral w-9 shrink-0 text-gray-500">#{p.jersey}</span>
                         <span className="min-w-0 flex-1 truncate text-gray-800">{p.name}</span>
-                        {p.rotationPosition && (
+                        {p.rotationPosition && positions[p.rotationPosition - 1] && (
                           <span className="shrink-0 rounded bg-gray-100 px-1.5 text-xs font-medium text-gray-600">
-                            {ROMAN[p.rotationPosition - 1]}
+                            {positions[p.rotationPosition - 1]}
                           </span>
                         )}
                       </li>

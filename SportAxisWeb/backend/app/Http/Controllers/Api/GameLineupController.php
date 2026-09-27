@@ -10,17 +10,20 @@ use App\Models\GameEvent;
 use App\Models\GamePlayer;
 use App\Models\LiveScore;
 use App\Models\User;
+use App\Services\LineupRules;
 use App\Services\PlayByPlay;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * A coach's lineup for a play-by-play game (basketball, volleyball): which of
- * their athletes play, under which jersey number — and for volleyball, the
- * default starting rotation (positions I–VI; I serves), which the scorer
- * confirms at each set start. The committee's scorer only scores — the
- * players it can credit are exactly the ones the coach lined up.
+ * A coach's lineup for a game: which of their athletes play, under which
+ * jersey number, and — where the sport has them — their positions: the
+ * volleyball rotation I–VI (the scorer confirms it at each set start), a
+ * sepak takraw regu's Tekong / Feeder / Striker, chess board order. Every
+ * head-to-head sport except Badminton and Table Tennis, whose players are
+ * entered per racquet line instead (see LineupRules). The committee's scorer
+ * only scores — the players it can credit are exactly the ones lined up.
  *
  *   GET /api/events/{id}/lineups  (public — both teams' lineups, for the game details)
  *   GET /api/coach/lineups        (coach — their games and lineup status)
@@ -38,16 +41,16 @@ class GameLineupController extends Controller
 {
     /**
      * GET /api/events/{id}/lineups — who plays for each college in a game:
-     * jersey numbers and names only, plus the starting rotation (I–VI) for
-     * volleyball. Empty for a sport that isn't scored play-by-play.
+     * jersey numbers and names only, plus each player's position where the
+     * sport has them. Empty for a sport without game lineups.
      */
     public function publicShow(string $eventId)
     {
         $event = Event::findOrFail($eventId);
-        $sport = PlayByPlay::sportOf($event);
+        $sport = LineupRules::sportOf($event);
         $teams = $sport ? PlayByPlay::teams($event) : null;
         if (! $teams) {
-            return response()->json(['sport' => $sport, 'teams' => []]);
+            return response()->json(['sport' => $sport, ...$this->positionsOf($sport), 'teams' => []]);
         }
 
         $roster = GamePlayer::with('athlete.account')->where('game_id', $eventId)->get()
@@ -55,6 +58,7 @@ class GameLineupController extends Controller
 
         return response()->json([
             'sport' => $sport,
+            ...$this->positionsOf($sport),
             'teams' => array_map(fn ($team, $i) => [
                 'id' => $team->id,
                 'side' => $i === 0 ? 'home' : 'away',
@@ -64,7 +68,7 @@ class GameLineupController extends Controller
                 'players' => $roster->where('team_id', $team->id)->map(fn (GamePlayer $gp) => [
                     'jersey' => $gp->jersey_number,
                     'name' => PlayByPlay::nameOf($gp->athlete),
-                    'rotationPosition' => $sport === 'volleyball' ? $gp->rotation_position : null,
+                    'rotationPosition' => LineupRules::for($sport)['positions'] ? $gp->rotation_position : null,
                 ])->values()->all(),
             ], $teams, array_keys($teams)),
         ]);
@@ -87,7 +91,7 @@ class GameLineupController extends Controller
             ->orderBy('schedule')
             ->orderBy('start_time')
             ->get()
-            ->filter(fn (Event $e) => PlayByPlay::sportOf($e) && count($e->departments ?? []) === 2 && $this->inDivision($coach, $e));
+            ->filter(fn (Event $e) => LineupRules::sportOf($e) && count($e->departments ?? []) === 2 && $this->inDivision($coach, $e));
 
         $counts = GamePlayer::whereIn('game_id', $events->pluck('id'))
             ->where('team_id', $coach->department_id)
@@ -103,7 +107,7 @@ class GameLineupController extends Controller
                 'id' => $e->id,
                 'name' => $e->name,
                 'category' => $e->category,
-                'sport' => PlayByPlay::sportOf($e),
+                'sport' => LineupRules::sportOf($e),
                 'schedule' => $e->schedule,
                 'startTime' => $e->start_time,
                 'venueName' => $e->venue_name,
@@ -126,7 +130,9 @@ class GameLineupController extends Controller
 
         return response()->json([
             'event' => ['id' => $event->id, 'name' => $event->name, 'category' => $event->category, 'schedule' => $event->schedule],
-            'sport' => PlayByPlay::sportOf($event),
+            'sport' => LineupRules::sportOf($event),
+            ...$this->positionsOf(LineupRules::sportOf($event)),
+            'max' => LineupRules::for(LineupRules::sportOf($event))['max'],
             'team' => ['id' => $team->id, 'name' => $team->name, 'abbreviation' => $team->abbreviation],
             'locked' => LiveScore::where('event_id', $eventId)->where('status', 'final')->exists(),
             'players' => $lineup->map(fn (GamePlayer $gp) => [
@@ -148,30 +154,33 @@ class GameLineupController extends Controller
     /** PUT /api/events/{id}/lineup */
     public function update(Request $request, string $eventId)
     {
+        $coach = $request->user();
+        $event = Event::findOrFail($eventId);
+        $team = $this->coachTeam($coach, $event);
+        $rules = LineupRules::for(LineupRules::sportOf($event));
+        $slots = count($rules['positions']);
+
         $data = $request->validate([
-            'players' => 'present|array|max:20',
+            'players' => "present|array|max:{$rules['max']}",
             'players.*.playerId' => 'required|string|distinct',
             'players.*.jerseyNumber' => ['required', 'string', 'regex:/^\d{1,2}$/', 'distinct'],
-            'players.*.rotationPosition' => 'nullable|integer|between:1,6|distinct',
+            'players.*.rotationPosition' => $slots ? "nullable|integer|between:1,{$slots}|distinct" : 'nullable|prohibited',
         ], [
-            'players.*.rotationPosition.distinct' => 'Each rotation position (I–VI) takes one player.',
-            'players.max' => 'A lineup has at most 20 players.',
+            'players.*.rotationPosition.distinct' => 'Each position takes one player.',
+            'players.*.rotationPosition.prohibited' => "{$rules['label']} lineups don't have positions.",
+            'players.max' => "A {$rules['label']} lineup has at most {$rules['max']} players.",
             'players.*.jerseyNumber.required' => 'Every player in the lineup needs a jersey number.',
             'players.*.jerseyNumber.regex' => 'Jersey numbers are 0–99 (00 allowed).',
             'players.*.jerseyNumber.distinct' => 'Two players can\'t wear the same jersey number.',
         ]);
 
-        $coach = $request->user();
-        $event = Event::findOrFail($eventId);
-        $team = $this->coachTeam($coach, $event);
-
-        // Volleyball: a starting rotation is all six positions, or none.
-        $positions = collect($data['players'])->pluck('rotationPosition')->filter()->count();
-        if (PlayByPlay::sportOf($event) === 'volleyball' && ! in_array($positions, [0, 6], true)) {
-            $this->fail('A starting rotation needs all six positions, I to VI — or leave it empty.');
+        // Positions (a rotation, a regu, board order) are all filled or none.
+        $filled = collect($data['players'])->pluck('rotationPosition')->filter()->count();
+        if ($rules['allOrNone'] && ! in_array($filled, [0, $slots], true)) {
+            $this->fail($rules['incomplete']);
         }
 
-        DB::transaction(function () use ($coach, $event, $team, $data) {
+        DB::transaction(function () use ($coach, $event, $team, $data, $slots) {
             // Same lock as the scorer's writes, so a lineup change can't land
             // between a play being validated and recorded.
             Event::whereKey($event->id)->lockForUpdate()->first();
@@ -215,9 +224,8 @@ class GameLineupController extends Controller
             // players can swap numbers).
             $this->ownRows($coach, $event->id, $team->id)
                 ->whereNotIn('player_id', $withPlays->keys()->all())->delete();
-            $isVolleyball = PlayByPlay::sportOf($event) === 'volleyball';
             foreach ($wanted as $playerId => $p) {
-                $position = $isVolleyball ? ($p['rotationPosition'] ?? null) : null;
+                $position = $slots ? ($p['rotationPosition'] ?? null) : null;
                 if ($withPlays->has($playerId) && $current->has($playerId)) {
                     // Frozen number; the default rotation only affects sets not yet started.
                     $current[$playerId]->update(['rotation_position' => $position]);
@@ -242,8 +250,8 @@ class GameLineupController extends Controller
     /** The coach's college in this game, or a 403 if it isn't theirs to line up. */
     private function coachTeam(User $coach, Event $event): Department
     {
-        if (! PlayByPlay::sportOf($event)) {
-            $this->fail('Lineups are only used for play-by-play games (basketball, volleyball).');
+        if (! LineupRules::sportOf($event)) {
+            $this->fail('This sport has no game lineup (Badminton and Table Tennis use racquet lines).');
         }
 
         $teams = PlayByPlay::teams($event);
@@ -259,6 +267,14 @@ class GameLineupController extends Controller
         }
 
         return $team;
+    }
+
+    /** The sport's position labels, for the client to show. */
+    private function positionsOf(?string $sport): array
+    {
+        $rules = $sport ? LineupRules::for($sport) : null;
+
+        return ['positionName' => $rules['positionName'] ?? null, 'positions' => $rules['positions'] ?? []];
     }
 
     /**

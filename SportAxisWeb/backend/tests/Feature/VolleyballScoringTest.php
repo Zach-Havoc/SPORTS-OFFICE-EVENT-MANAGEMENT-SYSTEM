@@ -340,7 +340,10 @@ class VolleyballScoringTest extends TestCase
 
         $this->postJson("/api/events/{$beach->id}/volleyball/sets", ['firstServerTeamId' => $this->home->id])
             ->assertStatus(422)->assertJsonPath('error', "This game isn't scored as volleyball.");
-        $this->getJson("/api/events/{$beach->id}/lineups")->assertOk()->assertJsonPath('sport', null);
+        // It still has lineups — just no indoor rotation.
+        $this->getJson("/api/events/{$beach->id}/lineups")->assertOk()
+            ->assertJsonPath('sport', 'beach volleyball')
+            ->assertJsonPath('positions', []);
     }
 
     // ── The coach's starting rotation ───────────────────────────────────

@@ -12,6 +12,7 @@ use App\Models\DisciplineEntry;
 use App\Models\Event;
 use App\Models\TeamMatch;
 use App\Services\BracketService;
+use App\Services\ScheduleNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -151,6 +152,7 @@ class BracketController extends Controller
             'matchDuration' => 'sometimes|integer|min:5|max:600',
             'breakDuration' => 'sometimes|integer|min:0|max:600',
             'venueId' => 'sometimes|nullable|string|exists:venues,id',
+            'division' => ['sometimes', 'nullable', Rule::in(['Men', 'Women'])],
         ]);
 
         $bracket = $this->brackets->generate($data, $request->user()->id);
@@ -171,8 +173,8 @@ class BracketController extends Controller
         }
 
         $bracket->load('matches');
-        app(\App\Services\ScheduleNotifier::class)->createdMany(
-            \App\Models\Event::whereIn('id', $bracket->matches->pluck('event_id')->filter())->get(),
+        app(ScheduleNotifier::class)->createdMany(
+            Event::whereIn('id', $bracket->matches->pluck('event_id')->filter())->get(),
             "{$bracket->sport} bracket published",
         );
 

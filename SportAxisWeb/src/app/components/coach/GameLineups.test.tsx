@@ -8,6 +8,9 @@ let lineup: GameLineup;
 const basketballLineup: GameLineup = {
   event: { id: 'g1', name: 'CICS vs CABE', category: 'Basketball', schedule: '2026-10-02' },
   sport: 'basketball',
+  positionName: null,
+  positions: [],
+  max: 15,
   team: { id: 'd1', name: 'College of Informatics and Computing Sciences', abbreviation: 'CICS' },
   locked: false,
   players: [{ playerId: 'a1', name: 'Ana Reyes', jerseyNumber: '4', rotationPosition: null, hasPlays: true }],
@@ -87,6 +90,9 @@ describe('GameLineups', () => {
     lineup = {
       ...basketballLineup,
       sport: 'volleyball',
+      positionName: 'Starting rotation',
+      positions: ['I', 'II', 'III', 'IV', 'V', 'VI'],
+      max: 14,
       players: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'].map((id, i) => ({
         playerId: id, name: `Player ${i + 1}`, jerseyNumber: String(i + 1), rotationPosition: null, hasPlays: false,
       })),
@@ -97,7 +103,7 @@ describe('GameLineups', () => {
 
     await userEvent.selectOptions(within(dialog).getByLabelText('Starting position for Player 1'), '1');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save lineup' }));
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('needs all six positions (I–VI) — 1 set');
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Starting rotation needs all 6 (I, II, III, IV, V, VI) — 1 set');
 
     for (let i = 2; i <= 6; i++) {
       await userEvent.selectOptions(within(dialog).getByLabelText(`Starting position for Player ${i}`), String(i));
@@ -111,5 +117,28 @@ describe('GameLineups', () => {
     const saved = mutate.mock.calls[0][0].players;
     expect(saved.find((p: any) => p.playerId === 'a7').rotationPosition).toBe(1);
     expect(saved.find((p: any) => p.playerId === 'a1').rotationPosition).toBeNull();
+  });
+
+  it('offers each sport its own positions — a sepak takraw regu', async () => {
+    lineup = {
+      ...basketballLineup,
+      sport: 'sepak takraw',
+      positionName: 'Position',
+      positions: ['Tekong', 'Feeder', 'Striker'],
+      max: 5,
+      players: ['a1', 'a2', 'a3'].map((id, i) => ({
+        playerId: id, name: `Player ${i + 1}`, jerseyNumber: String(i + 1), rotationPosition: null, hasPlays: false,
+      })),
+      candidates: [],
+    };
+    const dialog = await openDialog();
+    const select = within(dialog).getByLabelText('Starting position for Player 1');
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Bench', 'Tekong', 'Feeder', 'Striker']);
+
+    for (let i = 1; i <= 3; i++) {
+      await userEvent.selectOptions(within(dialog).getByLabelText(`Starting position for Player ${i}`), String(i));
+    }
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save lineup' }));
+    expect(mutate.mock.calls[0][0].players.map((p: any) => p.rotationPosition)).toEqual([1, 2, 3]);
   });
 });

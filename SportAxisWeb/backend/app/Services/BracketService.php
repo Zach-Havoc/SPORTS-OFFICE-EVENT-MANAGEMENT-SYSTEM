@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Http\Controllers\Api\RankingController;
 use App\Models\Bracket;
 use App\Models\BracketMatch;
+use App\Models\Department;
 use App\Models\Event;
+use App\Models\GamePlayer;
 use App\Models\Ranking;
 use App\Models\TeamMatch;
 use App\Models\Venue;
@@ -62,6 +64,10 @@ class BracketService
             'matchDuration' => (int) ($cfg['matchDuration'] ?? 60),
             'breakDuration' => (int) ($cfg['breakDuration'] ?? 15),
             'venueId' => $cfg['venueId'] ?? null,
+            // Men's / Women's, for a team sport played in both. It names the
+            // bracket and its games ("Men's Basketball (Semifinal): …"), which
+            // is how a college's Men's and Women's coaches tell them apart.
+            'division' => in_array($cfg['division'] ?? null, ['Men', 'Women'], true) ? $cfg['division'] : null,
         ];
 
         // How the field is ordered before the standard serpentine slotting:
@@ -85,7 +91,7 @@ class BracketService
             'id' => (string) Str::uuid(),
             'sport' => $sport,
             'format' => $format,
-            'name' => "{$sport} — ".($format === 'round_robin' ? 'Round Robin' : 'Elimination'),
+            'name' => ($settings['division'] ? "{$settings['division']}'s " : '')."{$sport} — ".($format === 'round_robin' ? 'Round Robin' : 'Elimination'),
             'status' => 'draft',
             'seeded' => $seeded,
             'settings' => $settings,
@@ -278,6 +284,47 @@ class BracketService
             $bm->event_id = $event->id;
             $bm->save();
         }
+        $this->carryLineups($bracket, $bm, $event);
+    }
+
+    /**
+     * A team that advances brings its lineup: when a match's game has a team
+     * with no lineup yet, copy the one it used in its previous game in this
+     * bracket. The coach can still change it before the game.
+     */
+    private function carryLineups(Bracket $bracket, BracketMatch $bm, Event $event): void
+    {
+        if ($bm->round <= 1) {
+            return;
+        }
+
+        // Each side as soon as it's known — the other semifinal may still be on.
+        $colleges = Department::all(['id', 'name', 'abbreviation']);
+        foreach (array_filter([$bm->home_team, $bm->away_team]) as $label) {
+            $team = $colleges->first(fn ($d) => PlayByPlay::isCollege($d, $label));
+            if (! $team || GamePlayer::where('game_id', $event->id)->where('team_id', $team->id)->exists()) {
+                continue;
+            }
+            $previous = BracketMatch::where('bracket_id', $bracket->id)
+                ->where('round', '<', $bm->round)
+                ->whereNotNull('event_id')
+                ->where(fn ($q) => $q->where('home_team', $label)->orWhere('away_team', $label))
+                ->orderByDesc('round')
+                ->value('event_id');
+            if (! $previous) {
+                continue;
+            }
+
+            foreach (GamePlayer::where('game_id', $previous)->where('team_id', $team->id)->get() as $gp) {
+                GamePlayer::create([
+                    'game_id' => $event->id,
+                    'team_id' => $team->id,
+                    'player_id' => $gp->player_id,
+                    'jersey_number' => $gp->jersey_number,
+                    'rotation_position' => $gp->rotation_position,
+                ]);
+            }
+        }
     }
 
     // ── Advance: a result is in ─────────────────────────────────────────
@@ -402,6 +449,7 @@ class BracketService
                     'name' => $this->eventName($bracket, $m),
                     'departments' => array_values(array_filter([$m->home_team, $m->away_team])),
                 ]);
+                $this->carryLineups($bracket, $m, $event);
             }
 
             if (! $m->next_match_id && $m->status === 'completed' && $m->winner) {
@@ -498,6 +546,9 @@ class BracketService
         $home = $bm->home_team ?? 'TBD';
         $away = $bm->away_team ?? 'TBD';
 
-        return "{$bracket->sport} ({$bm->stage_label}): {$home} vs {$away}";
+        $division = $bracket->settings['division'] ?? null;
+        $sport = $division ? "{$division}'s {$bracket->sport}" : $bracket->sport;
+
+        return "{$sport} ({$bm->stage_label}): {$home} vs {$away}";
     }
 }

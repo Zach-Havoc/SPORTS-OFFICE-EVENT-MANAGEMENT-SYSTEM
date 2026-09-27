@@ -14,12 +14,12 @@ import Loading from '../Loading';
 /**
  * The coach's side of play-by-play scoring (basketball, volleyball): for each
  * of their college's upcoming and ongoing games, who plays and under which
- * jersey number — and for volleyball, the starting rotation (I serves). The
+ * jersey number — and where the sport has positions, who takes each: the
+ * volleyball rotation (I serves), a sepak takraw regu, chess board order. The
  * committee scores from the mobile app and can only credit these players,
  * so a game with no lineup can only be scored as team points.
  */
 
-const POSITIONS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 export function GameLineups({ games }: { games: CoachLineupGame[] }) {
   const abbr = useDeptAbbreviator();
   const [editing, setEditing] = useState<CoachLineupGame | null>(null);
@@ -90,9 +90,12 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
 
   const entries = rows ? Object.entries(rows).sort(([, a], [, b]) => a.name.localeCompare(b.name)) : [];
   const chosen = entries.filter(([, r]) => r.on);
+  const positions = lineupQ.data?.positions ?? [];
+  const positionName = lineupQ.data?.positionName ?? 'Position';
   const isVolleyball = (lineupQ.data?.sport ?? game.sport) === 'volleyball';
+  const max = lineupQ.data?.max ?? 20;
 
-  /** Put a player in a rotation position, moving whoever had it out. */
+  /** Put a player in a position, moving whoever had it out. */
   const setPosition = (id: string, position: number | null) =>
     setRows((r) => {
       if (!r) return r;
@@ -106,12 +109,16 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
     const players = chosen.map(([playerId, r]) => ({
       playerId,
       jerseyNumber: r.jersey.trim(),
-      rotationPosition: isVolleyball ? r.position : null,
+      rotationPosition: positions.length ? r.position : null,
     }));
-    if (isVolleyball) {
+    if (players.length > max) {
+      setError(`A lineup has at most ${max} players — ${players.length} ticked.`);
+      return;
+    }
+    if (positions.length) {
       const filled = chosen.filter(([, r]) => r.position).length;
-      if (filled !== 0 && filled !== 6) {
-        setError(`The starting rotation needs all six positions (I–VI) — ${filled} set. Or clear them all.`);
+      if (filled !== 0 && filled !== positions.length) {
+        setError(`${positionName} needs all ${positions.length} (${positions.join(', ')}) — ${filled} set. Or clear them all.`);
         return;
       }
     }
@@ -149,7 +156,10 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
           <DialogTitle>Lineup vs {game.opponent ? abbr(game.opponent) : 'TBD'}</DialogTitle>
           <DialogDescription>
             Tick who plays and check their jersey numbers. The number defaults to the athlete's profile and can differ for this game.
-            {isVolleyball && ' Put six players in the starting rotation — position I serves first. The scorer confirms it at the start of each set.'}
+            {isVolleyball
+              ? ' Put six players in the starting rotation — position I serves first. The scorer confirms it at the start of each set.'
+              : positions.length > 0 && ` Give ${positions.length} players a ${positionName.toLowerCase()}: ${positions.join(', ')}.`}
+            {` Up to ${max} players.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -191,17 +201,17 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
                   onChange={(e) => set(id, { jersey: e.target.value.replace(/\D/g, '') })}
                   className="numeral h-11 w-16 text-center text-base"
                 />
-                {isVolleyball && (
+                {positions.length > 0 && (
                   <select
                     aria-label={`Starting position for ${r.name}`}
                     value={r.position ?? ''}
                     disabled={!r.on}
                     onChange={(e) => setPosition(id, e.target.value ? Number(e.target.value) : null)}
-                    className="h-11 w-20 rounded-md border border-border bg-surface px-2 text-sm text-text disabled:opacity-50"
+                    className="h-11 w-24 rounded-md border border-border bg-surface px-2 text-sm text-text disabled:opacity-50"
                   >
                     <option value="">Bench</option>
-                    {POSITIONS.map((label, i) => (
-                      <option key={label} value={i + 1}>{label}{i === 0 ? ' (serve)' : ''}</option>
+                    {positions.map((label, i) => (
+                      <option key={label} value={i + 1}>{label}{isVolleyball && i === 0 ? ' (serve)' : ''}</option>
                     ))}
                   </select>
                 )}

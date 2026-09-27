@@ -422,7 +422,8 @@ export interface CoachLineupGame {
   id: string;
   name: string;
   category: string;
-  sport: "basketball" | "volleyball";
+  /** The lineup sport: basketball, volleyball, beach volleyball, sepak takraw, chess. */
+  sport: string;
   schedule: string;
   startTime: string | null;
   venueName: string | null;
@@ -434,7 +435,13 @@ export interface CoachLineupGame {
 
 export interface GameLineup {
   event: { id: string; name: string; category: string; schedule: string };
-  sport: "basketball" | "volleyball";
+  sport: string;
+  /** What the sport's positions are called ("Starting rotation", "Position", "Board"), if it has any. */
+  positionName: string | null;
+  /** Position labels, 1-based by `rotationPosition` (e.g. I–VI, Tekong/Feeder/Striker, Board 1–4). */
+  positions: string[];
+  /** Most players a lineup may have. */
+  max: number;
   team: { id: string; name: string; abbreviation: string | null };
   locked: boolean;
   players: Array<{ playerId: string; name: string; jerseyNumber: string; rotationPosition: number | null; hasPlays: boolean }>;
@@ -444,7 +451,9 @@ export interface GameLineup {
 
 /** Both teams' lineups for a game (public): jersey numbers and names only. */
 export interface EventLineups {
-  sport: "basketball" | "volleyball" | null;
+  sport: string | null;
+  positionName: string | null;
+  positions: string[];
   teams: Array<{
     id: string;
     side: "home" | "away";
