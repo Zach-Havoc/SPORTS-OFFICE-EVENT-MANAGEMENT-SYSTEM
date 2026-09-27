@@ -148,7 +148,7 @@ class DemoScheduler
                 continue;
             }
             $roster = array_values(array_filter(
-                $this->ctx->roster($this->ctx->coach($team->name, $sportName, $division)),
+                $this->ctx->roster($this->ctx->coach($team->name, $sportName), $division),
                 fn ($a) => $a->status !== 'injured',
             ));
             foreach (array_slice($roster, 0, $rules['max']) as $k => $a) {

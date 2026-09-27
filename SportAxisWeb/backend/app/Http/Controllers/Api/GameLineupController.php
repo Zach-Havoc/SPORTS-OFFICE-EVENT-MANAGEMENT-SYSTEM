@@ -302,15 +302,25 @@ class GameLineupController extends Controller
             ->whereHas('athlete', fn ($q) => $q->where('coach_id', $coach->id));
     }
 
-    /** The coach's own active athletes in this game's sport. */
+    /**
+     * The coach's own active athletes in this game's sport — and, for a
+     * Men's or Women's game, that division's players only (a Men & Women
+     * coach has both on one roster). An athlete whose sex isn't on file
+     * stays eligible.
+     */
     private function eligible(User $coach, Event $event)
     {
+        $sex = ['Men' => 'Male', 'Women' => 'Female'][PlayByPlay::divisionOf($event)] ?? null;
+
         return Athlete::with('account')
             ->where('coach_id', $coach->id)
             ->where('status', 'active')
             ->where(fn ($q) => $q
                 ->when($event->category_id, fn ($q) => $q->where('category_id', $event->category_id))
-                ->orWhereRaw('LOWER(?) LIKE CONCAT(LOWER(sport), \'%\')', [$event->category]));
+                ->orWhereRaw('LOWER(?) LIKE CONCAT(LOWER(sport), \'%\')', [$event->category]))
+            ->when($sex, fn ($q) => $q->where(fn ($q) => $q
+                ->whereDoesntHave('account')
+                ->orWhereHas('account', fn ($a) => $a->whereNull('gender')->orWhere('gender', $sex))));
     }
 
     /**

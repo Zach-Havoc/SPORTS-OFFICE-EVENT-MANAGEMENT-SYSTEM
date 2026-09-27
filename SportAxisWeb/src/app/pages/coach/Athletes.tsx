@@ -1,5 +1,5 @@
 import { StatStrip } from '../../components/page/StatStrip';
-import { useCallback, useEffect, useState, memo } from 'react';
+import { useCallback, useEffect, useMemo, useState, memo } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -41,6 +41,9 @@ interface Athlete {
   yearLevel: string;
   course: string;
   sport?: string;
+  /** From the athlete's account: Male / Female — which division they play in. */
+  gender?: string | null;
+  jerseyNumber?: string | null;
   coachId: string;
   status: 'active' | 'inactive' | 'injured';
   enrolledViaCode?: boolean;
@@ -48,6 +51,10 @@ interface Athlete {
   emergencyContact?: { name: string; relationship: string; phone: string };
   createdAt: string;
 }
+
+/** "Men's" / "Women's", from the athlete's sex; null when it isn't on file. */
+const divisionOf = (a: Athlete): 'Men' | 'Women' | null =>
+  a.gender === 'Male' ? 'Men' : a.gender === 'Female' ? 'Women' : null;
 
 const statusColor = (s: string) =>
   s === 'active' ? 'bg-green-100 text-green-800' :
@@ -71,6 +78,8 @@ export default function CoachAthletes() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'injured'>('all');
+  const [sportFilter, setSportFilter] = useState('all');
+  const [divisionFilter, setDivisionFilter] = useState<'all' | 'Men' | 'Women'>('all');
   const [codeCopied, setCodeCopied] = useState(false);
 
   // Sport setup dialog
@@ -163,15 +172,27 @@ export default function CoachAthletes() {
     }
   };
 
+  // The sports on this roster, with head counts — the filter only shows when there's a choice.
+  const rosterSports = useMemo(() => {
+    const counts = new Map<string, number>();
+    athletes.forEach((a) => a.sport && counts.set(a.sport, (counts.get(a.sport) ?? 0) + 1));
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [athletes]);
+  const bothDivisions = athletes.some((a) => divisionOf(a) === 'Men') && athletes.some((a) => divisionOf(a) === 'Women');
+  const filtering = !!searchQuery || statusFilter !== 'all' || sportFilter !== 'all' || divisionFilter !== 'all';
+
   const filtered = athletes.filter(a => {
     const q = searchQuery.toLowerCase();
     const matchSearch = !q ||
       a.firstName.toLowerCase().includes(q) ||
       a.lastName.toLowerCase().includes(q) ||
       (a.studentId || '').toLowerCase().includes(q) ||
-      a.email.toLowerCase().includes(q);
+      a.email.toLowerCase().includes(q) ||
+      (a.sport || '').toLowerCase().includes(q);
     const matchStatus = statusFilter === 'all' || a.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchSport = sportFilter === 'all' || a.sport === sportFilter;
+    const matchDivision = divisionFilter === 'all' || divisionOf(a) === divisionFilter;
+    return matchSearch && matchStatus && matchSport && matchDivision;
   });
 
   const handleRemoveClick = useCallback((athlete: Athlete) => setRemoveTarget(athlete), []);
@@ -285,12 +306,37 @@ export default function CoachAthletes() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search by name, student ID, or email…"
+                placeholder="Search by name, student ID, email, or sport…"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
+            {rosterSports.length > 1 && (
+              <Select value={sportFilter} onValueChange={setSportFilter}>
+                <SelectTrigger className="md:w-52" aria-label="Filter by sport">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All sports ({athletes.length})</SelectItem>
+                  {rosterSports.map(([sport, n]) => (
+                    <SelectItem key={sport} value={sport}>{sport} ({n})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {bothDivisions && (
+              <Select value={divisionFilter} onValueChange={(v) => setDivisionFilter(v as 'all' | 'Men' | 'Women')}>
+                <SelectTrigger className="md:w-40" aria-label="Filter by division">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Men's &amp; Women's</SelectItem>
+                  <SelectItem value="Men">Men's</SelectItem>
+                  <SelectItem value="Women">Women's</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <div className="flex gap-2">
               {(['all','active','injured','inactive'] as const).map(s => (
                 <Button
@@ -313,7 +359,7 @@ export default function CoachAthletes() {
         <CardHeader>
           <CardTitle>Athletes ({filtered.length})</CardTitle>
           <CardDescription>
-            {searchQuery || statusFilter !== 'all' ? 'Filtered results' : 'All athletes in your class'}
+            {filtering ? 'Filtered results' : 'All athletes in your class'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -323,16 +369,16 @@ export default function CoachAthletes() {
             <div className="text-center py-14">
               <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-gray-600 font-medium mb-1">
-                {searchQuery || statusFilter !== 'all' ? 'No athletes match your filters' : 'Your roster is empty'}
+                {filtering ? 'No athletes match your filters' : 'Your roster is empty'}
               </p>
               <p className="mb-4 text-sm text-muted-foreground">
-                {searchQuery || statusFilter !== 'all'
+                {filtering
                   ? 'Try adjusting your search'
                   : hasSetUpSport
                   ? `Share code "${coachProfile?.enrollmentCode}" so athletes can self-enroll, or add them manually.`
                   : 'Set up your sport(s) first, then share the enrollment code.'}
               </p>
-              {!searchQuery && statusFilter === 'all' && (
+              {!filtering && (
                 <div className="flex justify-center gap-2">
                   {!hasSetUpSport && (
                     <Button onClick={openSetup}>Set Up Sports</Button>
@@ -349,6 +395,7 @@ export default function CoachAthletes() {
                 <thead>
                   <tr className="border-b bg-gray-50">
                     <th className="text-left py-3 px-4 font-semibold text-gray-600">Athlete</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Sport</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden md:table-cell">Student ID</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden md:table-cell">College</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden lg:table-cell">Year</th>
@@ -481,6 +528,18 @@ const AthleteRow = memo(function AthleteRow({
       <td className="py-3 px-4">
         <div className="font-medium text-gray-900">{athlete.firstName} {athlete.lastName}</div>
         <div className="text-xs text-gray-500">{athlete.email}</div>
+      </td>
+      <td className="py-3 px-4">
+        {athlete.sport ? (
+          <div className="space-y-0.5">
+            <Badge variant="brand">{athlete.sport}</Badge>
+            <div className="text-xs text-gray-500 whitespace-nowrap">
+              {[divisionOf(athlete) && `${divisionOf(athlete)}'s`, athlete.jerseyNumber && `#${athlete.jerseyNumber}`].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+        ) : (
+          <span className="text-gray-300 italic">not set</span>
+        )}
       </td>
       <td className="py-3 px-4 font-mono hidden md:table-cell text-gray-600">
         {athlete.studentId || <span className="text-gray-300 italic">not set</span>}

@@ -14,8 +14,9 @@ use Illuminate\Support\Facades\DB;
  * on its own after the ones before it.
  *
  * Teams are colleges. A college fields a team in every sport's Men's and
- * Women's division; the team's roster is its coach's athletes, so there is
- * one coach per team (7 colleges × 7 sports × 2 divisions = 98).
+ * Women's division (98 teams). Each college has a coach per sport who runs
+ * both its Men's and its Women's team ("Men & Women"): 7 × 7 = 49 coaches.
+ * A team's roster is its coach's athletes of that division.
  */
 class DemoContext
 {
@@ -150,7 +151,7 @@ class DemoContext
     /** @var array<string, string> category name => id */
     public array $categoryIds = [];
 
-    /** @var array<string, object> "College|Sport|Division" => coach row */
+    /** @var array<string, object> "College|Sport" => coach row */
     public array $coaches = [];
 
     /** @var array<int, object> in judge number order */
@@ -162,7 +163,7 @@ class DemoContext
     /** @var array<string, object> athlete id => row, in athlete-number order */
     public array $athletes = [];
 
-    /** @var array<string, array<int, object>> coach id => roster in order (starters first) */
+    /** @var array<string, array<int, object>> "coach id|Men" / "coach id|Women" => roster in order (starters first) */
     public array $rosters = [];
 
     /** Plain-text logins, written to storage/app/demo-credentials.csv. */
@@ -202,18 +203,20 @@ class DemoContext
 
         $this->coaches = [];
         foreach (DB::table('users')->where('role', 'coach')->get() as $coach) {
-            $this->coaches[$this->coachKey($coach->department, $coach->sport, $coach->gender_category)] = $coach;
+            $this->coaches[$this->coachKey($coach->department, $coach->sport)] = $coach;
         }
 
         $this->judges = DB::table('users')->where('role', 'judge')->get()
             ->sortBy(fn ($j) => self::number($j->email))->values()->all();
 
         $this->athletes = $this->rosters = [];
-        $rows = DB::table('athletes')->get(['id', 'coach_id', 'first_name', 'last_name', 'sport', 'jersey_number', 'department', 'email', 'status'])
+        $rows = DB::table('athletes')->leftJoin('users', 'users.id', '=', 'athletes.user_id')
+            ->get(['athletes.id', 'athletes.coach_id', 'athletes.first_name', 'athletes.last_name', 'athletes.sport', 'athletes.jersey_number',
+                'athletes.department', 'athletes.email', 'athletes.status', 'users.gender'])
             ->sortBy(fn ($a) => self::number((string) $a->email));
         foreach ($rows as $a) {
             $this->athletes[$a->id] = $a;
-            $this->rosters[$a->coach_id][] = $a;
+            $this->rosters[$a->coach_id.'|'.($a->gender === 'Female' ? 'Women' : 'Men')][] = $a;
         }
 
         return $this;
@@ -221,47 +224,62 @@ class DemoContext
 
     // ── Teams ───────────────────────────────────────────────────────────
 
-    /** Every team: [division index 0–13, sport, division] × college, in coach order (coach1 first). */
+    /**
+     * The coaches, coach1–49: [n, sport, college]. Coach n has sport n % 7 at
+     * college (n % 7 + ⌊n / 7⌋) % 7 — so coach1–7 each have their own sport
+     * at their own college, coach1–14 are two per college, and the 49
+     * together cover every college × sport once.
+     */
+    public static function coachSlots(): array
+    {
+        $sports = array_keys(self::SPORTS);
+        $abbrs = array_keys(self::COLLEGES);
+        $slots = [];
+        for ($n = 0; $n < count($sports) * count($abbrs); $n++) {
+            $s = $n % count($sports);
+            $slots[] = ['n' => $n + 1, 'sport' => $sports[$s], 'college' => $abbrs[($s + intdiv($n, count($sports))) % count($abbrs)]];
+        }
+
+        return $slots;
+    }
+
+    /** Every team, in coach order — each coach's Men's team, then Women's (athlete1 is coach1's first Men's player). */
     public static function teams(): array
     {
-        $divisions = [];
-        foreach (array_keys(self::SPORTS) as $sport) {
-            foreach (['Men', 'Women'] as $division) {
-                $divisions[] = [$sport, $division];
-            }
-        }
-        $abbrs = array_keys(self::COLLEGES);
         $teams = [];
-        // coach n: division n % 14, college (n % 14 + ⌊n / 14⌋) % 7 — so coach1–14
-        // each have their own sport and division, two per college, and the
-        // 98 together cover every college × division once.
-        for ($n = 0; $n < count($divisions) * count($abbrs); $n++) {
-            $d = $n % count($divisions);
-            $teams[] = [
-                'n' => $n + 1, 'division_index' => $d, 'sport' => $divisions[$d][0], 'division' => $divisions[$d][1],
-                'college' => $abbrs[($d + intdiv($n, count($divisions))) % count($abbrs)],
-            ];
+        foreach (self::coachSlots() as $slot) {
+            foreach (['Men', 'Women'] as $division) {
+                $teams[] = ['n' => count($teams) + 1, 'coach' => $slot['n'], 'sport' => $slot['sport'], 'division' => $division, 'college' => $slot['college']];
+            }
         }
 
         return $teams;
     }
 
-    public function coachKey(?string $college, ?string $sport, ?string $division): string
+    public function coachKey(?string $college, ?string $sport): string
     {
-        return mb_strtolower("{$college}|{$sport}|{$division}");
+        return mb_strtolower("{$college}|{$sport}");
     }
 
-    /** The coach of a college's team (college by name or abbreviation). */
-    public function coach(string $college, string $sport, string $division): ?object
+    /** The coach of a college's team in a sport (college by name or abbreviation); they run both divisions. */
+    public function coach(string $college, string $sport, ?string $division = null): ?object
     {
         $name = self::COLLEGES[$college] ?? $college;
 
-        return $this->coaches[$this->coachKey($name, $sport, $division)] ?? null;
+        return $this->coaches[$this->coachKey($name, $sport)] ?? null;
     }
 
-    public function roster(?object $coach): array
+    /** A coach's players in one division, or in both (Men's first). */
+    public function roster(?object $coach, ?string $division = null): array
     {
-        return $coach ? ($this->rosters[$coach->id] ?? []) : [];
+        if (! $coach) {
+            return [];
+        }
+        if ($division) {
+            return $this->rosters["{$coach->id}|{$division}"] ?? [];
+        }
+
+        return [...($this->rosters["{$coach->id}|Men"] ?? []), ...($this->rosters["{$coach->id}|Women"] ?? [])];
     }
 
     /**

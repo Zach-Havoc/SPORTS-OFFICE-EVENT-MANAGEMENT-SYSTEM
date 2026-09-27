@@ -201,7 +201,7 @@ class DemoDataService
             'sports' => DB::table('categories')->whereNull('parent_id')->count(),
             'divisions' => count(DemoContext::SPORTS) * 2,
             'racquet lines' => DB::table('categories')->whereIn('parent_sport', DemoContext::RACQUET_SPORTS)->count(),
-            'teams' => $users('coach'),
+            'teams' => DB::table('coach_category')->exists() ? count(DemoContext::teams()) : 0,
             'admins' => $users('admin'),
             'coaches' => $users('coach'),
             'judges' => $users('judge'),

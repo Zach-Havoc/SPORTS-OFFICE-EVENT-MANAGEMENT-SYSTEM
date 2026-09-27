@@ -110,31 +110,35 @@ class DemoResetTest extends TestCase
             }
         }
 
-        // Coaches: one per team; coach1–14 each their own sport and division, two per college.
+        // Coaches: one per college per sport, running both divisions; coach1–7 each
+        // their own sport at their own college, coach1–14 two per college.
         $coaches = User::where('role', 'coach')->get();
-        $this->assertCount(98, $coaches);
-        $this->assertCount(98, $coaches->unique(fn ($c) => "{$c->department}|{$c->sport}|{$c->gender_category}"));
+        $this->assertCount(49, $coaches);
+        $this->assertCount(49, $coaches->unique(fn ($c) => "{$c->department}|{$c->sport}"));
+        $this->assertSame(['Men & Women'], $coaches->pluck('gender_category')->unique()->values()->all());
+        $firstSeven = $coaches->filter(fn ($c) => DemoContext::number($c->email) <= 7);
+        $this->assertCount(7, $firstSeven->pluck('sport')->unique());
+        $this->assertCount(7, $firstSeven->pluck('department')->unique());
         $first = $coaches->filter(fn ($c) => DemoContext::number($c->email) <= 14);
-        $this->assertCount(14, $first->unique(fn ($c) => "{$c->sport}|{$c->gender_category}"));
         $this->assertSame([2], $first->countBy('department')->unique()->values()->all());
-        $this->assertCount(7, $first->pluck('department')->unique());
 
-        // Judges cover every sport; athletes numbered 1…630, gender matching the division.
+        // Judges cover every sport; athletes numbered 1…630.
         $this->assertSame(10, User::where('role', 'judge')->count());
         $this->assertEqualsCanonicalizing(array_keys(DemoContext::SPORTS), User::where('role', 'judge')->pluck('sports')->flatten()->unique()->values()->all());
         $athletes = User::where('role', 'athlete')->get();
         $this->assertSame(range(1, 630), $athletes->map(fn ($a) => DemoContext::number($a->email))->sort()->values()->all());
-        $coachById = $coaches->keyBy('id');
         foreach ($athletes as $a) {
-            $this->assertSame($coachById[$a->coach_id]->gender_category === 'Men' ? 'Male' : 'Female', $a->gender);
             $this->assertMatchesRegularExpression('/^\d{2}-\d{5}$/', $a->sr_code);
         }
 
-        // Roster sizes, unique jerseys, ≥10 athletes per sport and category.
+        // Each coach: a full Men's and a full Women's roster, jerseys unique within each team; ≥10 per sport and category.
         foreach ($coaches as $coach) {
-            $roster = DB::table('athletes')->where('coach_id', $coach->id)->pluck('jersey_number');
-            $this->assertCount(DemoContext::ROSTER[$coach->sport], $roster, $coach->email);
-            $this->assertCount($roster->count(), $roster->unique());
+            foreach (['Male', 'Female'] as $sex) {
+                $jerseys = DB::table('athletes')->join('users', 'users.id', '=', 'athletes.user_id')
+                    ->where('athletes.coach_id', $coach->id)->where('users.gender', $sex)->pluck('athletes.jersey_number');
+                $this->assertCount(DemoContext::ROSTER[$coach->sport], $jerseys, "{$coach->email} {$sex}");
+                $this->assertCount($jerseys->count(), $jerseys->unique());
+            }
         }
         foreach (array_keys(DemoContext::SPORTS) as $sport) {
             foreach (['Male', 'Female'] as $gender) {

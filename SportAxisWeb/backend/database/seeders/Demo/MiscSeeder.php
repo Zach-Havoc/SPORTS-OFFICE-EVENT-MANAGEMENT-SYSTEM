@@ -131,11 +131,11 @@ class MiscSeeder extends Seeder
                 $date = $this->ctx->today->copy()->subDays($ago + $team['n'] % 2)->toDateString();
                 $sid = (string) Str::uuid();
                 $sessions[] = [
-                    'id' => $sid, 'coach_id' => $coach->id, 'title' => ['Training', 'Conditioning', 'Tactical session', 'Scrimmage'][$s],
+                    'id' => $sid, 'coach_id' => $coach->id, 'title' => "{$team['division']}'s ".['training', 'conditioning', 'tactical session', 'scrimmage'][$s],
                     'date' => $date, 'start_time' => '16:00', 'end_time' => '18:00', 'venue_name' => $this->venueFor($team['sport']),
                     'created_by' => $coach->id, 'created_at' => $date, 'updated_at' => $date,
                 ];
-                foreach ($this->ctx->roster($coach) as $k => $a) {
+                foreach ($this->ctx->roster($coach, $team['division']) as $k => $a) {
                     $status = $a->status === 'injured' ? 'excused' : $pattern[($k + $s * 5 + $team['n']) % count($pattern)];
                     $records[] = [
                         'id' => (string) Str::uuid(), 'session_id' => $sid, 'athlete_id' => $a->id, 'event_id' => 'training',
@@ -151,7 +151,7 @@ class MiscSeeder extends Seeder
             $coach = $this->ctx->coach($team['college'], $team['sport'], $team['division']);
             foreach ([['Training', 1 + $team['n'] % 3], ['Scrimmage', 4 + $team['n'] % 3]] as [$title, $in]) {
                 $sessions[] = [
-                    'id' => (string) Str::uuid(), 'coach_id' => $coach->id, 'title' => $title,
+                    'id' => (string) Str::uuid(), 'coach_id' => $coach->id, 'title' => "{$team['division']}'s ".lcfirst($title),
                     'date' => $this->ctx->today->copy()->addDays($in)->toDateString(), 'start_time' => '16:00', 'end_time' => '18:00',
                     'venue_name' => $this->venueFor($team['sport']), 'created_by' => $coach->id,
                     'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2),
@@ -268,7 +268,7 @@ class MiscSeeder extends Seeder
             $body = $date->format('D, M j, Y').' · '.$event->start_time.'–'.$event->end_time.' · Venue: '.$event->venue_name;
             foreach ($event->departments ?? [] as $college) {
                 $coach = $this->ctx->coach($college, $sport, $division);
-                foreach ([$coach, ...$this->ctx->roster($coach)] as $user) {
+                foreach ([$coach, ...$this->ctx->roster($coach, $division)] as $user) {
                     if ($user) {
                         $this->notify($user->id, 'ScheduleChanged', 'schedule_changed', 'New game scheduled: '.$event->name, $body, '/', now()->subDays(3), $date->diffInDays($this->ctx->today, true) > 4, 'scheduled');
                     }
@@ -286,7 +286,7 @@ class MiscSeeder extends Seeder
                 if ($coach) {
                     $this->notify($coach->id, 'ScheduleChanged', 'schedule_changed', 'Game time changed: '.$event->name, $body, '/coach/schedule', now()->subHours(3), false, 'rescheduled');
                 }
-                foreach (array_slice($this->ctx->roster($coach), 0, 6) as $a) {
+                foreach (array_slice($this->ctx->roster($coach, $division), 0, 6) as $a) {
                     $this->notify($a->id, 'ScheduleChanged', 'schedule_changed', 'Game time changed: '.$event->name, $body, '/athlete/schedule', now()->subHours(3), false, 'rescheduled');
                 }
             }

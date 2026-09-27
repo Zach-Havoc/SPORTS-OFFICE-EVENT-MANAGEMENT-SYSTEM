@@ -27,13 +27,15 @@ class TeamLineupSeeder extends Seeder
     public function run(DemoContext $ctx): void
     {
         $students = DB::table('campus_students')->get()->keyBy('sr_code');
+        // Each coach has a Men's and a Women's team: group their athletes by both.
         $athletes = DB::table('users')->where('role', 'athlete')->get()
-            ->sortBy(fn ($u) => DemoContext::number($u->email))->groupBy('coach_id');
+            ->sortBy(fn ($u) => DemoContext::number($u->email))
+            ->groupBy(fn ($u) => $u->coach_id.'|'.($u->gender === 'Female' ? 'Women' : 'Men'));
         $rows = [];
 
         foreach (DemoContext::teams() as $team) {
             $coach = $ctx->coach($team['college'], $team['sport'], $team['division']);
-            $players = $athletes[$coach->id] ?? collect();
+            $players = $athletes["{$coach->id}|{$team['division']}"] ?? collect();
             $jerseys = $this->jerseys($ctx, $team['sport'], $players->count());
 
             foreach ($players->values() as $k => $u) {
@@ -78,7 +80,7 @@ class TeamLineupSeeder extends Seeder
                 continue;
             }
             $coach = $ctx->coach($team['college'], $team['sport'], $team['division']);
-            $players = $ctx->roster($coach);
+            $players = $ctx->roster($coach, $team['division']);
             $g = $team['division'] === 'Men' ? 'M' : 'W';
             foreach ([['Singles A', null], ['Singles B', null], ['Doubles', 'C'], ['Doubles', 'D']] as $k => [$line, $slot]) {
                 if ($a = $players[$k] ?? null) {

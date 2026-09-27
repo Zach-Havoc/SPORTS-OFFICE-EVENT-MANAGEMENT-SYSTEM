@@ -123,6 +123,28 @@ class LineupSportsTest extends TestCase
         $this->save($game, $team)->assertOk()->assertJsonCount(5, 'players');
     }
 
+    public function test_a_men_and_women_coach_only_lines_up_the_games_division(): void
+    {
+        $basketball = Category::where('name', 'Basketball')->first();
+        Category::create(['id' => (string) Str::uuid(), 'name' => 'Basketball — Women', 'parent_sport' => 'Basketball', 'division' => 'Women', 'parent_id' => $basketball->id]);
+        $coach = $this->actingAsRole('coach', ['department' => $this->home->name, 'department_id' => $this->home->id, 'sports' => ['Basketball'], 'gender_category' => 'Men & Women']);
+        $player = function (string $sex, int $n) use ($coach) {
+            $account = $this->users()->create(['role' => 'athlete', 'gender' => $sex]);
+
+            return $this->athletes()->create(['user_id' => $account->id, 'coach_id' => $coach->id, 'sport' => 'Basketball', 'jersey_number' => (string) $n]);
+        };
+        $man = $player('Male', 4);
+        $woman = $player('Female', 5);
+        $unknown = $this->athletes()->create(['coach_id' => $coach->id, 'sport' => 'Basketball', 'jersey_number' => '6']);   // no account
+
+        $game = $this->game('Basketball — Women');
+        $candidates = collect($this->getJson("/api/events/{$game->id}/lineup")->assertOk()->json('candidates'))->pluck('playerId');
+
+        $this->assertEqualsCanonicalizing([$woman->id, $unknown->id], $candidates->all());
+        $this->save($game, collect([$man]))->assertStatus(422);
+        $this->save($game, collect([$woman]))->assertOk();
+    }
+
     public function test_a_division_names_the_bracket_and_a_team_carries_its_lineup_forward(): void
     {
         $colleges = collect([$this->home, $this->away])

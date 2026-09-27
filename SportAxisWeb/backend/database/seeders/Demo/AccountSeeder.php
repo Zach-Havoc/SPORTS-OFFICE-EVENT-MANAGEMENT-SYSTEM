@@ -12,9 +12,9 @@ use Illuminate\Support\Str;
 /**
  * The accounts, all with the password Sportaxis@2026:
  *
- *   coach1–98    one per team. coach1–14 each have their own sport and
- *                division, two per college; the rest follow the same
- *                pattern until every college × division has a coach.
+ *   coach1–49    one per college per sport, running both its Men's and
+ *                Women's team. coach1–7 each have their own sport at their
+ *                own college; coach1–14 are two per college.
  *   judge1–10    committee members, each with the sports they officiate
  *   athlete1–…   numbered team by team in coach order, on the campus
  *                registry (SR code, program, year level)
@@ -38,15 +38,14 @@ class AccountSeeder extends Seeder
         $ctx->load();
     }
 
-    /** @return array<int, User> team number => coach */
+    /** @return array<int, User> coach number => coach */
     private function coaches(DemoContext $ctx): array
     {
         $coaches = [];
-        foreach (DemoContext::teams() as $team) {
+        foreach (DemoContext::coachSlots() as $team) {
             $college = $ctx->colleges[$team['college']];
-            $female = $team['division'] === 'Women' ? $ctx->faker->boolean(65) : $ctx->faker->boolean(15);
+            $female = $ctx->faker->boolean(40);
             $name = $this->uniqueName($ctx, $female ? DemoContext::COACH_WOMEN : DemoContext::COACH_MEN);
-            $g = $team['division'] === 'Men' ? 'M' : 'W';
 
             $coach = new User;
             $coach->forceFill([
@@ -61,15 +60,15 @@ class AccountSeeder extends Seeder
                 'department_id' => $college->id,
                 'sport' => $team['sport'],
                 'sports' => [$team['sport']],   // coach_category follows (User::syncSportKeys)
-                'gender_category' => $team['division'],
+                'gender_category' => 'Men & Women',   // runs both divisions' teams
                 'phone' => '+639'.$ctx->faker->numerify('#########'),
-                'enrollment_code' => "{$team['college']}-".DemoContext::SPORT_CODE[$team['sport']]."-{$g}-2026",
+                'enrollment_code' => "{$team['college']}-".DemoContext::SPORT_CODE[$team['sport']].'-2026',
                 'privacy_notice_accepted_at' => now()->subDays(40),
                 'privacy_notice_version' => DemoContext::PRIVACY_NOTICE_VERSION,
                 'created_at' => now()->subDays(40),
             ])->save();
             $coaches[$team['n']] = $coach;
-            $this->credential($ctx, $coach->email, 'coach', $name, $team['college'], $team['sport'], $team['division']);
+            $this->credential($ctx, $coach->email, 'coach', $name, $team['college'], $team['sport'], 'Men & Women');
         }
 
         return $coaches;
@@ -110,7 +109,7 @@ class AccountSeeder extends Seeder
         $srUsed = [];
 
         foreach (DemoContext::teams() as $team) {
-            $coach = $coaches[$team['n']];
+            $coach = $coaches[$team['coach']];
             $female = $team['division'] === 'Women';
             $ls = $team['college'] === 'LS';
 
