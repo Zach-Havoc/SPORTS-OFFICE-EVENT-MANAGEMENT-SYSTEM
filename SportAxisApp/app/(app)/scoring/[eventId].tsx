@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from "../../../constants/theme";
 import { BasketballScoreboard } from "../../../src/components/scoring/BasketballScoreboard";
+import { VolleyballScoreboard } from "../../../src/components/scoring/VolleyballScoreboard";
 import { MatchScoreboard, type MatchScoreboardHandle } from "../../../src/components/scoring/MatchScoreboard";
 import { OCRScoreMapper } from "../../../src/components/scoring/OCRScoreMapper";
 import { PrintableScoreSheetView } from "../../../src/components/scoring/PrintableScoreSheetView";
@@ -36,9 +37,9 @@ import { getSportConfigFromEvent } from "../../../src/utils/sport-config";
 //
 //   Two colleges (a game) · the scoreboard. Keep it live with +/−, or scan
 //     the paper sheet to record the final. Finalizing completes the game.
-//     Basketball opens play-by-play instead (each basket and foul, per
-//     player); "Final score only" keeps the +/− and paper route for a game
-//     that isn't scored that way.
+//     Basketball and volleyball open play-by-play instead (each basket and
+//     foul, or each rally, per player); "Final score only" keeps the +/− and
+//     paper route for a game that isn't scored that way.
 //   Three or more (judged) · every college's 0–100 score in one list. Type
 //     them, or scan the paper sheet to fill them, then submit.
 //
@@ -79,12 +80,16 @@ export default function ScoringScreen() {
   // Same rule as the web schedule: two colleges is a game, more is judged.
   const isMatch = depts.length <= 2;
 
-  // Basketball is scored play-by-play by default. Once a play is recorded the
-  // plays own the score, so the +/− scoreboard can't be switched back to.
-  const isBasketball = isMatch && depts.length === 2 && sportConfig.type === "basketball";
+  // Basketball and volleyball are scored play-by-play by default. Once a play
+  // is recorded the plays own the score, so the +/− scoreboard can't be
+  // switched back to.
+  const pbpSport =
+    isMatch && depts.length === 2 && (sportConfig.type === "basketball" || sportConfig.type === "volleyball")
+      ? sportConfig.type
+      : null;
   const [finalOnly, setFinalOnly] = useState(false);
   const [hasPlays, setHasPlays] = useState(false);
-  const playByPlay = isBasketball && !finalOnly;
+  const playByPlay = !!pbpSport && !finalOnly;
   const onBoard = useCallback((b: { playCount: number }) => setHasPlays(b.playCount > 0), []);
 
   const setScore = useCallback((dept: string, value: string) => {
@@ -270,7 +275,7 @@ export default function ScoringScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {isBasketball && (
+            {pbpSport && (
               <View style={styles.modeSwitch} accessibilityRole="tablist">
                 {[
                   { key: false, label: "Play-by-play" },
@@ -294,7 +299,9 @@ export default function ScoringScreen() {
               </View>
             )}
 
-            {playByPlay ? (
+            {playByPlay && pbpSport === "volleyball" ? (
+              <VolleyballScoreboard event={event} onBoard={onBoard} />
+            ) : playByPlay ? (
               <BasketballScoreboard event={event} onBoard={onBoard} />
             ) : isMatch ? (
               <MatchScoreboard ref={scoreboard} event={event} />

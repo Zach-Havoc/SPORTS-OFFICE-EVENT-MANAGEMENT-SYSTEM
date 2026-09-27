@@ -274,3 +274,85 @@ export interface Scoreboard {
   recentPlays: Play[];
   updatedAt: string | null;
 }
+
+// ── Play-by-play volleyball ──────────────────────────────────────────────────
+// Replayed server-side from the rally log (see VolleyballMatch on the
+// backend); every call returns the whole scoreboard.
+
+export type VolleyballPointType = 'KILL' | 'ACE' | 'BLOCK' | 'OPP_ERROR';
+export type VolleyballPlayType = VolleyballPointType | 'TIMEOUT' | 'SUB' | 'SET_START';
+
+export interface VolleyballPlayer {
+  playerId: string;
+  jersey: string;
+  name: string;
+  onCourt: boolean;
+  /** 1 (I, serving position) to 6 while on court. */
+  position: number | null;
+  kills: number;
+  aces: number;
+  blocks: number;
+  pts: number;
+}
+
+export interface VolleyballTeam {
+  id: string;
+  side: 'home' | 'away';
+  name: string;
+  label: string;
+  abbreviation: string | null;
+  logoUrl: string | null;
+  setsWon: number;
+  /** Points in the current (or just-finished) set. */
+  points: number;
+  serving: boolean;
+  serverPlayerId: string | null;
+  /** Player ids in positions I–VI, or null when this set has no rotation for the team. */
+  rotation: string[] | null;
+  /** The coach's starting rotation, used when a set starts without an edit. */
+  defaultRotation: string[] | null;
+  timeoutsLeft: number;
+  substitutionsLeft: number;
+  oppErrorPoints: number;
+  players: VolleyballPlayer[];
+}
+
+export interface VolleyballLogEntry {
+  id: number;
+  type: VolleyballPlayType;
+  teamId: string;
+  playerId: string | null;
+  jersey: string | null;
+  playerName: string | null;
+  playerOutJersey: string | null;
+  playerOutName: string | null;
+  set: number;
+  homeScore: number;
+  awayScore: number;
+}
+
+export interface VolleyballScoreboard {
+  sport: 'volleyball';
+  eventId: string;
+  eventName: string;
+  category: string;
+  version: number;
+  ready: boolean;
+  status: 'scheduled' | 'live' | 'finished';
+  bestOf: number;
+  setsToWin: number;
+  bestOfLocked: boolean;
+  rules: { setPoints: number; decidingSetPoints: number; timeoutsPerSet: number; substitutionsPerSet: number; bestOfOptions: number[] };
+  currentSet: number;
+  setInProgress: boolean;
+  /** Points to win the current set. */
+  target: number;
+  matchDecided: boolean;
+  winnerTeamId: string | null;
+  nextSet: { number: number; target: number; suggestedServerTeamId: string | null } | null;
+  playCount: number;
+  teams: VolleyballTeam[];
+  sets: { number: number; home: number; away: number; winnerTeamId: string | null }[];
+  log: VolleyballLogEntry[];
+  updatedAt: string | null;
+}
