@@ -16,7 +16,7 @@ class LiveScore extends Model
 
     protected $fillable = [
         'id', 'event_id', 'sport', 'home_team', 'away_team',
-        'home_score', 'away_score', 'period', 'detail', 'status',
+        'home_score', 'away_score', 'period', 'current_period', 'detail', 'status',
         'version', 'updated_by', 'started_at', 'finalized_at',
     ];
 
@@ -24,6 +24,7 @@ class LiveScore extends Model
         'detail' => 'array',
         'home_score' => 'integer',
         'away_score' => 'integer',
+        'current_period' => 'integer',
         'version' => 'integer',
         'started_at' => 'datetime',
         'finalized_at' => 'datetime',

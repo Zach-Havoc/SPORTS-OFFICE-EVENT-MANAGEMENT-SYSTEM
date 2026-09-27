@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\EnrollController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventSessionController;
 use App\Http\Controllers\Api\JudgeController;
+use App\Http\Controllers\Api\BasketballGameController;
 use App\Http\Controllers\Api\LiveScoreController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\NotificationController;
@@ -70,6 +71,8 @@ Route::get('/judge/{id}/status', [ScoreController::class, 'status']);
 // Live game scores — the running score of a game in progress.
 Route::get('/live-scores', [LiveScoreController::class, 'index']);
 Route::get('/events/{id}/live', [LiveScoreController::class, 'show']);
+// Play-by-play basketball scoreboard (score + box score, computed from plays).
+Route::get('/events/{id}/scoreboard', [BasketballGameController::class, 'scoreboard']);
 
 // Head-to-head match records + standings (the bracket-seeding source)
 Route::get('/matches', [MatchController::class, 'index']);
@@ -137,6 +140,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // the running score from the app while the game is being played.
     Route::put('/events/{id}/live', [LiveScoreController::class, 'upsert'])
         ->middleware('role:judge,admin');
+
+    // Play-by-play basketball — the assigned committee member or an admin
+    // (the `score-game` gate, checked in the controller) records each play.
+    Route::middleware('role:judge,admin')->group(function () {
+        Route::get('/events/{id}/roster', [BasketballGameController::class, 'roster']);
+        Route::put('/events/{id}/roster', [BasketballGameController::class, 'updateRoster']);
+        Route::post('/events/{id}/plays', [BasketballGameController::class, 'store']);
+        Route::delete('/events/{id}/plays/last', [BasketballGameController::class, 'undo']);
+        Route::patch('/events/{id}/plays/{play}/player', [BasketballGameController::class, 'assignPlayer']);
+        Route::put('/events/{id}/period', [BasketballGameController::class, 'setPeriod']);
+        Route::post('/events/{id}/finish', [BasketballGameController::class, 'finish']);
+    });
 
     // ─── MOBILE JUDGE APP — Authenticated Routes ──────────────────────────────
     Route::post('/ocr/extract', [OcrController::class, 'extract']);
