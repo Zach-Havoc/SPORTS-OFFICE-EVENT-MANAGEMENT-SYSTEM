@@ -3,10 +3,10 @@ import type { PlayType, Scoreboard } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basketball Service — play-by-play scoring. Each call returns the full
-// scoreboard, computed by the server from the recorded plays.
+// scoreboard, computed by the server from the recorded plays. The players
+// are the coaches' lineups for the game.
 //
 //   GET    /api/events/{id}/scoreboard
-//   POST   /api/events/{id}/roster/sync   roster from athlete profiles (+ rosterNotes)
 //   POST   /api/events/{id}/plays         {teamId, type, playerId?}
 //   DELETE /api/events/{id}/plays/last    undo
 //   PUT    /api/events/{id}/period        {period}
@@ -16,10 +16,6 @@ import type { PlayType, Scoreboard } from '../types';
 export const basketballService = {
   async get(eventId: string): Promise<Scoreboard> {
     return (await api.get<Scoreboard>(`/events/${eventId}/scoreboard`)).data;
-  },
-
-  async syncRoster(eventId: string): Promise<Scoreboard> {
-    return (await api.post<Scoreboard>(`/events/${eventId}/roster/sync`)).data;
   },
 
   async record(eventId: string, play: { teamId: string; type: PlayType; playerId?: string | null }): Promise<Scoreboard> {

@@ -273,6 +273,4 @@ export interface Scoreboard {
   teams: ScoreboardTeam[];
   recentPlays: Play[];
   updatedAt: string | null;
-  /** Only on a roster sync: who was left off the roster and why. */
-  rosterNotes?: string[];
 }

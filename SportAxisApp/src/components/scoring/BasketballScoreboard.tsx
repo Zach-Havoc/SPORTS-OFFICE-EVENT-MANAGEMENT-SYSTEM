@@ -26,8 +26,8 @@ import { Icon } from '../ui/Icon';
 // and box score and sends the whole scoreboard back — so what's on screen is
 // always the server's truth, and two scorekeepers can't drift apart.
 //
-// Rosters come from the athletes' profiles (their coach sets jersey numbers);
-// they're synced from the server when the game opens.
+// The players come from each coach's lineup for this game (set on the web).
+// The scorer only scores: a team with no lineup yet can still get points.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ACTIONS: { type: PlayType; label: string }[] = [
@@ -59,7 +59,7 @@ export function BasketballScoreboard({
   const sideBySide = width >= 700;
 
   const [board, setBoard] = useState<Scoreboard | null>(null);
-  const [notes, setNotes] = useState<string[]>([]);
+  const [reloading, setReloading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected>(null);
   const [error, setError] = useState<TeamError>(null);
@@ -75,27 +75,17 @@ export function BasketballScoreboard({
     onBoard?.(next);
   }, [onBoard]);
 
-  /** Pull the rosters from the athletes' profiles, then show the game. */
-  const fetchBoard = useCallback(async (): Promise<Scoreboard> => {
-    try {
-      return await basketballService.syncRoster(event.id);
-    } catch (e) {
-      // e.g. the game is already finished, or this device can't sync: just show it.
-      return basketballService.get(event.id).catch(() => Promise.reject(e));
-    }
-  }, [event.id]);
-
+  /** Fetch the game — including the lineups the coaches have submitted so far. */
   const load = useCallback(
     (isAlive: () => boolean = () => true) =>
-      fetchBoard().then(
+      basketballService.get(event.id).then(
         (b) => {
           if (!isAlive()) return;
-          setNotes(b.rosterNotes ?? []);
           adopt(b);
         },
         (e: any) => isAlive() && setLoadError(e?.message || "Couldn't load this game."),
       ),
-    [fetchBoard, adopt],
+    [event.id, adopt],
   );
 
   useEffect(() => {
@@ -217,6 +207,7 @@ export function BasketballScoreboard({
   const finished = board.status === 'finished';
   const locked = finished || !isConnected;
   const winner = board.teams.find((t) => t.id === board.winnerTeamId);
+  const waitingFor = board.teams.filter((t) => t.players.length === 0);
 
   return (
     <View style={styles.wrap}>
@@ -249,14 +240,25 @@ export function BasketballScoreboard({
           <Text style={styles.bannerText}>{"You're offline. Plays can be recorded again once you're back online."}</Text>
         </View>
       )}
-      {notes.length > 0 && !finished && (
+      {waitingFor.length > 0 && !finished && (
         <View style={[styles.banner, styles.bannerInfo]}>
           <Icon name="info" size={15} color={COLORS.info} />
           <View style={styles.flex}>
-            {notes.map((n) => (
-              <Text key={n} style={styles.bannerText}>{n}</Text>
-            ))}
-            <Text style={styles.bannerSub}>Their coach can set it on the web, then reopen this game.</Text>
+            <Text style={styles.bannerText}>
+              Waiting for {waitingFor.map(short).join(' and ')}
+              {waitingFor.length === 1 ? "'s lineup" : ' lineups'} from the coach. Points still count for the team until then.
+            </Text>
+            <Pressable
+              onPress={() => {
+                setReloading(true);
+                load().finally(() => setReloading(false));
+              }}
+              disabled={reloading}
+              hitSlop={8}
+              accessibilityRole="button"
+            >
+              <Text style={styles.bannerLink}>{reloading ? 'Checking…' : 'Check again'}</Text>
+            </Pressable>
           </View>
         </View>
       )}
@@ -277,7 +279,7 @@ export function BasketballScoreboard({
 
               {team.players.length === 0 ? (
                 <Text style={[styles.muted, styles.noRoster]}>
-                  No players with jersey numbers yet. Points still count for the team.
+                  No lineup from the coach yet.
                 </Text>
               ) : (
                 <JerseyGrid
@@ -503,7 +505,7 @@ const styles = StyleSheet.create({
   bannerWarn: { backgroundColor: COLORS.warningLight },
   bannerInfo: { backgroundColor: COLORS.infoLight },
   bannerText: { ...TYPE.bodySm, color: COLORS.textPrimary, flexShrink: 1 },
-  bannerSub: { ...TYPE.caption, color: COLORS.textSecondary, marginTop: 2 },
+  bannerLink: { ...TYPE.label, color: COLORS.info, marginTop: SPACING.xs },
 
   teamHead: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
   teamName: { ...TYPE.heading, color: COLORS.textPrimary },
