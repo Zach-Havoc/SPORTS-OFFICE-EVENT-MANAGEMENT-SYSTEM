@@ -51,6 +51,7 @@ const AdminSeasons = page(() => import("./pages/admin/Seasons"));
 const AdminProtests = page(() => import("./pages/admin/Protests"));
 const JudgeDashboard = page(() => import("./pages/judge/Dashboard"));
 const JudgeScoring = page(() => import("./pages/judge/Scoring"));
+const JudgeBasketballScoring = page(() => import("./pages/judge/BasketballScoring"));
 const CoachDashboard = page(() => import("./pages/coach/Dashboard"));
 const CoachAthletes = page(() => import("./pages/coach/Athletes"));
 const CoachLineup = page(() => import("./pages/coach/Lineup"));
@@ -74,6 +75,7 @@ const AccountSettings = page(() => import("./pages/settings/AccountSettings"));
 const PublicLeaderboard = page(() => import("./pages/public/Leaderboard"));
 const PublicHistory = page(() => import("./pages/public/History"));
 const PublicLiveBoard = page(() => import("./pages/public/LiveBoard"));
+const PublicLiveGame = page(() => import("./pages/public/LiveGame"));
 const StandingsBoard = page(() => import("./pages/public/StandingsBoard"));
 const PublicAnnouncements = page(() => import("./pages/public/Announcements"));
 const PublicBrackets = page(() => import("./pages/public/Brackets"));
@@ -146,6 +148,7 @@ export default function App() {
               lazy: PublicAnnouncements,
             },
             { path: "live", lazy: PublicLiveBoard },
+            { path: "live/:eventId", lazy: PublicLiveGame },
             { path: "brackets", lazy: PublicBrackets },
             { path: "bracket/:id", lazy: PublicBracket },
 
@@ -199,6 +202,10 @@ export default function App() {
             {
               path: "judge/event/:eventId",
               lazy: JudgeScoring,
+            },
+            {
+              path: "judge/event/:eventId/live",
+              lazy: JudgeBasketballScoring,
             },
 
             // Coach routes

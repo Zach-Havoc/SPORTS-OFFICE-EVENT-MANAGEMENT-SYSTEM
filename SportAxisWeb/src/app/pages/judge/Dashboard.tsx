@@ -22,6 +22,8 @@ interface Event {
   judges?: Array<{ id: string; name: string }>;
 }
 
+const isBasketball = (e: Event) => /basketball/i.test(e.category);
+
 export default function JudgeDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -94,9 +96,17 @@ export default function JudgeDashboard() {
                     {(event.departments || []).length} departments
                   </div>
 
+                  {isBasketball(event) && (event.departments || []).length === 2 && (
+                    <Link to={`/judge/event/${event.id}/live`} className="block mt-4">
+                      <Button className="w-full">
+                        Play-by-play
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
+                  )}
                   <Link to={`/judge/event/${event.id}`} className="block mt-4">
-                    <Button className="w-full">
-                      Start Scoring
+                    <Button className="w-full" variant={isBasketball(event) ? 'secondary' : 'primary'}>
+                      {isBasketball(event) ? 'Enter final score' : 'Start Scoring'}
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   </Link>

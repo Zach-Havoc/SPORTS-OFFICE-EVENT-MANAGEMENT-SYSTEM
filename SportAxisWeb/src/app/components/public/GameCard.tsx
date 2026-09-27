@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import type { ReactNode } from 'react';
 import type { LiveScore } from '../../services/api';
 import { Badge } from '../ui/badge';
@@ -383,6 +384,15 @@ export function MatchDetailModal({
             {isVersus && (
               <div className="rounded-xl border border-gray-200 px-4 py-5">
                 <ScoreRow board={scoreboardFor(event.departments, live, match)} event={event} teams={teams} size="lg" />
+                {/* Play-by-play games have a full box score. */}
+                {live && /basketball/i.test(event.category) && (
+                  <Link
+                    to={`/live/${event.id}`}
+                    className="mt-4 flex items-center justify-center gap-1.5 text-sm font-medium text-brand-text underline decoration-[color-mix(in_oklch,var(--brand)_32%,transparent)] underline-offset-4 hover:decoration-[--brand]"
+                  >
+                    Box score and play-by-play
+                  </Link>
+                )}
               </div>
             )}
 

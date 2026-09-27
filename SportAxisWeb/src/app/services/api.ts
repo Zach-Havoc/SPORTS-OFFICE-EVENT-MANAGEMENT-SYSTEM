@@ -603,6 +603,126 @@ export const clearEventLiveScore = (eventId: string) =>
   apiRequest(`/events/${eventId}/live`, { method: "DELETE" }, true);
 
 // ─────────────────────────────────────────────────────────────────────
+// Play-by-play basketball — the score is computed server-side from each
+// recorded play (see BasketballGameController). Every write returns the full
+// scoreboard, the same shape the socket pushes on `live-scores.{eventId}`.
+// ─────────────────────────────────────────────────────────────────────
+
+export type PlayType = "FG2" | "FG3" | "FT" | "FOUL";
+
+export interface BoxScoreRow {
+  playerId: string;
+  jersey: string;
+  name: string;
+  isStarter: boolean;
+  pts: number;
+  fg2: number;
+  fg3: number;
+  ft: number;
+  pf: number;
+  fouledOut: boolean;
+}
+
+export interface ScoreboardTeam {
+  id: string;
+  side: "home" | "away";
+  name: string;
+  /** The college as the event names it (the schedule's label). */
+  label: string;
+  abbreviation: string | null;
+  logoUrl: string | null;
+  score: number;
+  periodScores: Array<{ period: number; label: string; points: number }>;
+  teamFouls: number;
+  inBonus: boolean;
+  unassignedPoints: number;
+  players: BoxScoreRow[];
+}
+
+export interface Play {
+  id: number;
+  teamId: string;
+  playerId: string | null;
+  jersey: string | null;
+  playerName: string | null;
+  type: PlayType;
+  points: number;
+  period: number;
+  periodLabel: string;
+  gameClock: string | null;
+  createdAt: string;
+}
+
+export interface Scoreboard {
+  eventId: string;
+  eventName: string;
+  category: string;
+  venueName: string | null;
+  version: number;
+  status: "scheduled" | "live" | "finished";
+  period: number;
+  periodLabel: string;
+  rules: { regulationPeriods: number; foulOutLimit: number; bonusThreshold: number };
+  /** False when the event doesn't name two known colleges. */
+  ready: boolean;
+  winnerTeamId: string | null;
+  teams: ScoreboardTeam[];
+  recentPlays: Play[];
+  unassignedPlays: Play[];
+  updatedAt: string | null;
+}
+
+export interface GameRosterTeam {
+  id: string;
+  name: string;
+  players: Array<{ playerId: string; jerseyNumber: string; isStarter: boolean; name: string }>;
+  candidates: Array<{ playerId: string; name: string; studentId: string }>;
+}
+
+export const getGameScoreboard = (eventId: string): Promise<Scoreboard> =>
+  apiRequest(`/events/${eventId}/scoreboard`);
+
+export const getGameRoster = (eventId: string): Promise<{ teams: GameRosterTeam[] }> =>
+  apiRequest(`/events/${eventId}/roster`, {}, true);
+
+export const saveGameRoster = (
+  eventId: string,
+  teamId: string,
+  players: Array<{ playerId: string; jerseyNumber: string; isStarter: boolean }>,
+): Promise<Scoreboard> =>
+  apiRequest(
+    `/events/${eventId}/roster`,
+    { method: "PUT", body: JSON.stringify({ teamId, players }) },
+    true,
+  );
+
+export const recordPlay = (
+  eventId: string,
+  play: { teamId: string; type: PlayType; playerId?: string | null; gameClock?: string | null },
+): Promise<Scoreboard> =>
+  apiRequest(`/events/${eventId}/plays`, { method: "POST", body: JSON.stringify(play) }, true);
+
+export const undoLastPlay = (eventId: string): Promise<Scoreboard> =>
+  apiRequest(`/events/${eventId}/plays/last`, { method: "DELETE" }, true);
+
+export const assignPlayPlayer = (
+  eventId: string,
+  playId: number,
+  playerId: string | null,
+): Promise<Scoreboard> =>
+  apiRequest(
+    `/events/${eventId}/plays/${playId}/player`,
+    { method: "PATCH", body: JSON.stringify({ playerId }) },
+    true,
+  );
+
+export const setGamePeriod = (eventId: string, period: number): Promise<Scoreboard> =>
+  apiRequest(`/events/${eventId}/period`, { method: "PUT", body: JSON.stringify({ period }) }, true);
+
+export const finishGame = (eventId: string): Promise<Scoreboard> =>
+  apiRequest(`/events/${eventId}/finish`, { method: "POST" }, true);
+
+// ─────────────────────────────────────────────────────────────────────
 // Match records & standings (the bracket-seeding source)
 // ─────────────────────────────────────────────────────────────────────
 
