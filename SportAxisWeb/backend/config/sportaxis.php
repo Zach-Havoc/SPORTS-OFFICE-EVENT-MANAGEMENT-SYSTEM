@@ -47,4 +47,16 @@ return [
         'substitutions_per_set' => 6,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Demo reset
+    |--------------------------------------------------------------------------
+    |
+    | `php artisan sportaxis:reset-demo` and Settings → "Reset & Load Demo
+    | Data" wipe the site (keeping the admin accounts) and load the demo
+    | intramurals. Off unless this is explicitly true.
+    |
+    */
+    'allow_demo_reset' => (bool) env('ALLOW_DEMO_RESET', false),
+
 ];

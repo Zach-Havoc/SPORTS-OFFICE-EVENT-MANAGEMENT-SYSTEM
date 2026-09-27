@@ -1526,6 +1526,38 @@ export interface AuditLogFilters {
 export const getTrash = () =>
   apiRequest("/admin/trash", {}, true) as Promise<Trash>;
 
+// ─── Demo reset (Settings → System) ─────────────────────────────────────
+// Wipes everything but the admin accounts and loads the demo intramurals.
+// The server only allows it with ALLOW_DEMO_RESET=true; the POST needs a
+// signed link (valid 15 minutes) from the GET, plus the typed phrase.
+
+export interface DemoResetLink {
+  enabled: boolean;
+  message?: string;
+  confirmation?: string;
+  expiresAt?: string;
+  /** Signed, relative to the site: "/api/admin/system/reset-demo?expires=…&signature=…" */
+  url?: string;
+}
+
+export interface DemoResetResult {
+  seconds: number;
+  backup: string;
+  counts: Record<string, number>;
+  steps: Record<string, number>;
+  leaderboard: { college: string; gold: number; silver: number; bronze: number; points: number }[];
+}
+
+export const getDemoResetLink = () =>
+  apiRequest("/admin/system/reset-demo/link", {}, true) as Promise<DemoResetLink>;
+
+export const runDemoReset = (signedUrl: string, confirmation: string) =>
+  apiRequest(
+    signedUrl.replace(/^\/api(?=\/)/, ""),
+    { method: "POST", body: JSON.stringify({ confirmation }) },
+    true,
+  ) as Promise<DemoResetResult>;
+
 export const getAuditLogs = (filters: AuditLogFilters = {}) => {
   const qs = new URLSearchParams(
     Object.entries(filters).filter(([, v]) => v != null && v !== "") as [

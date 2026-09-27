@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\BracketController;
 use App\Http\Controllers\Api\CampusStudentController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CoachController;
+use App\Http\Controllers\Api\DemoResetController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DisciplineEntryController;
 use App\Http\Controllers\Api\EnrollController;
@@ -185,6 +186,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::get('/admin/trash', [TrashController::class, 'index']);
         Route::get('/admin/audit-logs', [AuditLogController::class, 'index']);
+
+        // Wipe everything but the admins and load the demo intramurals
+        // (ALLOW_DEMO_RESET). The POST needs the GET's signed link — valid 15
+        // minutes — and the confirmation phrase. See DemoDataService.
+        Route::get('/admin/system/reset-demo/link', [DemoResetController::class, 'link']);
+        Route::post('/admin/system/reset-demo', [DemoResetController::class, 'reset'])
+            ->middleware(['signed:relative', 'throttle:3,10'])->name('admin.system.reset-demo');
         Route::get('/admin/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
         Route::post('/events/{id}/restore', [EventController::class, 'restore']);
         Route::post('/brackets/{id}/restore', [BracketController::class, 'restore']);
