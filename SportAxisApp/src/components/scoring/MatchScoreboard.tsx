@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import * as Haptics from 'expo-haptics';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../../constants/theme';
 import { useDeptAbbreviator, useDeptLogos } from '../../hooks/use-dept-abbr';
+import { useLiveSync } from '../../hooks/use-live-sync';
 import { useNetwork } from '../../hooks/use-network';
 import { liveScoreService } from '../../services/live-score.service';
 import type { EventSession, LiveScore, LiveStatus } from '../../types';
@@ -15,7 +16,8 @@ import { TeamLogo } from '../ui/TeamLogo';
 // MatchScoreboard — the one scoring surface for a two-college game.
 //
 // Kept live: every change publishes (debounced) to the public board, with a
-// version guard so two devices can't silently overwrite each other. Finalizing
+// version guard so two devices can't silently overwrite each other, and the
+// screen picks up the other device's changes every few seconds. Finalizing
 // records the head-to-head result and completes the event.
 //
 // Recorded from paper: a scanned score sheet fills both scores and asks to
@@ -54,8 +56,14 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const detailRef = useRef<Record<string, unknown>>({});
+    // True while this phone has a change the server doesn't have yet (waiting
+    // on the debounce, being saved, or failed to save). The background sync
+    // never overwrites it.
+    const pendingRef = useRef(false);
+    const versionRef = useRef(0);
 
     const adopt = useCallback((ls: LiveScore) => {
+      versionRef.current = ls.version;
       setHome(ls.homeScore);
       setAway(ls.awayScore);
       setPeriod(ls.period ?? '');
@@ -84,6 +92,7 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
 
     const push = useCallback(
       async (next: { home: number; away: number; period: string; status: LiveStatus }) => {
+        pendingRef.current = true;
         if (!isConnected) {
           setSync('offline');
           return;
@@ -102,10 +111,12 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
             ...(Object.keys(detail).length ? { detail } : {}),
           });
           adopt(ls);
+          pendingRef.current = false;
           setSync('saved');
         } catch (err: any) {
           if (err?.code === 'LIVE_CONFLICT' && err.live) {
             adopt(err.live);
+            pendingRef.current = false;
             setSync('saved');
             Alert.alert('Reloaded', 'Another device updated this game — showing the latest score.');
           } else if (err?.code === 'NETWORK_ERROR' || err?.code === 'TIMEOUT') {
@@ -122,6 +133,7 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
     const scheduleSave = useCallback(
       (h: number, a: number, p: string, s: LiveStatus) => {
         if (s === 'scheduled') return; // nothing is public until the game starts
+        pendingRef.current = true;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         setSync('saving');
         debounceRef.current = setTimeout(() => push({ home: h, away: a, period: p, status: s }), 1200);
@@ -205,6 +217,20 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
       setStatus('in_progress');
       push({ home, away, period, status: 'in_progress' });
     };
+
+    // Another committee phone may be scoring this game too: pick up its
+    // changes every few seconds, unless this phone has its own unsaved one.
+    useLiveSync(
+      () => {
+        liveScoreService.get(event.id).then(
+          (ls) => {
+            if (ls && !pendingRef.current && ls.version > versionRef.current) adopt(ls);
+          },
+          () => {},
+        );
+      },
+      isConnected && loaded && status !== 'final',
+    );
 
     if (!loaded) {
       return (

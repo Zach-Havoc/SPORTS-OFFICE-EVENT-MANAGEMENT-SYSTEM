@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../../constants/theme';
+import { useLiveSync } from '../../hooks/use-live-sync';
 import { useNetwork } from '../../hooks/use-network';
 import { basketballService } from '../../services/basketball.service';
 import type { EventSession, PlayType, Scoreboard, ScoreboardTeam } from '../../types';
@@ -28,6 +29,9 @@ import { Icon } from '../ui/Icon';
 //
 // The players come from each coach's lineup for this game (set on the web).
 // The scorer only scores: a team with no lineup yet can still get points.
+//
+// The screen re-syncs every few seconds, so a second scorer's taps and a
+// lineup the coach saves late both show up without reopening the game.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ACTIONS: { type: PlayType; label: string }[] = [
@@ -59,7 +63,6 @@ export function BasketballScoreboard({
   const sideBySide = width >= 700;
 
   const [board, setBoard] = useState<Scoreboard | null>(null);
-  const [reloading, setReloading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected>(null);
   const [error, setError] = useState<TeamError>(null);
@@ -95,6 +98,16 @@ export function BasketballScoreboard({
       alive = false;
     };
   }, [load]);
+
+  // Stay in step with the other scorer's phone and with late lineups: pull the
+  // scoreboard every few seconds. `adopt` ignores anything older than what's
+  // on screen, so a poll can never undo a tap that just landed.
+  useLiveSync(
+    () => {
+      basketballService.get(event.id).then(adopt, () => {});
+    },
+    isConnected && !!board && board.status !== 'finished',
+  );
 
   /** Send one write; show its scoreboard, or the server's reason inline. */
   const run = async (call: () => Promise<Scoreboard>, teamId: string | null, done?: (b: Scoreboard) => void) => {
@@ -248,17 +261,7 @@ export function BasketballScoreboard({
               Waiting for {waitingFor.map(short).join(' and ')}
               {waitingFor.length === 1 ? "'s lineup" : ' lineups'} from the coach. Points still count for the team until then.
             </Text>
-            <Pressable
-              onPress={() => {
-                setReloading(true);
-                load().finally(() => setReloading(false));
-              }}
-              disabled={reloading}
-              hitSlop={8}
-              accessibilityRole="button"
-            >
-              <Text style={styles.bannerLink}>{reloading ? 'Checking…' : 'Check again'}</Text>
-            </Pressable>
+            <Text style={styles.bannerSub}>It appears here on its own once the coach saves it.</Text>
           </View>
         </View>
       )}
@@ -505,7 +508,7 @@ const styles = StyleSheet.create({
   bannerWarn: { backgroundColor: COLORS.warningLight },
   bannerInfo: { backgroundColor: COLORS.infoLight },
   bannerText: { ...TYPE.bodySm, color: COLORS.textPrimary, flexShrink: 1 },
-  bannerLink: { ...TYPE.label, color: COLORS.info, marginTop: SPACING.xs },
+  bannerSub: { ...TYPE.caption, color: COLORS.textSecondary, marginTop: 2 },
 
   teamHead: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
   teamName: { ...TYPE.heading, color: COLORS.textPrimary },
