@@ -37,7 +37,7 @@ class RequirementType extends Model
             'id' => $this->id,
             'name' => $this->name,
             'description' => $this->description,
-            'templateFileUrl' => $this->template_file_url,
+            'templateFileUrl' => \App\Support\PublicUrl::absolute($this->template_file_url),
             'sport' => $this->sport,
             'required' => $this->required,
             'active' => $this->active,

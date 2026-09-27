@@ -51,6 +51,30 @@ class RequirementTest extends TestCase
         $this->assertStringEndsWith('.pdf', (string) $req->file_url);
     }
 
+    public function test_the_file_link_is_a_full_url_on_the_api_host(): void
+    {
+        // Stored relative so a row survives a host change; a relative link
+        // would resolve against the React app's origin and 404 locally.
+        $athlete = $this->actingAsRole('athlete');
+        $req = Requirement::create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'athlete_id' => $athlete->id,
+            'athlete_name' => 'Sam',
+            'type' => 'waiver',
+            'name' => 'Waiver',
+            'file_url' => '/storage/requirements/abc.pdf',
+            'status' => 'pending',
+        ]);
+
+        $this->assertSame('/storage/requirements/abc.pdf', $req->getRawOriginal('file_url'));
+        $this->assertSame(url('/storage/requirements/abc.pdf'), $req->file_url);
+        $this->assertStringStartsWith('http', $req->toArray()['file_url']);
+
+        // Already-absolute links are left alone.
+        $req->update(['file_url' => 'https://cdn.example.com/x.pdf']);
+        $this->assertSame('https://cdn.example.com/x.pdf', $req->fresh()->file_url);
+    }
+
     public function test_executable_and_svg_uploads_are_rejected(): void
     {
         $this->actingAsRole('athlete');

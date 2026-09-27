@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Support\PublicUrl;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -23,6 +25,12 @@ class Requirement extends Model
         'reviewed_at' => 'datetime',
         'submitted_at' => 'datetime',
     ];
+
+    /** The stored relative path, as a full URL on whichever host serves the API. */
+    protected function fileUrl(): Attribute
+    {
+        return Attribute::get(fn (?string $value) => PublicUrl::absolute($value));
+    }
 
     /** The catalog entry this submission is meant to satisfy, if any. */
     public function requirementType(): BelongsTo
