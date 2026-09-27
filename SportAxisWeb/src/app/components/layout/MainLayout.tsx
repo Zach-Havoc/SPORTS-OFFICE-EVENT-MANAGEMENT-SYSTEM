@@ -147,7 +147,10 @@ export default function MainLayout() {
             // relative: absolutely positioned content (sr-only tables, popovers
             // without a portal) must scroll with the page, not stretch the
             // document and make the whole window scroll past the shell.
-            "relative flex min-w-0 flex-1 flex-col lg:overflow-y-auto lg:overscroll-contain",
+            // overflow-x-clip: hidden sr-only text inside a sideways-scrolling
+            // table must never widen the page on a phone (clip, not hidden,
+            // so it creates no scroll container and sticky still works).
+            "relative flex min-w-0 flex-1 flex-col overflow-x-clip lg:overflow-y-auto lg:overscroll-contain",
             // Clears the fixed bottom bar so the last row of any page is reachable.
             "pb-[4.5rem] lg:pb-0",
           )}
