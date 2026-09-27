@@ -51,7 +51,7 @@ export default function PrivacyNotice() {
           <Section title="What we collect">
             <ul className="list-disc pl-5 space-y-1">
               <li>Account information: name, email address, and role (athlete, coach, judge, or admin).</li>
-              <li>For athletes: SR Code, gender, college, program, and year level, verified against the university registrar.</li>
+              <li>For athletes: SR Code, sex, college, program, and year level, verified against the university registrar.</li>
               <li>Athlete eligibility documents, including medical clearance certificates, uploaded as part of the eligibility checklist.</li>
               <li>Event participation records: scores, attendance, and protest history tied to your account.</li>
             </ul>

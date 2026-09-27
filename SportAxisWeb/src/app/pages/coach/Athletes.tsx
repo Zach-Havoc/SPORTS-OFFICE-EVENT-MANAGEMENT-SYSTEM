@@ -130,7 +130,7 @@ export default function CoachAthletes() {
   const handleSaveSport = async () => {
     if (!departmentDraft) { toast.error('Please select your department'); return; }
     if (sportsDraft.length === 0) { toast.error('Please select at least one sport'); return; }
-    if (!genderCategoryDraft) { toast.error('Please select a gender category'); return; }
+    if (!genderCategoryDraft) { toast.error('Please select a sex category'); return; }
     try {
       await updateProfile.mutateAsync({
         sports: sportsDraft,
@@ -423,10 +423,10 @@ export default function CoachAthletes() {
           </div>
 
           <div className="py-2">
-            <Label className="mb-2 block">Gender Category <span className="text-red-500">*</span></Label>
+            <Label className="mb-2 block">Sex Category <span className="text-red-500">*</span></Label>
             <Select value={genderCategoryDraft} onValueChange={setGenderCategoryDraft}>
               <SelectTrigger>
-                <SelectValue placeholder="Select gender category" />
+                <SelectValue placeholder="Select sex category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Men">Men's</SelectItem>

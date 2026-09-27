@@ -259,7 +259,7 @@ export default function AccountSettings() {
           <CardContent className="space-y-4">
             <div className="rounded-lg bg-gray-50 border p-3 text-xs text-gray-600 space-y-1">
               <div className="flex justify-between"><span className="text-gray-400">SR Code</span><span className="font-mono">{user.srCode || '—'}</span></div>
-              <div className="flex justify-between"><span className="text-gray-400">Gender</span><span>{user.gender || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-400">Sex</span><span>{user.gender || '—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">College</span><span className="text-right">{user.department || '—'}</span></div>
               <p className="pt-1 text-gray-400">Verified against the campus registry — not editable.</p>
             </div>

@@ -35,7 +35,7 @@ export function PrivacyNoticeContent() {
         <Text style={styles.body}>
           • Account information: name, email address, and role (athlete, coach, judge,
           or admin).{'\n'}
-          • For athletes: SR Code, gender, college, program, and year level, verified
+          • For athletes: SR Code, sex, college, program, and year level, verified
           against the university registrar.{'\n'}
           • Athlete eligibility documents, including medical clearance certificates,
           uploaded as part of the eligibility checklist.{'\n'}

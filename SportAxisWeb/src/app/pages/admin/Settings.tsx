@@ -569,7 +569,7 @@ function CampusStudentsTab() {
         <p className="text-xs text-gray-500">
           CSV needs at least <span className="font-medium">SR Code</span> and{' '}
           <span className="font-medium">Last Name</span> columns. Optional: First Name, Middle Name,
-          Gender, College, Program, Year Level, Email. Re-importing updates rows by SR Code. Export
+          Sex, College, Program, Year Level, Email. Re-importing updates rows by SR Code. Export
           from Excel as CSV.
         </p>
 
@@ -584,7 +584,7 @@ function CampusStudentsTab() {
                 <tr className="border-b bg-gray-50 text-left text-gray-600">
                   <th className="py-2 px-3 font-semibold">SR Code</th>
                   <th className="py-2 px-3 font-semibold">Name</th>
-                  <th className="py-2 px-3 font-semibold hidden sm:table-cell">Gender</th>
+                  <th className="py-2 px-3 font-semibold hidden sm:table-cell">Sex</th>
                   <th className="py-2 px-3 font-semibold hidden md:table-cell">College</th>
                   <th className="py-2 px-3 font-semibold hidden lg:table-cell">Year</th>
                 </tr>
