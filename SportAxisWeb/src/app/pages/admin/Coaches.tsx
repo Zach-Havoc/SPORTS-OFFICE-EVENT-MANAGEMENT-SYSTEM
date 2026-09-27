@@ -61,9 +61,15 @@ export default function AdminCoaches() {
 
   const handleOpenDialog = useCallback((coach: Coach) => {
     setEditingCoach(coach);
-    setDepartmentDraft(coach.department || NONE_VALUE);
+    // Older accounts store the college as its short code ("CABEIHM"); the list
+    // is keyed by full name, so resolve either form or the select opens blank.
+    const stored = (coach.department ?? '').trim().toLowerCase();
+    const match = departments.find(
+      (d) => d.name?.toLowerCase() === stored || d.abbreviation?.toLowerCase() === stored,
+    );
+    setDepartmentDraft(match?.name || coach.department || NONE_VALUE);
     setDialogOpen(true);
-  }, []);
+  }, [departments]);
 
   const handleSave = async () => {
     if (!editingCoach) return;
