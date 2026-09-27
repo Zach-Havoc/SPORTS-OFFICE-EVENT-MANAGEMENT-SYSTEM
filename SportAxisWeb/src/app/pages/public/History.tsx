@@ -49,52 +49,75 @@ type EventResult =
 const fmtScore = (n: number | null) =>
   n === null ? "–" : Number.isInteger(n) ? String(n) : n.toFixed(2);
 
-/** The winner line on a completed event: who won, and by what. */
-function ResultLine({
-  result,
-  logoOf,
-  abbr,
-}: {
-  result: EventResult | null | undefined;
+type Lookup = {
   logoOf: (name: string) => string | null | undefined;
   abbr: (name: string) => string;
-}) {
-  if (!result) {
-    return <p className="text-sm text-gray-400">No result recorded</p>;
-  }
+};
 
-  if (result.type === "match" && result.isDraw) {
+/** One college in the matchup: logo over name, dimmed when it lost. */
+function Side({ name, lost, won, logoOf, abbr }: { name: string; lost?: boolean; won?: boolean } & Lookup) {
+  return (
+    <div className={`flex min-w-0 flex-col items-center gap-2 text-center ${lost ? "opacity-45" : ""}`}>
+      <TeamLogo name={name} logoUrl={logoOf(name)} label={abbr(name)} size={56} />
+      <span className="flex max-w-full items-center gap-1">
+        {won && <Trophy className="h-4 w-4 shrink-0 text-amber-500" aria-label="Winner" />}
+        <span className="truncate text-lg font-semibold text-gray-900" title={name}>
+          {abbr(name)}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The teams, big and in the middle of the card. A two-college game shows both
+ * sides with the score between them (or VS before it's played); a ranked
+ * event shows its winner.
+ */
+function Matchup({ event, logoOf, abbr }: { event: Event } & Lookup) {
+  const result = event.result;
+  const lookup = { logoOf, abbr };
+
+  if (result?.type === "ranked") {
     return (
-      <p className="text-sm font-medium text-gray-700">
-        Draw · {abbr(result.homeTeam)} {fmtScore(result.homeScore)} – {fmtScore(result.awayScore)}{" "}
-        {abbr(result.awayTeam)}
-      </p>
+      <div className="flex flex-col items-center gap-1 text-center">
+        <Side name={result.winner} won {...lookup} />
+        <span className="text-sm text-gray-500">1st place · {result.score.toFixed(2)} pts</span>
+      </div>
     );
   }
 
-  const winner = result.winner as string;
-  let detail: string;
-  if (result.type === "match") {
-    const homeWon = winner === result.homeTeam;
-    const loser = homeWon ? result.awayTeam : result.homeTeam;
-    const [w, l] = homeWon
-      ? [result.homeScore, result.awayScore]
-      : [result.awayScore, result.homeScore];
-    detail = `${fmtScore(w)} – ${fmtScore(l)} vs ${abbr(loser)}`;
-  } else {
-    detail = `1st place · ${result.score.toFixed(2)} pts`;
+  if (event.departments.length !== 2) {
+    return event.status === "completed" ? <p className="text-sm text-gray-400">No result recorded</p> : null;
   }
 
+  const home = result?.homeTeam ?? event.departments[0];
+  const away = result?.awayTeam ?? event.departments[1];
+  const played = event.status === "completed" && result?.type === "match";
+  const winner = played && !result.isDraw ? result.winner : null;
+
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <Trophy className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
-      <TeamLogo name={winner} logoUrl={logoOf(winner)} label={abbr(winner)} size={28} />
-      <span className="truncate text-sm">
-        <span className="font-semibold text-gray-900" title={winner}>
-          {abbr(winner)}
-        </span>{" "}
-        <span className="text-gray-500">won · {detail}</span>
-      </span>
+    <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
+      <Side name={home} won={winner === home} lost={!!winner && winner !== home} {...lookup} />
+      <div className="flex flex-col items-center">
+        {played ? (
+          <>
+            <span className="numeral whitespace-nowrap text-3xl text-gray-900 sm:text-4xl">
+              {fmtScore(result.homeScore)}
+              <span className="mx-2 text-gray-300">–</span>
+              {fmtScore(result.awayScore)}
+            </span>
+            <span className="mt-0.5 text-xs font-medium uppercase tracking-wide text-gray-400">
+              {result.isDraw ? "Draw" : "Final"}
+            </span>
+          </>
+        ) : (
+          <span className="text-sm font-semibold uppercase tracking-widest text-gray-400">
+            {event.status === "completed" ? "No result" : "VS"}
+          </span>
+        )}
+      </div>
+      <Side name={away} won={winner === away} lost={!!winner && winner !== away} {...lookup} />
     </div>
   );
 }
@@ -377,8 +400,8 @@ export default function PublicHistory() {
               className="border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
             >
               <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                  <div className="flex-1">
+                <div className="grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.6fr)]">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-2">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${getStatusClasses(event.status)}`}
@@ -412,13 +435,13 @@ export default function PublicHistory() {
                         </div>
                       )}
                     </CardDescription>
-                    {event.status === "completed" && (
-                      <div className="mt-3 border-t border-gray-100 pt-3">
-                        <ResultLine result={event.result} logoOf={logoOf} abbr={abbr} />
-                      </div>
-                    )}
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600 shrink-0">
+
+                  <div className="flex justify-center border-t border-gray-100 pt-4 lg:border-0 lg:pt-0">
+                    <Matchup event={event} logoOf={logoOf} abbr={abbr} />
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-600 lg:justify-self-end">
                     <Users className="h-4 w-4 text-gray-400" />
                     <span className="font-medium">
                       {(event.departments || []).length} departments
