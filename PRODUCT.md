@@ -10,8 +10,8 @@ A companion Expo (React Native) app, `SportAxisApp/`, serves the scoring committ
 
 ## Users
 
-- **Sports Office administrator / secretary** (role `admin`): runs the university intramurals and the Sports Office at Batangas State University – ARASOF campus. Works at a desk on a laptop or desktop, many times a day during a season: scheduling events, assigning committees, publishing brackets, watching results come in, and clearing pending CMO requirements, tryouts and protests.
-- **Coach / trainer** (`coach`): manages one college's roster for a sport, training attendance, performance remarks, tryout decisions and CMO requirement review.
+- **Sports Office administrator / secretary** (role `admin`): runs the university intramurals and the Sports Office at Batangas State University – ARASOF campus. Works at a desk on a laptop or desktop, many times a day during a season: scheduling events, assigning committees, publishing brackets, watching results come in, and clearing pending CMO requirements, tryouts and appeals.
+- **Coach / trainer** (`coach`): manages one college's roster for a sport, training attendance, performance remarks, tryout decisions, CMO requirement review, and filing appeals against game results.
 - **Scoring committee / judge** (`judge`): opens an assigned game by QR code, keeps the live scoreboard, submits scores, or photographs a paper score sheet for OCR.
 - **Student-athlete** (`athlete`): checks schedules, training sessions, attendance, performance and their CMO requirements.
 - **Public viewer** (not signed in): the university community following schedules, live scores, standings, brackets and history.
@@ -37,6 +37,7 @@ Built for one campus Sports Office's real workflow: college-vs-college intramura
 - Real pages only in navigation: there are no standalone Teams, Sports or Notifications pages. Sports (categories) live in Settings; notifications live in the header bell.
 - "CMO" in this product means the Requirements module (athlete documents reviewed by coaches, types defined by the office).
 - One committee member is assigned per event.
+- "Appeal" is the user-facing word for a formal objection to a game result ("protest" was retired on 2026-09-27). Code, routes and tables still say `protest`.
 - Dashboard deltas and sparklines are computed only from timestamped rows; metrics with no history show no trend.
 
 ## Brand Commitments
@@ -47,7 +48,7 @@ Built for one campus Sports Office's real workflow: college-vs-college intramura
 
 ## Evidence on Hand
 
-Real seeded data: colleges (departments with logos), sports categories, seasons, events, brackets, users by role, leaderboard/medal tally, CMO requirements, tryout applications, protests, audit logs. No testimonials, customers or usage statistics exist; none may be invented.
+Real seeded data: colleges (departments with logos), sports categories, seasons, events, brackets, users by role, leaderboard/medal tally, CMO requirements, tryout applications, appeals, audit logs. No testimonials, customers or usage statistics exist; none may be invented.
 
 ## Product Principles
 
