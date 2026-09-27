@@ -18,7 +18,7 @@ class Athlete extends Model
     protected $fillable = [
         'id', 'user_id', 'student_id', 'first_name', 'last_name', 'email',
         'department', 'year_level', 'course', 'coach_id', 'sport',
-        'status', 'emergency_contact', 'enrolled_via_code', 'enrolled_at', 'category_id',
+        'status', 'jersey_number', 'emergency_contact', 'enrolled_via_code', 'enrolled_at', 'category_id',
     ];
 
     protected $casts = [

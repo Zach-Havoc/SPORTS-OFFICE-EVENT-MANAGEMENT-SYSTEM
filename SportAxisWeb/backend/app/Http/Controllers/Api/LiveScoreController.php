@@ -7,8 +7,7 @@ use App\Events\LiveScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\LiveScore;
-use App\Models\TeamMatch;
-use App\Services\BracketService;
+use App\Services\GameResultRecorder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -118,7 +117,7 @@ class LiveScoreController extends Controller
             if ($event->status !== 'completed') {
                 $event->update(['status' => 'completed']);
             }
-            $this->recordHeadToHead($live, $event);
+            app(GameResultRecorder::class)->record($live, $event);
         }
 
         $payload = $live->fresh()->toApiFormat($event);
@@ -148,46 +147,5 @@ class LiveScoreController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Live score broadcast failed: '.$e->getMessage());
         }
-    }
-
-    /**
-     * On finalisation, keep a `team_matches` row in sync so standings / bracket
-     * seeding pick up the result. Mirrors ScoreController::syncTeamMatch but
-     * driven by the explicit home/away of the live score.
-     */
-    private function recordHeadToHead(LiveScore $live, Event $event): void
-    {
-        if (! $live->home_team || ! $live->away_team || $live->home_team === $live->away_team) {
-            return;
-        }
-
-        $match = TeamMatch::firstOrNew(['event_id' => $event->id]);
-        if (! $match->exists) {
-            $match->id = (string) Str::uuid();
-        }
-
-        $match->fill([
-            'sport' => $event->category,
-            'stage' => $match->stage ?: 'elimination',
-            'home_team' => $live->home_team,
-            'away_team' => $live->away_team,
-            'home_score' => $live->home_score,
-            'away_score' => $live->away_score,
-            'status' => 'completed',
-            'played_at' => $match->played_at ?? now(),
-            'recorded_by' => $live->updated_by,
-        ]);
-        $match->resolveOutcome();
-        $match->save();
-
-        // Every write here can change this sport's round-robin standings
-        // (bracketPodium()'s leaderboard input), not just events linked to a
-        // bracket match — advanceFromEvent() below only forgets the cache
-        // when it finds one to advance, so a standalone round-robin fixture
-        // or a drawn game would otherwise leave a stale cached leaderboard.
-        RankingController::forgetLeaderboardCacheFor($event->category, $event->season_id);
-
-        // If this event is a bracket match, feed the winner into the next round.
-        app(BracketService::class)->advanceFromEvent($event->id);
     }
 }

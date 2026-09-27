@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AthleteController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BasketballGameController;
 use App\Http\Controllers\Api\BracketController;
 use App\Http\Controllers\Api\CampusStudentController;
 use App\Http\Controllers\Api\CategoryController;
@@ -70,6 +71,8 @@ Route::get('/judge/{id}/status', [ScoreController::class, 'status']);
 // Live game scores — the running score of a game in progress.
 Route::get('/live-scores', [LiveScoreController::class, 'index']);
 Route::get('/events/{id}/live', [LiveScoreController::class, 'show']);
+// Play-by-play basketball scoreboard (score + box score, computed from plays).
+Route::get('/events/{id}/scoreboard', [BasketballGameController::class, 'scoreboard']);
 
 // Head-to-head match records + standings (the bracket-seeding source)
 Route::get('/matches', [MatchController::class, 'index']);
@@ -137,6 +140,16 @@ Route::middleware('auth:sanctum')->group(function () {
     // the running score from the app while the game is being played.
     Route::put('/events/{id}/live', [LiveScoreController::class, 'upsert'])
         ->middleware('role:judge,admin');
+
+    // Play-by-play basketball, from the mobile scorer — the assigned committee
+    // member or an admin (the `score-game` gate, checked in the controller).
+    Route::middleware('role:judge,admin')->group(function () {
+        Route::post('/events/{id}/roster/sync', [BasketballGameController::class, 'syncRoster']);
+        Route::post('/events/{id}/plays', [BasketballGameController::class, 'store']);
+        Route::delete('/events/{id}/plays/last', [BasketballGameController::class, 'undo']);
+        Route::put('/events/{id}/period', [BasketballGameController::class, 'setPeriod']);
+        Route::post('/events/{id}/finish', [BasketballGameController::class, 'finish']);
+    });
 
     // ─── MOBILE JUDGE APP — Authenticated Routes ──────────────────────────────
     Route::post('/ocr/extract', [OcrController::class, 'extract']);

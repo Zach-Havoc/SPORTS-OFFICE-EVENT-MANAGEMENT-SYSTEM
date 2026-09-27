@@ -129,10 +129,10 @@ class AthleteController extends Controller
     }
 
     /**
-     * A coach manages roster status only. An athlete's identity and personal
-     * details (name, SR code, gender, college, contact...) belong to the athlete
-     * — set on their own account / verified against the campus record — and are
-     * never editable by a coach.
+     * A coach manages the roster details only: status and jersey number. An
+     * athlete's identity and personal details (name, SR code, gender, college,
+     * contact...) belong to the athlete — set on their own account / verified
+     * against the campus record — and are never editable by a coach.
      */
     public function update(Request $request, string $id)
     {
@@ -140,10 +140,26 @@ class AthleteController extends Controller
 
         $data = $request->validate([
             'status' => ['sometimes', 'required', Rule::in(['active', 'inactive', 'injured'])],
+            // "0"–"99" and "00"; null clears it. Unique on this coach's roster
+            // for the sport, since play-by-play scoring identifies players by it.
+            'jerseyNumber' => [
+                'sometimes', 'nullable', 'string', 'regex:/^\d{1,2}$/',
+                Rule::unique('athletes', 'jersey_number')
+                    ->where('coach_id', $athlete->coach_id)
+                    ->where('sport', $athlete->sport)
+                    ->whereNull('deleted_at')
+                    ->ignore($athlete->id),
+            ],
+        ], [
+            'jerseyNumber.regex' => 'Jersey numbers are 0–99 (00 allowed).',
+            'jerseyNumber.unique' => 'Another athlete on this team already wears that number.',
         ]);
 
         if (array_key_exists('status', $data)) {
             $athlete->update(['status' => $data['status']]);
+        }
+        if (array_key_exists('jerseyNumber', $data)) {
+            $athlete->update(['jersey_number' => $data['jerseyNumber'] === '' ? null : $data['jerseyNumber']]);
         }
 
         return response()->json($this->withAccountProfile($athlete->fresh()->load('account')));
