@@ -6,9 +6,9 @@ use App\Events\LiveScoreCleared;
 use App\Events\LiveScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
-use App\Models\GameEvent;
 use App\Models\LiveScore;
-use App\Services\GameResultRecorder;
+use App\Models\TeamMatch;
+use App\Services\BracketService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -75,16 +75,6 @@ class LiveScoreController extends Controller
 
         $live = LiveScore::firstOrNew(['event_id' => $eventId]);
 
-        // A game scored play-by-play computes its score from the plays; a
-        // manual score, period or final here would silently overwrite that.
-        // Anything else (e.g. the scoresheet photo in `detail`) still goes through.
-        if ($live->exists && GameEvent::where('game_id', $eventId)->exists() && $this->overridesPlayByPlay($live, $data)) {
-            return response()->json([
-                'error' => 'This game is being scored play-by-play. Change the score from the play-by-play scorer.',
-                'live' => $live->toApiFormat($event),
-            ], 409);
-        }
-
         // Stale-write guard — the client is behind; hand back the current state.
         if ($live->exists && isset($data['version']) && $data['version'] < $live->version) {
             return response()->json([
@@ -128,7 +118,7 @@ class LiveScoreController extends Controller
             if ($event->status !== 'completed') {
                 $event->update(['status' => 'completed']);
             }
-            app(GameResultRecorder::class)->record($live, $event);
+            $this->recordHeadToHead($live, $event);
         }
 
         $payload = $live->fresh()->toApiFormat($event);
@@ -160,12 +150,44 @@ class LiveScoreController extends Controller
         }
     }
 
-    /** Whether this manual write would change what play-by-play owns. */
-    private function overridesPlayByPlay(LiveScore $live, array $data): bool
+    /**
+     * On finalisation, keep a `team_matches` row in sync so standings / bracket
+     * seeding pick up the result. Mirrors ScoreController::syncTeamMatch but
+     * driven by the explicit home/away of the live score.
+     */
+    private function recordHeadToHead(LiveScore $live, Event $event): void
     {
-        return (isset($data['homeScore']) && (int) $data['homeScore'] !== (int) $live->home_score)
-            || (isset($data['awayScore']) && (int) $data['awayScore'] !== (int) $live->away_score)
-            || (array_key_exists('period', $data) && $data['period'] !== $live->period)
-            || (($data['status'] ?? null) === 'final' && $live->status !== 'final');
+        if (! $live->home_team || ! $live->away_team || $live->home_team === $live->away_team) {
+            return;
+        }
+
+        $match = TeamMatch::firstOrNew(['event_id' => $event->id]);
+        if (! $match->exists) {
+            $match->id = (string) Str::uuid();
+        }
+
+        $match->fill([
+            'sport' => $event->category,
+            'stage' => $match->stage ?: 'elimination',
+            'home_team' => $live->home_team,
+            'away_team' => $live->away_team,
+            'home_score' => $live->home_score,
+            'away_score' => $live->away_score,
+            'status' => 'completed',
+            'played_at' => $match->played_at ?? now(),
+            'recorded_by' => $live->updated_by,
+        ]);
+        $match->resolveOutcome();
+        $match->save();
+
+        // Every write here can change this sport's round-robin standings
+        // (bracketPodium()'s leaderboard input), not just events linked to a
+        // bracket match — advanceFromEvent() below only forgets the cache
+        // when it finds one to advance, so a standalone round-robin fixture
+        // or a drawn game would otherwise leave a stale cached leaderboard.
+        RankingController::forgetLeaderboardCacheFor($event->category, $event->season_id);
+
+        // If this event is a bracket match, feed the winner into the next round.
+        app(BracketService::class)->advanceFromEvent($event->id);
     }
 }

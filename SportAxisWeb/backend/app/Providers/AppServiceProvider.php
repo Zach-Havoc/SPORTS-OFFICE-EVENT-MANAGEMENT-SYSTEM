@@ -2,11 +2,8 @@
 
 namespace App\Providers;
 
-use App\Models\Event;
-use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
@@ -41,9 +38,6 @@ class AppServiceProvider extends ServiceProvider
         Schema::defaultStringLength(191);
 
         $this->configureRateLimiters();
-
-        // Who may record plays in a game: its assigned committee member, or an admin.
-        Gate::define('score-game', fn (User $user, Event $event) => $event->isScorableBy($user));
         $this->warnIfBroadcastingIsDegradedInProduction();
     }
 

@@ -83,9 +83,6 @@ export const qk = {
     ["live-scores", activeOnly ? "active" : "all"] as const,
   eventLiveScore: (eventId: string) =>
     ["live-scores", "event", eventId] as const,
-  gameScoreboard: (eventId: string) =>
-    ["live-scores", "scoreboard", eventId] as const,
-  gameRoster: (eventId: string) => ["live-scores", "roster", eventId] as const,
   athletes: ["athletes"] as const,
   athlete: (id: string) => ["athletes", id] as const,
   campusStudents: (q?: string) => ["campus-students", q ?? ""] as const,
@@ -585,81 +582,6 @@ export const useEventLiveScore = (
     ...opts,
   });
 };
-
-// ── Play-by-play basketball scoreboard ───────────────────────────────
-// Each write pushes the FULL scoreboard on `live-scores.{eventId}` as
-// `.scoreboard`, so applying the newest one is always correct even after a
-// missed message. On a socket reconnect the page refetches, since anything
-// pushed while it was down is gone.
-
-/** Put a scoreboard in the cache unless a newer version is already there. */
-export function applyScoreboard(qc: QueryClient, board: api.Scoreboard): void {
-  qc.setQueryData<api.Scoreboard>(qk.gameScoreboard(board.eventId), (prev) =>
-    prev && board.version < prev.version ? prev : board,
-  );
-}
-
-function useScoreboardChannel(eventId: string | undefined): void {
-  const qc = useQueryClient();
-  useEffect(() => {
-    if (!eventId) return;
-    const echo = getEcho();
-    if (!echo) return;
-
-    const name = `live-scores.${eventId}`;
-    const channel = echo.channel(name);
-    const onBoard = (e: { scoreboard: api.Scoreboard }) => applyScoreboard(qc, e.scoreboard);
-    channel.listen(".scoreboard", onBoard);
-
-    // Reverb speaks the Pusher protocol; `connected` after any other state
-    // (unavailable, connecting after a drop) means we may have missed pushes.
-    type StateChange = { previous: string; current: string };
-    type Connection = {
-      bind: (event: string, cb: (s: StateChange) => void) => void;
-      unbind: (event: string, cb: (s: StateChange) => void) => void;
-    };
-    const connection = (echo.connector as { pusher?: { connection?: Connection } }).pusher?.connection;
-    const onState = ({ previous, current }: StateChange) => {
-      if (current === "connected" && previous !== "initialized") {
-        qc.invalidateQueries({ queryKey: qk.gameScoreboard(eventId) });
-      }
-    };
-    connection?.bind("state_change", onState);
-
-    return () => {
-      channel.stopListening(".scoreboard", onBoard);
-      connection?.unbind("state_change", onState);
-      // The board-wide `live-scores` channel is shared for the session;
-      // this per-game one is ours to leave.
-      echo.leave(name);
-    };
-  }, [eventId, qc]);
-}
-
-export const useGameScoreboard = (
-  eventId: string | undefined,
-  opts?: QueryOpts<api.Scoreboard>,
-) => {
-  useScoreboardChannel(eventId);
-  return useQuery({
-    queryKey: qk.gameScoreboard(eventId ?? ""),
-    queryFn: () => api.getGameScoreboard(eventId as string),
-    enabled: !!eventId,
-    staleTime: 0,
-    refetchInterval: LIVE_FALLBACK_POLL,
-    refetchOnWindowFocus: true,
-    ...opts,
-  });
-};
-
-export const useGameRoster = (eventId: string | undefined, opts?: QueryOpts<{ teams: api.GameRosterTeam[] }>) =>
-  useQuery({
-    queryKey: qk.gameRoster(eventId ?? ""),
-    queryFn: () => api.getGameRoster(eventId as string),
-    enabled: !!eventId,
-    staleTime: STALE.live,
-    ...opts,
-  });
 
 // Site content — public photo slideshow ('carousel') + welcome popup ('popup').
 export const useSiteSlides = (
