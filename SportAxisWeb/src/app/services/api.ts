@@ -411,6 +411,49 @@ export interface DisciplineEntry {
   pairSlot: "C" | "D" | null;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Basketball game lineups (coach) — who plays in each play-by-play game,
+// under which jersey number. The committee's mobile scorer only credits
+// plays to these players.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface CoachLineupGame {
+  id: string;
+  name: string;
+  category: string;
+  schedule: string;
+  startTime: string | null;
+  venueName: string | null;
+  status: "upcoming" | "ongoing" | "completed";
+  opponent: string | null;
+  lineupCount: number;
+  locked: boolean;
+}
+
+export interface GameLineup {
+  event: { id: string; name: string; category: string; schedule: string };
+  team: { id: string; name: string; abbreviation: string | null };
+  locked: boolean;
+  players: Array<{ playerId: string; name: string; jerseyNumber: string; hasPlays: boolean }>;
+  /** The coach's active athletes in this sport, with their profile jersey as a default. */
+  candidates: Array<{ playerId: string; name: string; jerseyNumber: string | null }>;
+}
+
+export const getCoachLineups = (): Promise<{ games: CoachLineupGame[]; reason: string | null }> =>
+  apiRequest("/coach/lineups", {}, true);
+
+export const getGameLineup = (eventId: string): Promise<GameLineup> =>
+  apiRequest(`/events/${eventId}/lineup`, {}, true);
+
+export const saveGameLineup = ({
+  eventId,
+  players,
+}: {
+  eventId: string;
+  players: Array<{ playerId: string; jerseyNumber: string }>;
+}): Promise<GameLineup> =>
+  apiRequest(`/events/${eventId}/lineup`, { method: "PUT", body: JSON.stringify({ players }) }, true);
+
 export const getDisciplineEntries = (params: {
   category?: string;
   parentSport?: string;

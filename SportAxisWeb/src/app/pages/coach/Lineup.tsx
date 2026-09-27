@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import {
   useAthletes,
   useCategories,
+  useCoachLineups,
   useCoachProfile,
   useDisciplineEntries,
   useAssignDisciplineEntry,
@@ -16,6 +17,7 @@ import {
 } from '../../hooks/api';
 import type { DisciplineEntry } from '../../services/api';
 import Loading from '../../components/Loading';
+import { GameLineups } from '../../components/coach/GameLineups';
 
 const NONE = '__none__';
 
@@ -38,6 +40,8 @@ export default function CoachLineup() {
   }, [user, navigate]);
 
   const profile = useCoachProfile();
+  const lineupsQ = useCoachLineups();
+  const basketballGames = lineupsQ.data?.games ?? [];
   const categoriesQ = useCategories();
   const athletesQ = useAthletes();
 
@@ -114,7 +118,7 @@ export default function CoachLineup() {
   };
 
   if (!user) return null;
-  if (profile.isLoading || categoriesQ.isLoading) {
+  if (profile.isLoading || categoriesQ.isLoading || lineupsQ.isLoading) {
     return <div className="page-container px-4 py-8"><Loading fullScreen={false} message="Loading line-up..." /></div>;
   }
 
@@ -126,21 +130,29 @@ export default function CoachLineup() {
       <header className="mb-6">
         <h1 className="t-page-title flex items-center gap-2">
           <Swords className="h-6 w-6 text-red-700" />
-          Racquet Line-up
+          Line-up
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Assign your athletes to each line. Singles A and B play their own brackets; C and D play the doubles bracket.
+          Who plays for your college: each basketball game's players, and your racquet lines.
         </p>
       </header>
 
+      {basketballGames.length > 0 && <GameLineups games={basketballGames} />}
+
       {racquetSports.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-gray-500">
-            You don't coach a racquet sport (Badminton, Table Tennis). Nothing to set up here.
-          </CardContent>
-        </Card>
+        basketballGames.length === 0 && (
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-gray-500">
+              No upcoming basketball games for your college, and you don't coach a racquet sport (Badminton, Table Tennis). Nothing to set up here.
+            </CardContent>
+          </Card>
+        )
       ) : (
         <>
+          <h2 className="t-section mb-1">Racquet lines</h2>
+          <p className="mb-4 text-sm text-text-secondary">
+            Assign your athletes to each line. Singles A and B play their own brackets; C and D play the doubles bracket.
+          </p>
           <div className="mb-6 flex flex-wrap gap-3">
             <div className="min-w-[180px]">
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Sport</label>

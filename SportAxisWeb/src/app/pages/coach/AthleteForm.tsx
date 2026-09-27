@@ -257,7 +257,7 @@ export default function AthleteForm() {
                     className="numeral w-24"
                   />
                   <p className="text-xs text-text-muted">
-                    Used by the committee's play-by-play scorer. Unique on your team.
+                    The default number in your basketball game lineups. Unique on your team.
                   </p>
                 </div>
               )}

@@ -677,6 +677,33 @@ export const useDisciplineEntries = (
     ...opts,
   });
 
+// ── Basketball game lineups (coach) ──────────────────────────────────
+export const useCoachLineups = () =>
+  useQuery({
+    queryKey: ["coach-lineups"],
+    queryFn: api.getCoachLineups,
+    staleTime: STALE.live,
+  });
+
+export const useGameLineup = (eventId: string | undefined) =>
+  useQuery({
+    queryKey: ["coach-lineups", eventId ?? ""],
+    queryFn: () => api.getGameLineup(eventId as string),
+    enabled: !!eventId,
+    staleTime: 0,
+  });
+
+export const useSaveGameLineup = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.saveGameLineup,
+    onSuccess: (lineup) => {
+      qc.setQueryData(["coach-lineups", lineup.event.id], lineup);
+      qc.invalidateQueries({ queryKey: ["coach-lineups"], exact: true });
+    },
+  });
+};
+
 export const useAssignDisciplineEntry = () => {
   const qc = useQueryClient();
   return useMutation({
