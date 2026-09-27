@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\RequirementTypeController;
 use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\SeasonController;
 use App\Http\Controllers\Api\SiteSlideController;
+use App\Http\Controllers\Api\StandingsRulesController;
 use App\Http\Controllers\Api\TeamScheduleController;
 use App\Http\Controllers\Api\TrashController;
 use App\Http\Controllers\Api\TryoutController;
@@ -229,6 +230,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/brackets/{id}/publish', [BracketController::class, 'publish']);
         Route::post('/brackets/{id}/matches/{matchId}/advance', [BracketController::class, 'advance']);
         Route::delete('/brackets/{id}', [BracketController::class, 'destroy']);
+
+        // How the college standings are ranked (Settings → Standings).
+        Route::get('/admin/standings-rules', [StandingsRulesController::class, 'show']);
+        Route::put('/admin/standings-rules', [StandingsRulesController::class, 'update']);
 
         Route::get('/admin/site-slides', [SiteSlideController::class, 'index']);
         Route::post('/admin/site-slides', [SiteSlideController::class, 'store']);

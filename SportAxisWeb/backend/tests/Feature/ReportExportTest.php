@@ -69,7 +69,8 @@ class ReportExportTest extends TestCase
         $res->assertOk();
         $this->assertStringContainsString('Total Points', $res->getContent());
         $this->assertStringContainsString('Gold,Silver,Bronze', $res->getContent());
-        $this->assertStringContainsString('CICS,92,1', $res->getContent());
+        // Points are the medal points (a gold = 10 by default), not the judges' raw score total.
+        $this->assertStringContainsString('CICS,10,1', $res->getContent());
     }
 
     public function test_certificates_name_the_champion_college(): void

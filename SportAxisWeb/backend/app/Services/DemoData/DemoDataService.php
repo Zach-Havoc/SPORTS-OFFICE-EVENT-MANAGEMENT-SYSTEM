@@ -31,7 +31,8 @@ use Illuminate\Support\Facades\Storage;
  *      and stops if that fails
  *   3. wipes every table except the admin accounts (and their sign-ins),
  *      `migrations`, and the office's own configuration — the eligibility
- *      checklist and the homepage slides. College rows are pruned, not
+ *      checklist, the homepage slides and the office settings (such as how
+ *      the standings are ranked). College rows are pruned, not
  *      wiped, so their logos survive.
  *   4. seeds, in one transaction: colleges, sports, accounts, rosters,
  *      events, brackets, results, rankings, everything else
@@ -43,7 +44,7 @@ class DemoDataService
     public const CONFIRMATION = 'RESET SPORTAXIS';
 
     /** Kept whole. `users`, `personal_access_tokens` and `departments` are pruned instead. */
-    private const KEEP = ['migrations', 'users', 'personal_access_tokens', 'departments', 'requirement_types', 'site_slides'];
+    private const KEEP = ['migrations', 'users', 'personal_access_tokens', 'departments', 'requirement_types', 'site_slides', 'app_settings'];
 
     /** In the order they run. */
     public const SEEDERS = [

@@ -50,7 +50,7 @@ class ResetDemoData extends Command
         $this->table(['Step', 'Seconds'], collect($result['steps'])->map(fn ($s, $step) => [$step, $s])->values()->all());
 
         if ($board = $result['report']['leaderboard'] ?? null) {
-            $this->line('Overall college race (medals from the Rankings leaderboard; points 10/7/5 podium, 3/1 for 4th/5th in a round robin):');
+            $this->line('Overall college race, as the standings show it (ranking rules from Settings → Standings):');
             $this->table(['College', 'Gold', 'Silver', 'Bronze', 'Points'], array_map(fn ($r) => array_values($r), $board));
         }
         if ($champions = $result['report']['champions'] ?? null) {

@@ -68,7 +68,7 @@ class ReportController extends Controller
         $rows = [['Rank', 'College', 'Total Points', 'Gold', 'Silver', 'Bronze', 'Events']];
         foreach ($board as $i => $row) {
             $rows[] = [
-                $i + 1, $row['department'], $row['total'],
+                $i + 1, $row['department'], $row['points'] ?? '',
                 $row['gold'], $row['silver'], $row['bronze'], $row['eventCount'] ?? $row['event_count'] ?? 0,
             ];
         }
@@ -223,15 +223,18 @@ class ReportController extends Controller
     /** @param  array<int, array<string, mixed>>  $board */
     private function leaderboardHtml(string $title, array $board): string
     {
+        // Olympic-style standings have no points column.
+        $withPoints = collect($board)->contains(fn ($r) => ($r['points'] ?? null) !== null);
         $rows = '';
         foreach ($board as $i => $row) {
-            $rows .= '<tr><td>'.($i + 1).'</td><td>'.e($row['department']).'</td><td>'.$row['total']
-                .'</td><td>'.($row['gold'] ?? 0).'</td><td>'.($row['silver'] ?? 0).'</td><td>'
+            $rows .= '<tr><td>'.($i + 1).'</td><td>'.e($row['department']).'</td>'
+                .($withPoints ? '<td>'.($row['points'] ?? 0).'</td>' : '')
+                .'<td>'.($row['gold'] ?? 0).'</td><td>'.($row['silver'] ?? 0).'</td><td>'
                 .($row['bronze'] ?? 0).'</td></tr>';
         }
 
         return '<h1>'.e($title).'</h1>'
-            .'<table><tr><th>Rank</th><th>College</th><th>Points</th><th>Gold</th><th>Silver</th><th>Bronze</th></tr>'
+            .'<table><tr><th>Rank</th><th>College</th>'.($withPoints ? '<th>Points</th>' : '').'<th>Gold</th><th>Silver</th><th>Bronze</th></tr>'
             .$rows.'</table>';
     }
 

@@ -11,6 +11,7 @@ use App\Models\Event;
 use App\Models\Ranking;
 use App\Models\Score;
 use App\Models\TeamMatch;
+use App\Support\StandingsRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -37,6 +38,9 @@ class RankingController extends Controller
      *
      *   ranked sports (track, swimming, cultural) — each event's own top 3 is a
      *     gold / silver / bronze, and the judged scores sum into `total`.
+     *   `points` — the medals scored the way Settings → Standings says (null
+     *     when colleges are ranked Olympic-style, by medals alone). The order
+     *     follows the same rules; see StandingsRules.
      *   versus sports (basketball, volleyball …) — a single game is a win, not a
      *     medal. The medal is the sport's final podium: a completed
      *     single-elimination bracket (champion / finalist / both semi-final
@@ -62,11 +66,14 @@ class RankingController extends Controller
     /** The cache key for one leaderboard view — same axes the endpoint is filtered by. */
     public static function leaderboardCacheKey(?string $seasonParam, ?string $category, ?string $parentSport): string
     {
+        // The ranking rules are part of the key: changing them in Settings
+        // shows at once instead of after the cache expires.
         return sprintf(
-            'leaderboard:%s:%s:%s',
+            'leaderboard:%s:%s:%s:%s',
             $seasonParam !== null && $seasonParam !== '' ? $seasonParam : '_current',
             $category ?: '_all',
             $parentSport ?: '_all',
+            StandingsRules::fingerprint(),
         );
     }
 
@@ -197,11 +204,11 @@ class RankingController extends Controller
             }
         }
 
-        $leaderboard = array_values($rows);
-        usort($leaderboard, fn ($a, $b) => [$b['total'], $b['gold'], $b['silver'], $b['bronze']]
-            <=> [$a['total'], $a['gold'], $a['silver'], $a['bronze']]);
+        // Points and order follow the office's ranking rules (Settings → Standings).
+        $rules = StandingsRules::current();
+        $leaderboard = array_map(fn ($row) => $row + ['points' => StandingsRules::pointsFor($row, $rules)], array_values($rows));
 
-        return $leaderboard;
+        return StandingsRules::sort($leaderboard, $rules);
     }
 
     /**

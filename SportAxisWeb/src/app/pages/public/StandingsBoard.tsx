@@ -17,6 +17,8 @@ interface Row {
   silver: number;
   bronze: number;
   total: number;
+  /** Medal points under the office's ranking rules; null when ranked Olympic-style (medals only). */
+  points?: number | null;
   eventCount?: number;
 }
 
@@ -173,6 +175,9 @@ function StandingsView({ rows, logoOf, abbrOf, title }: {
   title: string;
 }) {
   const setRef = useFlip(rows.map((r) => r.department));
+  // Olympic-style standings rank by medals alone, so there are no points to show.
+  const showPoints = rows.some((r) => r.points != null);
+  const cols = showPoints ? 'grid-cols-[6vw_1fr_7vw_7vw_7vw_10vw]' : 'grid-cols-[6vw_1fr_7vw_7vw_7vw]';
 
   return (
     <div className="flex h-full flex-col">
@@ -180,13 +185,13 @@ function StandingsView({ rows, logoOf, abbrOf, title }: {
         <h1 className="text-[2.2vw] font-extrabold uppercase tracking-wide text-gray-900">{title}</h1>
       </div>
 
-      <div className="grid grid-cols-[6vw_1fr_7vw_7vw_7vw_10vw] items-center gap-x-[1vw] px-[3vw] pb-[0.6vw] text-[0.85vw] font-bold uppercase tracking-widest text-gray-400">
+      <div className={`grid ${cols} items-center gap-x-[1vw] px-[3vw] pb-[0.6vw] text-[0.85vw] font-bold uppercase tracking-widest text-gray-400`}>
         <span className="text-center">Rank</span>
         <span>College</span>
         <span className="text-center">Gold</span>
         <span className="text-center">Silver</span>
         <span className="text-center">Bronze</span>
-        <span className="text-right">Points</span>
+        {showPoints && <span className="text-right">Points</span>}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col px-[2vw] pb-[1.5vw]">
@@ -200,7 +205,7 @@ function StandingsView({ rows, logoOf, abbrOf, title }: {
               key={r.department}
               ref={setRef(r.department)}
               style={{ animationDelay: `${i * 55}ms` }}
-              className={`board-row grid min-h-0 flex-1 grid-cols-[6vw_1fr_7vw_7vw_7vw_10vw] items-center gap-x-[1vw] rounded-xl px-[1vw] ${
+              className={`board-row grid min-h-0 flex-1 ${cols} items-center gap-x-[1vw] rounded-xl px-[1vw] ${
                 i === 0 ? 'leader-row bg-accent' : i < 3 ? RANK_TINT[i] : i % 2 ? 'bg-muted/35' : ''
               }`}
             >
@@ -209,7 +214,7 @@ function StandingsView({ rows, logoOf, abbrOf, title }: {
               <AnimatedNumber value={r.gold} className="text-center text-[1.6vw] font-bold text-amber-600 tabular-nums" />
               <AnimatedNumber value={r.silver} className="text-center text-[1.6vw] font-bold text-gray-500 tabular-nums" />
               <AnimatedNumber value={r.bronze} className="text-center text-[1.6vw] font-bold text-amber-900 tabular-nums" />
-              <AnimatedNumber value={Math.round(r.total)} className="numeral text-right text-[1.9vw] text-gray-900" />
+              {showPoints && <AnimatedNumber value={r.points ?? 0} className="numeral text-right text-[1.9vw] text-gray-900" />}
             </div>
           ))
         )}
@@ -282,7 +287,7 @@ export default function StandingsBoard() {
   const depts = useDepartments({ refetchInterval: 60_000 });
 
   const rows = useMemo<Row[]>(
-    () => ((lb.data as Row[]) ?? []).filter((r) => r.total > 0 || r.gold || r.silver || r.bronze),
+    () => ((lb.data as Row[]) ?? []).filter((r) => (r.points ?? 0) > 0 || r.total > 0 || r.gold || r.silver || r.bronze),
     [lb.data],
   );
   const games = useMemo<LiveScore[]>(() => (live.data as LiveScore[]) ?? [], [live.data]);

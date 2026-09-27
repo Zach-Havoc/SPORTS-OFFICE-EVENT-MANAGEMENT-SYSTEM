@@ -1526,6 +1526,30 @@ export interface AuditLogFilters {
 export const getTrash = () =>
   apiRequest("/admin/trash", {}, true) as Promise<Trash>;
 
+// ─── Standings rules (Settings → Standings) ─────────────────────────────
+// How the college standings are ranked: Olympic-style (medals only), the
+// standard points (Gold 10, Silver 7, Bronze 5), or the office's own points.
+
+export type StandingsMethod = "olympic" | "points" | "custom";
+export interface MedalPoints { gold: number; silver: number; bronze: number }
+export interface StandingsRules {
+  method: StandingsMethod;
+  /** The points in effect (the defaults, or the custom ones). */
+  points: MedalPoints;
+  customPoints: MedalPoints;
+  defaultPoints: MedalPoints;
+}
+
+export const getStandingsRules = () =>
+  apiRequest("/admin/standings-rules", {}, true) as Promise<StandingsRules>;
+
+export const updateStandingsRules = (method: StandingsMethod, customPoints: MedalPoints) =>
+  apiRequest(
+    "/admin/standings-rules",
+    { method: "PUT", body: JSON.stringify({ method, customPoints }) },
+    true,
+  ) as Promise<StandingsRules>;
+
 // ─── Demo reset (Settings → System) ─────────────────────────────────────
 // Wipes everything but the admin accounts and loads the demo intramurals.
 // The server only allows it with ALLOW_DEMO_RESET=true; the POST needs a

@@ -36,7 +36,8 @@ function Rank({ rank }: { rank: number }) {
 
 interface LeaderboardEntry {
   department: string;
-  totalPoints: number;
+  /** Medal points under the office's ranking rules; null when ranked Olympic-style. */
+  totalPoints: number | null;
   eventsParticipated: number;
   rank: number;
   gold: number;
@@ -83,7 +84,7 @@ export default function PublicLeaderboard() {
     () =>
       (data ?? []).map((entry: any, idx: number) => ({
         department: entry.department,
-        totalPoints: Number(entry.total ?? entry.totalPoints ?? 0),
+        totalPoints: entry.points == null ? null : Number(entry.points),
         eventsParticipated: entry.event_count ?? entry.eventsParticipated ?? 0,
         rank: idx + 1,
         gold: entry.gold ?? 0,
@@ -92,6 +93,10 @@ export default function PublicLeaderboard() {
       })),
     [data],
   );
+  // Olympic-style standings rank by medals alone: no points column, and the
+  // medal counts stay visible on small screens.
+  const showPoints = leaderboard.some((e) => e.totalPoints != null);
+  const medalCell = showPoints ? "hidden sm:table-cell" : "";
 
   if (isLoading) {
     return (
@@ -183,7 +188,9 @@ export default function PublicLeaderboard() {
             Overall Rankings
           </CardTitle>
           <CardDescription>
-            Ranked by total points, then gold, silver, and bronze finishes.
+            {showPoints
+              ? "Ranked by points from medals, then gold, silver, and bronze finishes."
+              : "Ranked by gold medals, then silver, then bronze."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -206,18 +213,20 @@ export default function PublicLeaderboard() {
                     <th className="text-left py-3 px-4 font-semibold">
                       College
                     </th>
-                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">
+                    <th className={`text-center py-3 px-4 font-semibold ${medalCell}`}>
                       Gold
                     </th>
-                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">
+                    <th className={`text-center py-3 px-4 font-semibold ${medalCell}`}>
                       Silver
                     </th>
-                    <th className="text-center py-3 px-4 font-semibold hidden sm:table-cell">
+                    <th className={`text-center py-3 px-4 font-semibold ${medalCell}`}>
                       Bronze
                     </th>
-                    <th className="px-4 py-3 text-right font-semibold">
-                      Points
-                    </th>
+                    {showPoints && (
+                      <th className="px-4 py-3 text-right font-semibold">
+                        Points
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -234,20 +243,22 @@ export default function PublicLeaderboard() {
                       <td className="px-4 py-3.5 font-medium text-foreground">
                         {entry.department}
                       </td>
-                      <td className="hidden px-4 py-3.5 text-center tabular-nums text-muted-foreground sm:table-cell">
+                      <td className={`px-4 py-3.5 text-center tabular-nums text-muted-foreground ${medalCell}`}>
                         {entry.gold}
                       </td>
-                      <td className="hidden px-4 py-3.5 text-center tabular-nums text-muted-foreground sm:table-cell">
+                      <td className={`px-4 py-3.5 text-center tabular-nums text-muted-foreground ${medalCell}`}>
                         {entry.silver}
                       </td>
-                      <td className="hidden px-4 py-3.5 text-center tabular-nums text-muted-foreground sm:table-cell">
+                      <td className={`px-4 py-3.5 text-center tabular-nums text-muted-foreground ${medalCell}`}>
                         {entry.bronze}
                       </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <span className="numeral text-lg text-foreground">
-                          {Math.round(entry.totalPoints)}
-                        </span>
-                      </td>
+                      {showPoints && (
+                        <td className="px-4 py-3.5 text-right">
+                          <span className="numeral text-lg text-foreground">
+                            {entry.totalPoints ?? 0}
+                          </span>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

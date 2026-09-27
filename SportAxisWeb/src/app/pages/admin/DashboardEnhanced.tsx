@@ -246,7 +246,12 @@ export default function DashboardEnhanced() {
       d !== null && d.getTime() < today.getTime() && e.status !== "completed"
     );
   }).length;
-  const hasStandings = leaderboard.some((r) => Number(r.total ?? 0) > 0);
+  const hasStandings = leaderboard.some(
+    (r) =>
+      Number(r.points ?? 0) > 0 ||
+      Number(r.total ?? 0) > 0 ||
+      Number(r.gold ?? 0) + Number(r.silver ?? 0) + Number(r.bronze ?? 0) > 0,
+  );
   const needsAttention = unstaffed.length + disabledAccounts + unclosed;
 
   const recent = useMemo(
@@ -866,14 +871,18 @@ function Standings({
   deptByName: Map<string, any>;
   className?: string;
 }) {
+  // The server already orders the rows by the office's ranking rules.
+  // Olympic-style standings have no points: show the medal count instead.
+  const usesPoints = rows.some((r) => r.points != null);
   const ranked = rows
     .map((r) => ({
       name: String(r.department ?? ""),
-      total: Number(r.total ?? 0),
+      total: usesPoints
+        ? Number(r.points ?? 0)
+        : Number(r.gold ?? 0) + Number(r.silver ?? 0) + Number(r.bronze ?? 0),
       gold: Number(r.gold ?? 0),
     }))
     .filter((r) => r.name && r.total > 0)
-    .sort((a, b) => b.total - a.total)
     .slice(0, 6);
   const max = Math.max(1, ...ranked.map((r) => r.total));
 
@@ -881,7 +890,7 @@ function Standings({
     <Panel
       className={className}
       title="College standings"
-      description="Points from scored events"
+      description={usesPoints ? "Points from medals won" : "Medals won"}
       action={<PanelLink to="/leaderboard">Full table</PanelLink>}
     >
       {ranked.length ? (
@@ -929,7 +938,7 @@ function Standings({
           ))}
         </ol>
       ) : (
-        <PanelEmpty icon={Trophy} title="No points yet">
+        <PanelEmpty icon={Trophy} title="No medals yet">
           Standings fill in as judged events are scored and games are finished.
         </PanelEmpty>
       )}

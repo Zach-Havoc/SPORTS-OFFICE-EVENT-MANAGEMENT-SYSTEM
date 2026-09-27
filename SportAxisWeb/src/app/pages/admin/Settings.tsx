@@ -10,10 +10,11 @@ import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Plus, Pencil, Trash2, Users, Tag, GraduationCap, Upload, Search, Loader2, Wrench } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Tag, GraduationCap, Upload, Search, Loader2, Wrench, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import Loading from '../../components/Loading';
 import DemoResetCard from '../../components/admin/DemoResetCard';
+import StandingsRulesCard from '../../components/admin/StandingsRulesCard';
 
 interface Department {
   id: string;
@@ -197,12 +198,12 @@ export default function AdminSettings() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="t-page-title">System Settings</h1>
-          <p className="text-gray-600 mt-2">Manage colleges and sports</p>
+          <p className="text-gray-600 mt-2">Manage colleges, sports, students and how the standings are ranked</p>
         </div>
       </div>
 
       <Tabs defaultValue="departments" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-3xl grid-cols-5">
           <TabsTrigger value="departments">
             <Users className="h-4 w-4 mr-2" />
             Colleges
@@ -215,6 +216,10 @@ export default function AdminSettings() {
             <GraduationCap className="h-4 w-4 mr-2" />
             Students
           </TabsTrigger>
+          <TabsTrigger value="standings">
+            <Trophy className="h-4 w-4 mr-2" />
+            Standings
+          </TabsTrigger>
           <TabsTrigger value="system">
             <Wrench className="h-4 w-4 mr-2" />
             System
@@ -223,6 +228,10 @@ export default function AdminSettings() {
 
         <TabsContent value="students" className="space-y-4">
           <CampusStudentsTab />
+        </TabsContent>
+
+        <TabsContent value="standings" className="space-y-4">
+          <StandingsRulesCard />
         </TabsContent>
 
         <TabsContent value="system" className="space-y-4">

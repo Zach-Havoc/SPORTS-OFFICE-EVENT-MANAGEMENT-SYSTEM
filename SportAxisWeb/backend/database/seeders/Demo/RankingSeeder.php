@@ -12,47 +12,30 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * Nothing is hardcoded: the standings and medals come from the results, via
- * the app's own leaderboard (the same one the Rankings page shows). This
- * warms that leaderboard and works out the overall college race for the
- * report — medals (1st Gold, 2nd Silver, 3rd Bronze), plus points per
- * finished bracket: 10 / 7 / 5 for the podium, 3 and 1 for 4th and 5th in
- * a round robin.
+ * the app's own leaderboard (the same one the Rankings page shows) — ranked
+ * and pointed the way Settings → Standings says (by default Gold 10, Silver
+ * 7, Bronze 5). This settles tied round robins, warms that leaderboard and
+ * reports the overall college race.
  */
 class RankingSeeder extends Seeder
 {
-    private const POINTS = [10, 7, 5, 3, 1];
-
     public function run(DemoContext $ctx): void
     {
         $this->settleTies();
         Cache::flush();
         $leaderboard = app(RankingController::class)->leaderboard(Request::create('/api/rankings/leaderboard'))->getData(true);
 
-        $points = [];
-        foreach ($leaderboard as $row) {
-            $points[$row['department']] = 10 * $row['gold'] + 7 * $row['silver'] + 5 * $row['bronze'];
-        }
-
-        // 4th and 5th of every fully played round robin that isn't a group stage.
+        // Champions, and which divisions are fully decided.
         $withPlayoffs = Bracket::where('format', 'single_elimination')->pluck('sport')->flip();
         $champions = $divisionsCrowned = [];
         foreach (Bracket::with('matches')->get() as $bracket) {
-            $done = $bracket->matches->reject->is_bye->every(fn ($m) => $m->status === 'completed');
             if ($bracket->format === 'round_robin' && $withPlayoffs->has($bracket->sport)) {
                 continue;
             }
-            if ($bracket->format === 'round_robin' && $done) {
-                $standings = TeamMatch::standings($bracket->sport);
-                foreach ([3, 4] as $place) {
-                    if ($college = $standings[$place]['department'] ?? null) {
-                        $points[$college] = ($points[$college] ?? 0) + self::POINTS[$place];
-                    }
-                }
-                $champions[$bracket->name] = $standings[0]['department'] ?? null;
-            } elseif ($bracket->champion) {
+            if ($bracket->champion) {
                 $champions[$bracket->name] = $bracket->champion;
             }
-            if ($done) {
+            if ($bracket->matches->reject->is_bye->every(fn ($m) => $m->status === 'completed')) {
                 [$sport, $division] = DemoContext::parse($bracket->sport);
                 $divisionsCrowned["{$sport}|{$division}"][] = true;
             }
@@ -61,9 +44,8 @@ class RankingSeeder extends Seeder
         $ctx->report['leaderboard'] = array_map(fn ($row) => [
             'college' => $ctx->abbr($row['department']),
             'gold' => $row['gold'], 'silver' => $row['silver'], 'bronze' => $row['bronze'],
-            'points' => $points[$row['department']] ?? 0,
+            'points' => $row['points'] ?? '—',
         ], $leaderboard);
-        usort($ctx->report['leaderboard'], fn ($a, $b) => [$b['points'], $b['gold'], $b['silver']] <=> [$a['points'], $a['gold'], $a['silver']]);
         $ctx->report['champions'] = array_map(fn ($c) => $c ? $ctx->abbr($c) : null, $champions);
 
         // A division is crowned when every one of its brackets is decided
