@@ -3,7 +3,7 @@ import type { LiveScore } from '../../services/api';
 import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import {
-  Trophy, Calendar, Users, Clock, MapPin, Award,
+  Trophy, Calendar, Users, Clock, MapPin, Award, Shirt,
   Activity, CheckCircle2, Timer,
 } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
@@ -12,6 +12,7 @@ import {
   type MatchRow, type Record3, type Scoreboard,
 } from '../../utils/games';
 import { useDeptAbbreviator } from '../../utils/departments';
+import { useEventLineups } from '../../hooks/api';
 
 /**
  * The public scoreboard card and its detail dialog — shared by the Match
@@ -338,6 +339,72 @@ export function GameCard({
 
 // ─── Match Detail Modal ───────────────────────────────────────────────────────
 
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+
+/**
+ * Both teams' lineups — jersey numbers and names — for a game scored
+ * play-by-play (basketball, volleyball). Volleyball marks the starting six
+ * with their rotation position.
+ */
+function Lineups({ eventId, category }: { eventId: string; category: string }) {
+  const abbr = useDeptAbbreviator();
+  const playByPlay = /basketball|volleyball/i.test(category);
+  const { data, isLoading } = useEventLineups(eventId, playByPlay);
+  if (!playByPlay) return null;
+
+  const teams = data?.teams ?? [];
+  const hasRotation = teams.some((t) => t.players.some((p) => p.rotationPosition));
+
+  return (
+    <div>
+      <h3 className="flex items-center gap-2 font-bold text-gray-900 mb-3 text-sm uppercase tracking-wide">
+        <Shirt className="h-4 w-4 text-gray-500" />
+        Lineups
+      </h3>
+      {isLoading ? (
+        <p className="text-sm text-gray-400">Loading lineups…</p>
+      ) : teams.length === 0 ? (
+        <p className="text-sm text-gray-400">No lineups for this game.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {teams.map((t) => (
+              <div key={t.id} className="rounded-xl border border-gray-200 p-3">
+                <p className="mb-2 text-sm font-semibold text-gray-900" title={t.name}>
+                  {t.abbreviation || abbr(t.label)}
+                  {t.players.length > 0 && (
+                    <span className="ml-1.5 font-normal text-gray-400">· {t.players.length}</span>
+                  )}
+                </p>
+                {t.players.length === 0 ? (
+                  <p className="text-sm text-gray-400">Not submitted yet</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {t.players.map((p) => (
+                      <li key={`${p.jersey}-${p.name}`} className="flex items-center gap-2 py-1.5 text-sm">
+                        <span className="numeral w-9 shrink-0 text-gray-500">#{p.jersey}</span>
+                        <span className="min-w-0 flex-1 truncate text-gray-800">{p.name}</span>
+                        {p.rotationPosition && (
+                          <span className="shrink-0 rounded bg-gray-100 px-1.5 text-xs font-medium text-gray-600">
+                            {ROMAN[p.rotationPosition - 1]}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+          {hasRotation && (
+            <p className="mt-2 text-xs text-gray-400">I–VI: the starting rotation. Position I serves first.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function MatchDetailModal({
   event,
   rankings,
@@ -428,6 +495,9 @@ export function MatchDetailModal({
                 </div>
               )}
             </div>
+
+            {/* Who plays — the lineups each coach submitted */}
+            {isVersus && <Lineups eventId={event.id} category={event.category} />}
 
             {/* Departments */}
             <div>

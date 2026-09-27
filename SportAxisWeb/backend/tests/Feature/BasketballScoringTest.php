@@ -437,6 +437,25 @@ class BasketballScoringTest extends TestCase
         $this->putJson("/api/athletes/{$other->id}", ['jerseyNumber' => '1'])->assertNotFound();
     }
 
+    public function test_anyone_can_see_both_lineups_but_only_numbers_and_names(): void
+    {
+        $account = $this->users()->create(['role' => 'athlete', 'name' => 'Ana Reyes', 'email' => 'ana@batstate-u.edu.ph']);
+        $reyes = $this->athletes()->create(['department' => $this->home->name, 'user_id' => $account->id, 'student_id' => '24-11111']);
+        GamePlayer::create(['game_id' => $this->game->id, 'team_id' => $this->home->id, 'player_id' => $reyes->id, 'jersey_number' => '10']);
+        $this->rostered($this->home, '4');
+
+        $res = $this->getJson("/api/events/{$this->game->id}/lineups")   // no sign-in
+            ->assertOk()
+            ->assertJsonPath('sport', 'basketball')
+            ->assertJsonPath('teams.0.id', $this->home->id)
+            ->assertJsonPath('teams.0.players.0.jersey', '4')
+            ->assertJsonPath('teams.0.players.1.name', 'Ana Reyes')
+            ->assertJsonPath('teams.1.players', []);
+
+        $this->assertStringNotContainsString('24-11111', $res->getContent());
+        $this->assertStringNotContainsString('ana@batstate-u.edu.ph', $res->getContent());
+    }
+
     public function test_the_scoreboard_avoids_per_play_queries(): void
     {
         $players = collect(range(1, 8))->map(fn ($n) => $this->rostered($n % 2 ? $this->home : $this->away, (string) $n));

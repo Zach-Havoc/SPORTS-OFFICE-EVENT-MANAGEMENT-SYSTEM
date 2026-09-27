@@ -736,7 +736,17 @@ export const useDisciplineEntries = (
     ...opts,
   });
 
-// ── Basketball game lineups (coach) ──────────────────────────────────
+// ── Game lineups ─────────────────────────────────────────────────────
+/** Both teams' lineups, for the public game details. */
+export const useEventLineups = (eventId: string | undefined, enabled = true) =>
+  useQuery({
+    queryKey: ["event-lineups", eventId ?? ""],
+    queryFn: () => api.getEventLineups(eventId as string),
+    enabled: !!eventId && enabled,
+    staleTime: STALE.live,
+  });
+
+// Coach side.
 export const useCoachLineups = () =>
   useQuery({
     queryKey: ["coach-lineups"],

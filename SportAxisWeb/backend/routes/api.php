@@ -76,6 +76,8 @@ Route::get('/events/{id}/live', [LiveScoreController::class, 'show']);
 // Play-by-play basketball scoreboard (score + box score, computed from plays).
 Route::get('/events/{id}/scoreboard', [BasketballGameController::class, 'scoreboard']);
 Route::get('/events/{id}/volleyball', [VolleyballGameController::class, 'scoreboard']);
+// Both teams' lineups for a play-by-play game — jersey numbers and names only.
+Route::get('/events/{id}/lineups', [GameLineupController::class, 'publicShow']);
 
 // Head-to-head match records + standings (the bracket-seeding source)
 Route::get('/matches', [MatchController::class, 'index']);

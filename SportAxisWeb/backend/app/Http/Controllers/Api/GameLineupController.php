@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
  * confirms at each set start. The committee's scorer only scores — the
  * players it can credit are exactly the ones the coach lined up.
  *
+ *   GET /api/events/{id}/lineups  (public — both teams' lineups, for the game details)
  *   GET /api/coach/lineups        (coach — their games and lineup status)
  *   GET /api/events/{id}/lineup   (coach — their team's lineup + who they can add)
  *   PUT /api/events/{id}/lineup   (coach — {players: [{playerId, jerseyNumber, rotationPosition?}]})
@@ -33,6 +34,40 @@ use Illuminate\Support\Facades\DB;
  */
 class GameLineupController extends Controller
 {
+    /**
+     * GET /api/events/{id}/lineups — who plays for each college in a game:
+     * jersey numbers and names only, plus the starting rotation (I–VI) for
+     * volleyball. Empty for a sport that isn't scored play-by-play.
+     */
+    public function publicShow(string $eventId)
+    {
+        $event = Event::findOrFail($eventId);
+        $sport = PlayByPlay::sportOf($event);
+        $teams = $sport ? PlayByPlay::teams($event) : null;
+        if (! $teams) {
+            return response()->json(['sport' => $sport, 'teams' => []]);
+        }
+
+        $roster = GamePlayer::with('athlete.account')->where('game_id', $eventId)->get()
+            ->sortBy(fn (GamePlayer $p) => [(int) $p->jersey_number, strlen($p->jersey_number)]);
+
+        return response()->json([
+            'sport' => $sport,
+            'teams' => array_map(fn ($team, $i) => [
+                'id' => $team->id,
+                'side' => $i === 0 ? 'home' : 'away',
+                'name' => $team->name,
+                'label' => $event->departments[$i] ?? $team->name,
+                'abbreviation' => $team->abbreviation,
+                'players' => $roster->where('team_id', $team->id)->map(fn (GamePlayer $gp) => [
+                    'jersey' => $gp->jersey_number,
+                    'name' => PlayByPlay::nameOf($gp->athlete),
+                    'rotationPosition' => $sport === 'volleyball' ? $gp->rotation_position : null,
+                ])->values()->all(),
+            ], $teams, array_keys($teams)),
+        ]);
+    }
+
     /** GET /api/coach/lineups */
     public function index(Request $request)
     {

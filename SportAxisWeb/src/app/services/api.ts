@@ -442,6 +442,22 @@ export interface GameLineup {
   candidates: Array<{ playerId: string; name: string; jerseyNumber: string | null }>;
 }
 
+/** Both teams' lineups for a game (public): jersey numbers and names only. */
+export interface EventLineups {
+  sport: "basketball" | "volleyball" | null;
+  teams: Array<{
+    id: string;
+    side: "home" | "away";
+    name: string;
+    label: string;
+    abbreviation: string | null;
+    players: Array<{ jersey: string; name: string; rotationPosition: number | null }>;
+  }>;
+}
+
+export const getEventLineups = (eventId: string): Promise<EventLineups> =>
+  apiRequest(`/events/${eventId}/lineups`);
+
 export const getCoachLineups = (): Promise<{ games: CoachLineupGame[]; reason: string | null }> =>
   apiRequest("/coach/lineups", {}, true);
 
