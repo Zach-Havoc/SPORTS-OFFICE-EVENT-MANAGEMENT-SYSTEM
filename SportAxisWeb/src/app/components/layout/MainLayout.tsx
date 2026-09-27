@@ -67,13 +67,12 @@ export default function MainLayout() {
   const publicNav = getNavigation(undefined).groups[0].items;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[--bg] lg:h-[100dvh] lg:flex-row lg:overflow-hidden">
+    <div className="relative flex min-h-[100dvh] flex-col bg-[--bg] lg:h-[100dvh] lg:flex-row lg:overflow-hidden">
       {user && (
         <AppSidebar
           role={user.role}
           collapsed={collapsed}
           onToggleCollapsed={() => setCollapsed((c) => !c)}
-          onLogout={() => setLogoutDialogOpen(true)}
         />
       )}
 
@@ -145,7 +144,10 @@ export default function MainLayout() {
         <main
           id="main"
           className={cn(
-            "flex min-w-0 flex-1 flex-col lg:overflow-y-auto",
+            // relative: absolutely positioned content (sr-only tables, popovers
+            // without a portal) must scroll with the page, not stretch the
+            // document and make the whole window scroll past the shell.
+            "relative flex min-w-0 flex-1 flex-col lg:overflow-y-auto lg:overscroll-contain",
             // Clears the fixed bottom bar so the last row of any page is reachable.
             "pb-[4.5rem] lg:pb-0",
           )}

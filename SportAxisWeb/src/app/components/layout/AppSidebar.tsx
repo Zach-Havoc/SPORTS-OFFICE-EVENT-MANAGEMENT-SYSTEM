@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import { LogOut, PanelLeftClose, PanelLeft, Plus } from "lucide-react";
+import { PanelLeftClose, PanelLeft, Plus } from "lucide-react";
 
 import { cn } from "../ui/utils";
 import { getNavigation, isPathActive } from "./navigation";
@@ -18,28 +18,35 @@ const PRIMARY_ACTION: Record<string, { label: string; to: string }> = {
  * screen spends the accent on furniture and leaves nothing for the content.
  * The one solid-red element is the role's primary action. Groups carry quiet
  * labels so the list is a two-step lookup instead of a scan of fifteen items.
- * The account lives in the header, which every width can reach.
+ * The account (and sign out) lives in the header, which every width can reach.
  */
 export function AppSidebar({
   role,
   collapsed,
   onToggleCollapsed,
-  onLogout,
 }: {
   role: string | undefined;
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  onLogout: () => void;
 }) {
   const { pathname } = useLocation();
   const { groups, footer } = getNavigation(role);
   // Hidden on the page that owns the same action, so two create buttons never compete.
   const primary = role ? PRIMARY_ACTION[role] : undefined;
-  const action = primary && !pathname.startsWith(primary.to.split("?")[0]) ? primary : undefined;
+  const action =
+    primary && !pathname.startsWith(primary.to.split("?")[0])
+      ? primary
+      : undefined;
 
-  const item = (
-    { name, path, icon: Icon }: { name: string; path: string; icon: React.ElementType },
-  ) => {
+  const item = ({
+    name,
+    path,
+    icon: Icon,
+  }: {
+    name: string;
+    path: string;
+    icon: React.ElementType;
+  }) => {
     const active = isPathActive(path, pathname);
     return (
       <li key={path}>
@@ -66,7 +73,9 @@ export function AppSidebar({
           <Icon
             className={cn(
               "size-[1.0625rem] shrink-0",
-              active ? "text-crimson-400" : "text-current opacity-80 group-hover:opacity-100",
+              active
+                ? "text-crimson-400"
+                : "text-current opacity-80 group-hover:opacity-100",
             )}
             aria-hidden="true"
           />
@@ -129,7 +138,7 @@ export function AppSidebar({
 
       <nav
         aria-label="Main"
-        className="flex-1 overflow-y-auto px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex-1 overflow-y-auto overscroll-contain px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {groups.map((group, i) => (
           <div key={group.label ?? i} className={i > 0 ? "mt-5" : undefined}>
@@ -139,7 +148,10 @@ export function AppSidebar({
               </p>
             )}
             {group.label && collapsed && (
-              <div className="mx-auto mb-2 h-px w-6 bg-nav-border" aria-hidden="true" />
+              <div
+                className="mx-auto mb-2 h-px w-6 bg-nav-border"
+                aria-hidden="true"
+              />
             )}
             <ul className="space-y-px">{group.items.map(item)}</ul>
           </div>
@@ -147,24 +159,16 @@ export function AppSidebar({
       </nav>
 
       <div className="border-t border-nav-border px-3 py-3">
-        {footer.length > 0 && <ul className="mb-1 space-y-px">{footer.map(item)}</ul>}
+        {footer.length > 0 && (
+          <ul className="mb-1 space-y-px">{footer.map(item)}</ul>
+        )}
 
-        <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
-          <button
-            type="button"
-            onClick={onLogout}
-            title={collapsed ? "Sign out" : undefined}
-            className={cn(
-              "t-nav flex h-9 flex-1 items-center gap-3 rounded-md px-2.5 text-nav-fg",
-              "transition-colors duration-[140ms] hover:bg-nav-hover hover:text-nav-fg-strong",
-              "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-nav-fg-strong",
-              collapsed && "w-full flex-none justify-center px-0",
-            )}
-          >
-            <LogOut className="size-[1.0625rem] shrink-0 opacity-80" aria-hidden="true" />
-            {!collapsed && <span>Sign out</span>}
-            {collapsed && <span className="sr-only">Sign out</span>}
-          </button>
+        <div
+          className={cn(
+            "flex items-center justify-end",
+            collapsed && "justify-center",
+          )}
+        >
           <button
             type="button"
             onClick={onToggleCollapsed}
