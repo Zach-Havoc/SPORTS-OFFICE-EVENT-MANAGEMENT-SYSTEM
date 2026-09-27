@@ -39,7 +39,8 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
     }
   };
 
-  // Web URL — used by browsers to open the web scoring page
+  // The QR link — the mobile scanner reads the token from it; opened in a
+  // browser it tells the committee to score in the SportAxis app
   // The mobile app reads its API base URL from its own env config (EXPO_PUBLIC_API_URL)
   const webUrl = `${window.location.origin}/judge-qr/${eventId}/${qrToken}`;
   const qrUrl = webUrl;
@@ -88,7 +89,7 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
               />
             </div>
             <p className="text-xs text-gray-500 text-center">
-              Scan with the SportsAxis app, or open it in a browser to score on the web
+              Scan with the SportAxis app to score this game
             </p>
           </div>
 

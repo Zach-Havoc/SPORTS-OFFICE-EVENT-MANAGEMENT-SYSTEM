@@ -50,7 +50,6 @@ const AdminTrash = page(() => import("./pages/admin/Trash"));
 const AdminSeasons = page(() => import("./pages/admin/Seasons"));
 const AdminProtests = page(() => import("./pages/admin/Protests"));
 const JudgeDashboard = page(() => import("./pages/judge/Dashboard"));
-const JudgeScoring = page(() => import("./pages/judge/Scoring"));
 const CoachDashboard = page(() => import("./pages/coach/Dashboard"));
 const CoachAthletes = page(() => import("./pages/coach/Athletes"));
 const CoachLineup = page(() => import("./pages/coach/Lineup"));
@@ -79,11 +78,11 @@ const PublicAnnouncements = page(() => import("./pages/public/Announcements"));
 const PublicBrackets = page(() => import("./pages/public/Brackets"));
 const PublicBracket = page(() => import("./pages/public/Bracket"));
 
-// PublicViewer and JudgeQRScoring are rendered directly as JSX (inside
+// PublicViewer and ScoreInApp are rendered directly as JSX (inside
 // HomeRoute / QRCodePage below), not as a route's `Component`, so they use
 // plain React.lazy + Suspense instead of the `page()` helper above.
 const PublicViewer = lazy(() => import("./pages/public/Viewer"));
-const JudgeQRScoring = lazy(() => import("./pages/JudgeQRScoring"));
+const ScoreInApp = lazy(() => import("./pages/ScoreInApp"));
 
 // The root URL is the public Match Schedule for visitors; a signed-in user
 // landing here (e.g. a hard refresh at "/") is sent to their own home so they
@@ -108,12 +107,13 @@ function HomeRoute() {
   );
 }
 
-// Standalone wrapper for QR code page (no auth needed)
+// Standalone page for an event QR link opened in a browser (no auth needed).
+// Scoring itself happens only in the mobile app.
 function QRCodePage() {
   return (
     <>
       <Suspense fallback={null}>
-        <JudgeQRScoring />
+        <ScoreInApp />
       </Suspense>
       <Toaster />
     </>
@@ -196,10 +196,6 @@ export default function App() {
 
             // Judge routes
             { path: "judge", lazy: JudgeDashboard },
-            {
-              path: "judge/event/:eventId",
-              lazy: JudgeScoring,
-            },
 
             // Coach routes
             { path: "coach", lazy: CoachDashboard },
@@ -283,7 +279,7 @@ export default function App() {
             { path: "*", Component: NotFound },
           ],
         },
-        // QR Code Judge Scoring - standalone page without auth
+        // Event QR link — points the committee to the mobile app, which scores
         {
           path: "/judge-qr/:eventId/:token",
           Component: QRCodePage,

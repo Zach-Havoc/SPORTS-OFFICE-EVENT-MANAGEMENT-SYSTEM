@@ -1,16 +1,15 @@
 import { EmptyState } from "../../components/page/EmptyState";
 import { PageHeader } from "../../components/page/PageHeader";
 import { useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useEvents } from '../../hooks/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { RefreshStatus } from '../../components/RefreshStatus';
 import { useDeptAbbreviator } from '../../utils/departments';
 import { isAssignedCommittee } from '../../utils/committee';
-import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Calendar, Users, ArrowRight, Gavel } from 'lucide-react';
+import { Calendar, Users, Gavel, Smartphone } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -39,8 +38,10 @@ export default function JudgeDashboard() {
     () =>
       (data ?? [])
         .map((e: any) => ({ ...e, departments: e.departments || [] }))
-        // Only the games the office assigned this committee member to.
-        .filter((e: Event) => e.status === 'ongoing' && isAssignedCommittee(e, user)),
+        // The games the office assigned this committee member to that are
+        // still to be played, live ones first.
+        .filter((e: Event) => e.status !== 'completed' && isAssignedCommittee(e, user))
+        .sort((a: Event, b: Event) => (a.status === 'ongoing' ? 0 : 1) - (b.status === 'ongoing' ? 0 : 1) || a.schedule.localeCompare(b.schedule)),
     [data, user],
   );
 
@@ -56,7 +57,7 @@ export default function JudgeDashboard() {
     <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
       <PageHeader
         title="Committee Panel"
-        description={`Welcome, ${user?.name ?? ""}. Pick an event to start scoring.`}
+        description={`Welcome, ${user?.name ?? ""}. These are the games you're assigned to. Scoring is done in the SportAxis mobile app.`}
         actions={
           <RefreshStatus
             fetching={isFetching && !isLoading}
@@ -70,8 +71,8 @@ export default function JudgeDashboard() {
         <Card>
           <EmptyState
             icon={Gavel}
-            title="No events to score right now"
-            description="You only see games the Sports Office assigned you to. They appear here once a game you are assigned to is marked ongoing."
+            title="No games assigned right now"
+            description="You only see games the Sports Office assigned you to that haven't been played yet."
           />
         </Card>
       ) : (
@@ -79,7 +80,11 @@ export default function JudgeDashboard() {
           {events.map(event => (
             <Card key={event.id} variant="raised">
               <CardHeader>
-                <Badge variant="success" className="mb-2 w-fit">Ongoing</Badge>
+                {event.status === 'ongoing' ? (
+                  <Badge variant="success" className="mb-2 w-fit">Ongoing</Badge>
+                ) : (
+                  <Badge variant="neutral" className="mb-2 w-fit">Upcoming</Badge>
+                )}
                 <CardTitle>{abbr(event.name)}</CardTitle>
                 <CardDescription>{event.category}</CardDescription>
               </CardHeader>
@@ -94,12 +99,10 @@ export default function JudgeDashboard() {
                     {(event.departments || []).length} departments
                   </div>
 
-                  <Link to={`/judge/event/${event.id}`} className="block mt-4">
-                    <Button className="w-full">
-                      Start Scoring
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </Link>
+                  <div className="mt-4 flex items-start gap-2 rounded-md bg-surface-sunken px-3 py-2 text-sm text-text-secondary">
+                    <Smartphone className="mt-0.5 h-4 w-4 shrink-0" />
+                    Score this game in the SportAxis app: tap Scan and scan its QR code.
+                  </div>
                 </div>
               </CardContent>
             </Card>
