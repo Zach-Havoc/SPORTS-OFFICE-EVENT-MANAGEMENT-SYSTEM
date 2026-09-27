@@ -91,9 +91,37 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
+        // Keep the college key in step with the `department` name, so no write
+        // path (admin form, signup, profile, seeder) can forget to — the coach
+        // and athlete schedules and the coach's game lineups match by the key.
+        static::saving(fn (User $user) => $user->syncDepartmentKey());
+
         // Keep the coach's sport keys in step with the `sports` name list, so
         // no write path (admin form, coach profile, seeder) can forget to.
         static::saved(fn (User $user) => $user->syncSportKeys());
+    }
+
+    /**
+     * Point `department_id` at the college named in `department` (full name
+     * or abbreviation, both spellings exist in the data). Runs when the name
+     * changes, or when a name has no key yet; a key set on its own is kept.
+     */
+    public function syncDepartmentKey(): void
+    {
+        $name = trim((string) $this->department);
+        if (! $this->isDirty('department') && ($this->department_id || $name === '')) {
+            return;
+        }
+        if ($name === '') {
+            $this->department_id = null;
+
+            return;
+        }
+
+        $key = mb_strtolower($name);
+        $this->department_id = Department::whereRaw('LOWER(name) = ?', [$key])
+            ->orWhereRaw('LOWER(abbreviation) = ?', [$key])
+            ->value('id') ?? ($this->isDirty('department') ? null : $this->department_id);
     }
 
     /** The sports this coach handles, by key. */
