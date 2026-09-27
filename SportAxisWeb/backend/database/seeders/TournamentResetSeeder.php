@@ -3,85 +3,73 @@
 namespace Database\Seeders;
 
 use App\Models\AuditLog;
-use App\Models\Event;
 use App\Models\User;
-use App\Services\BracketService;
-use App\Services\LineupRules;
-use App\Services\PlayByPlay;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * DESTRUCTIVE. Resets the site to a fresh intramurals with a full set of test
- * accounts, keeping the admin.
+ * DESTRUCTIVE — step 1 of 2. Wipes the site clean and sets up a fresh
+ * intramurals, keeping only the admin accounts (still signed in) and the
+ * colleges' records (so their logos survive).
  *
- * Kept as they are: every admin account (and its sign-in), venues, seasons,
- * the eligibility checklist, registration codes, the home-page slideshow and
- * the campus student registry. Everything else is wiped — every other
- * account, events, scores, brackets, lineups, announcements, attendance,
- * requirements, notifications, logs.
+ * Then it sets up:
+ *   - the seven colleges (exactly these; any other college is removed)
+ *   - the season, eligibility checklist and registration codes
+ *   - the sports: Basketball, Volleyball, Beach Volleyball, Sepak Takraw and
+ *     Chess, each with a Men's and a Women's division ("Basketball — Men"),
+ *     and Badminton and Table Tennis with their Men's / Women's lines
+ *   - a venue for each sport
+ *   - accounts, all with the password `demo1234`:
+ *       coach1–14@g.batstate-u.edu.ph      a Men's and a Women's coach per college,
+ *                                          each handling all seven sports
+ *       athlete1–980@g.batstate-u.edu.ph   per college, per sport, 10 men + 10 women,
+ *                                          jersey numbers, on the campus registry
+ *       judge1–10@g.batstate-u.edu.ph      committee members
  *
- * The colleges become exactly the seven in COLLEGES: an existing college
- * with the same name or abbreviation is kept (logo and all) under the
- * canonical name; any other college is removed.
+ * Step 2, TournamentActivitySeeder, then fills the competition and the
+ * day-to-day records. Two steps so neither runs past a shared host's
+ * request time limit.
  *
- * Then it creates, all with the password `demo1234`:
- *   coach1–14@g.batstate-u.edu.ph    two per college — a Men's and a Women's
- *                                    coach — each handling all seven sports
- *   athlete1–980@g.batstate-u.edu.ph   per college, per sport: 10 men (on the
- *                                    Men's coach's team) and 10 women (on the
- *                                    Women's), each with a jersey number, on the
- *                                    campus registry, privacy notice accepted
- *   judge1–10@g.batstate-u.edu.ph    committee members
- * the sports Basketball, Volleyball, Beach Volleyball, Sepak Takraw,
- * Badminton, Table Tennis and Chess (with the racquet sports' Men's and
- * Women's lines), and a published single-elimination bracket for every
- * sport and division — Men's and Women's for the team sports and chess,
- * every racquet line — with a judge on each game, every known matchup's
- * lineups filled in, and every coach's racquet lines entered.
- *
- * On the deployed site (no shell there):
  *   /artisan-migrate?token=<TOKEN>&seed=1&class=TournamentResetSeeder
- * Locally:
- *   php artisan db:seed --class=TournamentResetSeeder
+ *   /artisan-migrate?token=<TOKEN>&seed=1&class=TournamentActivitySeeder
  */
 class TournamentResetSeeder extends Seeder
 {
-    private const PASSWORD = 'demo1234';
+    public const PASSWORD = 'demo1234';
 
-    private const DOMAIN = '@g.batstate-u.edu.ph';
+    public const DOMAIN = '@g.batstate-u.edu.ph';
 
     private const PRIVACY_NOTICE_VERSION = '2026-09-21';
 
     private const JUDGE_COUNT = 10;
 
-    /** Athletes per coach, per sport, per gender. */
-    private const PER_TEAM = 10;
+    /** Athletes per college, per sport, per gender. */
+    public const PER_TEAM = 10;
 
-    /** Tables left untouched (users and tokens are pruned, not wiped). */
-    private const KEEP = [
-        'migrations', 'users', 'personal_access_tokens', 'departments', 'venues', 'seasons',
-        'requirement_types', 'categories', 'registration_codes', 'site_slides', 'campus_students',
-    ];
+    /** Tables left alone (users, tokens and colleges are pruned, not wiped). */
+    private const KEEP = ['migrations', 'users', 'personal_access_tokens', 'departments'];
 
     /** name => description. All head-to-head. */
-    private const SPORTS = [
-        'Basketball' => 'Five-a-side basketball, Men\'s and Women\'s.',
-        'Volleyball' => 'Indoor volleyball, Men\'s and Women\'s.',
-        'Beach Volleyball' => 'Beach volleyball pairs, Men\'s and Women\'s.',
-        'Sepak Takraw' => 'Regu competition, Men\'s and Women\'s.',
-        'Badminton' => 'Singles and doubles lines, Men\'s and Women\'s.',
-        'Table Tennis' => 'Singles and doubles lines, Men\'s and Women\'s.',
-        'Chess' => 'Standard chess, Men\'s and Women\'s.',
+    public const SPORTS = [
+        'Basketball' => 'Five-a-side basketball.',
+        'Volleyball' => 'Indoor volleyball, best of three sets.',
+        'Beach Volleyball' => 'Beach volleyball pairs.',
+        'Sepak Takraw' => 'Regu competition, best of three sets.',
+        'Badminton' => 'Singles and doubles lines.',
+        'Table Tennis' => 'Singles and doubles lines.',
+        'Chess' => 'Four-board team chess.',
     ];
 
+    /** Sports played in Men's and Women's divisions (the racquet sports use lines). */
+    public const DIVISION_SPORTS = ['Basketball', 'Volleyball', 'Beach Volleyball', 'Sepak Takraw', 'Chess'];
+
     /** The colleges, in this order: abbreviation => name. */
-    private const COLLEGES = [
+    public const COLLEGES = [
         'CABEIHM' => 'College of Accountancy, Business, Economics, and International Hospitality Management',
         'CICS' => 'College of Informatics and Computing Sciences',
         'CTE' => 'College of Teacher Education',
@@ -95,6 +83,17 @@ class TournamentResetSeeder extends Seeder
     private const ALIASES = [
         'CONAHS' => ['CONHAS'],
         'LS' => ['LAB', 'LABSCHOOL'],
+    ];
+
+    /** name => [type, capacity, sports, location, facilities]. */
+    public const VENUES = [
+        'Joson Gymnasium' => ['Gymnasium', 1200, ['Basketball', 'Volleyball'], 'Main Campus', 'Two full courts, bleachers, scoreboard, sound system'],
+        'ARASOF Covered Court' => ['Covered Court', 800, ['Volleyball', 'Basketball', 'Sepak Takraw'], 'Main Campus', 'Covered court, bleachers, net posts'],
+        'Nasugbu Sand Court' => ['Outdoor Court', 300, ['Beach Volleyball'], 'Beachfront Annex', 'Two sand courts, shaded seating'],
+        'Red Floor Court' => ['Indoor Court', 250, ['Sepak Takraw'], 'Sports Complex', 'Regulation takraw court, net, scoreboard'],
+        'Badminton Hall' => ['Indoor Hall', 200, ['Badminton'], 'Sports Complex', 'Four synthetic courts'],
+        'Table Tennis Center' => ['Indoor Hall', 120, ['Table Tennis'], 'Sports Complex', 'Six ITTF tables, barriers, umpire chairs'],
+        'Student Center Hall' => ['Function Hall', 150, ['Chess'], 'Student Center', 'Tournament tables, clocks, demo board'],
     ];
 
     /** [Men's coach, Women's coach] per college, in COLLEGES order. */
@@ -113,12 +112,22 @@ class TournamentResetSeeder extends Seeder
         'Victor Comia', 'Rowena Lualhati', 'Edgar De Castro', 'Maricel Aguilar', 'Noel Perez',
     ];
 
-    /** 25 × 30 = 750 unique names per gender — enough for 700 each. */
+    /** 25 × 30 = 750 unique names per gender — enough for 490 each. */
     private const MEN = ['Paolo', 'Miguel', 'Josh', 'Kenneth', 'Adrian', 'Nico', 'Rey', 'Carlo', 'Luis', 'Enzo', 'Gabriel', 'Rafael', 'Joaquin', 'Andres', 'Mateo', 'Julian', 'Lorenzo', 'Diego', 'Emilio', 'Santi', 'Bryan', 'Jerome', 'Mark', 'Vince', 'Aldrin'];
 
     private const WOMEN = ['Angela', 'Bea', 'Camille', 'Denise', 'Erika', 'Faith', 'Gwen', 'Hannah', 'Isabel', 'Jasmine', 'Kyla', 'Leah', 'Mika', 'Nicole', 'Patricia', 'Rica', 'Sofia', 'Trisha', 'Andrea', 'Janine', 'Czarina', 'Ella', 'Kristine', 'Mikaela', 'Bianca'];
 
     private const SURNAMES = ['Reyes', 'Santos', 'Cruz', 'Dela Paz', 'Garcia', 'Aquino', 'Ramos', 'Torres', 'Villa', 'Castro', 'Abad', 'Bautista', 'Cabrera', 'Dimaano', 'Escueta', 'Fernandez', 'Gonzales', 'Hernandez', 'Ilagan', 'Javier', 'Katigbak', 'Lopez', 'Manalo', 'Navarro', 'Ocampo', 'Panganiban', 'Quinto', 'Rosales', 'Salazar', 'Tolentino'];
+
+    private const PROGRAMS = [
+        'CABEIHM' => ['BS Accountancy', 'BS Hospitality Management', 'BS Business Administration'],
+        'CICS' => ['BS Information Technology', 'BS Computer Science'],
+        'CTE' => ['Bachelor of Secondary Education', 'Bachelor of Physical Education'],
+        'CONAHS' => ['BS Nursing', 'BS Nutrition and Dietetics'],
+        'CCJE' => ['BS Criminology'],
+        'CAS' => ['BS Psychology', 'BA Communication', 'BS Biology'],
+        'LS' => ['Senior High School — STEM', 'Senior High School — ABM'],
+    ];
 
     private string $password;
 
@@ -131,25 +140,25 @@ class TournamentResetSeeder extends Seeder
         if ($admins->isEmpty()) {
             throw new \RuntimeException('No admin account found — refusing to reset, it would lock everyone out.');
         }
+        @set_time_limit(300);
 
         $this->password = Hash::make(self::PASSWORD);
 
         AuditLog::withoutRecording(function () use ($admins) {
             $this->wipe($admins->all());
+            $this->seedReference($admins->first());
             $this->seedSports();
+            $this->seedVenues($admins->first());
             $colleges = $this->colleges();
             $coaches = $this->seedCoaches($colleges);
-            $judges = $this->seedJudges();
+            $this->seedJudges();
             $this->seedAthletes($coaches);
-            $events = $this->seedBrackets($coaches, $judges);
-            $this->seedLineups($events, $coaches);
-            $this->seedRacquetLines($coaches);
         });
 
         Cache::flush();
 
         $this->command?->info(sprintf(
-            'Reset done — %d colleges, coach1–%d, athlete1–%d, judge1–%d %s, password %s',
+            'Reset done — %d colleges, coach1–%d, athlete1–%d, judge1–%d %s, password %s. Next: TournamentActivitySeeder.',
             count(self::COLLEGES), count(self::COLLEGES) * 2, count(self::COLLEGES) * count(self::SPORTS) * 2 * self::PER_TEAM,
             self::JUDGE_COUNT, self::DOMAIN, self::PASSWORD,
         ));
@@ -168,54 +177,84 @@ class TournamentResetSeeder extends Seeder
                     DB::table($table)->truncate();
                 }
             }
-
             DB::table('users')->whereNotIn('id', $adminIds)->delete();
             DB::table('users')->whereIn('id', $adminIds)->update(['coach_id' => null, 'coach_name' => null]);
             DB::table('personal_access_tokens')->where(fn ($q) => $q
                 ->where('tokenable_type', '!=', User::class)
                 ->orWhereNotIn('tokenable_id', $adminIds))->delete();
-
-            // Kept rows may point at accounts that are gone.
-            foreach ([
-                ['registration_codes', 'created_by'], ['registration_codes', 'used_by'],
-                ['requirement_types', 'created_by'], ['site_slides', 'created_by'], ['venues', 'created_by'],
-            ] as [$table, $column]) {
-                if (Schema::hasColumn($table, $column)) {
-                    DB::table($table)->whereNotNull($column)->whereNotIn($column, $adminIds)->update([$column => null]);
-                }
-            }
         } finally {
             Schema::enableForeignKeyConstraints();
         }
+
+        // Files the wiped rows pointed at (requirement uploads, slides).
+        foreach (['requirements', 'site-slides', 'demo-reset'] as $dir) {
+            Storage::disk('public')->deleteDirectory($dir);
+        }
     }
 
-    // ── Sports and colleges ─────────────────────────────────────────────
+    // ── Reference data ──────────────────────────────────────────────────
+
+    private function seedReference(string $adminId): void
+    {
+        $reference = new ReferenceDataSeeder;
+        $reference->seedDefaultSeason();
+        $reference->seedDefaultRequirementTypes();
+        DB::table('seasons')->update(['starts_on' => now()->subMonth()->toDateString(), 'ends_on' => now()->addMonths(2)->toDateString()]);
+
+        foreach ([
+            ['ADMIN-2627', 'admin', 'Sports Office staff'],
+            ['COACH-2627', 'coach', 'Coaches, 2025–2026 Intramurals'],
+            ['JUDGE-2627', 'judge', 'Committee members, 2025–2026 Intramurals'],
+            ['ATHLETE-2627', 'athlete', 'Athletes, 2025–2026 Intramurals'],
+        ] as [$code, $role, $label]) {
+            DB::table('registration_codes')->insert([
+                'code' => $code, 'role' => $role, 'label' => $label, 'used' => false,
+                'created_by' => $adminId, 'expires_at' => now()->addMonths(3),
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+    }
 
     private function seedSports(): void
     {
         foreach (self::SPORTS as $name => $description) {
-            $id = DB::table('categories')->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->value('id');
-            if ($id) {
-                DB::table('categories')->where('id', $id)->update(['format' => 'versus', 'updated_at' => now()]);
-            } else {
+            DB::table('categories')->insert([
+                'id' => (string) Str::uuid(), 'name' => $name, 'description' => $description,
+                'format' => 'versus', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        $parents = DB::table('categories')->pluck('id', 'name');
+
+        // Men's and Women's divisions, each its own sport for standings and medals.
+        foreach (self::DIVISION_SPORTS as $sport) {
+            foreach (['Men', 'Women'] as $division) {
                 DB::table('categories')->insert([
-                    'id' => (string) Str::uuid(), 'name' => $name, 'description' => $description,
-                    'format' => 'versus', 'created_at' => now(), 'updated_at' => now(),
+                    'id' => (string) Str::uuid(), 'name' => "{$sport} — {$division}",
+                    'description' => "{$division}'s {$sport}.", 'format' => 'versus',
+                    'parent_sport' => $sport, 'division' => $division, 'parent_id' => $parents[$sport],
+                    'created_at' => now(), 'updated_at' => now(),
                 ]);
             }
         }
 
-        // Badminton and Table Tennis are played in Men's and Women's lines.
-        $reference = new ReferenceDataSeeder;
-        $reference->seedRacquetDisciplines();
-        $reference->seedDefaultRequirementTypes();
-        $reference->seedDefaultSeason();
+        // Badminton and Table Tennis: Singles A/B and Doubles, Men's and Women's.
+        (new ReferenceDataSeeder)->seedRacquetDisciplines();
         foreach (['Badminton', 'Table Tennis'] as $sport) {
-            DB::table('categories')->where('parent_sport', $sport)
-                ->update(['parent_id' => DB::table('categories')->where('name', $sport)->value('id')]);
+            DB::table('categories')->where('parent_sport', $sport)->update(['parent_id' => $parents[$sport]]);
         }
 
-        $this->sportIds = DB::table('categories')->whereIn('name', array_keys(self::SPORTS))->pluck('id', 'name')->all();
+        $this->sportIds = $parents->all();
+    }
+
+    private function seedVenues(string $adminId): void
+    {
+        foreach (self::VENUES as $name => [$type, $capacity, $sports, $location, $facilities]) {
+            DB::table('venues')->insert([
+                'id' => (string) Str::uuid(), 'name' => $name, 'type' => $type, 'capacity' => $capacity,
+                'sports' => json_encode($sports), 'location' => $location, 'facilities' => $facilities,
+                'status' => 'available', 'created_by' => $adminId, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
     }
 
     /**
@@ -279,9 +318,11 @@ class TournamentResetSeeder extends Seeder
                     'sport' => array_key_first(self::SPORTS),
                     'sports' => array_keys(self::SPORTS),    // coach_category follows (User::syncSportKeys)
                     'gender_category' => $division,
+                    'phone' => sprintf('+63917%07d', 1000000 + $n * 7919),
                     'enrollment_code' => "{$college->abbreviation}-".($division === 'Men' ? 'M' : 'W').'-2627',
-                    'privacy_notice_accepted_at' => now(),
+                    'privacy_notice_accepted_at' => now()->subMonth(),
                     'privacy_notice_version' => self::PRIVACY_NOTICE_VERSION,
+                    'created_at' => now()->subMonth(),
                 ])->save();
                 $coaches[$i][$division] = $coach;
             }
@@ -290,45 +331,40 @@ class TournamentResetSeeder extends Seeder
         return $coaches;
     }
 
-    /** @return array<int, User> */
-    private function seedJudges(): array
+    private function seedJudges(): void
     {
-        $judges = [];
         for ($n = 1; $n <= self::JUDGE_COUNT; $n++) {
-            $judge = new User;
-            $judge->forceFill([
+            (new User)->forceFill([
                 'id' => (string) Str::uuid(),
                 'email' => "judge{$n}".self::DOMAIN,
                 'password' => $this->password,
                 'name' => self::JUDGE_NAMES[$n - 1],
                 'role' => 'judge',
                 'active' => true,
-                'privacy_notice_accepted_at' => now(),
+                'phone' => sprintf('+63918%07d', 2000000 + $n * 6007),
+                'privacy_notice_accepted_at' => now()->subMonth(),
                 'privacy_notice_version' => self::PRIVACY_NOTICE_VERSION,
+                'created_at' => now()->subMonth(),
             ])->save();
-            $judges[] = $judge;
         }
-
-        return $judges;
     }
 
     /**
      * athlete1… in order college → sport → Men, Women: 10 men on the Men's
-     * coach's team, 10 women on the Women's. Written in batches: a web request
-     * on shared hosting has a time limit, and ~1,000 one-by-one saves would
-     * run past it.
+     * coach's team (jerseys 1–10), 10 women on the Women's (11–20). Written
+     * in batches: a web request on shared hosting has a time limit.
      */
     private function seedAthletes(array $coaches): void
     {
         $users = $athletes = $registry = [];
         $n = 0;
         $counter = ['Male' => 0, 'Female' => 0];
-        $now = now();
+        $abbrs = array_keys(self::COLLEGES);
 
-        foreach ($coaches as $pair) {
+        foreach ($coaches as $i => $pair) {
+            $programs = self::PROGRAMS[$abbrs[$i]];
             foreach (array_keys(self::SPORTS) as $sport) {
                 foreach (['Male' => 0, 'Female' => self::PER_TEAM] as $gender => $jerseyOffset) {
-                    // Women wear 11–20, so a game neither division owns never has two #4s.
                     $coach = $pair[$gender === 'Male' ? 'Men' : 'Women'];
                     for ($j = 1; $j <= self::PER_TEAM; $j++) {
                         $n++;
@@ -339,204 +375,43 @@ class TournamentResetSeeder extends Seeder
                         $id = (string) Str::uuid();
                         $sr = sprintf('26-%05d', 90000 + $n);
                         $email = "athlete{$n}".self::DOMAIN;
-                        $year = (1 + $n % 4).['st', 'nd', 'rd', 'th'][$n % 4].' Year';
+                        $year = $abbrs[$i] === 'LS' ? 'Grade '.(11 + $n % 2) : (1 + $n % 4).['st', 'nd', 'rd', 'th'][$n % 4].' Year';
+                        $course = $programs[$n % count($programs)];
+                        $joined = now()->subDays(25 + $n % 10);
+                        $contact = json_encode(['name' => ($n % 2 ? 'Rosario ' : 'Ernesto ').$last, 'relationship' => 'Parent', 'phone' => sprintf('+63919%07d', 3000000 + $n)]);
 
                         $users[] = [
                             'id' => $id, 'email' => $email, 'password' => $this->password, 'name' => "{$first} {$last}",
                             'role' => 'athlete', 'active' => true, 'sr_code' => $sr, 'gender' => $gender,
-                            'student_verified_at' => $now, 'department' => $coach->department, 'department_id' => $coach->department_id,
-                            'year_level' => $year, 'course' => 'BS Test Program', 'sport' => $sport, 'sports' => json_encode([$sport]),
-                            'coach_id' => $coach->id, 'coach_name' => $coach->name, 'enrolled_at' => $now,
-                            'privacy_notice_accepted_at' => $now, 'privacy_notice_version' => self::PRIVACY_NOTICE_VERSION,
-                            'created_at' => $now, 'updated_at' => $now,
+                            'student_verified_at' => $joined, 'department' => $coach->department, 'department_id' => $coach->department_id,
+                            'year_level' => $year, 'course' => $course, 'phone' => sprintf('+63920%07d', 4000000 + $n),
+                            'emergency_contact' => $contact, 'sport' => $sport, 'sports' => json_encode([$sport]),
+                            'coach_id' => $coach->id, 'coach_name' => $coach->name, 'enrolled_at' => $joined,
+                            'privacy_notice_accepted_at' => $joined, 'privacy_notice_version' => self::PRIVACY_NOTICE_VERSION,
+                            'created_at' => $joined, 'updated_at' => $joined,
                         ];
                         $athletes[] = [
                             'id' => $id, 'user_id' => $id, 'student_id' => $sr, 'first_name' => $first, 'last_name' => $last,
-                            'email' => $email, 'department' => $coach->department, 'year_level' => $year, 'course' => 'BS Test Program',
+                            'email' => $email, 'department' => $coach->department, 'year_level' => $year, 'course' => $course,
                             'coach_id' => $coach->id, 'sport' => $sport, 'category_id' => $this->sportIds[$sport] ?? null,
-                            'status' => 'active', 'jersey_number' => (string) ($j + $jerseyOffset),
-                            'enrolled_via_code' => true, 'enrolled_at' => $now, 'created_at' => $now, 'updated_at' => $now,
+                            'status' => $n % 37 === 0 ? 'injured' : 'active', 'jersey_number' => (string) ($j + $jerseyOffset),
+                            'emergency_contact' => $contact, 'enrolled_via_code' => true, 'enrolled_at' => $joined,
+                            'created_at' => $joined, 'updated_at' => $joined,
                         ];
                         $registry[] = [
                             'sr_code' => $sr, 'first_name' => $first, 'last_name' => $last, 'gender' => $gender,
-                            'college' => $coach->department, 'program' => 'BS Test Program', 'year_level' => $year,
-                            'email' => $email, 'created_at' => $now, 'updated_at' => $now,
+                            'college' => $coach->department, 'program' => $course, 'year_level' => $year,
+                            'email' => $email, 'created_at' => now(), 'updated_at' => now(),
                         ];
                     }
                 }
             }
         }
 
-        foreach (array_chunk($users, 200) as $chunk) {
-            DB::table('users')->insert($chunk);
-        }
-        foreach (array_chunk($athletes, 200) as $chunk) {
-            DB::table('athletes')->insert($chunk);
-        }
-        foreach (array_chunk($registry, 200) as $chunk) {
-            DB::table('campus_students')->upsert($chunk, ['sr_code'], ['first_name', 'last_name', 'gender', 'college', 'program', 'year_level', 'email', 'updated_at']);
-        }
-    }
-
-    // ── Brackets ────────────────────────────────────────────────────────
-
-    /**
-     * A published single-elimination bracket for every sport and division
-     * among the colleges: Men's and Women's for each team sport and chess
-     * (the division names the bracket and its games), and one per racquet
-     * line ("Badminton — W Singles A"). Each bracket gets its own day and
-     * venue so no two share a court at once, and every game a judge.
-     *
-     * @return Collection<int, Event> every game the brackets created
-     */
-    private function seedBrackets(array $coaches, array $judges): Collection
-    {
-        $service = app(BracketService::class);
-        $colleges = array_values(array_map(fn (array $pair) => $pair['Men']->department, $coaches));
-        $venues = DB::table('venues')->pluck('id')->all();
-
-        $plans = [];
-        foreach (array_keys(self::SPORTS) as $sport) {
-            if (in_array($sport, ['Badminton', 'Table Tennis'], true)) {
-                foreach (['M', 'W'] as $g) {
-                    foreach (['Singles A', 'Singles B', 'Doubles'] as $line) {
-                        $plans[] = ['sport' => "{$sport} — {$g} {$line}", 'division' => null];
-                    }
-                }
-            } else {
-                foreach (['Men', 'Women'] as $division) {
-                    $plans[] = ['sport' => $sport, 'division' => $division];
-                }
+        foreach (['users' => $users, 'athletes' => $athletes, 'campus_students' => $registry] as $table => $rows) {
+            foreach (array_chunk($rows, 200) as $chunk) {
+                DB::table($table)->insert($chunk);
             }
         }
-
-        $events = collect();
-        $judge = 0;
-        foreach ($plans as $i => $plan) {
-            // A different draw each time: rotate who meets whom.
-            $order = [...array_slice($colleges, $i % count($colleges)), ...array_slice($colleges, 0, $i % count($colleges))];
-
-            $bracket = $service->generate([
-                'sport' => $plan['sport'],
-                'division' => $plan['division'],
-                'format' => 'single_elimination',
-                'drawMethod' => 'manual',
-                'participants' => $order,
-                'startDate' => now()->addDays(1 + ($venues ? intdiv($i, count($venues)) : $i))->toDateString(),
-                'startTime' => '08:00',
-                'matchDuration' => 60,
-                'breakDuration' => 15,
-                'venueId' => $venues ? $venues[$i % count($venues)] : null,
-            ]);
-            $result = $service->publish($bracket);
-            if (! empty($result['conflicts'])) {
-                throw new \RuntimeException("Couldn't schedule the {$bracket->name} bracket: a venue is already booked.");
-            }
-
-            foreach (Event::whereIn('id', $bracket->fresh('matches')->matches->pluck('event_id')->filter())->get() as $event) {
-                $j = $judges[$judge++ % count($judges)];
-                $event->update(['judges' => [['id' => $j->id, 'name' => $j->name, 'email' => $j->email]]]);
-                $events->push($event);
-            }
-        }
-
-        return $events;
-    }
-
-    /**
-     * Lineups for every game whose two colleges are known (round one), from
-     * each college's coach for that division: basketball and volleyball send
-     * all ten (the first six in the volleyball rotation), a sepak takraw regu
-     * of five (Tekong, Feeder, Striker, two subs), beach volleyball a pair and
-     * a reserve, chess six (boards 1–4, two reserves). Later rounds fill in
-     * as teams advance — a team carries its lineup forward.
-     */
-    private function seedLineups(Collection $events, array $coaches): void
-    {
-        $byCollege = collect($coaches)->keyBy(fn (array $pair) => $pair['Men']->department_id);
-        $rows = [];
-
-        foreach ($events as $event) {
-            $sport = LineupRules::sportOf($event);
-            $teams = $sport ? PlayByPlay::teams($event) : null;
-            if (! $teams) {
-                continue;
-            }
-            $rules = LineupRules::for($sport);
-            $division = PlayByPlay::divisionOf($event) ?? 'Men';
-
-            foreach ($teams as $team) {
-                $coach = $byCollege[$team->id][$division] ?? null;
-                if (! $coach) {
-                    continue;
-                }
-                $players = DB::table('athletes')->where('coach_id', $coach->id)
-                    ->whereRaw('LOWER(sport) = ?', [$sport])
-                    ->orderByRaw('CAST(jersey_number AS UNSIGNED)')
-                    ->limit(min($rules['max'], self::PER_TEAM))
-                    ->get(['id', 'jersey_number']);
-
-                foreach ($players as $k => $player) {
-                    $rows[] = [
-                        'game_id' => $event->id,
-                        'team_id' => $team->id,
-                        'player_id' => $player->id,
-                        'jersey_number' => $player->jersey_number,
-                        'rotation_position' => $k < count($rules['positions']) ? $k + 1 : null,
-                        'is_starter' => $k < (['basketball' => 5, 'beach volleyball' => 2][$sport] ?? count($rules['positions'])),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            }
-        }
-
-        foreach (array_chunk($rows, 300) as $chunk) {
-            DB::table('game_players')->insert($chunk);
-        }
-    }
-
-    /**
-     * Every coach's racquet lines, from their own badminton / table tennis
-     * players: Singles A, Singles B, and a Doubles pair (C and D) — the Men's
-     * coach on the M lines, the Women's on the W lines.
-     */
-    private function seedRacquetLines(array $coaches): void
-    {
-        $rows = [];
-        foreach ($coaches as $pair) {
-            foreach (['Men' => 'M', 'Women' => 'W'] as $division => $g) {
-                $coach = $pair[$division];
-                foreach (['Badminton', 'Table Tennis'] as $sport) {
-                    $players = DB::table('athletes')->where('coach_id', $coach->id)->where('sport', $sport)
-                        ->orderByRaw('CAST(jersey_number AS UNSIGNED)')->limit(4)
-                        ->get(['id', 'first_name', 'last_name'])->values();
-                    $lines = [
-                        ["{$sport} — {$g} Singles A", null, $players[0] ?? null],
-                        ["{$sport} — {$g} Singles B", null, $players[1] ?? null],
-                        ["{$sport} — {$g} Doubles", 'C', $players[2] ?? null],
-                        ["{$sport} — {$g} Doubles", 'D', $players[3] ?? null],
-                    ];
-                    foreach ($lines as [$category, $slot, $athlete]) {
-                        if (! $athlete) {
-                            continue;
-                        }
-                        $rows[] = [
-                            'id' => (string) Str::uuid(),
-                            'category' => $category,
-                            'department' => $coach->department,
-                            'athlete_id' => $athlete->id,
-                            'athlete_name' => "{$athlete->first_name} {$athlete->last_name}",
-                            'coach_id' => $coach->id,
-                            'pair_slot' => $slot,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-                }
-            }
-        }
-
-        DB::table('discipline_entries')->insert($rows);
     }
 }

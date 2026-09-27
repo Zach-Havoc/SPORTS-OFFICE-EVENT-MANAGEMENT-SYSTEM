@@ -12,6 +12,7 @@ use App\Models\Ranking;
 use App\Models\TeamMatch;
 use App\Models\Venue;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -292,17 +293,28 @@ class BracketService
      * with no lineup yet, copy the one it used in its previous game in this
      * bracket. The coach can still change it before the game.
      */
-    private function carryLineups(Bracket $bracket, BracketMatch $bm, Event $event): void
+    /** The colleges, loaded once per service (carryLineups runs after every result). */
+    private ?Collection $colleges = null;
+
+    private function carryLineups(Bracket $bracket, BracketMatch $bm, Event $event, ?Collection $linedUp = null): void
     {
-        if ($bm->round <= 1) {
+        // Only elimination rounds after the first (a round robin's fixtures are
+        // all known from the start), and only sports with game lineups
+        // (racquet sports use racquet lines).
+        if ($bm->round <= 1 || $bracket->format !== 'single_elimination' || ! LineupRules::sportOf($event)) {
             return;
         }
 
         // Each side as soon as it's known — the other semifinal may still be on.
-        $colleges = Department::all(['id', 'name', 'abbreviation']);
+        $colleges = $this->colleges ??= Department::all(['id', 'name', 'abbreviation']);
         foreach (array_filter([$bm->home_team, $bm->away_team]) as $label) {
             $team = $colleges->first(fn ($d) => PlayByPlay::isCollege($d, $label));
-            if (! $team || GamePlayer::where('game_id', $event->id)->where('team_id', $team->id)->exists()) {
+            if (! $team) {
+                continue;
+            }
+            $has = $linedUp ? $linedUp->has($event->id.'|'.$team->id)
+                : GamePlayer::where('game_id', $event->id)->where('team_id', $team->id)->exists();
+            if ($has) {
                 continue;
             }
             $previous = BracketMatch::where('bracket_id', $bracket->id)
@@ -445,16 +457,25 @@ class BracketService
         }
 
         // Pass 3: persist, keep each match's Event in step, find the champion.
+        // The games are loaded once, and only touched when their name or
+        // teams actually change — this runs after every result.
         $champion = null;
+        $events = Event::whereIn('id', $matches->pluck('event_id')->filter())->get()->keyBy('id');
+        // Which games already have which team's lineup, in one query.
+        $linedUp = GamePlayer::whereIn('game_id', $events->keys())->distinct()->get(['game_id', 'team_id'])
+            ->map(fn ($r) => $r->game_id.'|'.$r->team_id)->flip();
         foreach ($matches as $m) {
             $m->save();
 
-            if ($m->event_id && ($event = Event::find($m->event_id))) {
-                $event->update([
-                    'name' => $this->eventName($bracket, $m),
-                    'departments' => array_values(array_filter([$m->home_team, $m->away_team])),
-                ]);
-                $this->carryLineups($bracket, $m, $event);
+            if ($m->event_id && ($event = $events->get($m->event_id))) {
+                $name = $this->eventName($bracket, $m);
+                $departments = array_values(array_filter([$m->home_team, $m->away_team]));
+                if ($event->name !== $name || array_values($event->departments ?? []) !== $departments) {
+                    $event->update(['name' => $name, 'departments' => $departments]);
+                }
+                if ($m->status !== 'completed') {
+                    $this->carryLineups($bracket, $m, $event, $linedUp);
+                }
             }
 
             if (! $m->next_match_id && $m->status === 'completed' && $m->winner) {

@@ -2,29 +2,28 @@
 
 namespace Tests\Feature;
 
-use App\Models\Athlete;
 use App\Models\Bracket;
-use App\Models\CampusStudent;
-use App\Models\Category;
 use App\Models\Event;
 use App\Models\GamePlayer;
+use App\Models\TeamMatch;
 use App\Models\User;
 use App\Services\LineupRules;
+use Database\Seeders\TournamentActivitySeeder;
+use Database\Seeders\TournamentGamesSeeder;
 use Database\Seeders\TournamentResetSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * The production reset: wipes everything but the admin and the site's setup,
- * then seeds 10 coaches (one per college, all seven sports), 10 men + 10
- * women per sport per coach, 10 judges and a sample schedule.
+ * The production reset and fill, in three steps:
+ *   TournamentResetSeeder     wipe (keep the admin), colleges, sports, venues, accounts
+ *   TournamentGamesSeeder     the team sports' brackets, results, play-by-play, live games
+ *   TournamentActivitySeeder  the racquet lines and everyday records
  */
 class TournamentResetSeederTest extends TestCase
 {
     use RefreshDatabase;
-
-    private const SPORTS = ['Basketball', 'Volleyball', 'Beach Volleyball', 'Sepak Takraw', 'Badminton', 'Table Tennis', 'Chess'];
 
     private const COLLEGES = [
         'College of Accountancy, Business, Economics, and International Hospitality Management',
@@ -36,116 +35,127 @@ class TournamentResetSeederTest extends TestCase
         'Laboratory School',
     ];
 
-    public function test_it_resets_to_a_full_intramurals_keeping_the_admin_and_setup(): void
+    public function test_the_reset_wipes_everything_but_the_admin_and_sets_up_the_intramurals(): void
     {
-        // A site in use.
         $admin = $this->users()->create(['role' => 'admin', 'email' => 'office@batstate-u.edu.ph']);
         $token = $admin->createToken('web')->plainTextToken;
         $cics = $this->departments()->create(['name' => 'College of Informatics and Computing Sciences', 'abbreviation' => 'CICS', 'logo_url' => 'https://x.test/cics.png']);
-        $nursing = $this->departments()->create(['name' => 'Nursing (old name)', 'abbreviation' => 'CONHAS']);
         $stray = $this->departments()->create(['name' => 'College of Engineering', 'abbreviation' => 'CoE']);
-        $venue = $this->venues()->create(['created_by' => $this->users()->create(['role' => 'coach'])->id]);
-        $oldCoach = $this->users()->create(['role' => 'coach', 'email' => 'old.coach@x.test']);
-        $this->athletes()->create(['coach_id' => $oldCoach->id]);
+        $oldVenue = $this->venues()->create();
+        $oldCoach = $this->users()->create(['role' => 'coach']);
         $oldGame = $this->events()->create();
-        $real = $this->campusStudents()->create(['sr_code' => '23-12345']);
 
         $this->seed(TournamentResetSeeder::class);
 
-        // Kept: the admin (still signed in), venue, registry.
-        $this->assertNotNull(User::find($admin->id));
+        // Only the admin survives, still signed in.
         $this->getJson('/api/user', ['Authorization' => "Bearer {$token}"])->assertOk();
-        $this->assertNotNull(DB::table('venues')->where('id', $venue->id)->first());
-        $this->assertNull(DB::table('venues')->where('id', $venue->id)->value('created_by'));   // its creator is gone
-        $this->assertNotNull(CampusStudent::find($real->sr_code));
-
-        // Exactly the seven colleges; existing ones keep their row and logo.
-        $this->assertEqualsCanonicalizing(self::COLLEGES, DB::table('departments')->pluck('name')->all());
-        $this->assertSame('https://x.test/cics.png', DB::table('departments')->where('id', $cics->id)->value('logo_url'));
-        $this->assertSame('College of Nursing and Allied Health Sciences', DB::table('departments')->where('id', $nursing->id)->value('name'));
-        $this->assertNull(DB::table('departments')->where('id', $stray->id)->first());
-        $this->assertSame('LS', DB::table('departments')->where('name', 'Laboratory School')->value('abbreviation'));
-
-        // Wiped: other accounts and their games.
         $this->assertNull(User::find($oldCoach->id));
         $this->assertNull(Event::find($oldGame->id));
+        $this->assertNull(DB::table('venues')->where('id', $oldVenue->id)->first());
 
-        // The seven sports, with the racquet sports' Men's and Women's lines.
-        foreach (self::SPORTS as $sport) {
-            $this->assertNotNull(Category::where('name', $sport)->first(), "{$sport} missing");
+        // Exactly the seven colleges; one already there keeps its logo.
+        $this->assertEqualsCanonicalizing(self::COLLEGES, DB::table('departments')->pluck('name')->all());
+        $this->assertSame('https://x.test/cics.png', DB::table('departments')->where('id', $cics->id)->value('logo_url'));
+        $this->assertNull(DB::table('departments')->where('id', $stray->id)->first());
+
+        // Sports with Men's / Women's divisions, racquet lines, venues, season, codes.
+        foreach (['Basketball', 'Volleyball', 'Beach Volleyball', 'Sepak Takraw', 'Chess'] as $sport) {
+            foreach (['Men', 'Women'] as $division) {
+                $this->assertDatabaseHas('categories', ['name' => "{$sport} — {$division}", 'parent_sport' => $sport, 'division' => $division]);
+            }
         }
-        $this->assertSame(6, Category::where('parent_sport', 'Badminton')->whereNotNull('parent_id')->count());
+        $this->assertSame(6, DB::table('categories')->where('parent_sport', 'Table Tennis')->whereNotNull('parent_id')->count());
+        $this->assertSame(7, DB::table('venues')->count());
+        $this->assertSame(1, DB::table('seasons')->where('is_active', true)->count());
+        $this->assertSame(4, DB::table('registration_codes')->where('used', false)->count());
 
-        // 14 coaches: a Men's and a Women's per college, all seven sports.
+        // 14 coaches (a Men's and a Women's per college), 980 athletes, 10 judges.
         $coaches = User::where('role', 'coach')->get();
         $this->assertCount(14, $coaches);
-        $this->assertEqualsCanonicalizing(
-            array_map(fn ($n) => "coach{$n}@g.batstate-u.edu.ph", range(1, 14)),
-            $coaches->pluck('email')->all(),
-        );
         foreach ($coaches->groupBy('department_id') as $pair) {
             $this->assertEqualsCanonicalizing(['Men', 'Women'], $pair->pluck('gender_category')->all());
         }
-
-        foreach ($coaches as $coach) {
-            $this->assertCount(7, $coach->sportCategories);
-            $gender = $coach->gender_category === 'Men' ? 'Male' : 'Female';
-            $team = Athlete::where('coach_id', $coach->id)->with('account')->get();
-            foreach (self::SPORTS as $sport) {
-                $players = $team->where('sport', $sport);
-                $this->assertCount(10, $players, "{$coach->email} {$sport}");
-                $this->assertTrue($players->every(fn ($a) => $a->account->gender === $gender));
-                $this->assertTrue($players->every(fn ($a) => $a->account->department_id === $coach->department_id));
-                $this->assertSame(10, $players->pluck('jersey_number')->unique()->count());
-            }
-        }
-
         $this->assertSame(980, User::where('role', 'athlete')->count());
         $this->assertSame(980, User::where('role', 'athlete')->distinct()->count('name'));
         $this->assertSame(10, User::where('role', 'judge')->count());
-        $this->postJson('/api/login', ['email' => 'athlete980@g.batstate-u.edu.ph', 'password' => 'demo1234'])->assertOk();
+        $this->postJson('/api/login', ['email' => 'coach14@g.batstate-u.edu.ph', 'password' => 'demo1234'])->assertOk();
 
-        // A published single-elimination bracket per sport and division — team sports and
-        // chess in Men's and Women's, every racquet line — each game with a judge.
+        // The fill steps must run in order.
+        $this->expectException(\RuntimeException::class);
+        $this->seed(TournamentActivitySeeder::class);
+    }
+
+    public function test_the_fill_plays_out_a_believable_three_weeks(): void
+    {
+        $this->actingAsRole('admin');
+        $this->seed(TournamentResetSeeder::class);
+        $this->seed(TournamentGamesSeeder::class);
+        $this->seed(TournamentActivitySeeder::class);
+
+        // Brackets: round robins and single eliminations, for every sport.
         $brackets = Bracket::all();
-        $this->assertCount(22, $brackets);
-        $this->assertTrue($brackets->every(fn ($b) => $b->status === 'active' && $b->format === 'single_elimination'));
-        $this->assertNotNull($brackets->firstWhere('name', "Women's Sepak Takraw — Elimination"));
-        $this->assertNotNull($brackets->firstWhere('sport', 'Table Tennis — W Doubles'));
-        $games = Event::all();
-        $this->assertCount(22 * 6, $games);   // 7 colleges: 3 quarterfinals (one bye), 2 semis, a final
-        foreach ($games as $game) {
-            $this->assertCount(1, $game->judges);
-            $this->assertNotNull($game->category_id, "{$game->category} not linked to a sport");
+        $this->assertSame(8, $brackets->where('format', 'round_robin')->count());
+        $this->assertSame(18, $brackets->where('format', 'single_elimination')->count());
+        foreach (['Basketball', 'Volleyball', 'Beach Volleyball', 'Sepak Takraw', 'Chess', 'Badminton', 'Table Tennis'] as $sport) {
+            $this->assertTrue($brackets->contains(fn ($b) => str_starts_with($b->sport, $sport)), "no {$sport} bracket");
         }
+        // A long round robin keeps all 21 fixtures.
+        $league = $brackets->firstWhere('sport', 'Chess — Men');
+        $this->assertSame(21, $league->matches()->whereNotNull('home_team')->whereNotNull('away_team')->where('status', 'completed')->count());
 
-        // Every known matchup has both lineups, with the sport's positions.
-        $ready = $games->filter(fn ($g) => count($g->departments) === 2 && LineupRules::sportOf($g));
-        $this->assertCount(10 * 3, $ready);
+        // Live right now, and games still to come.
+        $this->assertSame(3, Event::where('status', 'ongoing')->count());
+        $this->assertGreaterThan(0, Event::where('status', 'upcoming')->where('schedule', '>', now()->toDateString())->count());
+        $this->assertSame(0, Event::where('status', 'upcoming')->where('schedule', '<', now()->toDateString())->count());   // nothing forgotten in the past
+
+        // Every result agrees with its play-by-play.
+        $hoops = TeamMatch::where('sport', 'Basketball — Women')->where('stage', 'group')->first();
+        $board = $this->getJson("/api/events/{$hoops->event_id}/scoreboard")->assertOk()->json();
+        $this->assertEquals([$hoops->home_score, $hoops->away_score], [$board['teams'][0]['score'], $board['teams'][1]['score']]);
+        $volley = TeamMatch::where('sport', 'Volleyball — Men')->where('stage', 'group')->first();
+        $board = $this->getJson("/api/events/{$volley->event_id}/volleyball")->assertOk()->json();
+        $this->assertTrue($board['matchDecided']);
+        $this->assertEquals([$volley->home_score, $volley->away_score], [$board['teams'][0]['setsWon'], $board['teams'][1]['setsWon']]);
+        $this->assertNotNull($board['teams'][0]['serverPlayerId'] ?? $board['teams'][1]['serverPlayerId'] ?? true);
+
+        // The live basketball final: the score so far is the plays so far.
+        $live = Event::where('status', 'ongoing')->where('category', 'Basketball — Men')->firstOrFail();
+        $board = $this->getJson("/api/events/{$live->id}/scoreboard")->json();
+        $score = DB::table('live_scores')->where('event_id', $live->id)->first();
+        $this->assertSame('in_progress', $score->status);
+        $this->assertEquals([$score->home_score, $score->away_score], [$board['teams'][0]['score'], $board['teams'][1]['score']]);
+
+        // Every known matchup in a lineup sport has both lineups.
+        $ready = Event::all()->filter(fn ($e) => count($e->departments) === 2 && LineupRules::sportOf($e));
         foreach ($ready as $game) {
             $this->assertSame(2, GamePlayer::where('game_id', $game->id)->distinct()->count('team_id'), $game->name);
         }
-        $regu = $ready->first(fn ($g) => str_contains($g->name, "Men's Sepak Takraw"));
-        $this->assertEqualsCanonicalizing([1, 1, 2, 2, 3, 3, null, null, null, null],
-            GamePlayer::where('game_id', $regu->id)->pluck('rotation_position')->all());
-        $volley = $ready->first(fn ($g) => str_contains($g->name, "Women's Volleyball"));
-        foreach (GamePlayer::where('game_id', $volley->id)->get()->groupBy('team_id') as $side) {
-            $this->assertCount(10, $side);
-            $this->assertEquals([1, 2, 3, 4, 5, 6], $side->pluck('rotation_position')->filter()->sort()->values()->all());
-        }
-        // …and the women's volleyball lineup is the college's women.
-        $this->assertTrue(GamePlayer::with('athlete.account')->where('game_id', $volley->id)->get()
-            ->every(fn ($gp) => $gp->athlete->account->gender === 'Female'));
 
-        // Racquet lines: Singles A, Singles B and a Doubles pair, per coach per racquet sport.
-        $this->assertSame(14 * 2 * 4, DB::table('discipline_entries')->count());
+        // College rankings for every sport, and medals where a sport has finished.
+        foreach (['Basketball — Men', 'Volleyball — Women', 'Sepak Takraw — Men', 'Chess — Women', 'Badminton — M Singles A'] as $sport) {
+            $this->assertNotEmpty(TeamMatch::standings($sport), "no standings for {$sport}");
+        }
+        $medals = collect($this->getJson('/api/leaderboard')->assertOk()->json());
+        $this->assertGreaterThan(10, $medals->sum('gold'));
+        $this->assertSame(0, collect($this->getJson('/api/leaderboard?category='.urlencode('Basketball — Men'))->json())->sum('gold'));   // final still live
+        $this->assertSame(1, collect($this->getJson('/api/leaderboard?category='.urlencode('Basketball — Women'))->json())->sum('gold'));
+
+        // Everyday records.
+        $this->assertSame(112, DB::table('discipline_entries')->count());
+        $this->assertSame(42, DB::table('announcements')->count());
+        $this->assertSame(56, DB::table('tryout_applications')->count());
+        $this->assertSame(14 * 4 * 70, DB::table('attendance_records')->count());
+        $this->assertGreaterThan(2000, DB::table('requirements')->count());
+        $this->assertGreaterThan(1000, DB::table('performance_records')->count());
+        $this->assertSame(6, DB::table('protests')->count());
+        $this->assertGreaterThan(20, DB::table('notifications')->count());
 
         // A Women's coach lines up only Women's games.
-        $womensCoach = User::where('email', 'coach2@g.batstate-u.edu.ph')->first();
-        $this->loginAs($womensCoach);
+        $this->loginAs(User::where('email', 'coach2@g.batstate-u.edu.ph')->first());
         $names = collect($this->getJson('/api/coach/lineups')->assertOk()->json('games'))->pluck('name');
         $this->assertNotEmpty($names);
-        $this->assertTrue($names->every(fn ($n) => str_starts_with($n, "Women's")));
+        $this->assertTrue($names->every(fn ($n) => ! str_contains($n, "Men's") || str_contains($n, "Women's")));
+        $this->assertTrue($names->every(fn ($n) => str_contains($n, 'Women')));
     }
 
     public function test_it_refuses_to_reset_a_site_with_no_admin(): void
