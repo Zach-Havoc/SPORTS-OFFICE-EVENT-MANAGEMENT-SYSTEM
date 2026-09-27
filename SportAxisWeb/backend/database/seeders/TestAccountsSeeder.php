@@ -16,12 +16,13 @@ use Illuminate\Support\Str;
  * Numbered test accounts for trying the app end to end, all with the password
  * `demo1234`:
  *
- *   coach1–5@g.batstate-u.edu.ph     coach1 CICS Basketball, coach2 CABEIHM Basketball,
- *                                    coach3 CICS Volleyball, coach4 CABEIHM Volleyball,
- *                                    coach5 CAS Basketball
- *   athlete1–10@g.batstate-u.edu.ph  1–5 on coach1's CICS Basketball team,
- *                                    6–10 on coach2's CABEIHM Basketball team,
- *                                    each with a jersey number
+ *   coach1–5@g.batstate-u.edu.ph     one per college — CICS, CABEIHM, CAS, CoE,
+ *                                    CTE — each coaching Basketball and Volleyball
+ *   athlete1–70@g.batstate-u.edu.ph  14 per coach: 7 basketball (five on court
+ *                                    plus subs) and 7 volleyball (the rotation's
+ *                                    six plus a sub), each with a jersey number.
+ *                                    athlete1–5 are CICS Basketball and 6–10
+ *                                    CABEIHM Basketball, as they always were.
  *   judge1–5@g.batstate-u.edu.ph     committee members (assign them to games)
  *
  * Athletes are complete like a real signup: verified against the campus
@@ -39,28 +40,45 @@ class TestAccountsSeeder extends Seeder
 
     private const PRIVACY_NOTICE_VERSION = '2026-09-21';
 
-    /** [college abbreviation, sport] per coach. */
+    /** [name, college abbreviation] per coach — every coach a different college. */
     private const COACHES = [
-        1 => ['Marco Villanueva', 'CICS', 'Basketball'],
-        2 => ['Joanna Castillo', 'CABEIHM', 'Basketball'],
-        3 => ['Rafael Dimaculangan', 'CICS', 'Volleyball'],
-        4 => ['Carla Macaraig', 'CABEIHM', 'Volleyball'],
-        5 => ['Dennis Ramirez', 'CAS', 'Basketball'],
+        1 => ['Marco Villanueva', 'CICS'],
+        2 => ['Joanna Castillo', 'CABEIHM'],
+        3 => ['Rafael Dimaculangan', 'CAS'],
+        4 => ['Carla Macaraig', 'CoE'],
+        5 => ['Dennis Ramirez', 'CTE'],
     ];
 
-    /** [first, last, gender, coach number, jersey]. */
-    private const ATHLETES = [
-        1 => ['Paolo', 'Reyes', 'Male', 1, '4'],
-        2 => ['Miguel', 'Santos', 'Male', 1, '7'],
-        3 => ['Josh', 'Cruz', 'Male', 1, '10'],
-        4 => ['Kenneth', 'Dela Paz', 'Male', 1, '12'],
-        5 => ['Adrian', 'Garcia', 'Male', 1, '15'],
-        6 => ['Nico', 'Aquino', 'Male', 2, '3'],
-        7 => ['Rey', 'Ramos', 'Male', 2, '5'],
-        8 => ['Carlo', 'Torres', 'Male', 2, '8'],
-        9 => ['Luis', 'Villa', 'Male', 2, '11'],
-        10 => ['Enzo', 'Castro', 'Male', 2, '14'],
+    private const SPORTS = ['Basketball', 'Volleyball'];
+
+    /** Players per coach per sport. */
+    private const PER_TEAM = 7;
+
+    /** Jersey numbers handed out in this order, per team. */
+    private const JERSEYS = [
+        'Basketball' => ['4', '7', '10', '12', '15', '21', '23', '3', '5', '8', '11', '14'],
+        'Volleyball' => ['1', '2', '3', '5', '6', '8', '9', '11', '13'],
     ];
+
+    /** The first ten, kept exactly as they were: [first, last, coach, jersey] (basketball). */
+    private const FIRST_TEN = [
+        1 => ['Paolo', 'Reyes', 1, '4'],
+        2 => ['Miguel', 'Santos', 1, '7'],
+        3 => ['Josh', 'Cruz', 1, '10'],
+        4 => ['Kenneth', 'Dela Paz', 1, '12'],
+        5 => ['Adrian', 'Garcia', 1, '15'],
+        6 => ['Nico', 'Aquino', 2, '3'],
+        7 => ['Rey', 'Ramos', 2, '5'],
+        8 => ['Carlo', 'Torres', 2, '8'],
+        9 => ['Luis', 'Villa', 2, '11'],
+        10 => ['Enzo', 'Castro', 2, '14'],
+    ];
+
+    private const MEN = ['Gabriel', 'Rafael', 'Joaquin', 'Andres', 'Mateo', 'Julian', 'Lorenzo', 'Diego', 'Emilio', 'Santi', 'Bryan', 'Jerome', 'Mark', 'Vince', 'Aldrin', 'Cedric', 'Jomar', 'Ivan'];
+
+    private const WOMEN = ['Angela', 'Bea', 'Camille', 'Denise', 'Erika', 'Faith', 'Gwen', 'Hannah', 'Isabel', 'Jasmine', 'Kyla', 'Leah', 'Mika', 'Nicole', 'Patricia', 'Rica', 'Sofia', 'Trisha'];
+
+    private const SURNAMES = ['Abad', 'Bautista', 'Cabrera', 'Dimaano', 'Escueta', 'Fernandez', 'Gonzales', 'Hernandez', 'Ilagan', 'Javier', 'Katigbak', 'Lopez', 'Manalo', 'Navarro', 'Ocampo', 'Panganiban', 'Quinto', 'Rosales', 'Salazar', 'Tolentino', 'Umali', 'Valdez', 'Yap', 'Zamora'];
 
     private const JUDGES = [
         1 => 'Liza Mendoza',
@@ -76,23 +94,22 @@ class TestAccountsSeeder extends Seeder
             $password = Hash::make(self::PASSWORD);
 
             $coaches = [];
-            foreach (self::COACHES as $n => [$name, $abbr, $sport]) {
+            foreach (self::COACHES as $n => [$name, $abbr]) {
                 $college = $this->college($abbr);
                 $coaches[$n] = $this->account("coach{$n}", [
                     'name' => $name,
                     'role' => 'coach',
                     'password' => $password,
                     'department' => $college->name,     // department_id follows (User::syncDepartmentKey)
-                    'sport' => $sport,
-                    'sports' => [$sport],               // coach_category follows (User::syncSportKeys)
-                    'gender_category' => 'Men',
-                    'enrollment_code' => "{$abbr}-".strtoupper(Str::substr($sport, 0, 4))."-T{$n}",
+                    'sport' => self::SPORTS[0],
+                    'sports' => self::SPORTS,           // coach_category follows (User::syncSportKeys)
+                    'gender_category' => 'Men & Women',
+                    'enrollment_code' => "{$abbr}-TEST{$n}",
                 ]);
             }
 
-            foreach (self::ATHLETES as $n => [$first, $last, $gender, $coachNo, $jersey]) {
+            foreach ($this->athletePlan() as $n => [$first, $last, $gender, $coachNo, $sport, $jersey]) {
                 $coach = $coaches[$coachNo];
-                $sport = self::COACHES[$coachNo][2];
                 $sr = sprintf('26-%05d', 90000 + $n);   // clearly test SR codes
                 $email = "athlete{$n}".self::DOMAIN;
 
@@ -148,7 +165,43 @@ class TestAccountsSeeder extends Seeder
             }
         });
 
-        $this->command?->info('Test accounts ready — coach1–5, athlete1–10, judge1–5 @g.batstate-u.edu.ph, password: '.self::PASSWORD);
+        $this->command?->info('Test accounts ready — coach1–5, athlete1–'.count($this->athletePlan()).', judge1–5 @g.batstate-u.edu.ph, password: '.self::PASSWORD);
+    }
+
+    /**
+     * Who plays where: athlete number => [first, last, gender, coach, sport,
+     * jersey]. The first ten keep their places; the rest fill every coach's
+     * teams up to PER_TEAM in coach order (basketball men, volleyball women).
+     */
+    private function athletePlan(): array
+    {
+        $plan = [];
+        foreach (self::FIRST_TEN as $n => [$first, $last, $coach, $jersey]) {
+            $plan[$n] = [$first, $last, 'Male', $coach, 'Basketball', $jersey];
+        }
+
+        $n = count($plan) + 1;
+        foreach (array_keys(self::COACHES) as $coach) {
+            foreach (self::SPORTS as $sport) {
+                $team = array_filter($plan, fn ($p) => $p[3] === $coach && $p[4] === $sport);
+                $taken = array_column($team, 5);
+                $free = array_values(array_diff(self::JERSEYS[$sport], $taken));
+                for ($i = count($team); $i < self::PER_TEAM; $i++, $n++) {
+                    $women = $sport === 'Volleyball';
+                    $firsts = $women ? self::WOMEN : self::MEN;
+                    $plan[$n] = [
+                        $firsts[$n % count($firsts)],
+                        self::SURNAMES[intdiv($n, 2) % count(self::SURNAMES)],
+                        $women ? 'Female' : 'Male',
+                        $coach,
+                        $sport,
+                        $free[$i - count($team)],
+                    ];
+                }
+            }
+        }
+
+        return $plan;
     }
 
     /** Create or update one account by its email's local part. */
