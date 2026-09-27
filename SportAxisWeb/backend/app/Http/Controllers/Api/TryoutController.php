@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Athlete;
 use App\Models\CampusStudent;
 use App\Models\EmailVerification;
 use App\Models\TryoutApplication;
 use App\Models\User;
+use App\Services\TeamMembership;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +31,13 @@ class TryoutController extends Controller
         // Check the applicant against the campus roster before mailing a
         // code, so a non-student is told why up front instead of after.
         if ($error = $this->campusMismatch($request)) {
+            return response()->json(['message' => $error], 422);
+        }
+
+        // Only the student's own college's team — told before a code is
+        // mailed when the form says which tryout it is (re-checked on apply).
+        $coach = $this->tryoutCoach($request->announcementId, $request->coachId);
+        if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($request->studentId, $request->department)))) {
             return response()->json(['message' => $error], 422);
         }
 
@@ -93,6 +102,13 @@ class TryoutController extends Controller
             return response()->json(['message' => $error], 422);
         }
 
+        // Only the student's own college's team — by the registrar's record
+        // of their college, not what they picked on the form.
+        $coach = $this->tryoutCoach($request->announcementId, $request->coachId);
+        if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($request->studentId, $request->department)))) {
+            return response()->json(['message' => $error], 422);
+        }
+
         // Validate verification code
         $verification = EmailVerification::where('email', $request->email)->first();
 
@@ -154,6 +170,12 @@ class TryoutController extends Controller
             $coachId = $app->coach_id ?? ($user->role === 'coach' ? $user->id : null);
             if (! $coachId) {
                 return response()->json(['error' => 'This application has no coach to add the student to.'], 422);
+            }
+
+            // Applications from before the college rule are checked here too.
+            $coach = User::find($coachId);
+            if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($app->student_id, $app->department)))) {
+                return response()->json(['error' => $error], 422);
             }
 
             $existing = $this->rosterRowFor($app, $coachId);
@@ -258,6 +280,20 @@ class TryoutController extends Controller
      * the email must be the one on record for it. Rows imported without an
      * email fall back to matching the applicant's name instead.
      */
+    /** The coach whose team a tryout is for: the announcement's, else the one named. */
+    private function tryoutCoach(?string $announcementId, ?string $coachId): ?User
+    {
+        $id = ($announcementId ? Announcement::whereKey($announcementId)->value('coach_id') : null) ?: $coachId;
+
+        return $id ? User::where('role', 'coach')->find($id) : null;
+    }
+
+    /** A student's college: the registrar's record when there is one, else what they gave. */
+    private function collegeOf(?string $studentId, ?string $given): ?string
+    {
+        return CampusStudent::find(CampusStudent::normalizeCode((string) $studentId))?->college ?: $given;
+    }
+
     private function campusMismatch(Request $request): ?string
     {
         $student = CampusStudent::find(CampusStudent::normalizeCode($request->studentId));

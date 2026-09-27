@@ -925,6 +925,10 @@ export const verifyTryoutEmail = (applicant: {
   studentId: string;
   firstName: string;
   lastName: string;
+  /** Which tryout — lets the server refuse another college's team before mailing a code. */
+  announcementId?: string;
+  coachId?: string;
+  department?: string;
 }) =>
   apiRequest("/tryouts/verify-email", {
     method: "POST",

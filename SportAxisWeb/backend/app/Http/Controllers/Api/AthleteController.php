@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Controller;
 use App\Models\Athlete;
 use App\Models\User;
+use App\Services\TeamMembership;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -105,6 +106,11 @@ class AthleteController extends Controller
 
         if ($account && Athlete::where('coach_id', $coachId)->where('user_id', $account->id)->exists()) {
             return response()->json(['error' => 'This athlete is already on your roster.'], 422);
+        }
+
+        // Only athletes of the coach's own college.
+        if ($error = TeamMembership::joinError($request->user(), $account?->department ?: $request->department, toCoach: true)) {
+            return response()->json(['error' => $error], 422);
         }
 
         $athlete = Athlete::create([

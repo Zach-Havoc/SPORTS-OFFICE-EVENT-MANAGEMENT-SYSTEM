@@ -136,6 +136,9 @@ export default function PublicAnnouncements() {
         studentId: formData.studentId.trim(),
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
+        announcementId: selectedAnnouncement?.id,
+        coachId: selectedAnnouncement?.coachId,
+        department: formData.department,
       });
       if (res?.dev_code) {
         toast.success(`Verification code: ${res.dev_code} (Code sent to your email/log)`);

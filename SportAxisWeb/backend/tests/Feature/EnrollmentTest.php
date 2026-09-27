@@ -68,7 +68,7 @@ class EnrollmentTest extends TestCase
 
         $this->postJson('/api/enroll', ['enrollmentCode' => 'JOINME01'])
             ->assertStatus(400)
-            ->assertJsonFragment(['error' => 'This code belongs to College of Engineering. Your account is registered under College of Business.']);
+            ->assertJsonPath('error', "You can't join this team. It's College of Engineering's Basketball team, and you're from College of Business. Athletes can only join their own college's team.");
 
         $this->assertNull($athlete->fresh()->coach_id);
     }

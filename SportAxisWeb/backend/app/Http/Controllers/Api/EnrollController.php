@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Athlete;
 use App\Models\User;
+use App\Services\TeamMembership;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -31,18 +32,15 @@ class EnrollController extends Controller
             return response()->json(['error' => 'Invalid enrollment code'], 400);
         }
 
-        // Intramurals are department-based: an athlete joins their OWN
-        // department's team for the coach's sport.
+        // Intramurals are college-based: an athlete joins their OWN college's
+        // team for the coach's sport.
         if (! $coach->department) {
             return response()->json([
                 'error' => 'This coach has not been assigned to a college yet. Please contact your administrator.',
             ], 400);
         }
-
-        if ($athlete->department && $athlete->department !== $coach->department) {
-            return response()->json([
-                'error' => "This code belongs to {$coach->department}. Your account is registered under {$athlete->department}.",
-            ], 400);
+        if ($error = TeamMembership::joinError($coach, $athlete->department)) {
+            return response()->json(['error' => $error], 400);
         }
 
         $updates = [
