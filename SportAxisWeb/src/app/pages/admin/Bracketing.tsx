@@ -150,6 +150,10 @@ export default function AdminBracketing() {
     // PARENT name; the admin then picks a division and which lines to generate.
     division: 'M' as 'M' | 'W',
     lines: ['A', 'B', 'CD'] as Array<'A' | 'B' | 'CD'>,
+    // Any other sport: an optional Men's / Women's division. It names the
+    // bracket and its games, so a college's Men's and Women's coaches each
+    // see their own games to line up.
+    teamDivision: '' as '' | 'Men' | 'Women',
   });
 
   const { data: categoriesData } = useCategories();
@@ -473,6 +477,7 @@ export default function AdminBracketing() {
         matchDuration: config.matchDuration,
         breakDuration: config.breakDuration,
         venueId: config.venueId || null,
+        ...(!isRacquet && config.teamDivision ? { division: config.teamDivision } : {}),
       };
 
       // Racquet sport → one bracket per selected line of the chosen division.
@@ -706,6 +711,20 @@ export default function AdminBracketing() {
                     <option key={sport} value={sport}>{sport}</option>
                   ))}
               </select>
+
+              {config.sport && !isRacquet && (
+                <Field label="Division" hint="Names the bracket and its games — e.g. “Women's Basketball”.">
+                  <Segmented
+                    value={config.teamDivision}
+                    onChange={(teamDivision) => setConfig({ ...config, teamDivision })}
+                    options={[
+                      { value: '', label: 'Open' },
+                      { value: 'Men', label: 'Men' },
+                      { value: 'Women', label: 'Women' },
+                    ]}
+                  />
+                </Field>
+              )}
 
               {isRacquet && (
                 <>
