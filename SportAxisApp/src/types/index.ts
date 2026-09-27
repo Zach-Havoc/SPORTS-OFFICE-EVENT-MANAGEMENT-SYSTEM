@@ -211,3 +211,68 @@ export interface ApiError {
   message?: string;
   errors?: Record<string, string[]>;
 }
+
+// ── Play-by-play basketball ──────────────────────────────────────────────────
+// The server computes everything from the recorded plays; every call returns
+// the whole scoreboard (see BasketballGameController on the backend).
+
+export type PlayType = 'FG2' | 'FG3' | 'FT' | 'FOUL';
+
+export interface BoxScoreRow {
+  playerId: string;
+  jersey: string;
+  name: string;
+  pts: number;
+  fg2: number;
+  fg3: number;
+  ft: number;
+  pf: number;
+}
+
+export interface ScoreboardTeam {
+  id: string;
+  side: 'home' | 'away';
+  name: string;
+  /** The college as the event names it. */
+  label: string;
+  abbreviation: string | null;
+  logoUrl: string | null;
+  score: number;
+  periodScores: { period: number; label: string; points: number }[];
+  teamFouls: number;
+  unassignedPoints: number;
+  players: BoxScoreRow[];
+}
+
+export interface Play {
+  id: number;
+  teamId: string;
+  playerId: string | null;
+  jersey: string | null;
+  playerName: string | null;
+  type: PlayType;
+  points: number;
+  period: number;
+  periodLabel: string;
+  createdAt: string;
+}
+
+export interface Scoreboard {
+  eventId: string;
+  eventName: string;
+  category: string;
+  version: number;
+  status: 'scheduled' | 'live' | 'finished';
+  period: number;
+  periodLabel: string;
+  regulationPeriods: number;
+  /** False when the event doesn't name two known colleges. */
+  ready: boolean;
+  winnerTeamId: string | null;
+  playCount: number;
+  teams: ScoreboardTeam[];
+  recentPlays: Play[];
+  updatedAt: string | null;
+  /** Only on a roster sync: who was left off the roster and why. */
+  rosterNotes?: string[];
+}

@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from "../../../constants/theme";
+import { BasketballScoreboard } from "../../../src/components/scoring/BasketballScoreboard";
 import { MatchScoreboard, type MatchScoreboardHandle } from "../../../src/components/scoring/MatchScoreboard";
 import { OCRScoreMapper } from "../../../src/components/scoring/OCRScoreMapper";
 import { PrintableScoreSheetView } from "../../../src/components/scoring/PrintableScoreSheetView";
@@ -35,6 +36,9 @@ import { getSportConfigFromEvent } from "../../../src/utils/sport-config";
 //
 //   Two colleges (a game) · the scoreboard. Keep it live with +/−, or scan
 //     the paper sheet to record the final. Finalizing completes the game.
+//     Basketball opens play-by-play instead (each basket and foul, per
+//     player); "Final score only" keeps the +/− and paper route for a game
+//     that isn't scored that way.
 //   Three or more (judged) · every college's 0–100 score in one list. Type
 //     them, or scan the paper sheet to fill them, then submit.
 //
@@ -74,6 +78,14 @@ export default function ScoringScreen() {
   const depts = useMemo(() => event?.departments ?? [], [event?.departments]);
   // Same rule as the web schedule: two colleges is a game, more is judged.
   const isMatch = depts.length <= 2;
+
+  // Basketball is scored play-by-play by default. Once a play is recorded the
+  // plays own the score, so the +/− scoreboard can't be switched back to.
+  const isBasketball = isMatch && depts.length === 2 && sportConfig.type === "basketball";
+  const [finalOnly, setFinalOnly] = useState(false);
+  const [hasPlays, setHasPlays] = useState(false);
+  const playByPlay = isBasketball && !finalOnly;
+  const onBoard = useCallback((b: { playCount: number }) => setHasPlays(b.playCount > 0), []);
 
   const setScore = useCallback((dept: string, value: string) => {
     setDepartmentScores((prev) => ({ ...prev, [dept]: value }));
@@ -258,7 +270,33 @@ export default function ScoringScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {isMatch ? (
+            {isBasketball && (
+              <View style={styles.modeSwitch} accessibilityRole="tablist">
+                {[
+                  { key: false, label: "Play-by-play" },
+                  { key: true, label: "Final score only" },
+                ].map((m) => {
+                  const on = finalOnly === m.key;
+                  const blocked = m.key && hasPlays;
+                  return (
+                    <Pressable
+                      key={m.label}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: on, disabled: blocked }}
+                      disabled={blocked}
+                      onPress={() => setFinalOnly(m.key)}
+                      style={[styles.mode, on && styles.modeOn, blocked && { opacity: 0.4 }]}
+                    >
+                      <Text style={[styles.modeText, on && styles.modeTextOn]}>{m.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            {playByPlay ? (
+              <BasketballScoreboard event={event} onBoard={onBoard} />
+            ) : isMatch ? (
               <MatchScoreboard ref={scoreboard} event={event} />
             ) : (
               <View style={styles.card}>
@@ -304,12 +342,15 @@ export default function ScoringScreen() {
 
             {/* The paper side of scoring — same two actions for every event */}
             <View style={styles.actions}>
-              <ActionTile
-                icon="scan"
-                title="Scan paper sheet"
-                sub={isMatch ? "Record the final from the sheet" : "Fill the scores from the sheet"}
-                onPress={() => setShowOCR(true)}
-              />
+              {/* Play-by-play owns the score, so there's no final to scan in. */}
+              {!playByPlay && (
+                <ActionTile
+                  icon="scan"
+                  title="Scan paper sheet"
+                  sub={isMatch ? "Record the final from the sheet" : "Fill the scores from the sheet"}
+                  onPress={() => setShowOCR(true)}
+                />
+              )}
               <ActionTile
                 icon="print"
                 title="Score sheet"
@@ -416,6 +457,12 @@ const styles = StyleSheet.create({
   meta: { ...TYPE.bodySm, color: COLORS.textMuted, flexShrink: 1 },
 
   body: { padding: SPACING.lg, gap: SPACING.md },
+
+  modeSwitch: { flexDirection: "row", padding: 3, borderRadius: RADIUS.lg, backgroundColor: COLORS.surfaceAlt },
+  mode: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: RADIUS.md },
+  modeOn: { backgroundColor: COLORS.surface, ...SHADOWS.sm },
+  modeText: { ...TYPE.label, color: COLORS.textSecondary },
+  modeTextOn: { color: COLORS.textPrimary },
   muted: { ...TYPE.body, color: COLORS.textMuted, paddingVertical: SPACING.md },
 
   card: {
