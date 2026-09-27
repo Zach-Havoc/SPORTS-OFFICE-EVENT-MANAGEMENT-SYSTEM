@@ -4,27 +4,31 @@ namespace Tests\Feature;
 
 use App\Events\LiveScoreUpdated;
 use App\Models\Athlete;
+use App\Models\Category;
 use App\Models\Department;
 use App\Models\Event;
 use App\Models\GameEvent;
 use App\Models\GamePlayer;
 use App\Models\LiveScore;
 use App\Models\TeamMatch;
+use App\Models\User;
 use App\Services\BasketballScoreboard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event as EventBus;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
  * Play-by-play basketball scoring (the mobile scorer):
  *   GET    /api/events/{id}/scoreboard        (public)
- *   POST   /api/events/{id}/roster/sync       (scorekeeper)
  *   POST   /api/events/{id}/plays             (scorekeeper)
  *   DELETE /api/events/{id}/plays/last        (scorekeeper)
  *   PUT    /api/events/{id}/period            (scorekeeper)
  *   POST   /api/events/{id}/finish            (scorekeeper)
- * plus the coach setting an athlete's jersey number (PUT /api/athletes/{id}).
+ * plus the coach's side: an athlete's default jersey number
+ * (PUT /api/athletes/{id}) and each game's lineup
+ * (GET /api/coach/lineups, GET|PUT /api/events/{id}/lineup).
  *
  * The score is computed from the plays and mirrored into live_scores.
  */
@@ -42,6 +46,7 @@ class BasketballScoringTest extends TestCase
     {
         parent::setUp();
 
+        Category::firstOrCreate(['name' => 'Basketball'], ['id' => (string) Str::uuid()]);
         $this->home = $this->departments()->create(['name' => 'College of Hoops Home', 'abbreviation' => 'CHH']);
         $this->away = $this->departments()->create(['name' => 'College of Hoops Away', 'abbreviation' => 'CHA']);
         $this->game = $this->events()->create([
@@ -78,9 +83,19 @@ class BasketballScoringTest extends TestCase
         return collect($scoreboard['teams'])->firstWhere('id', $team->id);
     }
 
-    private function sync()
+    /** A basketball coach for this college, signed in. */
+    private function coachOf(Department $college): User
     {
-        return $this->postJson("/api/events/{$this->game->id}/roster/sync");
+        return $this->actingAsRole('coach', [
+            'department' => $college->name,
+            'department_id' => $college->id,
+            'sports' => ['Basketball'],
+        ]);
+    }
+
+    private function lineup(array $players)
+    {
+        return $this->putJson("/api/events/{$this->game->id}/lineup", ['players' => $players]);
     }
 
     // ── Scoring ─────────────────────────────────────────────────────────
@@ -275,7 +290,6 @@ class BasketballScoringTest extends TestCase
             $this->postJson("/api/events/{$id}/plays", $body)->assertForbidden();
             $this->deleteJson("/api/events/{$id}/plays/last")->assertForbidden();
             $this->postJson("/api/events/{$id}/finish")->assertForbidden();
-            $this->postJson("/api/events/{$id}/roster/sync")->assertForbidden();
         }
 
         // A committee member not assigned to this game.
@@ -283,7 +297,8 @@ class BasketballScoringTest extends TestCase
         $this->postJson("/api/events/{$id}/plays", $body)
             ->assertForbidden()
             ->assertJsonPath('error', 'You are not assigned to score this game.');
-        $this->postJson("/api/events/{$id}/roster/sync")->assertForbidden();
+        // …and the committee doesn't set lineups.
+        $this->putJson("/api/events/{$id}/lineup", ['players' => []])->assertForbidden();
 
         $this->assertSame(0, GameEvent::count());
 
@@ -315,66 +330,90 @@ class BasketballScoringTest extends TestCase
         $this->assertNull(LiveScore::where('event_id', $this->game->id)->first());
     }
 
-    // ── Roster from athlete profiles ────────────────────────────────────
+    // ── The coach's lineup ──────────────────────────────────────────────
 
-    public function test_the_roster_is_built_from_athlete_profiles(): void
+    public function test_the_coach_lines_up_their_own_athletes_and_the_scorer_sees_them(): void
     {
+        $coach = $this->coachOf($this->home);
+        $account = $this->users()->create(['role' => 'athlete', 'name' => 'Ana Reyes']);
+        $reyes = $this->athletes()->create(['coach_id' => $coach->id, 'user_id' => $account->id, 'jersey_number' => '4']);
+        $santos = $this->athletes()->create(['coach_id' => $coach->id, 'first_name' => 'Ben', 'last_name' => 'Santos']);
+        // Not offered: inactive, another sport, another coach's athlete.
+        $this->athletes()->create(['coach_id' => $coach->id, 'status' => 'inactive']);
+        $this->athletes()->create(['coach_id' => $coach->id, 'sport' => 'Volleyball']);
+        $theirs = $this->athletes()->create();
+
+        $this->getJson('/api/coach/lineups')
+            ->assertOk()
+            ->assertJsonPath('games.0.id', $this->game->id)
+            ->assertJsonPath('games.0.opponent', $this->away->name)
+            ->assertJsonPath('games.0.lineupCount', 0);
+
+        $this->getJson("/api/events/{$this->game->id}/lineup")
+            ->assertOk()
+            ->assertJsonPath('team.id', $this->home->id)
+            ->assertJsonCount(2, 'candidates')
+            ->assertJsonPath('candidates.0.name', 'Ana Reyes')
+            ->assertJsonPath('candidates.0.jerseyNumber', '4');   // the profile number as a default
+
+        $this->lineup([['playerId' => $theirs->id, 'jerseyNumber' => '9']])
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'Only active athletes on your roster for this sport can be lined up.');
+        $this->lineup([['playerId' => $reyes->id, 'jerseyNumber' => '4'], ['playerId' => $santos->id, 'jerseyNumber' => '4']])
+            ->assertStatus(422);
+
+        $this->lineup([['playerId' => $reyes->id, 'jerseyNumber' => '4'], ['playerId' => $santos->id, 'jerseyNumber' => '00']])
+            ->assertOk()
+            ->assertJsonCount(2, 'players')
+            ->assertJsonPath('players.0.jerseyNumber', '00');
+
+        // The committee's scorer credits exactly this lineup.
         $this->actingAsJudgeFor($this->game);
-
-        // A registered athlete: the college lives on their account.
-        $account = $this->users()->create(['role' => 'athlete', 'name' => 'Ana Reyes', 'department' => $this->home->name]);
-        $reyes = $this->athletes()->create(['user_id' => $account->id, 'department' => null, 'jersey_number' => '4']);
-        // A coach-added athlete stored under the college's abbreviation.
-        $santos = $this->athletes()->create(['department' => 'CHH', 'first_name' => 'Ben', 'last_name' => 'Santos', 'jersey_number' => '00']);
-        $aquino = $this->athletes()->create(['department' => $this->away->name, 'jersey_number' => '3']);
-        // Left out: no jersey, another sport, inactive, a different college.
-        $noJersey = $this->athletes()->create(['department' => $this->home->name, 'first_name' => 'Cy', 'last_name' => 'Cruz']);
-        $this->athletes()->create(['department' => $this->home->name, 'sport' => 'Volleyball', 'jersey_number' => '9']);
-        $this->athletes()->create(['department' => $this->home->name, 'status' => 'inactive', 'jersey_number' => '10']);
-        $this->athletes()->create(['department' => 'College of Elsewhere', 'jersey_number' => '11']);
-
-        $board = $this->sync()->assertOk()->json();
-
-        $home = $this->team($board, $this->home);
-        $this->assertSame(['00', '4'], array_column($home['players'], 'jersey'));
-        $this->assertSame('Ana Reyes', collect($home['players'])->firstWhere('playerId', $reyes->id)['name']);
-        $this->assertSame('Ben Santos', collect($home['players'])->firstWhere('playerId', $santos->id)['name']);
-        $this->assertSame([$aquino->id], array_column($this->team($board, $this->away)['players'], 'playerId'));
-        $this->assertSame(["{$this->home->name}: Cy Cruz has no jersey number yet."], $board['rosterNotes']);
-        $this->assertNotContains($noJersey->id, GamePlayer::pluck('player_id')->all());
+        $board = $this->getJson("/api/events/{$this->game->id}/scoreboard")->json();
+        $this->assertSame(['00', '4'], array_column($this->team($board, $this->home)['players'], 'jersey'));
+        $this->assertSame([], $this->team($board, $this->away)['players']);   // their coach hasn't lined up yet
+        $this->play('FG3', $this->home, $santos)->assertCreated();
+        $this->play('FG2', $this->home, $theirs)->assertStatus(422);
     }
 
-    public function test_a_duplicate_jersey_is_left_off_with_a_note(): void
+    public function test_a_coach_only_lines_up_their_own_college_in_their_sport(): void
     {
-        $this->actingAsJudgeFor($this->game);
-        $this->athletes()->create(['department' => $this->home->name, 'first_name' => 'Al', 'last_name' => 'Abad', 'jersey_number' => '7']);
-        $this->athletes()->create(['department' => $this->home->name, 'first_name' => 'Bo', 'last_name' => 'Bautista', 'jersey_number' => '7']);
+        $this->coachOf($this->departments()->create());
+        $this->getJson("/api/events/{$this->game->id}/lineup")->assertForbidden();
+        $this->getJson('/api/coach/lineups')->assertOk()->assertJsonCount(0, 'games');
 
-        $board = $this->sync()->assertOk()->json();
+        $this->actingAsRole('coach', ['department' => $this->home->name, 'department_id' => $this->home->id, 'sports' => ['Volleyball']]);
+        $this->getJson("/api/events/{$this->game->id}/lineup")->assertForbidden();
 
-        $this->assertCount(1, $this->team($board, $this->home)['players']);
-        $this->assertSame(["{$this->home->name}: Bo Bautista shares #7 with a teammate and was left off."], $board['rosterNotes']);
+        $this->actingAsRole('athlete');
+        $this->getJson("/api/events/{$this->game->id}/lineup")->assertForbidden();
     }
 
-    public function test_resync_follows_profile_changes_but_keeps_players_who_have_plays(): void
+    public function test_players_with_plays_stay_in_the_lineup_under_their_number(): void
     {
-        $this->actingAsJudgeFor($this->game);
-        $a = $this->athletes()->create(['department' => $this->home->name, 'jersey_number' => '4']);
-        $b = $this->athletes()->create(['department' => $this->home->name, 'jersey_number' => '5']);
-        $this->sync()->assertOk();
+        $coach = $this->coachOf($this->home);
+        $a = $this->athletes()->create(['coach_id' => $coach->id]);
+        $b = $this->athletes()->create(['coach_id' => $coach->id]);
+        $this->lineup([['playerId' => $a->id, 'jerseyNumber' => '4'], ['playerId' => $b->id, 'jerseyNumber' => '5']])->assertOk();
+
+        $judge = $this->actingAsJudgeFor($this->game);
         $this->play('FG2', $this->home, $a)->assertCreated();
+        $this->loginAs($coach);
 
-        // Swap-style changes, and $a (who has a basket) goes inactive.
-        $a->update(['jersey_number' => '5', 'status' => 'inactive']);
-        $b->update(['jersey_number' => '4']);
+        $this->lineup([['playerId' => $b->id, 'jerseyNumber' => '5']])->assertStatus(422);
+        $this->lineup([['playerId' => $a->id, 'jerseyNumber' => '8'], ['playerId' => $b->id, 'jerseyNumber' => '5']])->assertStatus(422);
 
-        $board = $this->sync()->assertOk()->json();
-        $players = collect($this->team($board, $this->home)['players'])->keyBy('playerId');
+        // Others can still change, including taking a freed number.
+        $this->lineup([['playerId' => $a->id, 'jerseyNumber' => '4'], ['playerId' => $b->id, 'jerseyNumber' => '10']])
+            ->assertOk()
+            ->assertJsonPath('players.0.hasPlays', true);
 
-        $this->assertSame('4', $players[$a->id]['jersey']);   // frozen as the play recorded it
-        $this->assertSame(2, $players[$a->id]['pts']);
-        $this->assertFalse($players->has($b->id));           // now clashes with the frozen #4
-        $this->assertStringContainsString('shares #4', $board['rosterNotes'][0]);
+        // Once the game is finished the lineup is locked.
+        $this->loginAs($judge);
+        $this->postJson("/api/events/{$this->game->id}/finish")->assertOk();
+        $this->loginAs($coach);
+        $this->lineup([['playerId' => $a->id, 'jerseyNumber' => '4']])->assertStatus(422);
+        $this->getJson('/api/coach/lineups')->assertJsonCount(0, 'games');   // completed games drop off
     }
 
     public function test_the_coach_sets_a_unique_jersey_number_on_their_roster(): void

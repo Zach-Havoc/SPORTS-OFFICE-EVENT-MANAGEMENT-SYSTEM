@@ -85,69 +85,6 @@ class BasketballScoreboard
         return $name !== '' ? $name : 'Unknown player';
     }
 
-    /**
-     * Build each team's game roster from the athletes' profiles: every active
-     * athlete of that college, in this sport, with a jersey number. Players
-     * who already have plays are frozen (their jersey and place stay as the
-     * plays recorded them); everyone else follows their current profile.
-     *
-     * @return array<int, string> notes for the scorekeeper (who was left out and why)
-     */
-    public function syncRoster(Event $event, array $teams): array
-    {
-        $existing = GamePlayer::where('game_id', $event->id)->get()->keyBy('player_id');
-        $withPlays = GameEvent::where('game_id', $event->id)->whereNotNull('player_id')
-            ->distinct()->pluck('player_id')->flip();
-
-        $candidates = Athlete::with('account')
-            ->where('status', 'active')
-            ->where(fn ($q) => $q
-                ->when($event->category_id, fn ($q) => $q->where('category_id', $event->category_id))
-                ->orWhereRaw('LOWER(?) LIKE CONCAT(LOWER(sport), \'%\')', [$event->category]))
-            ->get();
-
-        // Rebuild everyone without plays from scratch — updating row by row
-        // could trip the unique jersey index mid-way (two players swapping).
-        GamePlayer::where('game_id', $event->id)->whereNotIn('player_id', $withPlays->keys()->all())->delete();
-
-        $notes = [];
-
-        foreach ($teams as $team) {
-            // The college lives on the linked account for a registered athlete.
-            $mine = $candidates->filter(fn (Athlete $a) => self::isCollege($team, $a->account?->department ?? $a->department));
-
-            $frozen = $existing->where('team_id', $team->id)->filter(fn ($gp) => $withPlays->has($gp->player_id));
-            $taken = $frozen->pluck('jersey_number')->flip();
-
-            $noJersey = $mine->filter(fn ($a) => $a->jersey_number === null || $a->jersey_number === '');
-            if ($noJersey->isNotEmpty()) {
-                $notes[] = $team->name.': '.$noJersey->map(fn ($a) => self::nameOf($a))->implode(', ')
-                    .($noJersey->count() === 1 ? ' has' : ' have').' no jersey number yet.';
-            }
-
-            foreach ($mine->diff($noJersey)->sortBy(fn ($a) => self::nameOf($a)) as $a) {
-                if ($withPlays->has($a->id)) {
-                    continue; // already frozen
-                }
-                if ($taken->has($a->jersey_number)) {
-                    $notes[] = "{$team->name}: ".self::nameOf($a)." shares #{$a->jersey_number} with a teammate and was left off.";
-
-                    continue;
-                }
-                $taken[$a->jersey_number] = true;
-
-                GamePlayer::create([
-                    'game_id' => $event->id,
-                    'team_id' => $team->id,
-                    'player_id' => $a->id,
-                    'jersey_number' => $a->jersey_number,
-                ]);
-            }
-        }
-
-        return $notes;
-    }
-
     /** [teamId => points] from the plays that count (undone ones excluded). */
     public function totals(string $eventId): array
     {

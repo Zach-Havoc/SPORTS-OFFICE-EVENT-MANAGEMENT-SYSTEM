@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DisciplineEntryController;
 use App\Http\Controllers\Api\EnrollController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\GameLineupController;
 use App\Http\Controllers\Api\EventSessionController;
 use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\LiveScoreController;
@@ -144,7 +145,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Play-by-play basketball, from the mobile scorer — the assigned committee
     // member or an admin (the `score-game` gate, checked in the controller).
     Route::middleware('role:judge,admin')->group(function () {
-        Route::post('/events/{id}/roster/sync', [BasketballGameController::class, 'syncRoster']);
         Route::post('/events/{id}/plays', [BasketballGameController::class, 'store']);
         Route::delete('/events/{id}/plays/last', [BasketballGameController::class, 'undo']);
         Route::put('/events/{id}/period', [BasketballGameController::class, 'setPeriod']);
@@ -285,6 +285,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // The games this coach's college plays in the sports they handle.
         Route::get('/coach/schedule', [TeamScheduleController::class, 'index']);
+
+        // Play-by-play basketball lineups — the coach names who plays; the
+        // committee's scorer only scores.
+        Route::get('/coach/lineups', [GameLineupController::class, 'index']);
+        Route::get('/events/{id}/lineup', [GameLineupController::class, 'show']);
+        Route::put('/events/{id}/lineup', [GameLineupController::class, 'update']);
 
         Route::get('/coach/profile', [CoachController::class, 'show']);
         Route::put('/coach/profile', [CoachController::class, 'update']);

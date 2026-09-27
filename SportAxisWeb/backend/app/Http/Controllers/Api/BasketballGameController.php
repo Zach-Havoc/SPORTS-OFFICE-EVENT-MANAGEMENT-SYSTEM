@@ -22,13 +22,14 @@ use Illuminate\Support\Str;
  * computed from the plays (game_events), never stored as a running total.
  *
  *   GET    /api/events/{id}/scoreboard       (public)
- *   POST   /api/events/{id}/roster/sync      (scorekeeper — roster from athlete profiles)
  *   POST   /api/events/{id}/plays            (scorekeeper)
  *   DELETE /api/events/{id}/plays/last       (scorekeeper — undo)
  *   PUT    /api/events/{id}/period           (scorekeeper)
  *   POST   /api/events/{id}/finish           (scorekeeper)
  *
- * The scorekeeper is the committee member assigned to the game, or an admin
+ * The players come from each coach's lineup (GameLineupController); the
+ * scorer only credits plays to them. The scorekeeper is the committee
+ * member assigned to the game, or an admin
  * (the `score-game` gate). Every write runs in a transaction holding a row
  * lock on the event, so two scorekeepers tapping at once are serialised, and
  * re-syncs the headline score into `live_scores` so the live board and the
@@ -42,31 +43,6 @@ class BasketballGameController extends Controller
     public function scoreboard(string $eventId)
     {
         return response()->json($this->scoreboard->build(Event::findOrFail($eventId)));
-    }
-
-    /**
-     * POST /api/events/{id}/roster/sync — rebuild both rosters from the
-     * athletes' profiles (college, sport, active, jersey number). The scorer
-     * calls it when the game opens. Returns the scoreboard plus notes on who
-     * was left out and why.
-     */
-    public function syncRoster(Request $request, string $eventId)
-    {
-        $event = Event::findOrFail($eventId);
-        $this->authorizeScorer($request, $event);
-        $teams = $this->requireTeams($event);
-
-        $live = LiveScore::where('event_id', $eventId)->first();
-        $notes = [];
-        if ($live?->status !== 'final') {
-            $notes = DB::transaction(function () use ($eventId, $teams) {
-                $event = Event::whereKey($eventId)->lockForUpdate()->firstOrFail();
-
-                return $this->scoreboard->syncRoster($event, $teams);
-            });
-        }
-
-        return response()->json([...$this->scoreboard->build($event, $teams), 'rosterNotes' => $notes]);
     }
 
     /** POST /api/events/{id}/plays  {teamId, type, playerId?} */
