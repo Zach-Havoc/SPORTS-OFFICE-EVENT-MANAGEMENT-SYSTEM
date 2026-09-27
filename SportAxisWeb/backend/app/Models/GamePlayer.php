@@ -10,10 +10,11 @@ use Illuminate\Database\Eloquent\Model;
  */
 class GamePlayer extends Model
 {
-    protected $fillable = ['game_id', 'team_id', 'player_id', 'jersey_number', 'is_starter'];
+    protected $fillable = ['game_id', 'team_id', 'player_id', 'jersey_number', 'rotation_position', 'is_starter'];
 
     protected $casts = [
         'is_starter' => 'boolean',
+        'rotation_position' => 'integer',
     ];
 
     public function athlete()

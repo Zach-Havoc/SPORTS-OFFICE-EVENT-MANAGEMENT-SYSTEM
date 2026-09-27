@@ -30,4 +30,21 @@ return [
         'overtime_team_fouls_carry_over' => true,
     ],
 
+    'volleyball' => [
+
+        // Rally scoring. A set is won at this many points with a 2-point
+        // lead; the deciding set (3rd of 3, 5th of 5) is shorter.
+        'set_points' => (int) env('VOLLEYBALL_SET_POINTS', 25),
+        'deciding_set_points' => (int) env('VOLLEYBALL_DECIDING_SET_POINTS', 15),
+        'win_by' => 2,
+
+        // Best of 3 or 5 sets; the committee picks before the first rally.
+        'best_of' => [3, 5],
+        'default_best_of' => (int) env('VOLLEYBALL_BEST_OF', 3),
+
+        // Per team, per set (FIVB).
+        'timeouts_per_set' => 2,
+        'substitutions_per_set' => 6,
+    ],
+
 ];

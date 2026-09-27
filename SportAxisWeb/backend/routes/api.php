@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\TeamScheduleController;
 use App\Http\Controllers\Api\TrashController;
 use App\Http\Controllers\Api\TryoutController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\VolleyballGameController;
 use App\Http\Controllers\Api\VenueController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -74,6 +75,7 @@ Route::get('/live-scores', [LiveScoreController::class, 'index']);
 Route::get('/events/{id}/live', [LiveScoreController::class, 'show']);
 // Play-by-play basketball scoreboard (score + box score, computed from plays).
 Route::get('/events/{id}/scoreboard', [BasketballGameController::class, 'scoreboard']);
+Route::get('/events/{id}/volleyball', [VolleyballGameController::class, 'scoreboard']);
 
 // Head-to-head match records + standings (the bracket-seeding source)
 Route::get('/matches', [MatchController::class, 'index']);
@@ -149,6 +151,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/events/{id}/plays/last', [BasketballGameController::class, 'undo']);
         Route::put('/events/{id}/period', [BasketballGameController::class, 'setPeriod']);
         Route::post('/events/{id}/finish', [BasketballGameController::class, 'finish']);
+    });
+
+    // Play-by-play volleyball, from the mobile scorer — same access rule.
+    Route::middleware('role:judge,admin')->prefix('/events/{id}/volleyball')->group(function () {
+        Route::put('/best-of', [VolleyballGameController::class, 'setBestOf']);
+        Route::post('/sets', [VolleyballGameController::class, 'startSet']);
+        Route::post('/plays', [VolleyballGameController::class, 'store']);
+        Route::post('/subs', [VolleyballGameController::class, 'substitute']);
+        Route::delete('/plays/last', [VolleyballGameController::class, 'undo']);
+        Route::post('/finish', [VolleyballGameController::class, 'finish']);
     });
 
     // ─── MOBILE JUDGE APP — Authenticated Routes ──────────────────────────────

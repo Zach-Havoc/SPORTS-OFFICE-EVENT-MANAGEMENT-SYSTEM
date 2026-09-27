@@ -20,37 +20,16 @@ use Illuminate\Support\Collection;
  */
 class BasketballScoreboard
 {
-    /**
-     * The event's two colleges as [home, away], or null if the event doesn't
-     * name two colleges that exist. Matched on full name or abbreviation,
-     * the same way Event::syncTaxonomyKeys does.
-     *
-     * @return array{0: Department, 1: Department}|null
-     */
+    /** @see PlayByPlay::teams() */
     public function teams(Event $event): ?array
     {
-        $labels = array_values($event->departments ?? []);
-        if (count($labels) !== 2) {
-            return null;
-        }
-
-        $all = Department::all(['id', 'name', 'abbreviation', 'logo_url']);
-        $teams = array_map(fn ($label) => $all->first(fn ($d) => self::isCollege($d, $label)), $labels);
-
-        if (! $teams[0] || ! $teams[1] || $teams[0]->id === $teams[1]->id) {
-            return null;
-        }
-
-        return $teams;
+        return PlayByPlay::teams($event);
     }
 
-    /** Whether a stored college value (name or abbreviation) means this department. */
+    /** @see PlayByPlay::isCollege() */
     public static function isCollege(Department $dept, ?string $value): bool
     {
-        $key = fn (?string $v) => mb_strtolower(trim((string) $v));
-        $v = $key($value);
-
-        return $v !== '' && ($v === $key($dept->name) || $v === $key($dept->abbreviation));
+        return PlayByPlay::isCollege($dept, $value);
     }
 
     public static function regulationPeriods(): int
@@ -74,15 +53,10 @@ class BasketballScoreboard
             : $period;
     }
 
-    /** An athlete's display name — from their account when linked (it owns their identity). */
+    /** @see PlayByPlay::nameOf() */
     public static function nameOf(?Athlete $a): string
     {
-        if (! $a) {
-            return 'Unknown player';
-        }
-        $name = $a->account ? trim((string) $a->account->name) : trim($a->first_name.' '.$a->last_name);
-
-        return $name !== '' ? $name : 'Unknown player';
+        return PlayByPlay::nameOf($a);
     }
 
     /** [teamId => points] from the plays that count (undone ones excluded). */
