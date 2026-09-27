@@ -5,7 +5,11 @@ namespace Database\Seeders;
 use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\User;
+use App\Services\BracketService;
+use App\Services\LineupRules;
+use App\Services\PlayByPlay;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -36,7 +40,10 @@ use Illuminate\Support\Str;
  *   judge1–10@g.batstate-u.edu.ph    committee members
  * the sports Basketball, Volleyball, Beach Volleyball, Sepak Takraw,
  * Badminton, Table Tennis and Chess (with the racquet sports' Men's and
- * Women's lines), and a sample schedule of upcoming games with judges.
+ * Women's lines), and a published single-elimination bracket for every
+ * sport and division — Men's and Women's for the team sports and chess,
+ * every racquet line — with a judge on each game, every known matchup's
+ * lineups filled in, and every coach's racquet lines entered.
  *
  * On the deployed site (no shell there):
  *   /artisan-migrate?token=<TOKEN>&seed=1&class=TournamentResetSeeder
@@ -134,7 +141,9 @@ class TournamentResetSeeder extends Seeder
             $coaches = $this->seedCoaches($colleges);
             $judges = $this->seedJudges();
             $this->seedAthletes($coaches);
-            $this->seedSchedule($coaches, $judges);
+            $events = $this->seedBrackets($coaches, $judges);
+            $this->seedLineups($events, $coaches);
+            $this->seedRacquetLines($coaches);
         });
 
         Cache::flush();
@@ -369,48 +378,165 @@ class TournamentResetSeeder extends Seeder
         }
     }
 
-    // ── Sample schedule ─────────────────────────────────────────────────
+    // ── Brackets ────────────────────────────────────────────────────────
 
     /**
-     * Upcoming games over the next week: for each sport, a Men's and a
-     * Women's round between different colleges, each with a committee member.
-     * Badminton and Table Tennis are scheduled on their Singles A lines.
+     * A published single-elimination bracket for every sport and division
+     * among the colleges: Men's and Women's for each team sport and chess
+     * (the division names the bracket and its games), and one per racquet
+     * line ("Badminton — W Singles A"). Each bracket gets its own day and
+     * venue so no two share a court at once, and every game a judge.
+     *
+     * @return Collection<int, Event> every game the brackets created
      */
-    private function seedSchedule(array $coaches, array $judges): void
+    private function seedBrackets(array $coaches, array $judges): Collection
     {
+        $service = app(BracketService::class);
         $colleges = array_values(array_map(fn (array $pair) => $pair['Men']->department, $coaches));
-        $venues = DB::table('venues')->get(['id', 'name'])->all();
-        $slots = [['08:00', '10:00'], ['10:00', '12:00'], ['13:00', '15:00'], ['15:00', '17:00']];
-        $game = 0;
+        $venues = DB::table('venues')->pluck('id')->all();
 
-        foreach (array_keys(self::SPORTS) as $s => $sport) {
-            foreach (['Men' => 'M', 'Women' => 'W'] as $division => $letter) {
-                $category = in_array($sport, ['Badminton', 'Table Tennis'], true) ? "{$sport} — {$letter} Singles A" : $sport;
-                // Two games per sport and division, each pairing a different set of colleges.
-                foreach ([0, 1] as $round) {
-                    $a = ($s * 2 + $round * 4 + ($letter === 'W' ? 1 : 0)) % count($colleges);
-                    $b = ($a + 1 + $round) % count($colleges);
-                    $venue = $venues ? $venues[$game % count($venues)] : null;
-                    $judge = $judges[$game % count($judges)];
-                    [$start, $end] = $slots[$game % count($slots)];
-
-                    Event::create([
-                        'id' => (string) Str::uuid(),
-                        'name' => "{$division}'s {$sport}",
-                        'category' => $category,
-                        'schedule' => now()->addDays(1 + intdiv($game, count($slots)))->toDateString(),
-                        'start_time' => $start,
-                        'end_time' => $end,
-                        'venue_id' => $venue?->id,
-                        'venue_name' => $venue?->name ?? 'Main Gymnasium',
-                        'departments' => [$colleges[$a], $colleges[$b]],
-                        'judges' => [['id' => $judge->id, 'name' => $judge->name, 'email' => $judge->email]],
-                        'status' => 'upcoming',
-                        'qr_token' => Str::random(32),
-                    ]);
-                    $game++;
+        $plans = [];
+        foreach (array_keys(self::SPORTS) as $sport) {
+            if (in_array($sport, ['Badminton', 'Table Tennis'], true)) {
+                foreach (['M', 'W'] as $g) {
+                    foreach (['Singles A', 'Singles B', 'Doubles'] as $line) {
+                        $plans[] = ['sport' => "{$sport} — {$g} {$line}", 'division' => null];
+                    }
+                }
+            } else {
+                foreach (['Men', 'Women'] as $division) {
+                    $plans[] = ['sport' => $sport, 'division' => $division];
                 }
             }
         }
+
+        $events = collect();
+        $judge = 0;
+        foreach ($plans as $i => $plan) {
+            // A different draw each time: rotate who meets whom.
+            $order = [...array_slice($colleges, $i % count($colleges)), ...array_slice($colleges, 0, $i % count($colleges))];
+
+            $bracket = $service->generate([
+                'sport' => $plan['sport'],
+                'division' => $plan['division'],
+                'format' => 'single_elimination',
+                'drawMethod' => 'manual',
+                'participants' => $order,
+                'startDate' => now()->addDays(1 + ($venues ? intdiv($i, count($venues)) : $i))->toDateString(),
+                'startTime' => '08:00',
+                'matchDuration' => 60,
+                'breakDuration' => 15,
+                'venueId' => $venues ? $venues[$i % count($venues)] : null,
+            ]);
+            $result = $service->publish($bracket);
+            if (! empty($result['conflicts'])) {
+                throw new \RuntimeException("Couldn't schedule the {$bracket->name} bracket: a venue is already booked.");
+            }
+
+            foreach (Event::whereIn('id', $bracket->fresh('matches')->matches->pluck('event_id')->filter())->get() as $event) {
+                $j = $judges[$judge++ % count($judges)];
+                $event->update(['judges' => [['id' => $j->id, 'name' => $j->name, 'email' => $j->email]]]);
+                $events->push($event);
+            }
+        }
+
+        return $events;
+    }
+
+    /**
+     * Lineups for every game whose two colleges are known (round one), from
+     * each college's coach for that division: basketball and volleyball send
+     * all ten (the first six in the volleyball rotation), a sepak takraw regu
+     * of five (Tekong, Feeder, Striker, two subs), beach volleyball a pair and
+     * a reserve, chess six (boards 1–4, two reserves). Later rounds fill in
+     * as teams advance — a team carries its lineup forward.
+     */
+    private function seedLineups(Collection $events, array $coaches): void
+    {
+        $byCollege = collect($coaches)->keyBy(fn (array $pair) => $pair['Men']->department_id);
+        $rows = [];
+
+        foreach ($events as $event) {
+            $sport = LineupRules::sportOf($event);
+            $teams = $sport ? PlayByPlay::teams($event) : null;
+            if (! $teams) {
+                continue;
+            }
+            $rules = LineupRules::for($sport);
+            $division = PlayByPlay::divisionOf($event) ?? 'Men';
+
+            foreach ($teams as $team) {
+                $coach = $byCollege[$team->id][$division] ?? null;
+                if (! $coach) {
+                    continue;
+                }
+                $players = DB::table('athletes')->where('coach_id', $coach->id)
+                    ->whereRaw('LOWER(sport) = ?', [$sport])
+                    ->orderByRaw('CAST(jersey_number AS UNSIGNED)')
+                    ->limit(min($rules['max'], self::PER_TEAM))
+                    ->get(['id', 'jersey_number']);
+
+                foreach ($players as $k => $player) {
+                    $rows[] = [
+                        'game_id' => $event->id,
+                        'team_id' => $team->id,
+                        'player_id' => $player->id,
+                        'jersey_number' => $player->jersey_number,
+                        'rotation_position' => $k < count($rules['positions']) ? $k + 1 : null,
+                        'is_starter' => $k < (['basketball' => 5, 'beach volleyball' => 2][$sport] ?? count($rules['positions'])),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+        }
+
+        foreach (array_chunk($rows, 300) as $chunk) {
+            DB::table('game_players')->insert($chunk);
+        }
+    }
+
+    /**
+     * Every coach's racquet lines, from their own badminton / table tennis
+     * players: Singles A, Singles B, and a Doubles pair (C and D) — the Men's
+     * coach on the M lines, the Women's on the W lines.
+     */
+    private function seedRacquetLines(array $coaches): void
+    {
+        $rows = [];
+        foreach ($coaches as $pair) {
+            foreach (['Men' => 'M', 'Women' => 'W'] as $division => $g) {
+                $coach = $pair[$division];
+                foreach (['Badminton', 'Table Tennis'] as $sport) {
+                    $players = DB::table('athletes')->where('coach_id', $coach->id)->where('sport', $sport)
+                        ->orderByRaw('CAST(jersey_number AS UNSIGNED)')->limit(4)
+                        ->get(['id', 'first_name', 'last_name'])->values();
+                    $lines = [
+                        ["{$sport} — {$g} Singles A", null, $players[0] ?? null],
+                        ["{$sport} — {$g} Singles B", null, $players[1] ?? null],
+                        ["{$sport} — {$g} Doubles", 'C', $players[2] ?? null],
+                        ["{$sport} — {$g} Doubles", 'D', $players[3] ?? null],
+                    ];
+                    foreach ($lines as [$category, $slot, $athlete]) {
+                        if (! $athlete) {
+                            continue;
+                        }
+                        $rows[] = [
+                            'id' => (string) Str::uuid(),
+                            'category' => $category,
+                            'department' => $coach->department,
+                            'athlete_id' => $athlete->id,
+                            'athlete_name' => "{$athlete->first_name} {$athlete->last_name}",
+                            'coach_id' => $coach->id,
+                            'pair_slot' => $slot,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        DB::table('discipline_entries')->insert($rows);
     }
 }

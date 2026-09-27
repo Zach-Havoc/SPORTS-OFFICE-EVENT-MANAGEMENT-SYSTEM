@@ -44,6 +44,18 @@ class DisciplineEntryTest extends TestCase
         $this->assertDatabaseCount('discipline_entries', 1);
     }
 
+    public function test_a_college_with_a_long_name_can_save_a_line(): void
+    {
+        // 85 characters — longer than the column used to allow.
+        $long = 'College of Accountancy, Business, Economics, and International Hospitality Management';
+        $coach = $this->coach($long);
+        $athlete = $this->athletes()->create(['coach_id' => $coach->id, 'department' => $long]);
+
+        $this->postJson('/api/discipline-entries', ['category' => self::SINGLES_A, 'athleteId' => $athlete->id])
+            ->assertCreated()
+            ->assertJsonPath('department', $long);
+    }
+
     public function test_a_coach_cannot_assign_another_coachs_athlete(): void
     {
         $otherCoach = $this->users()->coach()->create();

@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Athlete;
+use App\Models\Bracket;
 use App\Models\CampusStudent;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\GamePlayer;
 use App\Models\User;
+use App\Services\LineupRules;
 use Database\Seeders\TournamentResetSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -102,14 +105,40 @@ class TournamentResetSeederTest extends TestCase
         $this->assertSame(10, User::where('role', 'judge')->count());
         $this->postJson('/api/login', ['email' => 'athlete980@g.batstate-u.edu.ph', 'password' => 'demo1234'])->assertOk();
 
-        // A sample schedule: every sport, Men's and Women's, two different colleges, a judge each.
+        // A published single-elimination bracket per sport and division — team sports and
+        // chess in Men's and Women's, every racquet line — each game with a judge.
+        $brackets = Bracket::all();
+        $this->assertCount(22, $brackets);
+        $this->assertTrue($brackets->every(fn ($b) => $b->status === 'active' && $b->format === 'single_elimination'));
+        $this->assertNotNull($brackets->firstWhere('name', "Women's Sepak Takraw — Elimination"));
+        $this->assertNotNull($brackets->firstWhere('sport', 'Table Tennis — W Doubles'));
         $games = Event::all();
-        $this->assertCount(28, $games);
+        $this->assertCount(22 * 6, $games);   // 7 colleges: 3 quarterfinals (one bye), 2 semis, a final
         foreach ($games as $game) {
-            $this->assertCount(2, array_unique($game->departments));
             $this->assertCount(1, $game->judges);
             $this->assertNotNull($game->category_id, "{$game->category} not linked to a sport");
         }
+
+        // Every known matchup has both lineups, with the sport's positions.
+        $ready = $games->filter(fn ($g) => count($g->departments) === 2 && LineupRules::sportOf($g));
+        $this->assertCount(10 * 3, $ready);
+        foreach ($ready as $game) {
+            $this->assertSame(2, GamePlayer::where('game_id', $game->id)->distinct()->count('team_id'), $game->name);
+        }
+        $regu = $ready->first(fn ($g) => str_contains($g->name, "Men's Sepak Takraw"));
+        $this->assertEqualsCanonicalizing([1, 1, 2, 2, 3, 3, null, null, null, null],
+            GamePlayer::where('game_id', $regu->id)->pluck('rotation_position')->all());
+        $volley = $ready->first(fn ($g) => str_contains($g->name, "Women's Volleyball"));
+        foreach (GamePlayer::where('game_id', $volley->id)->get()->groupBy('team_id') as $side) {
+            $this->assertCount(10, $side);
+            $this->assertEquals([1, 2, 3, 4, 5, 6], $side->pluck('rotation_position')->filter()->sort()->values()->all());
+        }
+        // …and the women's volleyball lineup is the college's women.
+        $this->assertTrue(GamePlayer::with('athlete.account')->where('game_id', $volley->id)->get()
+            ->every(fn ($gp) => $gp->athlete->account->gender === 'Female'));
+
+        // Racquet lines: Singles A, Singles B and a Doubles pair, per coach per racquet sport.
+        $this->assertSame(14 * 2 * 4, DB::table('discipline_entries')->count());
 
         // A Women's coach lines up only Women's games.
         $womensCoach = User::where('email', 'coach2@g.batstate-u.edu.ph')->first();

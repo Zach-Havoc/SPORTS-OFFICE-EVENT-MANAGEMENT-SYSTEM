@@ -70,13 +70,15 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // ── Sample Departments ─────────────────────
+        // ── Departments — the campus's seven colleges ──
         $departments = [
-            ['name' => 'College of Engineering', 'abbreviation' => 'CoE'],
-            ['name' => 'College of Information Technology', 'abbreviation' => 'CIT'],
+            ['name' => 'College of Accountancy, Business, Economics, and International Hospitality Management', 'abbreviation' => 'CABEIHM'],
+            ['name' => 'College of Informatics and Computing Sciences', 'abbreviation' => 'CICS'],
+            ['name' => 'College of Teacher Education', 'abbreviation' => 'CTE'],
+            ['name' => 'College of Nursing and Allied Health Sciences', 'abbreviation' => 'CONAHS'],
+            ['name' => 'College of Criminal Justice Education', 'abbreviation' => 'CCJE'],
             ['name' => 'College of Arts and Sciences', 'abbreviation' => 'CAS'],
-            ['name' => 'College of Business', 'abbreviation' => 'CoB'],
-            ['name' => 'College of Education', 'abbreviation' => 'CoEd'],
+            ['name' => 'Laboratory School', 'abbreviation' => 'LS'],
         ];
 
         foreach ($departments as $dept) {
