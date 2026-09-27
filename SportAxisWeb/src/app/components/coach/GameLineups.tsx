@@ -12,18 +12,21 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import Loading from '../Loading';
 
 /**
- * The coach's side of play-by-play basketball: for each of their college's
- * upcoming and ongoing games, who plays and under which jersey number. The
+ * The coach's side of play-by-play scoring (basketball, volleyball): for each
+ * of their college's upcoming and ongoing games, who plays and under which
+ * jersey number — and for volleyball, the starting rotation (I serves). The
  * committee scores from the mobile app and can only credit these players,
  * so a game with no lineup can only be scored as team points.
  */
+
+const POSITIONS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 export function GameLineups({ games }: { games: CoachLineupGame[] }) {
   const abbr = useDeptAbbreviator();
   const [editing, setEditing] = useState<CoachLineupGame | null>(null);
 
   return (
     <section className="mb-10">
-      <h2 className="t-section mb-1">Basketball games</h2>
+      <h2 className="t-section mb-1">Games</h2>
       <p className="mb-4 text-sm text-text-secondary">
         Name who plays in each game. The committee scores from their phones and can only credit the players you line up.
       </p>
@@ -60,7 +63,7 @@ export function GameLineups({ games }: { games: CoachLineupGame[] }) {
   );
 }
 
-type Row = { on: boolean; jersey: string; name: string; hasPlays: boolean };
+type Row = { on: boolean; jersey: string; name: string; hasPlays: boolean; position: number | null };
 
 function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () => void }) {
   const abbr = useDeptAbbreviator();
@@ -74,8 +77,8 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
     const data = lineupQ.data;
     if (!data) return null;
     const r: Record<string, Row> = {};
-    for (const c of data.candidates) r[c.playerId] = { on: false, jersey: c.jerseyNumber ?? '', name: c.name, hasPlays: false };
-    for (const p of data.players) r[p.playerId] = { on: true, jersey: p.jerseyNumber, name: p.name, hasPlays: p.hasPlays };
+    for (const c of data.candidates) r[c.playerId] = { on: false, jersey: c.jerseyNumber ?? '', name: c.name, hasPlays: false, position: null };
+    for (const p of data.players) r[p.playerId] = { on: true, jersey: p.jerseyNumber, name: p.name, hasPlays: p.hasPlays, position: p.rotationPosition };
     return r;
   }, [lineupQ.data]);
 
@@ -87,9 +90,31 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
 
   const entries = rows ? Object.entries(rows).sort(([, a], [, b]) => a.name.localeCompare(b.name)) : [];
   const chosen = entries.filter(([, r]) => r.on);
+  const isVolleyball = (lineupQ.data?.sport ?? game.sport) === 'volleyball';
+
+  /** Put a player in a rotation position, moving whoever had it out. */
+  const setPosition = (id: string, position: number | null) =>
+    setRows((r) => {
+      if (!r) return r;
+      const next = { ...r };
+      for (const [k, v] of Object.entries(next)) if (position && v.position === position) next[k] = { ...v, position: null };
+      next[id] = { ...next[id], position };
+      return next;
+    });
 
   const save = () => {
-    const players = chosen.map(([playerId, r]) => ({ playerId, jerseyNumber: r.jersey.trim() }));
+    const players = chosen.map(([playerId, r]) => ({
+      playerId,
+      jerseyNumber: r.jersey.trim(),
+      rotationPosition: isVolleyball ? r.position : null,
+    }));
+    if (isVolleyball) {
+      const filled = chosen.filter(([, r]) => r.position).length;
+      if (filled !== 0 && filled !== 6) {
+        setError(`The starting rotation needs all six positions (I–VI) — ${filled} set. Or clear them all.`);
+        return;
+      }
+    }
     const missing = chosen.find(([, r]) => !/^\d{1,2}$/.test(r.jersey.trim()));
     if (missing) {
       setError(`${missing[1].name} needs a jersey number from 0 to 99.`);
@@ -124,6 +149,7 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
           <DialogTitle>Lineup vs {game.opponent ? abbr(game.opponent) : 'TBD'}</DialogTitle>
           <DialogDescription>
             Tick who plays and check their jersey numbers. The number defaults to the athlete's profile and can differ for this game.
+            {isVolleyball && ' Put six players in the starting rotation — position I serves first. The scorer confirms it at the start of each set.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -148,7 +174,7 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
                     className="size-5 accent-[--action]"
                     checked={r.on}
                     disabled={r.hasPlays}
-                    onChange={(e) => set(id, { on: e.target.checked })}
+                    onChange={(e) => set(id, { on: e.target.checked, ...(e.target.checked ? {} : { position: null }) })}
                   />
                   <span className="min-w-0">
                     <span className="block truncate text-sm text-text">{r.name}</span>
@@ -165,6 +191,20 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
                   onChange={(e) => set(id, { jersey: e.target.value.replace(/\D/g, '') })}
                   className="numeral h-11 w-16 text-center text-base"
                 />
+                {isVolleyball && (
+                  <select
+                    aria-label={`Starting position for ${r.name}`}
+                    value={r.position ?? ''}
+                    disabled={!r.on}
+                    onChange={(e) => setPosition(id, e.target.value ? Number(e.target.value) : null)}
+                    className="h-11 w-20 rounded-md border border-border bg-surface px-2 text-sm text-text disabled:opacity-50"
+                  >
+                    <option value="">Bench</option>
+                    {POSITIONS.map((label, i) => (
+                      <option key={label} value={i + 1}>{label}{i === 0 ? ' (serve)' : ''}</option>
+                    ))}
+                  </select>
+                )}
               </li>
             ))}
           </ul>

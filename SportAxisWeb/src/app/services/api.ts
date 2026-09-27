@@ -412,15 +412,17 @@ export interface DisciplineEntry {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Basketball game lineups (coach) — who plays in each play-by-play game,
-// under which jersey number. The committee's mobile scorer only credits
-// plays to these players.
+// Game lineups (coach) — who plays in each play-by-play game (basketball,
+// volleyball), under which jersey number, and for volleyball the default
+// starting rotation. The committee's mobile scorer only credits plays to
+// these players.
 // ─────────────────────────────────────────────────────────────────────
 
 export interface CoachLineupGame {
   id: string;
   name: string;
   category: string;
+  sport: "basketball" | "volleyball";
   schedule: string;
   startTime: string | null;
   venueName: string | null;
@@ -432,9 +434,10 @@ export interface CoachLineupGame {
 
 export interface GameLineup {
   event: { id: string; name: string; category: string; schedule: string };
+  sport: "basketball" | "volleyball";
   team: { id: string; name: string; abbreviation: string | null };
   locked: boolean;
-  players: Array<{ playerId: string; name: string; jerseyNumber: string; hasPlays: boolean }>;
+  players: Array<{ playerId: string; name: string; jerseyNumber: string; rotationPosition: number | null; hasPlays: boolean }>;
   /** The coach's active athletes in this sport, with their profile jersey as a default. */
   candidates: Array<{ playerId: string; name: string; jerseyNumber: string | null }>;
 }
@@ -450,7 +453,7 @@ export const saveGameLineup = ({
   players,
 }: {
   eventId: string;
-  players: Array<{ playerId: string; jerseyNumber: string }>;
+  players: Array<{ playerId: string; jerseyNumber: string; rotationPosition?: number | null }>;
 }): Promise<GameLineup> =>
   apiRequest(`/events/${eventId}/lineup`, { method: "PUT", body: JSON.stringify({ players }) }, true);
 

@@ -133,7 +133,7 @@ export default function CoachLineup() {
           Line-up
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Who plays for your college: each basketball game's players, and your racquet lines.
+          Who plays for your college: each basketball and volleyball game's players, and your racquet lines.
         </p>
       </header>
 
@@ -143,7 +143,7 @@ export default function CoachLineup() {
         basketballGames.length === 0 && (
           <Card>
             <CardContent className="py-10 text-center text-sm text-gray-500">
-              No upcoming basketball games for your college, and you don't coach a racquet sport (Badminton, Table Tennis). Nothing to set up here.
+              No upcoming basketball or volleyball games for your college, and you don't coach a racquet sport (Badminton, Table Tennis). Nothing to set up here.
             </CardContent>
           </Card>
         )
