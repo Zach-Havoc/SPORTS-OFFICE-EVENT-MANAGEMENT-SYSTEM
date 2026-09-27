@@ -540,4 +540,21 @@ class BracketTest extends TestCase
         $this->assertSame(1, Bracket::count());
         $this->assertGreaterThan(0, Event::count());
     }
+
+    public function test_a_round_robin_over_several_days_keeps_every_fixture(): void
+    {
+        // 21 fixtures run past one day, so they fall into "rounds" 1–3.
+        $service = app(BracketService::class);
+        $bracket = $service->generate([
+            'sport' => 'Chess', 'format' => 'round_robin',
+            'participants' => ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+            'startDate' => '2026-10-01', 'startTime' => '08:00',
+        ]);
+        $service->publish($bracket->fresh('matches'));
+
+        $matches = BracketMatch::where('bracket_id', $bracket->id)->get();
+        $this->assertGreaterThan(1, $matches->max('round'));
+        $this->assertCount(21, $matches->whereNotNull('home_team')->whereNotNull('away_team'));
+        $this->assertCount(21, $matches->whereNotNull('event_id'));
+    }
 }

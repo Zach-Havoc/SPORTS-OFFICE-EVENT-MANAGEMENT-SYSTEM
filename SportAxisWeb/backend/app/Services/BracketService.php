@@ -395,10 +395,15 @@ class BracketService
         $matches = $bracket->matches->keyBy('id');
         $maxRound = (int) ($matches->max('round') ?? 0);
 
-        // Pass 1: clear derived (round > 1) team slots; settle byes.
+        // Pass 1: clear derived team slots (the ones an earlier match feeds —
+        // elimination rounds after the first); settle byes. A round robin's
+        // later "rounds" are just later days of fixed fixtures: nothing feeds
+        // them, so their teams must stay.
         foreach ($matches as $m) {
-            if ($m->round > 1) {
+            if ($m->home_source_match_id) {
                 $m->home_team = null;
+            }
+            if ($m->away_source_match_id) {
                 $m->away_team = null;
             }
             if ($m->is_bye) {
