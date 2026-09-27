@@ -17,10 +17,17 @@ class PlayByPlay
     /** Sports scored play-by-play on the mobile app. */
     public const SPORTS = ['basketball', 'volleyball'];
 
-    /** 'basketball' | 'volleyball' for a play-by-play sport, else null. */
+    /**
+     * 'basketball' | 'volleyball' for a play-by-play sport, else null. Beach
+     * volleyball isn't indoor volleyball (21-point sets, pairs, no rotation),
+     * so it's scored the regular way until it gets its own rules.
+     */
     public static function sportOf(Event $event): ?string
     {
         $category = mb_strtolower((string) $event->category);
+        if (str_contains($category, 'beach')) {
+            return null;
+        }
         foreach (self::SPORTS as $sport) {
             if (str_contains($category, $sport)) {
                 return $sport;

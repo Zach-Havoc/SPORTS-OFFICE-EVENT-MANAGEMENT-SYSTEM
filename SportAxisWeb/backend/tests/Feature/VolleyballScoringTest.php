@@ -333,6 +333,16 @@ class VolleyballScoringTest extends TestCase
             ->assertStatus(422)->assertJsonPath('error', "This game isn't scored as volleyball.");
     }
 
+    public function test_beach_volleyball_is_not_scored_as_indoor_volleyball(): void
+    {
+        $beach = $this->events()->create(['category' => 'Beach Volleyball', 'departments' => [$this->home->name, $this->away->name]]);
+        $this->actingAsJudgeFor($beach);
+
+        $this->postJson("/api/events/{$beach->id}/volleyball/sets", ['firstServerTeamId' => $this->home->id])
+            ->assertStatus(422)->assertJsonPath('error', "This game isn't scored as volleyball.");
+        $this->getJson("/api/events/{$beach->id}/lineups")->assertOk()->assertJsonPath('sport', null);
+    }
+
     // ── The coach's starting rotation ───────────────────────────────────
 
     public function test_the_coach_sets_a_full_starting_rotation_or_none(): void

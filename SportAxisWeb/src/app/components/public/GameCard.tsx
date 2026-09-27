@@ -348,7 +348,8 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
  */
 function Lineups({ eventId, category }: { eventId: string; category: string }) {
   const abbr = useDeptAbbreviator();
-  const playByPlay = /basketball|volleyball/i.test(category);
+  // Beach volleyball is scored the regular way, so it has no lineups.
+  const playByPlay = /basketball|volleyball/i.test(category) && !/beach/i.test(category);
   const { data, isLoading } = useEventLineups(eventId, playByPlay);
   if (!playByPlay) return null;
 

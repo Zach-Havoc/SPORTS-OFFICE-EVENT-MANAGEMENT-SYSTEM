@@ -83,8 +83,12 @@ export default function ScoringScreen() {
   // Basketball and volleyball are scored play-by-play by default. Once a play
   // is recorded the plays own the score, so the +/− scoreboard can't be
   // switched back to.
+  // (Beach volleyball has its own rules, so it keeps the regular scoreboard.)
   const pbpSport =
-    isMatch && depts.length === 2 && (sportConfig.type === "basketball" || sportConfig.type === "volleyball")
+    isMatch &&
+    depts.length === 2 &&
+    !/beach/i.test(event?.category ?? "") &&
+    (sportConfig.type === "basketball" || sportConfig.type === "volleyball")
       ? sportConfig.type
       : null;
   const [finalOnly, setFinalOnly] = useState(false);
