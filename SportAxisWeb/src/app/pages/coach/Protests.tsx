@@ -68,12 +68,12 @@ export default function CoachProtests() {
 
   const submit = () => {
     if (!eventId) {
-      toast.error("Pick the game you are protesting.");
+      toast.error("Pick the game you are appealing.");
       return;
     }
     if (reason.trim().length < 15) {
       toast.error(
-        "Explain the protest in a bit more detail (at least 15 characters).",
+        "Explain the appeal in a bit more detail (at least 15 characters).",
       );
       return;
     }
@@ -81,18 +81,18 @@ export default function CoachProtests() {
       { eventId, reason: reason.trim() },
       {
         onSuccess: () => {
-          toast.success("Protest filed. The sports office will review it.");
+          toast.success("Appeal filed. The sports office will review it.");
           setEventId("");
           setReason("");
         },
         onError: (e: any) =>
-          toast.error(e?.message || "Could not file the protest"),
+          toast.error(e?.message || "Could not file the appeal"),
       },
     );
   };
 
   if (protestsQuery.isLoading)
-    return <Loading fullScreen={false} message="Loading protests…" />;
+    return <Loading fullScreen={false} message="Loading appeals…" />;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -100,7 +100,7 @@ export default function CoachProtests() {
         <div className="flex items-center gap-2">
           <Flag className="h-5 w-5 text-gray-400" />
           <h1 className="t-page-title">
-            Protests
+            Appeals
           </h1>
           <RefreshStatus
             fetching={protestsQuery.isFetching && !protestsQuery.isLoading}
@@ -109,14 +109,14 @@ export default function CoachProtests() {
           />
         </div>
         <p className="mt-1 text-sm text-gray-500">
-          Formally contest a game result. The sports office reviews each protest
+          Formally contest a game result. The sports office reviews each appeal
           and records a written decision.
         </p>
       </div>
 
       <Card className="mb-6">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">File a protest</CardTitle>
+          <CardTitle className="text-base">File an appeal</CardTitle>
           <CardDescription>
             Choose one of your team&rsquo;s games and describe the issue.
           </CardDescription>
@@ -147,18 +147,18 @@ export default function CoachProtests() {
             rows={4}
           />
           <Button onClick={submit} disabled={file.isPending}>
-            Submit protest
+            Submit appeal
           </Button>
         </CardContent>
       </Card>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
-        Your protests
+        Your appeals
       </h2>
       {protests.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-gray-400">
-            You have not filed any protests.
+            You have not filed any appeals.
           </CardContent>
         </Card>
       ) : (

@@ -17,7 +17,7 @@ import type { OfficeTransaction } from '../../services/api';
 const TYPE_LABEL: Record<OfficeTransaction['type'], string> = {
   cmo_requirement: 'CMO requirement',
   tryout_application: 'Tryout application',
-  protest: 'Protest',
+  protest: 'Appeal',
 };
 
 const STATUS_TABS = [
@@ -71,7 +71,7 @@ export default function AdminTransactions() {
     <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="Transactions"
-        description="Every request the Sports Office processes — CMO requirements, tryout applications and protests — in one log."
+        description="Every request the Sports Office processes — CMO requirements, tryout applications and appeals — in one log."
         actions={<RefreshStatus fetching={query.isFetching && !query.isLoading} error={query.isRefetchError} onRetry={() => query.refetch()} />}
       />
 
@@ -108,7 +108,7 @@ export default function AdminTransactions() {
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value="cmo_requirement">CMO requirements</SelectItem>
               <SelectItem value="tryout_application">Tryout applications</SelectItem>
-              <SelectItem value="protest">Protests</SelectItem>
+              <SelectItem value="protest">Appeals</SelectItem>
             </SelectContent>
           </Select>
           <div className="relative sm:w-72">

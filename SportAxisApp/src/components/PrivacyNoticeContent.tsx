@@ -39,7 +39,7 @@ export function PrivacyNoticeContent() {
           against the university registrar.{'\n'}
           • Athlete eligibility documents, including medical clearance certificates,
           uploaded as part of the eligibility checklist.{'\n'}
-          • Event participation records: scores, attendance, and protest history tied to
+          • Event participation records: scores, attendance, and appeal history tied to
           your account.
         </Text>
       </Section>

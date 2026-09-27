@@ -66,7 +66,7 @@ export default function AdminProtests() {
         { id: p.id, data: { status: decision, resolution: resolution.trim() } },
         {
           onSuccess: () => {
-            toast.success(`Protest ${decision}`);
+            toast.success(`Appeal ${decision}`);
             onDone();
           },
           onError: (e: any) => toast.error(e?.message || "Could not resolve"),
@@ -77,7 +77,7 @@ export default function AdminProtests() {
   );
 
   if (query.isLoading)
-    return <Loading fullScreen={false} message="Loading protests…" />;
+    return <Loading fullScreen={false} message="Loading appeals…" />;
 
   return (
     <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
@@ -85,7 +85,7 @@ export default function AdminProtests() {
         <div className="flex items-center gap-2">
           <Gavel className="h-5 w-5 text-gray-400" />
           <h1 className="t-page-title">
-            Protests
+            Appeals
           </h1>
           <RefreshStatus
             fetching={query.isFetching && !query.isLoading}
@@ -105,7 +105,7 @@ export default function AdminProtests() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All protests</SelectItem>
+            <SelectItem value="all">All appeals</SelectItem>
             <SelectItem value="open">Open</SelectItem>
             <SelectItem value="upheld">Upheld</SelectItem>
             <SelectItem value="dismissed">Dismissed</SelectItem>
@@ -116,7 +116,7 @@ export default function AdminProtests() {
       {protests.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-gray-400">
-            No protests.
+            No appeals.
           </CardContent>
         </Card>
       ) : (

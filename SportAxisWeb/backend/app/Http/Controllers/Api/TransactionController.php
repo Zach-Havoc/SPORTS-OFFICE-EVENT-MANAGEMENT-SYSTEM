@@ -99,9 +99,9 @@ class TransactionController extends Controller
         return Protest::with('event:id,name')->orderByDesc('created_at')->get()->map(fn (Protest $p) => [
             'id' => $p->id,
             'type' => 'protest',
-            'reference' => 'PRT-'.strtoupper(substr($p->id, 0, 8)),
+            'reference' => 'APL-'.strtoupper(substr($p->id, 0, 8)),
             'party' => $p->department,
-            'subject' => $p->event?->name ? "Protest: {$p->event->name}" : 'Protest',
+            'subject' => $p->event?->name ? "Appeal: {$p->event->name}" : 'Appeal',
             'status' => $p->status,
             'open' => $p->status === 'open',
             'filedAt' => optional($p->created_at)->toIso8601String(),

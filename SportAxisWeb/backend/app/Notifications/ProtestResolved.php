@@ -20,9 +20,9 @@ class ProtestResolved extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Your protest was '.$this->protest->status)
+            ->subject('Your appeal was '.$this->protest->status)
             ->greeting('Hello '.($notifiable->name ?? 'Coach').',')
-            ->line("Your protest about {$this->protest->event?->name} was **{$this->protest->status}**.")
+            ->line("Your appeal about {$this->protest->event?->name} was **{$this->protest->status}**.")
             ->line($this->protest->resolution ?: '')
             ->line('You can see the full decision in the SportsAxis app.');
     }
@@ -32,8 +32,8 @@ class ProtestResolved extends Notification
     {
         return [
             'kind' => 'protest_resolved',
-            'title' => 'Protest '.$this->protest->status,
-            'body' => "Your protest about {$this->protest->event?->name} was {$this->protest->status}.",
+            'title' => 'Appeal '.$this->protest->status,
+            'body' => "Your appeal about {$this->protest->event?->name} was {$this->protest->status}.",
             'url' => '/coach/protests',
             'protestId' => $this->protest->id,
         ];

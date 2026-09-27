@@ -21,8 +21,8 @@ class ProtestFiled extends Notification
     {
         return [
             'kind' => 'protest_filed',
-            'title' => 'New protest',
-            'body' => "{$this->protest->department} protested {$this->protest->event?->name}.",
+            'title' => 'New appeal',
+            'body' => "{$this->protest->department} appealed the result of {$this->protest->event?->name}.",
             'url' => '/admin/protests',
             'protestId' => $this->protest->id,
         ];

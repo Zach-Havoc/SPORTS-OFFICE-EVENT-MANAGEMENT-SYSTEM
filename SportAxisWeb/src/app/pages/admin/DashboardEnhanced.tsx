@@ -382,7 +382,7 @@ export default function DashboardEnhanced() {
                     `${openByType.cmo_requirement} CMO`,
                   openByType.tryout_application &&
                     `${openByType.tryout_application} tryout`,
-                  openByType.protest && `${openByType.protest} protest`,
+                  openByType.protest && `${openByType.protest} ${openByType.protest === 1 ? "appeal" : "appeals"}`,
                 ]
                   .filter(Boolean)
                   .join(" · ")
@@ -1212,7 +1212,7 @@ const TX_LABEL: Record<
 > = {
   cmo_requirement: { label: "CMO requirement", icon: FileBadge },
   tryout_application: { label: "Tryout", icon: UserPlus },
-  protest: { label: "Protest", icon: Flag },
+  protest: { label: "Appeal", icon: Flag },
 };
 
 function WaitingOnYou({

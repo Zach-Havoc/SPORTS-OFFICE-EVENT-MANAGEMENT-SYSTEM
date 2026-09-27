@@ -59,7 +59,7 @@ export function getNavigation(role: string | undefined): {
             { name: "Seasons", path: "/admin/seasons", icon: CalendarRange },
             { name: "Bracketing", path: "/admin/bracketing", icon: Trophy },
             { name: "Venues", path: "/admin/venues", icon: MapPin },
-            { name: "Protests", path: "/admin/protests", icon: Gavel },
+            { name: "Appeals", path: "/admin/protests", icon: Gavel },
           ],
         },
         {
@@ -108,7 +108,7 @@ export function getNavigation(role: string | undefined): {
           label: "Competition",
           items: [
             { name: "Schedule", path: "/coach/schedule", icon: Calendar, primary: true },
-            { name: "Protests", path: "/coach/protests", icon: Flag },
+            { name: "Appeals", path: "/coach/protests", icon: Flag },
           ],
         },
         {

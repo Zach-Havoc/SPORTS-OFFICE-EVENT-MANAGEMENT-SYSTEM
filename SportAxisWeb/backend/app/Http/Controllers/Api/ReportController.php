@@ -217,7 +217,7 @@ class ReportController extends Controller
             .' · '.e((string) $e['season']).'</p>'
             .'<h2>Final standing</h2><table><tr><th>Rank</th><th>College</th><th>Total</th><th>Medal</th></tr>'.$rankRows.'</table>'
             .'<h2>Score sheet</h2><table><tr><th>Judge</th><th>College</th><th>Score</th><th>Status</th></tr>'.$scoreRows.'</table>'
-            .($protests ? '<h2>Protests</h2><ul>'.$protests.'</ul>' : '');
+            .($protests ? '<h2>Appeals</h2><ul>'.$protests.'</ul>' : '');
     }
 
     /** @param  array<int, array<string, mixed>>  $board */
