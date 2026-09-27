@@ -48,10 +48,18 @@ class Category extends Model
     /**
      * A "discipline" is one line of a racquet sport (e.g. "Badminton — M
      * Doubles"): grouped under a parent sport, contested as its own bracket.
+     * A team sport's Men's / Women's division ("Basketball — Men") is also a
+     * child category, but not a line — see isDivision().
      */
     public function isDiscipline(): bool
     {
-        return ! empty($this->parent_sport);
+        return ! empty($this->parent_sport) && preg_match('/Singles|Doubles/', (string) $this->division) === 1;
+    }
+
+    /** A team sport's Men's or Women's division ("Basketball — Women"). */
+    public function isDivision(): bool
+    {
+        return ! empty($this->parent_sport) && in_array($this->division, ['Men', 'Women'], true);
     }
 
     /** 'M' | 'W' for a discipline, else null. */
@@ -67,7 +75,7 @@ class Category extends Model
     /** Which line this discipline is: 'A' | 'B' (singles) or 'CD' (doubles), else null. */
     public function lineSlot(): ?string
     {
-        if (! $this->division) {
+        if (! preg_match('/Singles|Doubles/', (string) $this->division)) {
             return null;
         }
         if (str_contains($this->division, 'Doubles')) {

@@ -171,7 +171,14 @@ class RankingController extends Controller
             $standingsBySport[$sport] = TeamMatch::standings($sport);
         }
 
+        // A round robin followed by playoffs in the same sport is a group
+        // stage: the playoffs decide the medals, so it mustn't mint its own.
+        $withPlayoffs = $brackets->where('format', 'single_elimination')->pluck('sport')->unique()->flip();
+
         foreach ($brackets as $bracket) {
+            if ($bracket->format === 'round_robin' && $withPlayoffs->has($bracket->sport)) {
+                continue;
+            }
             $podium = $this->bracketPodium($bracket, $standingsBySport);
             if ($podium['gold']) {
                 $ensure($podium['gold']);

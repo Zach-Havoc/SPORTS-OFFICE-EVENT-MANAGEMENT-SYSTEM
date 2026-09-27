@@ -48,10 +48,13 @@ export default function CoachLineup() {
   const categories = (categoriesQ.data ?? []) as Array<{ name: string; parentSport?: string; division?: string }>;
   const athletes = (athletesQ.data ?? []) as any[];
 
-  // Racquet sports this coach runs = their sports that also exist as a parent sport.
+  // Racquet sports this coach runs = their sports with Singles / Doubles lines
+  // (a team sport's Men's / Women's division is a child category too, not a line).
   const coachSports: string[] = profile.data?.sports ?? [];
   const racquetSports = useMemo(() => {
-    const parents = new Set(categories.map((c) => c.parentSport).filter(Boolean) as string[]);
+    const parents = new Set(
+      categories.filter((c) => /Singles|Doubles/.test(c.division ?? '')).map((c) => c.parentSport).filter(Boolean) as string[],
+    );
     return [...parents].filter((s) => coachSports.includes(s)).sort();
   }, [categories, coachSports]);
 

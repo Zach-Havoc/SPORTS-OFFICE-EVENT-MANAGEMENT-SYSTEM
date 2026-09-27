@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Athlete;
+use App\Models\Category;
 use App\Models\Department;
 use App\Models\Event;
 use App\Models\GameEvent;
@@ -78,7 +79,9 @@ class GameLineupController extends Controller
     public function index(Request $request)
     {
         $coach = $request->user();
+        // Their sports, and those sports' Men's / Women's divisions.
         $sportIds = $coach->sportCategories()->pluck('categories.id');
+        $sportIds = $sportIds->merge(Category::whereIn('parent_id', $sportIds)->pluck('id'));
 
         if (! $coach->department_id || $sportIds->isEmpty()) {
             return response()->json(['games' => [], 'reason' => ! $coach->department_id ? 'no_college' : 'no_sport']);
@@ -256,7 +259,9 @@ class GameLineupController extends Controller
 
         $teams = PlayByPlay::teams($event);
         $team = collect($teams ?? [])->firstWhere('id', $coach->department_id);
-        $theirSport = $coach->sportCategories()->where('categories.id', $event->category_id)->exists();
+        // The game's sport, or the sport a division ("Basketball — Men") belongs to.
+        $ids = array_filter([$event->category_id, Category::whereKey($event->category_id)->value('parent_id')]);
+        $theirSport = $coach->sportCategories()->whereIn('categories.id', $ids)->exists();
 
         if (! $team || ! $theirSport) {
             $this->fail('You can only set the lineup for your own college\'s games in your sport.', status: 403);

@@ -59,8 +59,10 @@ export default function PublicLeaderboard() {
   const parentSports = [
     ...new Set(cats.map((c) => c.parentSport).filter(Boolean) as string[]),
   ].sort();
+  // A sport with lines or Men's/Women's divisions is picked through its
+  // rollup above; on its own it has no brackets of its own to show.
   const plainCats = cats
-    .filter((c) => !c.parentSport)
+    .filter((c) => !c.parentSport && !parentSports.includes(c.name))
     .map((c) => c.name)
     .sort();
 

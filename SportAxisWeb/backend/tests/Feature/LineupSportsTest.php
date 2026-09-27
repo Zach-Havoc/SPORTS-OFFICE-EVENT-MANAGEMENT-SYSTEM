@@ -104,6 +104,25 @@ class LineupSportsTest extends TestCase
             ->assertJsonPath('error', 'This sport has no game lineup (Badminton and Table Tennis use racquet lines).');
     }
 
+    public function test_a_division_sub_sport_is_not_a_racquet_line_and_its_games_can_be_lined_up(): void
+    {
+        $basketball = Category::where('name', 'Basketball')->first();
+        $men = Category::create(['id' => (string) Str::uuid(), 'name' => 'Basketball — Men', 'parent_sport' => 'Basketball', 'division' => 'Men', 'parent_id' => $basketball->id]);
+        $this->assertFalse($men->isDiscipline());
+        $this->assertTrue($men->isDivision());
+        $this->assertNull($men->lineSlot());
+        $this->assertTrue(Category::where('name', 'Badminton — W Doubles')->firstOrFail()->isDiscipline());
+
+        // A Basketball coach sees and lines up the Men's division games.
+        [$coach, $team] = $this->coachWith('Basketball', 5);
+        $coach->update(['department_id' => $this->home->id]);
+        $game = $this->game('Basketball — Men');
+        $this->assertSame($men->id, $game->fresh()->category_id);
+
+        $this->assertContains($game->id, collect($this->getJson('/api/coach/lineups')->json('games'))->pluck('id')->all());
+        $this->save($game, $team)->assertOk()->assertJsonCount(5, 'players');
+    }
+
     public function test_a_division_names_the_bracket_and_a_team_carries_its_lineup_forward(): void
     {
         $colleges = collect([$this->home, $this->away])

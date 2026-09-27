@@ -160,8 +160,17 @@ export default function AdminBracketing() {
   const categories = (categoriesData ?? []) as Array<{ name: string; parentSport?: string; division?: string }>;
   const plainSports = categories.filter((c) => !c.parentSport).map((c) => c.name);
   // Racquet parents show as a SINGLE entry ("Badminton"), not 6 line entries.
-  const racquetParents = [...new Set(categories.filter((c) => c.parentSport).map((c) => c.parentSport as string))].sort();
+  // Only Singles / Doubles children make a racquet sport — a team sport's
+  // Men's / Women's division ("Basketball — Men") is a child category too.
+  const racquetParents = [
+    ...new Set(categories.filter((c) => /Singles|Doubles/.test(c.division ?? '')).map((c) => c.parentSport as string)),
+  ].sort();
   const isRacquet = racquetParents.includes(config.sport);
+  // A team sport's division that exists as its own sport ("Basketball — Men"):
+  // its bracket is played under it, so its standings and medals stay separate.
+  const divisionCategory = !isRacquet && config.teamDivision
+    ? categories.find((c) => c.parentSport === config.sport && c.division === config.teamDivision)?.name
+    : undefined;
 
   const LINE_DEFS: Array<{ slot: 'A' | 'B' | 'CD'; label: string; test: (d: string) => boolean }> = [
     { slot: 'A', label: 'Singles A', test: (d) => d.endsWith('Singles A') },
@@ -477,11 +486,11 @@ export default function AdminBracketing() {
         matchDuration: config.matchDuration,
         breakDuration: config.breakDuration,
         venueId: config.venueId || null,
-        ...(!isRacquet && config.teamDivision ? { division: config.teamDivision } : {}),
+        ...(!isRacquet && config.teamDivision && !divisionCategory ? { division: config.teamDivision } : {}),
       };
 
       // Racquet sport → one bracket per selected line of the chosen division.
-      const targets = isRacquet ? targetLineCategories() : [config.sport];
+      const targets = isRacquet ? targetLineCategories() : [divisionCategory ?? config.sport];
       if (isRacquet && targets.length === 0) {
         toast.error('Pick at least one line.');
         setGenerating(false);

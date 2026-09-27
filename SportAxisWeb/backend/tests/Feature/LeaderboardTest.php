@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\BracketMatch;
 use App\Services\BracketService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 /**
@@ -97,6 +98,43 @@ class LeaderboardTest extends TestCase
         $this->assertSame(1, $this->row($board, $gold)['gold']);
         $this->assertSame(1, collect($board)->sum('silver'));  // exactly one silver awarded
         $this->assertSame(2, collect($board)->sum('bronze'));  // both semi-final losers
+    }
+
+    public function test_a_group_stage_followed_by_playoffs_does_not_mint_its_own_medals(): void
+    {
+        $this->actingAsRole('admin');
+        $this->categories()->create(['name' => 'Basketball — Men', 'format' => 'versus']);
+        $service = app(BracketService::class);
+        $teams = ['CICS', 'CET', 'CABEIHM', 'CAS'];
+
+        // A fully played round robin…
+        $group = $service->generate(['sport' => 'Basketball — Men', 'format' => 'round_robin', 'participants' => $teams, 'startDate' => '2026-10-01', 'startTime' => '09:00']);
+        $service->publish($group);
+        foreach (BracketMatch::where('bracket_id', $group->id)->get() as $k => $m) {
+            // The standings come from the recorded results.
+            $this->teamMatches()->create([
+                'sport' => 'Basketball — Men', 'stage' => 'group', 'event_id' => $m->event_id,
+                'home_team' => $m->home_team, 'away_team' => $m->away_team,
+                'home_score' => 70 + $k, 'away_score' => 60, 'winner' => $m->home_team, 'is_draw' => false, 'status' => 'completed',
+            ]);
+            $service->advance($m->fresh(), $m->home_team);
+        }
+        $this->assertSame(3, collect($this->board())->sum(fn ($r) => $r['gold'] + $r['silver'] + $r['bronze']));   // alone, it's the podium
+
+        // …then playoffs in the same sport: only the playoffs' podium counts.
+        $playoffs = $service->generate(['sport' => 'Basketball — Men', 'format' => 'single_elimination', 'participants' => $teams, 'startDate' => '2026-10-05', 'startTime' => '09:00']);
+        $service->publish($playoffs);
+        foreach (BracketMatch::where('bracket_id', $playoffs->id)->where('round', 1)->get() as $semi) {
+            $service->advance($semi->fresh(), $semi->away_team);
+        }
+        $final = BracketMatch::where('bracket_id', $playoffs->id)->where('round', 2)->first()->fresh();
+        $service->advance($final, $final->away_team);
+        Cache::flush();
+
+        $board = $this->board();
+        $this->assertSame(1, collect($board)->sum('gold'));
+        $this->assertSame(1, $this->row($board, $playoffs->fresh()->champion)['gold']);
+        $this->assertSame(2, collect($board)->sum('bronze'));
     }
 
     public function test_the_medal_table_can_be_filtered_by_sport(): void
