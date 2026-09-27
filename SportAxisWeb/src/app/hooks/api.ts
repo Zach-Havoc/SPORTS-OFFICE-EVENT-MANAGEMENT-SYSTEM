@@ -15,7 +15,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { STALE } from "../lib/queryClient";
-import { getEcho } from "../lib/echo";
+import { getEcho, isRealtimeConnected, onRealtimeChange, useRealtimeConnected } from "../lib/echo";
 import * as api from "../services/api";
 
 /** Per-call overrides a component may pass to a query hook. */
@@ -482,10 +482,43 @@ export const useJudges = (opts?: QueryOpts<any[]>) =>
 
 // ── Live game scores ─────────────────────────────────────────────────
 // A committee member's score change is pushed over a WebSocket (Laravel
-// Reverb) and applied to the cache within ~1s. The `refetchInterval` below is
-// only a safety net for when the socket is unavailable or drops.
+// Reverb) and applied to the cache within ~1s. When the socket isn't up —
+// Reverb not configured (shared hosting can't run it), not running, or the
+// connection dropped — the same queries poll every few seconds instead, so
+// the board is live either way. With the socket up, polling is only a slow
+// safety net.
 
-const LIVE_FALLBACK_POLL = 60_000;
+const LIVE_POLL_FAST = 4_000;
+const LIVE_POLL_SAFETY = 60_000;
+
+/** Poll fast only while there's no socket to push updates. */
+function useLivePollInterval(): number {
+  return useRealtimeConnected() ? LIVE_POLL_SAFETY : LIVE_POLL_FAST;
+}
+
+/**
+ * A game going final changes more than its score: the schedule's status,
+ * the head-to-head results, standings and the leaderboard. Refresh those.
+ */
+function refreshResults(qc: QueryClient): void {
+  qc.invalidateQueries({ queryKey: qk.events });
+  qc.invalidateQueries({ queryKey: ["matches"] });
+  qc.invalidateQueries({ queryKey: ["standings"] });
+  qc.invalidateQueries({ queryKey: ["leaderboard"] });
+}
+
+/** Each game's last-seen status, to spot one going final however it arrives. */
+const seenStatus = new Map<string, api.LiveScore["status"]>();
+
+function noteStatuses(qc: QueryClient, lives: api.LiveScore[]): void {
+  let wentFinal = false;
+  for (const l of lives) {
+    const before = seenStatus.get(l.eventId);
+    if (l.status === "final" && before !== undefined && before !== "final") wentFinal = true;
+    seenStatus.set(l.eventId, l.status);
+  }
+  if (wentFinal) refreshResults(qc);
+}
 
 /**
  * Merge one pushed live score into every cached live-scores list + its detail.
@@ -514,6 +547,7 @@ function applyLiveUpdate(qc: QueryClient, live: api.LiveScore): void {
     qk.eventLiveScore(live.eventId),
     (prev) => (prev?.live && live.version < prev.live.version ? prev : { live }),
   );
+  noteStatuses(qc, [live]);
 }
 
 function applyLiveClear(qc: QueryClient, eventId: string): void {
@@ -544,6 +578,18 @@ function useLiveScoreChannel(): void {
     channel.listen(".cleared", (e: { eventId: string }) =>
       applyLiveClear(qc, e.eventId),
     );
+
+    // Anything pushed while the socket was down is gone — catch up the moment
+    // it comes back rather than waiting for a poll.
+    let wasConnected = isRealtimeConnected();
+    onRealtimeChange(() => {
+      const now = isRealtimeConnected();
+      if (now && !wasConnected) {
+        qc.invalidateQueries({ queryKey: ["live-scores"] });
+        refreshResults(qc);
+      }
+      wasConnected = now;
+    });
     // The channel intentionally lives for the whole session; no teardown.
   }, [qc]);
 }
@@ -553,11 +599,13 @@ export const useLiveScores = (
   opts?: QueryOpts<api.LiveScore[]>,
 ) => {
   useLiveScoreChannel();
-  return useQuery({
+  const qc = useQueryClient();
+  const refetchInterval = useLivePollInterval();
+  const query = useQuery({
     queryKey: qk.liveScores(activeOnly),
     queryFn: () => api.getLiveScores(activeOnly),
     staleTime: 0,
-    refetchInterval: LIVE_FALLBACK_POLL,
+    refetchInterval,
     refetchIntervalInBackground: false,
     // Browsers routinely suspend the WebSocket on a backgrounded tab, so
     // "switched away and came back" can go stale even with Reverb running —
@@ -565,6 +613,10 @@ export const useLiveScores = (
     refetchOnWindowFocus: true,
     ...opts,
   });
+  useEffect(() => {
+    if (query.data) noteStatuses(qc, query.data);
+  }, [query.data, qc]);
+  return query;
 };
 
 export const useEventLiveScore = (
@@ -572,15 +624,22 @@ export const useEventLiveScore = (
   opts?: QueryOpts<{ live: api.LiveScore | null }>,
 ) => {
   useLiveScoreChannel();
-  return useQuery({
+  const qc = useQueryClient();
+  const refetchInterval = useLivePollInterval();
+  const query = useQuery({
     queryKey: qk.eventLiveScore(eventId ?? ""),
     queryFn: () => api.getEventLiveScore(eventId as string),
     enabled: !!eventId,
     staleTime: 0,
-    refetchInterval: LIVE_FALLBACK_POLL,
+    refetchInterval,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     ...opts,
   });
+  useEffect(() => {
+    if (query.data?.live) noteStatuses(qc, [query.data.live]);
+  }, [query.data, qc]);
+  return query;
 };
 
 // Site content — public photo slideshow ('carousel') + welcome popup ('popup').

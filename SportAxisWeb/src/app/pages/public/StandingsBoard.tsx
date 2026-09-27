@@ -278,7 +278,7 @@ export default function StandingsBoard() {
   const intervalMs = Math.max(6, Number(params.get('interval')) || 18) * 1000;
 
   const lb = useLeaderboard(category, sport, undefined, { refetchInterval: 15_000 });
-  const live = useLiveScores(true, { refetchInterval: 8_000 });
+  const live = useLiveScores(true);
   const depts = useDepartments({ refetchInterval: 60_000 });
 
   const rows = useMemo<Row[]>(

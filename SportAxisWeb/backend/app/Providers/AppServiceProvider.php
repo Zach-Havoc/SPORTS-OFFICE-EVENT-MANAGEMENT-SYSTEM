@@ -87,6 +87,11 @@ class AppServiceProvider extends ServiceProvider
     protected function configureRateLimiters(): void
     {
         RateLimiter::for('api', function (Request $request) {
+            // Live-score polling has its own budget — see security.live_per_minute.
+            if ($request->isMethod('GET') && $request->is('api/live-scores', 'api/events/*/live', 'api/events/*/scoreboard')) {
+                return Limit::perMinute(config('security.live_per_minute'))->by('live:'.$request->ip());
+            }
+
             $key = $request->user()?->id ?: $request->ip();
 
             return Limit::perMinute(config('security.api_per_minute'))->by($key);

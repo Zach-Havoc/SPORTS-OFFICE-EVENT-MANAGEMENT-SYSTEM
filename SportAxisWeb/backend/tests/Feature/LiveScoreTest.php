@@ -150,4 +150,21 @@ class LiveScoreTest extends TestCase
         $this->deleteJson("/api/events/{$event->id}/live")->assertOk();
         $this->assertDatabaseMissing('live_scores', ['event_id' => $event->id]);
     }
+
+    public function test_live_score_polling_has_its_own_rate_limit_budget(): void
+    {
+        // Viewers poll the live board every few seconds when there's no
+        // realtime socket; a campus can share one IP. That polling mustn't
+        // eat the general API budget, and vice versa.
+        config(['security.api_per_minute' => 3, 'security.live_per_minute' => 50]);
+        $event = $this->events()->create();
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->getJson('/api/live-scores')->assertOk();
+            $this->getJson("/api/events/{$event->id}/live")->assertOk();
+        }
+
+        $statuses = collect(range(1, 5))->map(fn () => $this->getJson('/api/departments')->status());
+        $this->assertContains(429, $statuses->all());
+    }
 }

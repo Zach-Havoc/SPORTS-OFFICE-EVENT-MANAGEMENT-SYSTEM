@@ -43,6 +43,9 @@ vi.mock('../lib/echo', () => ({
       },
     }),
   }),
+  isRealtimeConnected: () => true,
+  onRealtimeChange: () => () => {},
+  useRealtimeConnected: () => true,
 }))
 
 import { useEventLiveScore } from './api'

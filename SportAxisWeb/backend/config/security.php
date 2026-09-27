@@ -25,11 +25,19 @@ return [
     |
     | sensitive_per_minute – signup / reset-password budget, keyed by IP.
     |
+    | live_per_minute – the public live-score reads (the live board, one game's
+    |                   live score, a basketball scoreboard). Viewers poll
+    |                   these every few seconds when there's no realtime
+    |                   socket, and a whole campus can share one IP, so they
+    |                   get their own, larger per-IP budget instead of
+    |                   counting against api_per_minute.
+    |
     */
 
     'api_per_minute' => (int) env('API_RATE_LIMIT', 600),
     'login_per_minute' => (int) env('LOGIN_RATE_LIMIT', 5),
     'login_ip_per_minute' => (int) env('LOGIN_IP_RATE_LIMIT', 20),
     'sensitive_per_minute' => (int) env('SENSITIVE_RATE_LIMIT', 10),
+    'live_per_minute' => (int) env('LIVE_RATE_LIMIT', 6000),
 
 ];
