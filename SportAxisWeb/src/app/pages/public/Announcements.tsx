@@ -155,8 +155,8 @@ export default function PublicAnnouncements() {
       setStep('verify');
     } catch (error: any) {
       console.error('Error sending verification:', error);
+      // Shown inside the dialog, above the buttons — no pop-up on top of it.
       setServerError(error.message || 'Failed to send verification code');
-      toast.error(error.message || 'Failed to send verification code');
     } finally {
       setSubmitting(false);
     }
@@ -192,7 +192,6 @@ export default function PublicAnnouncements() {
     } catch (error: any) {
       console.error('Error submitting application:', error);
       setServerError(error.message || 'Failed to submit application');
-      toast.error(error.message || 'Failed to submit application');
     } finally {
       setSubmitting(false);
     }
