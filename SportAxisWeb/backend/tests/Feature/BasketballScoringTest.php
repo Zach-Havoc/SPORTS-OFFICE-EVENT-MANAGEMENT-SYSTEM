@@ -344,6 +344,41 @@ class BasketballScoringTest extends TestCase
         $this->getJson("/api/events/{$this->game->id}/scoresheet")->assertForbidden();
     }
 
+    public function test_time_outs_follow_fiba_and_plays_carry_the_game_clock(): void
+    {
+        $this->actingAsJudgeFor($this->game);
+        $timeout = fn (?string $clock = null) => $this->postJson("/api/events/{$this->game->id}/plays", [
+            'teamId' => $this->home->id, 'type' => 'TIMEOUT', 'gameClock' => $clock,
+        ]);
+
+        // 1st half: two.
+        $timeout('07:12')->assertSuccessful()->assertJsonPath('teams.0.timeoutsLeft', 1)->assertJsonPath('teams.0.timeoutWindow', '1st half');
+        $this->putJson("/api/events/{$this->game->id}/period", ['period' => 2])->assertOk();
+        $timeout('03:00')->assertSuccessful()->assertJsonPath('teams.0.timeoutsLeft', 0);
+        $timeout('01:00')->assertStatus(422)->assertJsonPath('error', 'CHH has no time-outs left in the 1st half.');
+
+        // A time-out scores nothing, and the play keeps the clock.
+        $board = $this->getJson("/api/events/{$this->game->id}/scoreboard")->assertOk();
+        $board->assertJsonPath('teams.0.score', 0)->assertJsonPath('recentPlays.0.gameClock', '03:00');
+
+        // 2nd half: three, but at most two in the last two minutes of the 4th.
+        $this->putJson("/api/events/{$this->game->id}/period", ['period' => 3])->assertOk();
+        $this->getJson("/api/events/{$this->game->id}/scoreboard")->assertJsonPath('teams.0.timeoutsLeft', 3);
+        $this->putJson("/api/events/{$this->game->id}/period", ['period' => 4])->assertOk();
+        $timeout('01:50')->assertSuccessful();
+        $timeout('01:20')->assertSuccessful();
+        $timeout('00:40')->assertStatus(422)
+            ->assertJsonPath('error', "CHH can't take more than 2 time-outs in the last two minutes of the game.");
+
+        // A malformed clock is refused.
+        $this->postJson("/api/events/{$this->game->id}/plays", ['teamId' => $this->home->id, 'type' => 'FG2', 'gameClock' => '9 min'])
+            ->assertStatus(422);
+
+        // The filled scoresheet gets them by window.
+        $this->getJson("/api/events/{$this->game->id}/scoresheet")->assertOk()
+            ->assertJsonPath('teams.0.timeouts.h1', 2)->assertJsonPath('teams.0.timeouts.h2', 2);
+    }
+
     public function test_every_write_updates_the_live_board(): void
     {
         EventBus::fake([LiveScoreUpdated::class]);

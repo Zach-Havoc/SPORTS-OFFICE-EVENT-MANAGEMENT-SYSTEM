@@ -216,7 +216,8 @@ export interface ApiError {
 // The server computes everything from the recorded plays; every call returns
 // the whole scoreboard (see BasketballGameController on the backend).
 
-export type PlayType = 'FG2' | 'FG3' | 'FT' | 'FOUL';
+/** A TIMEOUT is the team's and scores nothing. */
+export type PlayType = 'FG2' | 'FG3' | 'FT' | 'FOUL' | 'TIMEOUT';
 
 export interface BoxScoreRow {
   playerId: string;
@@ -240,6 +241,11 @@ export interface ScoreboardTeam {
   score: number;
   periodScores: { period: number; label: string; points: number }[];
   teamFouls: number;
+  /** FIBA time-outs in the current window: 2 in the 1st half, 3 in the 2nd, 1 per overtime. */
+  timeoutsAllowed: number;
+  timeoutsLeft: number;
+  /** "1st half", "2nd half", "OT1"… */
+  timeoutWindow: string;
   unassignedPoints: number;
   players: BoxScoreRow[];
 }
@@ -254,6 +260,8 @@ export interface Play {
   points: number;
   period: number;
   periodLabel: string;
+  /** The game clock when it was recorded ("09:27" left), if the scorer's clock was on. */
+  gameClock: string | null;
   createdAt: string;
 }
 

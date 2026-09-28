@@ -8,7 +8,7 @@ import type { FilledBasketballGame } from '../utils/basketballScoresheet';
 // are the coaches' lineups for the game.
 //
 //   GET    /api/events/{id}/scoreboard
-//   POST   /api/events/{id}/plays         {teamId, type, playerId?}
+//   POST   /api/events/{id}/plays         {teamId, type, playerId?, gameClock?}
 //   DELETE /api/events/{id}/plays/last    undo
 //   PUT    /api/events/{id}/period        {period}
 //   POST   /api/events/{id}/finish
@@ -20,7 +20,7 @@ export const basketballService = {
     return (await api.get<Scoreboard>(`/events/${eventId}/scoreboard`)).data;
   },
 
-  async record(eventId: string, play: { teamId: string; type: PlayType; playerId?: string | null }): Promise<Scoreboard> {
+  async record(eventId: string, play: { teamId: string; type: PlayType; playerId?: string | null; gameClock?: string | null }): Promise<Scoreboard> {
     return (await api.post<Scoreboard>(`/events/${eventId}/plays`, play)).data;
   },
 

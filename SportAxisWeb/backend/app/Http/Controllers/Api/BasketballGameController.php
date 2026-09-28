@@ -57,6 +57,8 @@ class BasketballGameController extends PlayByPlayController
             'teamId' => 'required|string',
             'type' => 'required|in:'.implode(',', GameEvent::TYPES),
             'playerId' => 'nullable|string|required_if:type,FOUL',
+            // The game clock when it happened ("09:27" left), from the scorer's clock.
+            'gameClock' => ['nullable', 'string', 'regex:/^\d{1,2}:\d{2}$/'],
         ], [
             'playerId.required_if' => 'Pick a player first — a foul has to be charged to someone.',
         ]);
@@ -64,6 +66,13 @@ class BasketballGameController extends PlayByPlayController
         return $this->write($request, $eventId, function (Event $event, array $teams, ?LiveScore $live) use ($data, $request) {
             $this->refuseIfFinished($live);
             $team = $this->teamById($teams, $data['teamId']);
+            $period = (int) ($live?->current_period ?? 1);
+
+            // A time-out is the team's, and only while it has one left (FIBA).
+            if ($data['type'] === 'TIMEOUT') {
+                $data['playerId'] = null;
+                $this->refuseIfNoTimeoutLeft($event, $team, $period, $data['gameClock'] ?? null);
+            }
 
             if (! empty($data['playerId'])) {
                 $onRoster = GamePlayer::where('game_id', $event->id)->where('team_id', $team->id)
@@ -78,7 +87,8 @@ class BasketballGameController extends PlayByPlayController
                 'team_id' => $team->id,
                 'player_id' => $data['playerId'] ?? null,
                 'type' => $data['type'],
-                'period' => $live?->current_period ?? 1,
+                'period' => $period,
+                'game_clock' => $data['gameClock'] ?? null,
                 'recorded_by' => $request->user()->id,
             ]);
 
@@ -148,6 +158,32 @@ class BasketballGameController extends PlayByPlayController
     }
 
     // ── Internals ─────────────────────────────────────────────────────
+
+    /**
+     * FIBA: 2 time-outs in the first half, 3 in the second — but at most 2
+     * of them in the last two minutes of the 4th quarter — and 1 in each
+     * overtime.
+     */
+    private function refuseIfNoTimeoutLeft(Event $event, object $team, int $period, ?string $gameClock): void
+    {
+        $plays = GameEvent::where('game_id', $event->id)->where('team_id', $team->id)->where('type', 'TIMEOUT')->get();
+        [, $window, $allowed] = BasketballScoreboard::timeoutWindow($period);
+        $used = BasketballScoreboard::timeoutsUsed($plays, $period);
+        $name = $team->abbreviation ?: $team->name;
+
+        if ($used >= $allowed) {
+            $this->fail("{$name} has no time-outs left in the {$window}.");
+        }
+
+        $secondsLeft = fn (?string $clock) => $clock && preg_match('/^(\d{1,2}):(\d{2})$/', $clock, $m) ? (int) $m[1] * 60 + (int) $m[2] : null;
+        $clock = $secondsLeft($gameClock);
+        if ($period === BasketballScoreboard::regulationPeriods() && $clock !== null && $clock <= 120) {
+            $lateOnes = $plays->where('period', $period)->filter(fn ($p) => ($s = $secondsLeft($p->game_clock)) !== null && $s <= 120)->count();
+            if (min($allowed - $used, 2 - $lateOnes) <= 0) {
+                $this->fail("{$name} can't take more than 2 time-outs in the last two minutes of the game.");
+            }
+        }
+    }
 
     protected function sport(): string
     {

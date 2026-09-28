@@ -86,4 +86,13 @@ describe('FIBA-style basketball scoresheet', () => {
     const html = buildBasketballScoresheetHtml(event, [], { status: 'live', teams: [], plays: [] })
     expect(html).toContain('GAME IN PROGRESS — NOT FINAL')
   })
+
+  it('crosses off the time-outs taken, by half and overtime', () => {
+    const t = (timeouts: Record<string, number>) => ({ score: 0, periodScores: [], teamFouls: {}, timeouts, players: [] })
+    const html = buildBasketballScoresheetHtml(event, [], {
+      status: 'finished', teams: [t({ h1: 1, h2: 3, ot1: 1 }), t({})], plays: [],
+    })
+    // Home: 1 + 3 + 1 time-out boxes filled; away none; no team fouls.
+    expect(count(html, 'class="box x"')).toBe(5)
+  })
 })

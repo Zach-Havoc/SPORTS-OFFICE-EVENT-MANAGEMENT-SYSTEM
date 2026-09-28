@@ -14,7 +14,8 @@ class GameEvent extends Model
 {
     use SoftDeletes;
 
-    public const TYPES = ['FG2', 'FG3', 'FT', 'FOUL'];
+    /** Basketball. A TIMEOUT is the team's; it scores nothing. */
+    public const TYPES = ['FG2', 'FG3', 'FT', 'FOUL', 'TIMEOUT'];
 
     /** Rally points — the scoring team wins the rally. */
     public const VOLLEYBALL_POINTS = ['KILL', 'ACE', 'BLOCK', 'OPP_ERROR'];

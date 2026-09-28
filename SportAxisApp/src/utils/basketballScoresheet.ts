@@ -47,6 +47,8 @@ export interface FilledBasketballGame {
     periodScores: Array<{ period: number; label: string; points: number }>;
     /** Fouls per quarter, keyed "1"–"4" (overtime counts with the 4th). */
     teamFouls: Record<string, number>;
+    /** Time-outs taken, by window: "h1" (1st half), "h2" (2nd half), "ot1", "ot2"… */
+    timeouts?: Record<string, number>;
     players: Array<{
       jersey?: string | null;
       name: string;
@@ -112,6 +114,8 @@ function teamPanel(side: string, short: string, team?: Team): string {
     })
     .join('');
   const tf = (q: number) => team?.teamFouls?.[String(q)] ?? 0;
+  const to = (w: string) => team?.timeouts?.[w] ?? 0;
+  const otTaken = [1, 2, 3].filter((n) => to(`ot${n}`) > 0).length;
   const coachRow = (label: string, name?: string | null) =>
     `<tr class="p"><td colspan="6" class="lbl">${label}${name ? `<span class="v">${esc(name)}</span>` : ''}</td><td></td><td></td><td></td></tr>`;
 
@@ -123,17 +127,17 @@ function teamPanel(side: string, short: string, team?: Team): string {
           <td class="h">TIME-OUTS</td><td></td><td class="h" colspan="4">TEAM FOULS</td>
         </tr>
         <tr>
-          <td>${boxes([1, 2])}</td><td class="s">1ST HALF</td>
+          <td>${boxes([1, 2], to('h1'))}</td><td class="s">1ST HALF</td>
           <td class="q">Q1</td><td>${boxes([1, 2, 3, 4, 5], tf(1))}</td>
           <td class="q">Q2</td><td>${boxes([1, 2, 3, 4, 5], tf(2))}</td>
         </tr>
         <tr>
-          <td>${boxes([1, 2, 3])}</td><td class="s">2ND HALF</td>
+          <td>${boxes([1, 2, 3], to('h2'))}</td><td class="s">2ND HALF</td>
           <td class="q">Q3</td><td>${boxes([1, 2, 3, 4, 5], tf(3))}</td>
           <td class="q">Q4</td><td>${boxes([1, 2, 3, 4, 5], tf(4))}</td>
         </tr>
         <tr>
-          <td>${boxes(['', '', ''])}</td><td class="s">OVERTIME</td>
+          <td>${boxes(['', '', ''], otTaken)}</td><td class="s">OVERTIME</td>
           <td class="q" colspan="2" style="text-align:right;">FREE THROW&nbsp;</td><td colspan="2">${boxes(['', '', '', '', ''])}</td>
         </tr>
       </table>
@@ -402,7 +406,7 @@ export function buildBasketballScoresheetHtml(
   </div>
 
   <div class="foot"><span>${game
-    ? `From the game recorded in SportAxis — / basket · ● free throw · ◯ three · underline: end of quarter. Time-outs aren't recorded.`
+    ? `From the game recorded in SportAxis — / basket · ● free throw · ◯ three · underline: end of quarter · filled box: time-out or team foul taken.`
     : `Write each team's final score in its box beside the team name — this strip is what the office scans.`}</span><span>SportAxis © ${new Date().getFullYear()} · For official use only</span></div>
 </body></html>`;
 }

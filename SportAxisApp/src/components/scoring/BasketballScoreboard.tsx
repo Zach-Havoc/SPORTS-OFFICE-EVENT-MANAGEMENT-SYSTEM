@@ -13,6 +13,8 @@ import * as Haptics from 'expo-haptics';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../../constants/theme';
 import { useLiveSync } from '../../hooks/use-live-sync';
 import { useNetwork } from '../../hooks/use-network';
+import { useGameClock } from '../../hooks/use-game-clock';
+import { GameClockPanel } from './GameClockPanel';
 import { basketballService } from '../../services/basketball.service';
 import type { EventSession, PlayType, Scoreboard, ScoreboardTeam } from '../../types';
 import { Button } from '../ui/Button';
@@ -32,6 +34,11 @@ import { Icon } from '../ui/Icon';
 //
 // The screen re-syncs every few seconds, so a second scorer's taps and a
 // lineup the coach saves late both show up without reopening the game.
+//
+// The game clock and shot clock run on this phone (useGameClock); every play
+// is recorded with the time left. Following FIBA, a foul or a time-out stops
+// the clock, a basket resets the shot clock to 24, and in the last two
+// minutes of the 4th quarter or overtime a basket stops the clock too.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ACTIONS: { type: PlayType; label: string }[] = [
@@ -41,7 +48,7 @@ const ACTIONS: { type: PlayType; label: string }[] = [
   { type: 'FOUL', label: 'Foul' },
 ];
 
-const LABEL: Record<PlayType, string> = { FT: '+1 FT', FG2: '+2', FG3: '+3', FOUL: 'foul' };
+const LABEL: Record<PlayType, string> = { FT: '+1 FT', FG2: '+2', FG3: '+3', FOUL: 'foul', TIMEOUT: 'time-out' };
 
 const lastName = (name: string) => name.trim().split(/\s+/).pop() ?? name;
 const short = (t: ScoreboardTeam) => t.abbreviation || t.label || t.name;
@@ -69,6 +76,7 @@ export function BasketballScoreboard({
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [inFlight, setInFlight] = useState(0);
   const versionRef = useRef(0);
+  const clock = useGameClock(event.id, board?.period ?? 1, board?.regulationPeriods ?? 4);
 
   /** Show a scoreboard unless a newer one is already on screen. */
   const adopt = useCallback((next: Scoreboard) => {
@@ -136,8 +144,27 @@ export function BasketballScoreboard({
     const player = team.players.find((p) => p.playerId === playerId);
     Haptics.selectionAsync().catch(() => {});
     setSelected(null);
-    run(() => basketballService.record(event.id, { teamId: team.id, type, playerId }), team.id, () =>
-      setLastAction(`Recorded: ${player ? `#${player.jersey} ${lastName(player.name)}` : short(team)} ${LABEL[type]}`),
+    const gameClock = clock.ready ? clock.stamp() : null;
+    // The whistle: a foul stops the clock. A basket gives the other team a new
+    // 24 — and in the last two minutes of the 4th or overtime stops the clock.
+    if (type === 'FOUL') clock.stop();
+    if (type === 'FG2' || type === 'FG3') {
+      clock.resetShot(24);
+      if (board && board.period >= board.regulationPeriods && clock.gameMs <= 120_000) clock.stop();
+    }
+    run(() => basketballService.record(event.id, { teamId: team.id, type, playerId, gameClock }), team.id, () =>
+      setLastAction(`Recorded: ${player ? `#${player.jersey} ${lastName(player.name)}` : short(team)} ${LABEL[type]}${gameClock ? ` · ${gameClock}` : ''}`),
+    );
+  };
+
+  /** A team's time-out: the clock stops, and it's recorded (the server counts what's left). */
+  const timeout = (team: ScoreboardTeam) => {
+    Haptics.selectionAsync().catch(() => {});
+    setSelected(null);
+    const gameClock = clock.ready ? clock.stamp() : null;
+    clock.stop();
+    run(() => basketballService.record(event.id, { teamId: team.id, type: 'TIMEOUT', gameClock }), team.id, () =>
+      setLastAction(`Time-out ${short(team)}${gameClock ? ` · ${gameClock}` : ''}`),
     );
   };
 
@@ -239,6 +266,15 @@ export function BasketballScoreboard({
         )}
       </View>
 
+      {!finished && (
+        <GameClockPanel
+          clock={clock}
+          periodLabel={board.periodLabel}
+          nextLabel={periodName(board.period + 1, board.regulationPeriods)}
+          disabled={!clock.ready}
+        />
+      )}
+
       {finished && winner && (
         <View style={styles.banner}>
           <Icon name="flag" size={15} color={COLORS.textSecondary} />
@@ -275,7 +311,9 @@ export function BasketballScoreboard({
               <View style={styles.teamHead}>
                 <View style={styles.flex}>
                   <Text style={styles.teamName} numberOfLines={1}>{short(team)}</Text>
-                  <Text style={styles.meta}>Team fouls: {team.teamFouls}</Text>
+                  <Text style={styles.meta}>
+                    Team fouls: {team.teamFouls} · Time-outs left: {team.timeoutsLeft ?? '—'}
+                  </Text>
                 </View>
                 <Text style={styles.score} accessibilityLabel={`${short(team)} score ${team.score}`}>{team.score}</Text>
               </View>
@@ -322,6 +360,18 @@ export function BasketballScoreboard({
                       </Pressable>
                     ))}
                   </View>
+                  <Pressable
+                    onPress={() => timeout(team)}
+                    disabled={locked || team.timeoutsLeft === 0}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Time-out for ${short(team)}, ${team.timeoutsLeft} left in the ${team.timeoutWindow}`}
+                    style={({ pressed }) => [styles.timeout, pressed && styles.actionPressed, (locked || team.timeoutsLeft === 0) && styles.disabled]}
+                  >
+                    <Icon name="pause" size={16} color={COLORS.textPrimary} />
+                    <Text style={styles.timeoutText}>
+                      Time-out <Text style={styles.timeoutSub}>· {team.timeoutsLeft} of {team.timeoutsAllowed} left ({team.timeoutWindow})</Text>
+                    </Text>
+                  </Pressable>
                   {error?.teamId === team.id && <Text style={styles.error} accessibilityRole="alert">{error.message}</Text>}
                 </>
               )}
@@ -547,6 +597,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionPressed: { backgroundColor: COLORS.surfaceMuted },
+  timeout: {
+    minHeight: 44,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs + 2,
+  },
+  timeoutText: { ...TYPE.label, color: COLORS.textPrimary },
+  timeoutSub: { ...TYPE.label, fontWeight: '400', color: COLORS.textSecondary },
   actionText: { ...TYPE.subhead, color: COLORS.textPrimary },
   disabled: { opacity: 0.4 },
 

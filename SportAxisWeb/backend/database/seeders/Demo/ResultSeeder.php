@@ -257,10 +257,18 @@ class ResultSeeder extends Seeder
                     }
                 }
             }
+            // One time-out a team in the 2nd and 4th quarters (FIBA allows 2 and 3 a half).
+            if ($q === 2 || $q === 4) {
+                foreach ($teams as $team) {
+                    $quarterPlays[] = [$team->id, null, 'TIMEOUT'];
+                }
+            }
             shuffle($quarterPlays);
-            foreach ($quarterPlays as [$teamId, $playerId, $type]) {
+            foreach ($quarterPlays as $k => [$teamId, $playerId, $type]) {
                 $clock->addSeconds(mt_rand(15, 50));
-                $rows[] = $this->playRow($event->id, $teamId, $playerId, $type, $q, $judge, $clock);
+                // Spread over the 10-minute quarter: the game clock left when it happened.
+                $left = (int) (600 - ($k + 1) * 600 / (count($quarterPlays) + 1));
+                $rows[] = $this->playRow($event->id, $teamId, $playerId, $type, $q, $judge, $clock, sprintf('%02d:%02d', intdiv($left, 60), $left % 60));
                 if ($playerId) {
                     $stats[$playerId][$type] = ($stats[$playerId][$type] ?? 0) + 1;
                 }
@@ -486,11 +494,11 @@ class ResultSeeder extends Seeder
         $this->plays = $this->performance = [];
     }
 
-    private function playRow(string $gameId, string $teamId, ?string $playerId, string $type, int $period, ?string $judge, Carbon $at): array
+    private function playRow(string $gameId, string $teamId, ?string $playerId, string $type, int $period, ?string $judge, Carbon $at, ?string $gameClock = null): array
     {
         return [
             'game_id' => $gameId, 'team_id' => $teamId, 'player_id' => $playerId, 'player_out_id' => null,
-            'type' => $type, 'period' => $period, 'game_clock' => null, 'detail' => null, 'recorded_by' => $judge,
+            'type' => $type, 'period' => $period, 'game_clock' => $gameClock, 'detail' => null, 'recorded_by' => $judge,
             'created_at' => $at->copy(), 'updated_at' => $at->copy(), 'deleted_at' => null,
         ];
     }

@@ -47,6 +47,32 @@ class BasketballScoreboard
     }
 
     /** The period whose team-foul count a play in `$period` adds to. */
+    /**
+     * The FIBA time-out window a period belongs to — 2 in the first half
+     * (Q1–Q2), 3 in the second (Q3–Q4), 1 in each overtime — as
+     * [key, label, allowed]. The key groups a team's time-outs.
+     *
+     * @return array{0: string, 1: string, 2: int}
+     */
+    public static function timeoutWindow(int $period): array
+    {
+        $reg = self::regulationPeriods();
+
+        return match (true) {
+            $period > $reg => ['ot'.($period - $reg), self::periodLabel($period), 1],
+            $period > intdiv($reg, 2) => ['h2', '2nd half', 3],
+            default => ['h1', '1st half', 2],
+        };
+    }
+
+    /** A team's time-outs taken in a period's window. */
+    public static function timeoutsUsed(Collection $teamPlays, int $period): int
+    {
+        $window = self::timeoutWindow($period)[0];
+
+        return $teamPlays->where('type', 'TIMEOUT')->filter(fn ($p) => self::timeoutWindow($p->period)[0] === $window)->count();
+    }
+
     public static function foulPeriod(int $period): int
     {
         return config('sportaxis.basketball.overtime_team_fouls_carry_over', true)
@@ -134,6 +160,9 @@ class BasketballScoreboard
                 'score' => $teamPlays->sum(fn ($x) => $x->points()),
                 'periodScores' => $periodScores,
                 'teamFouls' => $teamFouls,
+                'timeoutsAllowed' => self::timeoutWindow($period)[2],
+                'timeoutsLeft' => max(0, self::timeoutWindow($period)[2] - self::timeoutsUsed($teamPlays, $period)),
+                'timeoutWindow' => self::timeoutWindow($period)[1],
                 'unassignedPoints' => $teamPlays->whereNull('player_id')->sum(fn ($x) => $x->points()),
                 'players' => $players,
             ];
@@ -193,6 +222,8 @@ class BasketballScoreboard
                 'score' => $team['score'],
                 'periodScores' => $team['periodScores'],
                 'teamFouls' => (object) $fouls,
+                // Time-outs by window: "h1", "h2", "ot1"… — the sheet's boxes.
+                'timeouts' => (object) $teamPlays->where('type', 'TIMEOUT')->countBy(fn ($p) => self::timeoutWindow($p->period)[0])->all(),
                 'coach' => $coachNames[$teamRoster->pluck('athlete.coach_id')->filter()->countBy()->sortDesc()->keys()->first()] ?? null,
                 'players' => $teamRoster
                     ->sortBy(fn (GamePlayer $gp) => [! $gp->is_starter, (int) $gp->jersey_number])
@@ -247,6 +278,7 @@ class BasketballScoreboard
             'points' => $p->points(),
             'period' => $p->period,
             'periodLabel' => self::periodLabel($p->period),
+            'gameClock' => $p->game_clock,
             'createdAt' => $p->created_at,
         ];
     }
