@@ -9,7 +9,6 @@ import type { LazyRouteFunction, RouteObject } from "react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { Toaster } from "./components/ui/sonner";
 import { Suspense, lazy, useEffect, useMemo } from "react";
 import { startWarmup } from "./services/api";
 
@@ -298,9 +297,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      {/* The one place pop-up messages (toast.success / toast.error) render,
-          for every page — including over an open dialog. */}
-      <Toaster position="top-center" richColors closeButton />
+      {/* No pop-up messages anywhere: there's deliberately no <Toaster />, so
+          toast.success / toast.error calls draw nothing. Pages that need to
+          say something show it on the page itself. */}
     </QueryClientProvider>
   );
 }
