@@ -1,5 +1,6 @@
 import api from './api';
 import type { PlayType, Scoreboard } from '../types';
+import type { FilledBasketballGame } from '../utils/basketballScoresheet';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basketball Service — play-by-play scoring. Each call returns the full
@@ -11,6 +12,7 @@ import type { PlayType, Scoreboard } from '../types';
 //   DELETE /api/events/{id}/plays/last    undo
 //   PUT    /api/events/{id}/period        {period}
 //   POST   /api/events/{id}/finish
+//   GET    /api/events/{id}/scoresheet    the game laid out for the filled-in PDF
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const basketballService = {
@@ -32,5 +34,10 @@ export const basketballService = {
 
   async finish(eventId: string): Promise<Scoreboard> {
     return (await api.post<Scoreboard>(`/events/${eventId}/finish`)).data;
+  },
+
+  /** The recorded game for the filled-in FIBA scoresheet (committee / admin only). */
+  async scoresheet(eventId: string): Promise<FilledBasketballGame> {
+    return (await api.get<FilledBasketballGame>(`/events/${eventId}/scoresheet`)).data;
   },
 };

@@ -306,6 +306,44 @@ class BasketballScoringTest extends TestCase
         $this->postJson("/api/events/{$id}/plays", $body)->assertCreated();
     }
 
+    public function test_the_committee_gets_the_game_laid_out_for_the_filled_scoresheet(): void
+    {
+        $starter = $this->rostered($this->home, '7');
+        GamePlayer::where('player_id', $starter->id)->update(['is_starter' => true]);
+        $bench = $this->rostered($this->home, '12');
+        $guest = $this->rostered($this->away, '4');
+        $judge = $this->actingAsJudgeFor($this->game, ['name' => 'Liza Mendoza']);
+
+        $this->play('FG3', $this->home, $starter)->assertSuccessful();
+        $this->play('FOUL', $this->away, $guest)->assertSuccessful();
+        $this->play('FT', $this->away, $guest)->assertSuccessful();
+        $this->putJson("/api/events/{$this->game->id}/period", ['period' => 2])->assertSuccessful();
+        $this->play('FOUL', $this->home, $bench)->assertSuccessful();
+        $this->play('FG2', $this->home)->assertSuccessful();   // no player named
+
+        $sheet = $this->getJson("/api/events/{$this->game->id}/scoresheet")->assertOk();
+
+        $sheet->assertJsonPath('umpires', ['Liza Mendoza'])
+            ->assertJsonPath('teams.0.score', 5)->assertJsonPath('teams.1.score', 1)
+            ->assertJsonPath('teams.0.teamFouls.2', 1)->assertJsonPath('teams.1.teamFouls.1', 1)
+            // Every scoring play in order — the running score.
+            ->assertJsonPath('plays', [
+                ['side' => 0, 'points' => 3, 'jersey' => '7', 'period' => 1],
+                ['side' => 1, 'points' => 1, 'jersey' => '4', 'period' => 1],
+                ['side' => 0, 'points' => 2, 'jersey' => null, 'period' => 2],
+            ]);
+        $home = collect($sheet->json('teams.0.players'))->keyBy('jersey');
+        $this->assertTrue($home['7']['starter']);
+        $this->assertTrue($home['12']['played']);
+        $this->assertSame(['Q2'], $home['12']['fouls']);
+
+        // Student numbers are on it: not for anyone else.
+        $this->actingAsRole('judge');
+        $this->getJson("/api/events/{$this->game->id}/scoresheet")->assertForbidden();
+        $this->actingAsRole('coach');
+        $this->getJson("/api/events/{$this->game->id}/scoresheet")->assertForbidden();
+    }
+
     public function test_every_write_updates_the_live_board(): void
     {
         EventBus::fake([LiveScoreUpdated::class]);

@@ -8,6 +8,7 @@ use App\Models\GamePlayer;
 use App\Models\LiveScore;
 use App\Services\BasketballScoreboard;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Play-by-play basketball scoring, used by the mobile scorer. The score is
@@ -32,6 +33,21 @@ class BasketballGameController extends PlayByPlayController
     public function scoreboard(string $eventId)
     {
         return response()->json($this->scoreboard->build(Event::findOrFail($eventId)));
+    }
+
+    /**
+     * GET /api/events/{id}/scoresheet — the recorded game, laid out for the
+     * filled-in paper scoresheet (PDF). Only the game's committee or an
+     * admin: it carries student numbers.
+     */
+    public function sheet(Request $request, string $eventId)
+    {
+        $event = Event::findOrFail($eventId);
+        if (Gate::forUser($request->user())->denies('score-game', $event)) {
+            return response()->json(['message' => 'Only this game\'s committee or an admin can open its scoresheet.'], 403);
+        }
+
+        return response()->json($this->scoreboard->sheet($event));
     }
 
     /** POST /api/events/{id}/plays  {teamId, type, playerId?} */

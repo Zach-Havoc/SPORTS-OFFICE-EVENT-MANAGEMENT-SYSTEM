@@ -334,6 +334,7 @@ class BracketService
                     'player_id' => $gp->player_id,
                     'jersey_number' => $gp->jersey_number,
                     'rotation_position' => $gp->rotation_position,
+                    'is_starter' => $gp->is_starter,   // the starting five come along too
                 ]);
             }
         }

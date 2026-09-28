@@ -44,4 +44,46 @@ describe('FIBA-style basketball scoresheet', () => {
       expect(html).toContain(part)
     }
   })
+
+  it('comes out filled in from a game recorded in the app', () => {
+    const team = (score: number, coach: string, players: any[], fouls: Record<string, number>, q: number[]) => ({
+      score, coach, teamFouls: fouls, players,
+      periodScores: q.map((points, i) => ({ period: i + 1, label: `Q${i + 1}`, points })),
+    })
+    const html = buildBasketballScoresheetHtml(event, ['CABEIHM', 'CONAHS'], {
+      status: 'finished',
+      umpires: ['Liza Mendoza'],
+      winner: 0,
+      regulationPeriods: 4,
+      teams: [
+        team(5, 'Coach Home', [{ jersey: '7', name: 'Ana Cruz', licence: '24-12345', starter: true, played: true, fouls: ['Q1', 'Q3'] }], { 1: 1, 3: 1 }, [3, 2, 0, 0]),
+        team(1, 'Coach Away', [{ jersey: '4', name: 'Bea Reyes', licence: null, starter: false, played: true, fouls: [] }], {}, [1, 0, 0, 0]),
+      ],
+      plays: [
+        { side: 0, points: 3, jersey: '7', period: 1 },
+        { side: 1, points: 1, jersey: '4', period: 1 },
+        { side: 0, points: 2, jersey: null, period: 2 },
+      ],
+    })
+
+    expect(html).toContain('OFFICIAL RECORD')
+    expect(html).toContain('<td class="score">5</td>')
+    expect(html).toContain('<td class="score">1</td>')
+    expect(html).toContain('24-12345')
+    expect(html).toContain('<span class="in starter">X</span>')
+    expect(html).toContain('<td class="foul">Q3</td>')
+    expect(html).toContain('<span class="j three">7</span>')   // a three: the jersey circled
+    expect(html).toContain('<span class="j">–</span>')         // a basket with no player named
+    expect(html).toContain('class="n ft')                      // the free throw
+    expect(html).toContain('VICTORIOUS TEAM:<span class="v" style="font-size:10pt;">CABEIHM</span>')
+    expect(html).toContain('HEAD COACH<span class="v">Coach Home</span>')
+    expect(html).toContain('CABEIHM: <b>3</b>')
+    // The full college name still appears only once, for the OCR.
+    expect(count(html, away)).toBe(1)
+  })
+
+  it('marks a game still in progress as not final', () => {
+    const html = buildBasketballScoresheetHtml(event, [], { status: 'live', teams: [], plays: [] })
+    expect(html).toContain('GAME IN PROGRESS — NOT FINAL')
+  })
 })

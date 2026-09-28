@@ -1,7 +1,7 @@
 import { Icon, type IconName } from '../ui/Icon';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Platform,
@@ -14,7 +14,8 @@ import {
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
 import type { EventSession } from '../../types';
 import { getSportConfigFromEvent } from '../../utils/sport-config';
-import { buildBasketballScoresheetHtml } from '../../utils/basketballScoresheet';
+import { buildBasketballScoresheetHtml, type FilledBasketballGame } from '../../utils/basketballScoresheet';
+import { basketballService } from '../../services/basketball.service';
 import { useDeptAbbreviator } from '../../hooks/use-dept-abbr';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -595,11 +596,14 @@ function buildDefaultHtml(event: EventSession): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // Router — select correct template based on sport
 // ─────────────────────────────────────────────────────────────────────────────
-/** `labels`: the teams' short names (CICS…), for sheets that print them. */
-function buildHtml(event: EventSession, labels: string[] = []): string {
+/**
+ * `labels`: the teams' short names (CICS…), for sheets that print them.
+ * `game`: a basketball game recorded in the app — its sheet comes out filled in.
+ */
+function buildHtml(event: EventSession, labels: string[] = [], game?: FilledBasketballGame): string {
   const config = getSportConfigFromEvent(event.category, event.name);
   switch (config.type) {
-    case 'basketball':   return buildBasketballScoresheetHtml(event, labels);
+    case 'basketball':   return buildBasketballScoresheetHtml(event, labels, game);
     case 'volleyball':   return buildVolleyballHtml(event);
     case 'badminton':    return buildBadmintonHtml(event);
     case 'football':     return buildFootballHtml(event);
@@ -630,9 +634,29 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
   const PAGE_WIDTH_PX = portrait ? SHORT_SIDE_PX : LONG_SIDE_PX;
   const PAGE_HEIGHT_PX = portrait ? LONG_SIDE_PX : SHORT_SIDE_PX;
 
+  // A basketball game scored in the app can be printed filled in with
+  // everything recorded. Loaded quietly: offline, not this game's committee,
+  // or nothing played yet — the blank sheet is all that's offered.
+  const [game, setGame] = useState<FilledBasketballGame | null>(null);
+  const [filled, setFilled] = useState(true);
+  useEffect(() => {
+    if (sportConfig.type !== 'basketball') return;
+    let alive = true;
+    basketballService
+      .scoresheet(event.id)
+      .then((g) => {
+        if (alive && g.plays.length > 0) setGame(g);
+      })
+      .catch(() => { /* blank sheet only */ });
+    return () => {
+      alive = false;
+    };
+  }, [event.id, sportConfig.type]);
+  const useGame = game && filled ? game : undefined;
+
   const handlePrint = async () => {
     try {
-      const html = buildHtml(event, labels);
+      const html = buildHtml(event, labels, useGame);
       if (Platform.OS === 'web') {
         const w = window.open('', '_blank');
         w?.document.write(html);
@@ -654,7 +678,7 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
 
   const handleSharePdf = async () => {
     try {
-      const html = buildHtml(event, labels);
+      const html = buildHtml(event, labels, useGame);
       const { uri } = await Print.printToFileAsync({
         html,
         width: PAGE_WIDTH_PX,
@@ -726,11 +750,34 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
           </View>
         </Card>
 
+        {/* ── Filled or blank (a basketball game scored in the app) ─────────── */}
+        {game && (
+          <View style={styles.choiceRow}>
+            {([
+              [true, 'Filled from this game', game.status === 'finished' ? 'Rosters, fouls, running score and final' : 'So far — the game isn’t finished'],
+              [false, 'Blank sheet', 'To score on paper'],
+            ] as const).map(([value, title, sub]) => (
+              <TouchableOpacity
+                key={title}
+                onPress={() => setFilled(value)}
+                style={[styles.choice, filled === value && { borderColor: accentColor, backgroundColor: `${accentColor}0D` }]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: filled === value }}
+              >
+                <Text style={[styles.choiceTitle, filled === value && { color: accentColor }]}>{title}</Text>
+                <Text style={styles.choiceSub}>{sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* ── Info Banner ──────────────────────────────────────────────────── */}
         <View style={[styles.infoBanner, { backgroundColor: `${accentColor}08`, borderColor: `${accentColor}25` }]}>
           <Icon name="print" size={16} color={accentColor} />
           <Text style={[styles.infoText, { color: accentColor }]}>
-            The printed form contains the full {sportConfig.label} score sheet with all sections. Hand it to the committee before the event starts.
+            {useGame
+              ? 'The PDF comes out filled in with this game as recorded in the app — rosters, fouls, team fouls, the running score, quarter scores, the final and the officials. Share it as the game’s soft copy.'
+              : `The printed form contains the full ${sportConfig.label} score sheet with all sections. Hand it to the committee before the event starts.`}
           </Text>
         </View>
 
@@ -849,5 +896,27 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     gap: SPACING.sm,
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  choice: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+  },
+  choiceTitle: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+  },
+  choiceSub: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
 });

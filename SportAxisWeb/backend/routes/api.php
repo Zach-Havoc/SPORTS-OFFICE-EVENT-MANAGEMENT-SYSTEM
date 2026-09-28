@@ -155,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/events/{id}/plays/last', [BasketballGameController::class, 'undo']);
         Route::put('/events/{id}/period', [BasketballGameController::class, 'setPeriod']);
         Route::post('/events/{id}/finish', [BasketballGameController::class, 'finish']);
+        Route::get('/events/{id}/scoresheet', [BasketballGameController::class, 'sheet']);
     });
 
     // Play-by-play volleyball, from the mobile scorer — same access rule.

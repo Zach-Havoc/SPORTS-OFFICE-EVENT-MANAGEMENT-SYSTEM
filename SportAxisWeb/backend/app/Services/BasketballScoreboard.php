@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\GameEvent;
 use App\Models\GamePlayer;
 use App\Models\LiveScore;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
@@ -158,6 +159,77 @@ class BasketballScoreboard
             'teams' => $teamRows,
             'recentPlays' => $plays->reverse()->take(10)->map(fn (GameEvent $p) => $this->playRow($p, $rosterByPlayer))->values()->all(),
             'updatedAt' => $live?->updated_at,
+        ];
+    }
+
+    /**
+     * Everything the FIBA-style paper scoresheet holds, from the recorded
+     * game — for the committee's filled-in PDF copy: both rosters (licence /
+     * student no., jersey, starters, each foul's period), team fouls per
+     * quarter, every scoring play in order (the running score), period
+     * scores, the umpires and each team's coach. Not public: it carries
+     * student numbers.
+     */
+    public function sheet(Event $event): array
+    {
+        $board = $this->build($event);
+        $plays = GameEvent::where('game_id', $event->id)->orderBy('id')->get();
+        $roster = GamePlayer::with('athlete.account')->where('game_id', $event->id)->get()->keyBy('player_id');
+        $coachNames = User::whereIn('id', $roster->pluck('athlete.coach_id')->filter()->unique())->pluck('name', 'id');
+
+        $teams = [];
+        foreach ($board['teams'] as $i => $team) {
+            $teamPlays = $plays->where('team_id', $team['id']);
+            $teamRoster = $roster->where('team_id', $team['id']);
+
+            $fouls = [];
+            foreach ($teamPlays->where('type', 'FOUL') as $f) {
+                $fouls[self::foulPeriod($f->period)] = ($fouls[self::foulPeriod($f->period)] ?? 0) + 1;
+            }
+
+            $teams[] = [
+                'name' => $team['name'],
+                'abbreviation' => $team['abbreviation'],
+                'score' => $team['score'],
+                'periodScores' => $team['periodScores'],
+                'teamFouls' => (object) $fouls,
+                'coach' => $coachNames[$teamRoster->pluck('athlete.coach_id')->filter()->countBy()->sortDesc()->keys()->first()] ?? null,
+                'players' => $teamRoster
+                    ->sortBy(fn (GamePlayer $gp) => [! $gp->is_starter, (int) $gp->jersey_number])
+                    ->map(fn (GamePlayer $gp) => [
+                        'jersey' => $gp->jersey_number,
+                        'name' => self::nameOf($gp->athlete),
+                        'licence' => $gp->athlete?->account?->sr_code ?: $gp->athlete?->student_id,
+                        'starter' => (bool) $gp->is_starter,
+                        'played' => (bool) $gp->is_starter || $teamPlays->where('player_id', $gp->player_id)->isNotEmpty(),
+                        'fouls' => $teamPlays->where('player_id', $gp->player_id)->where('type', 'FOUL')
+                            ->map(fn ($f) => self::periodLabel($f->period))->values()->all(),
+                    ])->values()->all(),
+            ];
+        }
+
+        $sides = collect($board['teams'])->pluck('id')->flip();
+
+        return [
+            'event' => [
+                'name' => $event->name,
+                'schedule' => $event->schedule ? substr((string) $event->schedule, 0, 10) : null,
+                'startTime' => $event->start_time,
+                'venueName' => $event->venue_name,
+                'departments' => array_values($event->departments ?? []),
+            ],
+            'status' => $board['status'],
+            'regulationPeriods' => $board['regulationPeriods'],
+            'umpires' => collect($event->judges ?? [])->pluck('name')->filter()->values()->all(),
+            'teams' => $teams,
+            'winner' => $board['winnerTeamId'] ? $sides[$board['winnerTeamId']] ?? null : null,
+            'plays' => $plays->filter(fn (GameEvent $p) => $p->points() > 0 && $sides->has($p->team_id))
+                ->map(fn (GameEvent $p) => [
+                    'side' => $sides[$p->team_id],
+                    'points' => $p->points(),
+                    'jersey' => $roster->get($p->player_id)?->jersey_number,
+                    'period' => $p->period,
+                ])->values()->all(),
         ];
     }
 

@@ -166,7 +166,7 @@ class LineupSportsTest extends TestCase
         $winner = $first->home_team;
         $team = Department::where('name', $winner)->first();
         $player = $this->athletes()->create(['department' => $winner]);
-        GamePlayer::create(['game_id' => $game->id, 'team_id' => $team->id, 'player_id' => $player->id, 'jersey_number' => '7', 'rotation_position' => null]);
+        GamePlayer::create(['game_id' => $game->id, 'team_id' => $team->id, 'player_id' => $player->id, 'jersey_number' => '7', 'rotation_position' => null, 'is_starter' => true]);
 
         // …comes with them when they win and advance.
         $service->advance($first, $winner);
@@ -175,5 +175,6 @@ class LineupSportsTest extends TestCase
         $carried = GamePlayer::where('game_id', $final->event_id)->where('team_id', $team->id)->get();
         $this->assertSame([$player->id], $carried->pluck('player_id')->all());
         $this->assertSame('7', $carried->first()->jersey_number);
+        $this->assertTrue($carried->first()->is_starter);   // the starting five come along too
     }
 }
