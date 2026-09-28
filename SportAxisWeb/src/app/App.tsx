@@ -111,12 +111,9 @@ function HomeRoute() {
 // Scoring itself happens only in the mobile app.
 function QRCodePage() {
   return (
-    <>
-      <Suspense fallback={null}>
-        <ScoreInApp />
-      </Suspense>
-      <Toaster />
-    </>
+    <Suspense fallback={null}>
+      <ScoreInApp />
+    </Suspense>
   );
 }
 
@@ -301,6 +298,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      {/* The one place pop-up messages (toast.success / toast.error) render,
+          for every page — including over an open dialog. */}
+      <Toaster position="top-center" richColors closeButton />
     </QueryClientProvider>
   );
 }
