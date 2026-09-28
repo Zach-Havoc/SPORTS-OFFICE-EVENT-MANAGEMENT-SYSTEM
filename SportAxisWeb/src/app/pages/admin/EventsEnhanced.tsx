@@ -20,8 +20,10 @@ import {
 } from 'lucide-react';
 import { printScoreSheet } from '../../utils/scoresheet';
 
-const openScoreSheet = (event: any) => {
-  if (!printScoreSheet(event)) toast.error('Allow pop-ups for this site to print the sheet.');
+/** `abbr` turns a college's full name into its short name, for sheets that print those. */
+const openScoreSheet = (event: any, abbr?: (name: string) => string) => {
+  const teamLabels = abbr ? (event.departments ?? []).map((d: string) => abbr(d)) : undefined;
+  if (!printScoreSheet({ ...event, teamLabels })) toast.error('Allow pop-ups for this site to print the sheet.');
 };
 import { toast } from 'sonner';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -631,7 +633,7 @@ export default function AdminEventsEnhanced() {
               onToggleSelect={handleToggleSelect}
               onEdit={handleOpenDialog}
               onQR={handleQRClick}
-              onPrint={openScoreSheet}
+              onPrint={(e: any) => openScoreSheet(e, abbr)}
               onDelete={handleDeleteClick}
             />
           ))}
@@ -649,7 +651,7 @@ export default function AdminEventsEnhanced() {
                   onToggleSelect={handleToggleSelect}
                   onEdit={handleOpenDialog}
                   onQR={handleQRClick}
-                  onPrint={openScoreSheet}
+                  onPrint={(e: any) => openScoreSheet(e, abbr)}
                   onDelete={handleDeleteClick}
                 />
               ))}

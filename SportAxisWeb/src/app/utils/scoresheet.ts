@@ -5,6 +5,8 @@
 // (→ paper or "Save as PDF").
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { buildBasketballScoresheetHtml } from './basketballScoresheet';
+
 export interface ScoreSheetEvent {
   name: string;
   category: string;
@@ -12,6 +14,8 @@ export interface ScoreSheetEvent {
   startTime?: string | null;
   venueName?: string | null;
   departments?: string[] | null;
+  /** The teams' short names (CICS…), in `departments` order — the basketball sheet prints these. */
+  teamLabels?: Array<string | null | undefined>;
 }
 
 type SportType =
@@ -110,85 +114,11 @@ const watermark = () =>
 const page = (inner: string) =>
   `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><style>${BASE_CSS}</style></head><body>${inner}</body></html>`;
 
-// Redesigned for landscape long bond paper: the two rosters sit side by side
-// instead of stacked (halves the page height needed), the redundant
-// per-quarter foul columns were dropped (a single running 1–5 foul tally per
-// player is the standard convention — tracking which quarter each foul
-// happened in duplicated that with no real benefit), and the running-score
-// tally is now one compact line instead of three, freeing space for bigger,
-// clearer cells everywhere else — including the TEAM / FINAL SCORE row that
-// OCR actually reads back later.
-function rosterTable(teamLabel: string, teamName: string): string {
-  return `
-    <p class="section-title">${teamLabel} — ${teamName} — Player Roster &amp; Fouls</p>
-    <table class="roster-table">
-      <thead><tr>
-        <th style="width:16%;">QTRS PLAYED</th>
-        <th style="text-align:left;">PLAYER NAME</th>
-        <th style="width:14%;">JERSEY #</th>
-        <th style="width:26%;">FOULS (1–5)</th>
-      </tr></thead>
-      <tbody>
-        ${Array.from({ length: 7 }).map(() => `<tr>
-          <td style="text-align:center;font-size:10px; letter-spacing:2px;">1&nbsp;&nbsp;2&nbsp;&nbsp;3&nbsp;&nbsp;4</td>
-          <td></td>
-          <td style="text-align:center;"></td>
-          <td style="text-align:center;">${[1, 2, 3, 4, 5].map((n) => `<span class="foul-box">${n}</span>`).join('')}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
-}
-
 // ── Basketball ─────────────────────────────────────────────────────────────
+// The FIBA-style sheet lives in ./basketballScoresheet (the same file as the
+// mobile app's — keep them identical). It's printed portrait.
 function buildBasketballHtml(event: ScoreSheetEvent): string {
-  const depts = event.departments || [];
-  const teamA = depts[0] || 'TEAM A';
-  const teamB = depts[1] || 'TEAM B';
-  return page(`<style>
-    .roster-table th { background: #b91c1c; }
-    .roster-table td { height: 22px; }
-    .running-box { border: 1.5px solid #000; padding: 7px 10px; margin-bottom: 10px; font-size: 10.5px; letter-spacing: 0.5px; }
-  </style>
-    <div class="header">
-      <h1>SportsAxis – Sports Office</h1>
-      <p>Official Basketball Game Score Sheet</p>
-      <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
-    </div>
-
-    <table class="meta-table">
-      <tr>
-        <td>TEAM A: <strong style="color:#b91c1c;">${teamA}</strong></td>
-        <td>TEAM B: <strong style="color:#b91c1c;">${teamB}</strong></td>
-        <td>VENUE: ${event.venueName || 'SPORTS COMPLEX'}</td>
-        <td>DATE: ${fmtDate(event.schedule)}</td>
-      </tr>
-    </table>
-
-    <div class="running-box">
-      <strong>RUNNING SCORE (cross off as scored):</strong>
-      1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100
-    </div>
-
-    <table>
-      <thead><tr>
-        <th style="text-align:left; width:25%;">TEAM</th>
-        <th>1ST QTR</th><th>2ND QTR</th><th>3RD QTR</th><th>4TH QTR</th>
-        <th>1ST OT</th><th>2ND OT</th>
-        <th style="background:#7f1d1d;">FINAL SCORE</th>
-      </tr></thead>
-      <tbody>
-        <tr class="red-row"><td style="font-weight:bold;">${teamA}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td style="font-weight:bold;">${teamB}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-      </tbody>
-    </table>
-
-    <div class="two-col">
-      <div>${rosterTable('TEAM A', teamA)}</div>
-      <div>${rosterTable('TEAM B', teamB)}</div>
-    </div>
-
-    ${signatureBlock("Committee's Signature &amp; Name", 'Scorekeeper / Facilitator', 'Event Coordinator')}
-    ${watermark()}`);
+  return buildBasketballScoresheetHtml(event, event.teamLabels ?? []);
 }
 
 // ── Volleyball ─────────────────────────────────────────────────────────────

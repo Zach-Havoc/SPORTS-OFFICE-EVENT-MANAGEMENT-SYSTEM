@@ -14,6 +14,8 @@ import {
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
 import type { EventSession } from '../../types';
 import { getSportConfigFromEvent } from '../../utils/sport-config';
+import { buildBasketballScoresheetHtml } from '../../utils/basketballScoresheet';
+import { useDeptAbbreviator } from '../../hooks/use-dept-abbr';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 
@@ -96,86 +98,8 @@ function signatureBlock(role1: string, role2: string, role3: string) {
 }
 
 // ── Basketball ────────────────────────────────────────────────────────────────
-// Redesigned for landscape long bond paper: the two rosters sit side by side
-// instead of stacked (halves the page height needed), the redundant
-// per-quarter foul columns were dropped (a single running 1–5 foul tally per
-// player is the standard convention — tracking which quarter each foul
-// happened in duplicated that with no real benefit), and the running-score
-// tally is now one compact line instead of three, freeing space for bigger,
-// clearer cells everywhere else — including the TEAM / FINAL SCORE row that
-// OCR actually reads back later.
-function rosterTable(teamLabel: string, teamName: string): string {
-  return `
-    <p class="section-title">${teamLabel} — ${teamName} — Player Roster &amp; Fouls</p>
-    <table class="roster-table">
-      <thead><tr>
-        <th style="width:16%;">QTRS PLAYED</th>
-        <th style="text-align:left;">PLAYER NAME</th>
-        <th style="width:14%;">JERSEY #</th>
-        <th style="width:26%;">FOULS (1–5)</th>
-      </tr></thead>
-      <tbody>
-        ${Array.from({ length: 7 }).map(() => `<tr>
-          <td style="text-align:center;font-size:10px; letter-spacing:2px;">1&nbsp;&nbsp;2&nbsp;&nbsp;3&nbsp;&nbsp;4</td>
-          <td></td>
-          <td style="text-align:center;"></td>
-          <td style="text-align:center;">${[1, 2, 3, 4, 5].map((n) => `<span class="foul-box">${n}</span>`).join('')}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
-}
-
-function buildBasketballHtml(event: EventSession): string {
-  const depts = event.departments || [];
-  const teamA = depts[0] || 'TEAM A';
-  const teamB = depts[1] || 'TEAM B';
-  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/><style>${BASE_CSS}
-    .roster-table th { background: #b91c1c; }
-    .roster-table td { height: 22px; }
-    .running-box { border: 1.5px solid #000; padding: 7px 10px; margin-bottom: 10px; font-size: 10.5px; letter-spacing: 0.5px; }
-  </style></head><body>
-    <div class="header">
-      <h1>SportsAxis – Sports Office</h1>
-      <p>Official Basketball Game Score Sheet</p>
-      <div class="badge">EVENT: ${event.name.toUpperCase()}</div>
-    </div>
-
-    <table class="meta-table">
-      <tr>
-        <td>TEAM A: <strong style="color:#b91c1c;">${teamA}</strong></td>
-        <td>TEAM B: <strong style="color:#b91c1c;">${teamB}</strong></td>
-        <td>VENUE: ${event.venueName || 'SPORTS COMPLEX'}</td>
-        <td>DATE: ${fmtDate(event.schedule)}</td>
-      </tr>
-    </table>
-
-    <div class="running-box">
-      <strong>RUNNING SCORE (cross off as scored):</strong>
-      1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100
-    </div>
-
-    <table>
-      <thead><tr>
-        <th style="text-align:left; width:25%;">TEAM</th>
-        <th>1ST QTR</th><th>2ND QTR</th><th>3RD QTR</th><th>4TH QTR</th>
-        <th>1ST OT</th><th>2ND OT</th>
-        <th style="background:#7f1d1d;">FINAL SCORE</th>
-      </tr></thead>
-      <tbody>
-        <tr class="red-row"><td style="font-weight:bold;">${teamA}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td style="font-weight:bold;">${teamB}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-      </tbody>
-    </table>
-
-    <div class="two-col">
-      <div>${rosterTable('TEAM A', teamA)}</div>
-      <div>${rosterTable('TEAM B', teamB)}</div>
-    </div>
-
-    ${signatureBlock('Committee\'s Signature &amp; Name', 'Scorekeeper / Facilitator', 'Event Coordinator')}
-    <div class="watermark">SportsAxis System © ${new Date().getFullYear()} | For Official Use Only</div>
-  </body></html>`;
-}
+// The FIBA-style sheet lives in src/utils/basketballScoresheet.ts (the same
+// file as the web app's — keep them identical). It's printed portrait.
 
 // ── Volleyball ────────────────────────────────────────────────────────────────
 function buildVolleyballHtml(event: EventSession): string {
@@ -671,10 +595,11 @@ function buildDefaultHtml(event: EventSession): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // Router — select correct template based on sport
 // ─────────────────────────────────────────────────────────────────────────────
-function buildHtml(event: EventSession): string {
+/** `labels`: the teams' short names (CICS…), for sheets that print them. */
+function buildHtml(event: EventSession, labels: string[] = []): string {
   const config = getSportConfigFromEvent(event.category, event.name);
   switch (config.type) {
-    case 'basketball':   return buildBasketballHtml(event);
+    case 'basketball':   return buildBasketballScoresheetHtml(event, labels);
     case 'volleyball':   return buildVolleyballHtml(event);
     case 'badminton':    return buildBadmintonHtml(event);
     case 'football':     return buildFootballHtml(event);
@@ -691,17 +616,23 @@ function buildHtml(event: EventSession): string {
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 // Long bond paper (8.5 x 13in), landscape, expressed in the pixel units
-// expo-print expects (72 PPI — its own default is US Letter, 612x792).
-const PAGE_WIDTH_PX = 13 * 72;
-const PAGE_HEIGHT_PX = 8.5 * 72;
+// expo-print expects (72 PPI — its own default is US Letter, 612x792). The
+// basketball sheet is the one portrait sheet.
+const LONG_SIDE_PX = 13 * 72;
+const SHORT_SIDE_PX = 8.5 * 72;
 
 export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetViewProps) {
   const sportConfig = getSportConfigFromEvent(event.category, event.name);
   const accentColor = sportConfig.color;
+  const abbreviate = useDeptAbbreviator();
+  const labels = (event.departments ?? []).map((d) => abbreviate(d));
+  const portrait = sportConfig.type === 'basketball';
+  const PAGE_WIDTH_PX = portrait ? SHORT_SIDE_PX : LONG_SIDE_PX;
+  const PAGE_HEIGHT_PX = portrait ? LONG_SIDE_PX : SHORT_SIDE_PX;
 
   const handlePrint = async () => {
     try {
-      const html = buildHtml(event);
+      const html = buildHtml(event, labels);
       if (Platform.OS === 'web') {
         const w = window.open('', '_blank');
         w?.document.write(html);
@@ -712,7 +643,7 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
           html,
           width: PAGE_WIDTH_PX,
           height: PAGE_HEIGHT_PX,
-          orientation: Print.Orientation.landscape,
+          orientation: portrait ? Print.Orientation.portrait : Print.Orientation.landscape,
         });
       }
     } catch (err) {
@@ -723,7 +654,7 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
 
   const handleSharePdf = async () => {
     try {
-      const html = buildHtml(event);
+      const html = buildHtml(event, labels);
       const { uri } = await Print.printToFileAsync({
         html,
         width: PAGE_WIDTH_PX,

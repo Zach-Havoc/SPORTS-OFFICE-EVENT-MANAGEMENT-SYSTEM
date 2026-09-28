@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { buildScoreSheetHtml } from './scoresheet';
 
 describe('buildScoreSheetHtml', () => {
-  it('produces the basketball sheet with a running score and per-team fouls', () => {
+  it('produces the FIBA-style basketball sheet with a running score and team fouls', () => {
     const html = buildScoreSheetHtml({
-      name: 'Basketball (Finals): CET vs CICS',
-      category: 'Basketball',
+      name: 'Basketball — Men (Finals): CET vs CICS',
+      category: 'Basketball — Men',
       departments: ['CET', 'CICS'],
     });
-    expect(html).toContain('Official Basketball Game Score Sheet');
-    expect(html).toContain('RUNNING SCORE (cross off as scored):');
-    expect(html).toContain('1ST QTR');
-    expect(html).toContain('Player Roster &amp; Fouls');
+    expect(html).toContain('FIBA-STYLE BASKETBALL SCORESHEET');
+    expect(html).toContain('RUNNING SCORE');
+    expect(html).toContain('TEAM FOULS');
+    expect(html).toContain('size: 8.5in 13in');   // portrait long bond
     expect(html).toContain('CET');
   });
 
