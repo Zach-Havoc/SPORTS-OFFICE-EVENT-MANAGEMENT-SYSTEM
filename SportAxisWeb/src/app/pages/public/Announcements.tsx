@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Megaphone, Search, Calendar, User, UserPlus, Mail, CheckCircle, X } from 'lucide-react';
-import { toast } from 'sonner';
 import { applyForTryout, verifyTryoutEmail } from '../../services/api';
 import { useAnnouncements, useDepartments } from '../../hooks/api';
 import { TryoutSchedule } from '../../components/public/TryoutSchedule';
@@ -58,8 +57,11 @@ export default function PublicAnnouncements() {
   const [step, setStep] = useState<'form' | 'verify' | 'success'>('form');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  // The server's reason a step failed, kept in view (a toast is easy to miss).
+  // Everything the form has to say shows inside the dialog — no pop-ups:
+  // the server's reason a step failed, and (on a local dev machine only)
+  // the verification code the server hands back instead of mailing it.
   const [serverError, setServerError] = useState('');
+  const [devCode, setDevCode] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -130,10 +132,8 @@ export default function PublicAnnouncements() {
   const handleSendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      toast.error('Please fix the highlighted fields');
-      return;
-    }
+    // The fields with problems are outlined, each with its own message.
+    if (!validateForm()) return;
 
     try {
       setSubmitting(true);
@@ -147,11 +147,7 @@ export default function PublicAnnouncements() {
         coachId: selectedAnnouncement?.coachId,
         department: formData.department,
       });
-      if (res?.dev_code) {
-        toast.success(`Verification code: ${res.dev_code} (Code sent to your email/log)`);
-      } else {
-        toast.success('Verification code sent to your email!');
-      }
+      setDevCode(res?.dev_code ?? '');
       setStep('verify');
     } catch (error: any) {
       console.error('Error sending verification:', error);
@@ -166,7 +162,7 @@ export default function PublicAnnouncements() {
     e.preventDefault();
 
     if (!formData.verificationCode) {
-      toast.error('Please enter the verification code');
+      setServerError('Please enter the verification code.');
       return;
     }
 
@@ -593,6 +589,11 @@ export default function PublicAnnouncements() {
                       We've sent a 6-digit verification code to <strong>{formData.email}</strong>.
                       Please check your inbox and enter the code below.
                     </p>
+                    {devCode && (
+                      <p className="text-sm text-blue-700 mt-1">
+                        Local dev: your code is <strong className="font-mono">{devCode}</strong>.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
