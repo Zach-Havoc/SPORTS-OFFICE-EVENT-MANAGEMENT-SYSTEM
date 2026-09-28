@@ -39,9 +39,10 @@ class TeamMembership
      * Why an athlete from `$athleteCollege` can't join `$coach`'s team, or
      * null if they can. Nothing is compared when either side has no college
      * yet — enrolment handles those itself (the athlete takes the coach's).
-     * `$toCoach` words it for the coach adding the athlete.
+     * `$toCoach` words it for the coach adding the athlete. `$sport` names
+     * the team when it's known (a tryout's sport); otherwise the coach's.
      */
-    public static function joinError(User $coach, ?string $athleteCollege, bool $toCoach = false): ?string
+    public static function joinError(User $coach, ?string $athleteCollege, bool $toCoach = false, ?string $sport = null): ?string
     {
         $teamKeys = self::keys($coach->department, self::coachCollege($coach));
         $athleteKeys = self::keys($athleteCollege, self::college($athleteCollege));
@@ -53,7 +54,7 @@ class TeamMembership
         $mine = self::college($athleteCollege);
         $teamName = $team ? ($team->abbreviation ?: $team->name) : trim((string) $coach->department);
         $yours = $mine ? ($mine->abbreviation ?: $mine->name) : trim((string) $athleteCollege);
-        $sport = $coach->sport ? "{$coach->sport} " : '';
+        $sport = ($sport ?: $coach->sport) ? ($sport ?: $coach->sport).' ' : '';
 
         return $toCoach
             ? "This athlete can't join your team. They're from {$yours}, and yours is {$teamName}'s {$sport}team. "

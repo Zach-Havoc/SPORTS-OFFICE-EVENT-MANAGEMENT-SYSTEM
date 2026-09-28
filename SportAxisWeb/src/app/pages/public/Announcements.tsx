@@ -20,6 +20,8 @@ interface Announcement {
   sport: string;
   coachId: string;
   coachName: string;
+  /** The college whose team this is — a tryout only takes that college's students. */
+  coachCollege?: string | null;
   isTryout: boolean;
   tryoutDate?: string | null;
   tryoutStartTime?: string | null;
@@ -56,6 +58,8 @@ export default function PublicAnnouncements() {
   const [step, setStep] = useState<'form' | 'verify' | 'success'>('form');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // The server's reason a step failed, kept in view (a toast is easy to miss).
+  const [serverError, setServerError] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -108,12 +112,14 @@ export default function PublicAnnouncements() {
     setSelectedAnnouncement(announcement);
     setStep('form');
     setErrors({});
+    setServerError('');
     setFormData({
       firstName: '',
       lastName: '',
       email: '',
       studentId: '',
-      department: '',
+      // A tryout is for one college's team, so its college is already decided.
+      department: announcement.coachCollege || '',
       phone: '',
       yearLevel: '1st Year',
       verificationCode: ''
@@ -131,6 +137,7 @@ export default function PublicAnnouncements() {
 
     try {
       setSubmitting(true);
+      setServerError('');
       const res: any = await verifyTryoutEmail({
         email: formData.email.trim(),
         studentId: formData.studentId.trim(),
@@ -148,6 +155,7 @@ export default function PublicAnnouncements() {
       setStep('verify');
     } catch (error: any) {
       console.error('Error sending verification:', error);
+      setServerError(error.message || 'Failed to send verification code');
       toast.error(error.message || 'Failed to send verification code');
     } finally {
       setSubmitting(false);
@@ -166,6 +174,7 @@ export default function PublicAnnouncements() {
 
     try {
       setSubmitting(true);
+      setServerError('');
       await applyForTryout({
         announcementId: selectedAnnouncement.id,
         sport: selectedAnnouncement.sport,
@@ -182,6 +191,7 @@ export default function PublicAnnouncements() {
       setStep('success');
     } catch (error: any) {
       console.error('Error submitting application:', error);
+      setServerError(error.message || 'Failed to submit application');
       toast.error(error.message || 'Failed to submit application');
     } finally {
       setSubmitting(false);
@@ -194,6 +204,7 @@ export default function PublicAnnouncements() {
       setStep('form');
       setSelectedAnnouncement(null);
       setErrors({});
+      setServerError('');
     }
   };
 
@@ -384,7 +395,11 @@ export default function PublicAnnouncements() {
             </DialogTitle>
             <DialogDescription>
               {step === 'form'
-                ? `Fill in your information to apply for ${selectedAnnouncement?.sport || 'this tryout'}`
+                ? `Fill in your information to apply for ${selectedAnnouncement?.sport || 'this tryout'}${
+                    selectedAnnouncement?.coachCollege
+                      ? `. Open to ${deptByName.get(selectedAnnouncement.coachCollege)?.abbreviation || selectedAnnouncement.coachCollege} students only.`
+                      : ''
+                  }`
                 : step === 'verify'
                   ? 'Enter the verification code sent to your email'
                   : 'Your application has been received'}
@@ -470,6 +485,7 @@ export default function PublicAnnouncements() {
                   <Label htmlFor="department">College *</Label>
                   <Select
                     value={formData.department || undefined}
+                    disabled={!!selectedAnnouncement?.coachCollege}
                     onValueChange={(v) => {
                       setFormData({ ...formData, department: v });
                       clearError('department');
@@ -551,6 +567,12 @@ export default function PublicAnnouncements() {
                 </div>
               </div>
 
+              {serverError && (
+                <p role="alert" className="rounded-md border border-danger-border bg-danger-subtle p-3 text-sm text-danger-text">
+                  {serverError}
+                </p>
+              )}
+
               <DialogFooter>
                 <Button type="button" variant="secondary" onClick={() => handleDialogClose(false)}>
                   Cancel
@@ -588,8 +610,14 @@ export default function PublicAnnouncements() {
                 />
               </div>
 
+              {serverError && (
+                <p role="alert" className="rounded-md border border-danger-border bg-danger-subtle p-3 text-sm text-danger-text">
+                  {serverError}
+                </p>
+              )}
+
               <DialogFooter>
-                <Button type="button" variant="secondary" onClick={() => setStep('form')}>
+                <Button type="button" variant="secondary" onClick={() => { setServerError(''); setStep('form'); }}>
                   Back
                 </Button>
                 <Button type="submit" disabled={submitting}>

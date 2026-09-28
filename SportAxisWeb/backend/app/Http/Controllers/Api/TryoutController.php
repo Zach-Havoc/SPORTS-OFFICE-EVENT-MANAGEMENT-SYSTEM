@@ -37,7 +37,7 @@ class TryoutController extends Controller
         // Only the student's own college's team — told before a code is
         // mailed when the form says which tryout it is (re-checked on apply).
         $coach = $this->tryoutCoach($request->announcementId, $request->coachId);
-        if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($request->studentId, $request->department)))) {
+        if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($request->studentId, $request->department), sport: $this->tryoutSport($request)))) {
             return response()->json(['message' => $error], 422);
         }
 
@@ -105,7 +105,7 @@ class TryoutController extends Controller
         // Only the student's own college's team — by the registrar's record
         // of their college, not what they picked on the form.
         $coach = $this->tryoutCoach($request->announcementId, $request->coachId);
-        if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($request->studentId, $request->department)))) {
+        if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($request->studentId, $request->department), sport: $this->tryoutSport($request)))) {
             return response()->json(['message' => $error], 422);
         }
 
@@ -174,7 +174,7 @@ class TryoutController extends Controller
 
             // Applications from before the college rule are checked here too.
             $coach = User::find($coachId);
-            if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($app->student_id, $app->department)))) {
+            if ($coach && ($error = TeamMembership::joinError($coach, $this->collegeOf($app->student_id, $app->department), sport: $app->sport))) {
                 return response()->json(['error' => $error], 422);
             }
 
@@ -286,6 +286,12 @@ class TryoutController extends Controller
         $id = ($announcementId ? Announcement::whereKey($announcementId)->value('coach_id') : null) ?: $coachId;
 
         return $id ? User::where('role', 'coach')->find($id) : null;
+    }
+
+    /** The sport the tryout is for — the announcement's, else what the form says. */
+    private function tryoutSport(Request $request): ?string
+    {
+        return ($request->announcementId ? Announcement::whereKey($request->announcementId)->value('sport') : null) ?: $request->sport;
     }
 
     /** A student's college: the registrar's record when there is one, else what they gave. */

@@ -111,6 +111,32 @@ class TeamMembershipTest extends TestCase
         $this->assertDatabaseMissing('email_verifications', ['email' => 'sam@batstate-u.edu.ph']);
     }
 
+    public function test_the_refusal_names_the_tryouts_sport_not_the_coachs_first_one(): void
+    {
+        $this->campusStudents()->create([
+            'sr_code' => '24-00001', 'first_name' => 'Sam', 'last_name' => 'Cruz',
+            'email' => 'sam@batstate-u.edu.ph', 'college' => $this->cics->name,
+        ]);
+        // A coach whose first sport is Basketball posts a Chess tryout.
+        $coach = $this->cabeCoach(['sports' => ['Basketball', 'Chess']]);
+        $tryout = $this->announcements()->create(['coach_id' => $coach->id, 'sport' => 'Chess', 'is_tryout' => true]);
+
+        $this->postJson('/api/tryouts/verify-email', [
+            'email' => 'sam@batstate-u.edu.ph', 'studentId' => '24-00001', 'announcementId' => $tryout->id,
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', "You can't join this team. It's CABEIHM's Chess team, and you're from CICS. "
+                ."Athletes can only join their own college's team.");
+    }
+
+    public function test_the_announcements_say_whose_college_team_each_tryout_is_for(): void
+    {
+        $coach = $this->cabeCoach();
+        $this->announcements()->create(['coach_id' => $coach->id, 'sport' => 'Basketball', 'is_tryout' => true]);
+
+        $this->getJson('/api/announcements')->assertOk()->assertJsonPath('data.0.coach_college', $this->cabe->name);
+    }
+
     public function test_a_tryout_for_your_own_colleges_team_goes_through(): void
     {
         $this->campusStudents()->create([
