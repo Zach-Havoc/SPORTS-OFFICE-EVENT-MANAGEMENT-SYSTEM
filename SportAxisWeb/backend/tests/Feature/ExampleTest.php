@@ -2,18 +2,26 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * The API's root address: a redirect to the website when that lives on
+ * another host (Render), otherwise a small JSON note — never the framework's
+ * welcome page.
+ */
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_the_application_returns_a_successful_response(): void
+    public function test_the_root_says_what_this_is_when_the_site_shares_the_host(): void
     {
-        $response = $this->get('/');
+        config(['app.frontend_url' => 'http://localhost']);
 
-        $response->assertStatus(200);
+        $this->get('/')->assertOk()->assertJson(['name' => config('app.name')]);
+    }
+
+    public function test_the_root_sends_people_to_the_website_when_it_lives_elsewhere(): void
+    {
+        config(['app.frontend_url' => 'https://sportsaxis-web.onrender.com']);
+
+        $this->get('/')->assertRedirect('https://sportsaxis-web.onrender.com');
     }
 }
