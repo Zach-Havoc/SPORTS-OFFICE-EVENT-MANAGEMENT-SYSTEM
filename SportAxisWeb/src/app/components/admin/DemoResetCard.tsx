@@ -173,7 +173,7 @@ export default function DemoResetCard() {
               </div>
               <p className="text-text-secondary">
                 Done in {result.seconds}s. Backup: <span className="font-mono text-xs">{result.backup}</span>. Every demo
-                account's password is <span className="font-mono">Sportaxis@2026</span>; the full list is in{' '}
+                account's password is <span className="font-mono">demo123</span>; the full list is in{' '}
                 <span className="font-mono text-xs">storage/app/demo-credentials.csv</span> on the server.
               </p>
             </div>

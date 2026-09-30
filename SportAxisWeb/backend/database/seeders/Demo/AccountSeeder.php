@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * The accounts, all with the password Sportaxis@2026:
+ * The accounts, all with the password demo123:
  *
  *   coach1–49    one per college per sport, running both its Men's and
  *                Women's team. coach1–7 each have their own sport at their

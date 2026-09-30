@@ -44,7 +44,7 @@ class ResetDemoData extends Command
         $this->newLine();
         $this->info("Done in {$result['seconds']}s.");
         $this->line("Backup:      {$result['backup']}");
-        $this->line("Credentials: {$result['credentials']} (password Sportaxis@2026)");
+        $this->line("Credentials: {$result['credentials']} (password demo123)");
         $this->newLine();
         $this->table(['What', 'Count'], collect($result['counts'])->map(fn ($n, $what) => [$what, $n])->values()->all());
         $this->table(['Step', 'Seconds'], collect($result['steps'])->map(fn ($s, $step) => [$step, $s])->values()->all());

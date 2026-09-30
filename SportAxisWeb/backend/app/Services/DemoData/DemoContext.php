@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  */
 class DemoContext
 {
-    public const PASSWORD = 'Sportaxis@2026';
+    public const PASSWORD = 'demo123';
 
     public const DOMAIN = '@g.batstate-u.edu.ph';
 
