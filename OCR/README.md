@@ -59,6 +59,30 @@ Health check: `curl http://127.0.0.1:5001/health` → `{"status":"ok"}`
 The Laravel backend finds it via `OCR_SERVICE_URL` in `.env` (defaults to
 `http://127.0.0.1:5001`, see `config/services.php`).
 
+## Deploying free on a Hugging Face Space (recommended)
+
+A free Space gives the container 2 CPUs and 16GB of RAM (Render's free plan
+is too small for PaddleOCR), with no credit card. It sleeps after 48 hours
+without requests; the next request wakes it in a minute or two.
+
+1. At huggingface.co, sign up, then **New → Space**. Name it
+   `sportsaxis-ocr`, SDK **Docker** → template **Blank**, hardware
+   **CPU basic (free)**, visibility **Public**. The Space is public, but
+   `/extract` still needs the API key, so strangers can't use it. Create it.
+2. **Files → README.md → Edit**. Add `app_port: 5001` inside the block
+   between the `---` lines at the top, then commit.
+3. **Files → Add file → Upload files**. Upload `Dockerfile` and
+   `service.py` from this folder, then commit.
+4. **Settings → Variables and secrets → New secret**: name `OCR_API_KEY`,
+   value from `openssl rand -hex 32`. Adding it restarts the Space.
+5. Watch **Logs** until the build finishes (about 5–10 min; it downloads the
+   models during the build) and it prints `Model loaded — ready.`
+6. Check it at `https://<your-username>-sportsaxis-ocr.hf.space/health`,
+   which should show `{"status":"ok"}`.
+7. In Render → sportsaxis-api → *Environment*, set
+   `OCR_SERVICE_URL=https://<your-username>-sportsaxis-ocr.hf.space` and
+   `OCR_API_KEY` to the same key, then save. Render restarts the API.
+
 ## Deploying to a real server (Oracle Cloud "Always Free")
 
 Once the Laravel backend runs somewhere that can't run Python itself (e.g.
@@ -125,8 +149,8 @@ containers.
 cd OCR
 docker build -t sportsaxis-ocr .
 
-# -v persists the downloaded model weights across container restarts —
-# without it, every restart re-downloads ~2GB on first request.
+# The models are built into the image; the volume only keeps any later
+# downloads (e.g. a changed model) across container restarts.
 docker run -d --name sportsaxis-ocr \
   -p 5001:5001 \
   -v paddleocr-models:/app/.paddlex \

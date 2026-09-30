@@ -153,8 +153,9 @@ To try the app against the live API without building, run
   Cloud keeps its own automatic backups; you can also export from its console.
 - **Live scores refresh every few seconds** instead of instantly (no websocket
   server on the free plan). This is the same as the InfinityFree site.
-- **OCR** (PaddleOCR) needs more memory than Render's free plan gives, so it has
-  to run somewhere else. Point `OCR_SERVICE_URL` at it, or leave scanning off.
+- **OCR** (PaddleOCR) needs more memory than Render's free plan gives, so it
+  runs on a free Hugging Face Space instead. `OCR/README.md` has the steps. Point
+  `OCR_SERVICE_URL` at it, or leave scanning off.
 - **TiDB Cloud Starter** gives 5 GB of storage and a monthly allowance of
   request units. That's far more than an intramurals season needs.
 

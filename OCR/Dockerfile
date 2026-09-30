@@ -1,5 +1,7 @@
 # PaddleOCR service — versions pinned to exactly what's tested locally
 # (see paddleocr-env/lib/python3.11/site-packages/*.dist-info).
+# Runs as-is on a Hugging Face Space (Docker SDK, app_port 5001) or any
+# Docker host — see README.md.
 FROM python:3.11-slim
 
 # opencv-contrib-python (PaddleOCR's dependency) links against these even
@@ -16,20 +18,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
 RUN pip install --no-cache-dir \
     paddlepaddle==3.3.1 \
     paddleocr==3.7.0 \
     flask==3.1.3
 
-COPY service.py .
-
-# Model weights (~2GB) are downloaded on first request and cached here —
-# mount a volume at this path (see README) so a container restart doesn't
-# re-download them. Same cache PaddleX uses outside Docker (~/.paddlex).
+# Hugging Face Spaces run the container as uid 1000, so the app and its model
+# cache (~/.paddlex) must belong to that user, not root.
+RUN useradd -m -u 1000 ocr && mkdir -p /app && chown ocr:ocr /app
+USER ocr
 ENV HOME=/app
-VOLUME ["/app/.paddlex"]
+WORKDIR /app
+
+COPY --chown=ocr:ocr service.py .
+
+# Download the model weights (~180MB) at build time, so a fresh container —
+# e.g. a free Space waking from sleep — doesn't fetch them on first request.
+# Importing service.py builds the same PaddleOCR it serves with, without
+# starting the server.
+RUN python3 -c "import service"
 
 ENV OCR_SERVICE_HOST=0.0.0.0
 ENV OCR_SERVICE_PORT=5001
