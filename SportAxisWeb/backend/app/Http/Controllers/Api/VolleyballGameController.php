@@ -8,6 +8,7 @@ use App\Models\GamePlayer;
 use App\Models\LiveScore;
 use App\Services\VolleyballMatch;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 /**
@@ -21,6 +22,7 @@ use Illuminate\Validation\Rule;
  *   POST   /api/events/{id}/volleyball/subs           (scorekeeper — a substitution)
  *   DELETE /api/events/{id}/volleyball/plays/last     (scorekeeper — undo, even across sets)
  *   POST   /api/events/{id}/volleyball/finish         (scorekeeper — once the match is decided)
+ *   GET    /api/events/{id}/volleyball/scoresheet     (scorekeeper / admin — the filled-in sheet)
  *
  * The players are each coach's lineup for the game (GameLineupController),
  * which also carries the coach's default starting rotation. Who may score,
@@ -34,6 +36,21 @@ class VolleyballGameController extends PlayByPlayController
     public function scoreboard(string $eventId)
     {
         return response()->json($this->match->build(Event::findOrFail($eventId)));
+    }
+
+    /**
+     * GET /api/events/{id}/volleyball/scoresheet — the match laid out for the
+     * filled-in FIVB-style scoresheet (PDF). Only the game's committee or an
+     * admin: it carries student numbers.
+     */
+    public function sheet(Request $request, string $eventId)
+    {
+        $event = Event::findOrFail($eventId);
+        if (Gate::forUser($request->user())->denies('score-game', $event)) {
+            return response()->json(['message' => 'Only this game\'s committee or an admin can open its scoresheet.'], 403);
+        }
+
+        return response()->json($this->match->sheet($event));
     }
 
     /** PUT /api/events/{id}/volleyball/best-of  {bestOf} */

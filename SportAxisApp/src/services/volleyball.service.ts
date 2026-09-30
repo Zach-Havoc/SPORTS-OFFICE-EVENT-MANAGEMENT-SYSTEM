@@ -1,5 +1,6 @@
 import api from './api';
 import type { VolleyballScoreboard } from '../types';
+import type { FilledVolleyballGame } from '../utils/volleyballScoresheet';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Volleyball Service — play-by-play scoring. Each call returns the full
@@ -12,6 +13,7 @@ import type { VolleyballScoreboard } from '../types';
 //   POST   /api/events/{id}/volleyball/subs        {teamId, playerOutId, playerInId}
 //   DELETE /api/events/{id}/volleyball/plays/last  undo
 //   POST   /api/events/{id}/volleyball/finish
+//   GET    /api/events/{id}/volleyball/scoresheet  the match laid out for the filled-in PDF
 // ─────────────────────────────────────────────────────────────────────────────
 
 const base = (eventId: string) => `/events/${eventId}/volleyball`;
@@ -49,5 +51,10 @@ export const volleyballService = {
 
   async finish(eventId: string): Promise<VolleyballScoreboard> {
     return (await api.post<VolleyballScoreboard>(`${base(eventId)}/finish`)).data;
+  },
+
+  /** The recorded match for the filled-in FIVB scoresheet (committee / admin only). */
+  async scoresheet(eventId: string): Promise<FilledVolleyballGame> {
+    return (await api.get<FilledVolleyballGame>(`${base(eventId)}/scoresheet`)).data;
   },
 };

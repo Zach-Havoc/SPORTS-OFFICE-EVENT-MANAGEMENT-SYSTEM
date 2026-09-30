@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { buildBasketballScoresheetHtml } from './basketballScoresheet';
+import { buildVolleyballScoresheetHtml } from './volleyballScoresheet';
 
 export interface ScoreSheetEvent {
   name: string;
@@ -14,7 +15,7 @@ export interface ScoreSheetEvent {
   startTime?: string | null;
   venueName?: string | null;
   departments?: string[] | null;
-  /** The teams' short names (CICS…), in `departments` order — the basketball sheet prints these. */
+  /** The teams' short names (CICS…), in `departments` order — the basketball and volleyball sheets print these. */
   teamLabels?: Array<string | null | undefined>;
 }
 
@@ -122,7 +123,17 @@ function buildBasketballHtml(event: ScoreSheetEvent): string {
 }
 
 // ── Volleyball ─────────────────────────────────────────────────────────────
+// Indoor volleyball prints the FIVB-style sheet in ./volleyballScoresheet
+// (the same file as the mobile app's — keep them identical). Beach
+// volleyball — pairs, no rotation — keeps the simple set sheet below.
 function buildVolleyballHtml(event: ScoreSheetEvent): string {
+  if (!/beach/i.test(`${event.category} ${event.name}`)) {
+    return buildVolleyballScoresheetHtml(event, event.teamLabels ?? []);
+  }
+  return buildBeachVolleyballHtml(event);
+}
+
+function buildBeachVolleyballHtml(event: ScoreSheetEvent): string {
   const depts = event.departments || [];
   const teamA = depts[0] || 'TEAM A';
   const teamB = depts[1] || 'TEAM B';

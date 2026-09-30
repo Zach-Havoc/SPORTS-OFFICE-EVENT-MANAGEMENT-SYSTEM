@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\GameEvent;
 use App\Models\GamePlayer;
 use App\Models\LiveScore;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
@@ -88,6 +89,10 @@ class VolleyballMatch
                     'firstServer' => $p->team_id,
                     'timeouts' => $zero,
                     'subs' => $zero,
+                    // The whistle for the first serve (when "Start set" was
+                    // pressed) and for the set's last point: FIVB set duration.
+                    'startedAt' => $p->created_at?->toIso8601String(),
+                    'endedAt' => null,
                 ];
                 $s['rotation'] = [$home => $rot[$home] ?? null, $away => $rot[$away] ?? null];
                 $s['serving'] = $p->team_id;
@@ -112,6 +117,7 @@ class VolleyballMatch
                 $other = $team === $home ? $away : $home;
                 if ($pts[$team] >= self::target($cur + 1, $bestOf) && self::rules()['win_by'] <= $pts[$team] - $pts[$other]) {
                     $s['sets'][$cur]['winner'] = $team;
+                    $s['sets'][$cur]['endedAt'] = $p->created_at?->toIso8601String();
                     $s['setsWon'][$team]++;
                     $s['inProgress'] = false;
                     $s['serving'] = null;
@@ -149,6 +155,171 @@ class VolleyballMatch
 
         return [...$this->replay($plays, $teams, self::bestOf($live)), 'plays' => $plays];
     }
+
+    /**
+     * Everything the FIVB-style paper scoresheet records, from the rally log —
+     * for the committee's filled-in PDF. Per set and team (side 0 = team A,
+     * the home side; 1 = B): the starting line-up in positions I–VI,
+     * substitutions under the starting player's column with the score at the
+     * change ("own:opp"), the service rounds (the team's score each time a
+     * server lost the serve — `x` where a receiving team's first box is
+     * crossed out, `last` on the set's final point), time-outs with the
+     * score, the points, and the set's start and end. Not public: the
+     * rosters carry student numbers.
+     */
+    public function sheet(Event $event): array
+    {
+        $teams = PlayByPlay::teams($event);
+        $live = LiveScore::where('event_id', $event->id)->first();
+        $bestOf = self::bestOf($live);
+        $roster = GamePlayer::with('athlete.account')->where('game_id', $event->id)->get();
+        $jersey = fn (?string $id) => $id ? $roster->firstWhere('player_id', $id)?->jersey_number : null;
+
+        $base = [
+            'event' => [
+                'name' => $event->name,
+                'category' => $event->category,
+                'schedule' => $event->schedule ? substr((string) $event->schedule, 0, 10) : null,
+                'startTime' => $event->start_time,
+                'venueName' => $event->venue_name,
+                'departments' => array_values($event->departments ?? []),
+            ],
+            'status' => $live?->status === 'final' ? 'finished' : ($live ? 'live' : 'scheduled'),
+            'bestOf' => $bestOf,
+            'umpires' => collect($event->judges ?? [])->pluck('name')->filter()->values()->all(),
+        ];
+        if (! $teams) {
+            return [...$base, 'teams' => [], 'sets' => [], 'winner' => null];
+        }
+
+        $side = [$teams[0]->id => 0, $teams[1]->id => 1];
+        $plays = GameEvent::where('game_id', $event->id)->orderBy('id')->get();
+        $sets = [];
+        $set = null;
+        $rotation = [null, null];
+        $slotOf = [[], []];
+        $turn = [0, 0];
+        $offset = [0, 0];
+        $serving = null;
+
+        $closeBox = function (int $s, bool $last = false) use (&$set, &$turn, &$offset) {
+            $n = $turn[$s] + $offset[$s];
+            $set['teams'][$s]['rounds'][$n % 6][intdiv($n, 6)] = ['score' => $set['teams'][$s]['points'], 'last' => $last];
+        };
+
+        foreach ($plays as $p) {
+            $s = $side[$p->team_id] ?? null;
+            if ($s === null) {
+                continue;
+            }
+            if ($p->type === 'SET_START') {
+                if ($set) {
+                    $sets[] = $set;
+                }
+                $rots = (array) ($p->detail['rotations'] ?? []);
+                $rotation = [$rots[$teams[0]->id] ?? null, $rots[$teams[1]->id] ?? null];
+                $slotOf = array_map(fn ($r) => $r ? array_flip($r) : [], $rotation);
+                $set = [
+                    'number' => count($sets) + 1,
+                    'target' => self::target(count($sets) + 1, $bestOf),
+                    'firstServer' => $s,
+                    'startedAt' => $p->created_at?->toIso8601String(),
+                    'endedAt' => null,
+                    'winner' => null,
+                    'teams' => array_map(fn ($r) => [
+                        'points' => 0,
+                        'starting' => $r ? array_map($jersey, $r) : null,
+                        'subs' => [],
+                        'rounds' => array_fill(0, 6, []),
+                        'timeouts' => [],
+                    ], $rotation),
+                ];
+                // The first server's box I is open; the receiver serves from II
+                // (its box I is crossed out).
+                $serving = $s;
+                // The receiver's first serve (turn 0) comes after its first side-out.
+                $turn = [$s === 0 ? 0 : -1, $s === 1 ? 0 : -1];
+                $offset = [$s === 0 ? 0 : 1, $s === 1 ? 0 : 1];
+                $set['teams'][1 - $s]['rounds'][0][0] = ['x' => true];
+            } elseif (! $set || $set['winner'] !== null) {
+                continue;
+            } elseif (in_array($p->type, self::POINT_TYPES, true)) {
+                if ($serving !== $s) {
+                    $closeBox($serving);                              // the server lost the serve
+                    if ($rotation[$s]) {
+                        $rotation[$s] = [...array_slice($rotation[$s], 1), $rotation[$s][0]];
+                    }
+                    $turn[$s]++;
+                    $serving = $s;
+                }
+                $set['teams'][$s]['points']++;
+                $mine = $set['teams'][$s]['points'];
+                $theirs = $set['teams'][1 - $s]['points'];
+                if ($mine >= $set['target'] && $mine - $theirs >= self::rules()['win_by']) {
+                    $closeBox($s, last: true);
+                    $set['winner'] = $s;
+                    $set['endedAt'] = $p->created_at?->toIso8601String();
+                }
+            } elseif ($p->type === 'TIMEOUT') {
+                $set['teams'][$s]['timeouts'][] = $set['teams'][$s]['points'].':'.$set['teams'][1 - $s]['points'];
+            } elseif ($p->type === 'SUB') {
+                $col = $slotOf[$s][$p->player_out_id] ?? null;
+                if ($col !== null) {
+                    $slotOf[$s][$p->player_id] = $col;
+                }
+                $set['teams'][$s]['subs'][] = [
+                    'column' => $col,
+                    'jersey' => $jersey($p->player_id),
+                    'score' => $set['teams'][$s]['points'].':'.$set['teams'][1 - $s]['points'],
+                ];
+                if ($rotation[$s] && ($i = array_search($p->player_out_id, $rotation[$s], true)) !== false) {
+                    $rotation[$s][$i] = $p->player_id;
+                }
+            }
+        }
+        if ($set) {
+            $sets[] = $set;
+        }
+        // Each position's rounds as a plain list (null = not reached), not a sparse map.
+        foreach ($sets as &$done) {
+            foreach ($done['teams'] as &$t) {
+                $t['rounds'] = array_map(function ($col) {
+                    $out = [];
+                    for ($r = 0, $max = $col ? max(array_keys($col)) : -1; $r <= $max; $r++) {
+                        $out[] = $col[$r] ?? null;
+                    }
+
+                    return $out;
+                }, $t['rounds']);
+            }
+            unset($t);
+        }
+        unset($done);
+
+        $coachNames = User::whereIn('id', $roster->pluck('athlete.coach_id')->filter()->unique())->pluck('name', 'id');
+        $teamRows = [];
+        foreach ($teams as $i => $team) {
+            $mine = $roster->where('team_id', $team->id);
+            $teamRows[] = [
+                'name' => $team->name,
+                'abbreviation' => $team->abbreviation,
+                'setsWon' => count(array_filter($sets, fn ($x) => $x['winner'] === $i)),
+                'coach' => $coachNames[$mine->pluck('athlete.coach_id')->filter()->countBy()->sortDesc()->keys()->first()] ?? null,
+                'players' => $mine->sortBy(fn (GamePlayer $gp) => [(int) $gp->jersey_number, strlen($gp->jersey_number)])
+                    ->map(fn (GamePlayer $gp) => [
+                        'jersey' => $gp->jersey_number,
+                        'name' => PlayByPlay::nameOf($gp->athlete),
+                        'licence' => $gp->athlete?->account?->sr_code ?: $gp->athlete?->student_id,
+                    ])->values()->all(),
+            ];
+        }
+        $need = self::setsToWin($bestOf);
+        $winner = collect($teamRows)->search(fn ($t) => $t['setsWon'] >= $need);
+
+        return [...$base, 'teams' => $teamRows, 'sets' => $sets, 'winner' => $winner === false ? null : $winner];
+    }
+
+    private const POINT_TYPES = ['KILL', 'ACE', 'BLOCK', 'OPP_ERROR'];
 
     /** The coach's default starting rotation for a team: 6 ids in positions I–VI, or null. */
     public static function defaultRotation(Collection $roster, string $teamId): ?array
@@ -271,7 +442,11 @@ class VolleyballMatch
                 'home' => $x['points'][$teams[0]->id],
                 'away' => $x['points'][$teams[1]->id],
                 'winnerTeamId' => $x['winner'],
+                'startedAt' => $x['startedAt'],
+                'endedAt' => $x['endedAt'],
             ], $s['sets']),
+            // Server time now, so a phone can run the set clock without trusting its own clock.
+            'serverTime' => now()->toIso8601String(),
             'log' => $s['plays']->reverse()->take(15)->map(fn (GameEvent $p) => [
                 'id' => $p->id,
                 'type' => $p->type,

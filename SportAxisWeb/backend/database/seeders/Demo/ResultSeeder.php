@@ -332,6 +332,7 @@ class ResultSeeder extends Seeder
             }
             $rotation = $starting;
             $serving = ($firstServer + $s) % 2;
+            $called = [];
             $clock->addMinutes(3);
             $rows[] = [
                 'game_id' => $event->id, 'team_id' => $ids[$serving], 'player_id' => null, 'player_out_id' => null,
@@ -340,7 +341,19 @@ class ResultSeeder extends Seeder
                 'recorded_by' => $judge, 'created_at' => $clock->copy(), 'updated_at' => $clock->copy(), 'deleted_at' => null,
             ];
             $points = [0, 0];
-            foreach ($sequence as $side) {
+            // A time-out each (FIVB allows 2 a set), about a third and two thirds in —
+            // called by whichever team is behind.
+            $timeoutsAt = [(int) (count($sequence) * 0.35) => true, (int) (count($sequence) * 0.7) => true];
+            foreach ($sequence as $k => $side) {
+                if (isset($timeoutsAt[$k])) {
+                    $behind = $points[0] <= $points[1] ? 0 : 1;
+                    if ($k > count($sequence) * 0.5 && ! empty($called[$behind])) {
+                        $behind = 1 - $behind;
+                    }
+                    $called[$behind] = true;
+                    $clock->addSeconds(30);
+                    $rows[] = $this->playRow($event->id, $ids[$behind], null, 'TIMEOUT', $s + 1, $judge, $clock);
+                }
                 $sideOut = $serving !== $side;
                 if ($sideOut && $rotation[$side]) {
                     $rotation[$side] = [...array_slice($rotation[$side], 1), $rotation[$side][0]];

@@ -17,6 +17,8 @@ import { COLORS, RADIUS, SHADOWS, SPACING, TYPE } from '../../../constants/theme
 import { useLiveSync } from '../../hooks/use-live-sync';
 import { useNetwork } from '../../hooks/use-network';
 import { volleyballService } from '../../services/volleyball.service';
+import { storage } from '../../storage/async-storage';
+import { TIMEOUT_SECONDS, VolleyballClockPanel } from './VolleyballClockPanel';
 import type {
   EventSession,
   VolleyballLogEntry,
@@ -81,6 +83,19 @@ export function VolleyballScoreboard({
   const [firstServer, setFirstServer] = useState<string | null>(null);
   const [rotations, setRotations] = useState<Record<string, string[] | null>>({});
   const versionRef = useRef(0);
+  // The 8-second serve timer (restarted after every rally) and a running
+  // 30-second time-out — see VolleyballClockPanel.
+  const [serveTimerOn, setServeTimerOn] = useState(true);
+  const [serveFrom, setServeFrom] = useState<number | null>(null);
+  const [timeoutRun, setTimeoutRun] = useState<{ label: string; endsAt: number } | null>(null);
+  useEffect(() => {
+    storage.get('vb-serve-timer').then((v) => v === 'off' && setServeTimerOn(false));
+  }, []);
+  const toggleServeTimer = useCallback((on: boolean) => {
+    setServeTimerOn(on);
+    storage.set('vb-serve-timer', on ? 'on' : 'off');
+  }, []);
+  const clearTimeout_ = useCallback(() => setTimeoutRun(null), []);
 
   /** Show a scoreboard unless a newer one is already on screen. */
   const adopt = useCallback(
@@ -156,23 +171,28 @@ export function VolleyballScoreboard({
     const player = team.players.find((p) => p.playerId === playerId);
     Haptics.selectionAsync().catch(() => {});
     setSelected(null);
-    run(() => volleyballService.record(event.id, { teamId: team.id, type, playerId }), team.id, () =>
-      setLastAction(`${short(team)} · ${LABEL[type]}${player ? ` · #${player.jersey} ${lastName(player.name)}` : ''}`),
-    );
+    run(() => volleyballService.record(event.id, { teamId: team.id, type, playerId }), team.id, (b) => {
+      setLastAction(`${short(team)} · ${LABEL[type]}${player ? ` · #${player.jersey} ${lastName(player.name)}` : ''}`);
+      // The next serve's 8 seconds — unless that point ended the set.
+      setServeFrom(b.setInProgress ? Date.now() : null);
+    });
   };
 
   const timeout = (team: VolleyballTeam) =>
-    run(() => volleyballService.record(event.id, { teamId: team.id, type: 'TIMEOUT' }), team.id, () =>
-      setLastAction(`${short(team)} · Timeout`),
-    );
+    run(() => volleyballService.record(event.id, { teamId: team.id, type: 'TIMEOUT' }), team.id, () => {
+      setLastAction(`${short(team)} · Timeout`);
+      setServeFrom(null);
+      setTimeoutRun({ label: short(team), endsAt: Date.now() + TIMEOUT_SECONDS * 1000 });
+    });
 
   const undo = () => run(() => volleyballService.undo(event.id), null, () => setLastAction('Last play undone'));
 
   const startSet = () => {
     if (!board?.nextSet || !firstServer) return;
-    run(() => volleyballService.startSet(event.id, { firstServerTeamId: firstServer, rotations }), null, (b) =>
-      setLastAction(`Set ${b.currentSet} started`),
-    );
+    run(() => volleyballService.startSet(event.id, { firstServerTeamId: firstServer, rotations }), null, (b) => {
+      setLastAction(`Set ${b.currentSet} started`);
+      setServeFrom(Date.now());
+    });
   };
 
   const finish = () => {
@@ -270,6 +290,18 @@ export function VolleyballScoreboard({
         )}
       </View>
 
+      {!finished && (
+        <VolleyballClockPanel
+          board={board}
+          serveTimerOn={serveTimerOn}
+          onServeTimerOn={toggleServeTimer}
+          serveFrom={serveFrom}
+          onRestartServe={() => setServeFrom(Date.now())}
+          timeout={timeoutRun}
+          onTimeoutDone={clearTimeout_}
+        />
+      )}
+
       {offline && !finished && (
         <View style={[styles.banner, styles.bannerWarn]}>
           <Icon name="wifi-off" size={15} color={COLORS.warning} />
@@ -294,6 +326,9 @@ export function VolleyballScoreboard({
         <View style={[styles.card, styles.setupCard]}>
           <Text style={styles.cardTitle}>
             Start set {board.nextSet.number} · to {board.nextSet.target}
+          </Text>
+          <Text style={styles.meta}>
+            Press Start set when the referee whistles for the first serve — the set clock starts then. Point buttons are locked until then.
           </Text>
           <Text style={styles.label}>Who serves first?</Text>
           <View style={styles.row2}>

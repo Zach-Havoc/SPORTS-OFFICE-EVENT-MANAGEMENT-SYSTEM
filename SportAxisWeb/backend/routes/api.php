@@ -166,6 +166,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/subs', [VolleyballGameController::class, 'substitute']);
         Route::delete('/plays/last', [VolleyballGameController::class, 'undo']);
         Route::post('/finish', [VolleyballGameController::class, 'finish']);
+        Route::get('/scoresheet', [VolleyballGameController::class, 'sheet']);
     });
 
     // ─── MOBILE JUDGE APP — Authenticated Routes ──────────────────────────────

@@ -16,6 +16,8 @@ import type { EventSession } from '../../types';
 import { getSportConfigFromEvent } from '../../utils/sport-config';
 import { buildBasketballScoresheetHtml, type FilledBasketballGame } from '../../utils/basketballScoresheet';
 import { basketballService } from '../../services/basketball.service';
+import { buildVolleyballScoresheetHtml, type FilledVolleyballGame } from '../../utils/volleyballScoresheet';
+import { volleyballService } from '../../services/volleyball.service';
 import { useDeptAbbreviator } from '../../hooks/use-dept-abbr';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -103,7 +105,12 @@ function signatureBlock(role1: string, role2: string, role3: string) {
 // file as the web app's — keep them identical). It's printed portrait.
 
 // ── Volleyball ────────────────────────────────────────────────────────────────
-function buildVolleyballHtml(event: EventSession): string {
+// Indoor volleyball prints the FIVB-style sheet in src/utils/volleyballScoresheet.ts
+// (the same file as the web app's — keep them identical). Beach volleyball —
+// pairs, no rotation — keeps the simple set sheet below.
+const isBeach = (event: EventSession) => /beach/i.test(`${event.category} ${event.name}`);
+
+function buildBeachVolleyballHtml(event: EventSession): string {
   const depts = event.departments || [];
   const teamA = depts[0] || 'TEAM A';
   const teamB = depts[1] || 'TEAM B';
@@ -598,13 +605,20 @@ function buildDefaultHtml(event: EventSession): string {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * `labels`: the teams' short names (CICS…), for sheets that print them.
- * `game`: a basketball game recorded in the app — its sheet comes out filled in.
+ * `game`: a basketball game or volleyball match recorded in the app — its
+ * sheet comes out filled in.
  */
-function buildHtml(event: EventSession, labels: string[] = [], game?: FilledBasketballGame): string {
+type FilledGame = { sport: 'basketball'; data: FilledBasketballGame } | { sport: 'volleyball'; data: FilledVolleyballGame };
+
+function buildHtml(event: EventSession, labels: string[] = [], game?: FilledGame): string {
   const config = getSportConfigFromEvent(event.category, event.name);
   switch (config.type) {
-    case 'basketball':   return buildBasketballScoresheetHtml(event, labels, game);
-    case 'volleyball':   return buildVolleyballHtml(event);
+    case 'basketball':
+      return buildBasketballScoresheetHtml(event, labels, game?.sport === 'basketball' ? game.data : undefined);
+    case 'volleyball':
+      return isBeach(event)
+        ? buildBeachVolleyballHtml(event)
+        : buildVolleyballScoresheetHtml(event, labels, game?.sport === 'volleyball' ? game.data : undefined);
     case 'badminton':    return buildBadmintonHtml(event);
     case 'football':     return buildFootballHtml(event);
     case 'track-field':  return buildTrackFieldHtml(event);
@@ -634,24 +648,30 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
   const PAGE_WIDTH_PX = portrait ? SHORT_SIDE_PX : LONG_SIDE_PX;
   const PAGE_HEIGHT_PX = portrait ? LONG_SIDE_PX : SHORT_SIDE_PX;
 
-  // A basketball game scored in the app can be printed filled in with
-  // everything recorded. Loaded quietly: offline, not this game's committee,
-  // or nothing played yet — the blank sheet is all that's offered.
-  const [game, setGame] = useState<FilledBasketballGame | null>(null);
+  // A basketball game or (indoor) volleyball match scored in the app can be
+  // printed filled in with everything recorded. Loaded quietly: offline, not
+  // this game's committee, or nothing played yet — the blank sheet is all
+  // that's offered.
+  const [game, setGame] = useState<FilledGame | null>(null);
   const [filled, setFilled] = useState(true);
+  const beach = isBeach(event);
   useEffect(() => {
-    if (sportConfig.type !== 'basketball') return;
     let alive = true;
-    basketballService
-      .scoresheet(event.id)
-      .then((g) => {
-        if (alive && g.plays.length > 0) setGame(g);
+    const load: Promise<FilledGame | null> | null =
+      sportConfig.type === 'basketball'
+        ? basketballService.scoresheet(event.id).then((d) => (d.plays.length > 0 ? { sport: 'basketball', data: d } : null))
+        : sportConfig.type === 'volleyball' && !beach
+          ? volleyballService.scoresheet(event.id).then((d) => (d.sets.length > 0 ? { sport: 'volleyball', data: d } : null))
+          : null;
+    load
+      ?.then((g) => {
+        if (alive && g) setGame(g);
       })
       .catch(() => { /* blank sheet only */ });
     return () => {
       alive = false;
     };
-  }, [event.id, sportConfig.type]);
+  }, [event.id, sportConfig.type, beach]);
   const useGame = game && filled ? game : undefined;
 
   const handlePrint = async () => {
@@ -750,11 +770,19 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
           </View>
         </Card>
 
-        {/* ── Filled or blank (a basketball game scored in the app) ─────────── */}
+        {/* ── Filled or blank (a game scored in the app) ────────────────────── */}
         {game && (
           <View style={styles.choiceRow}>
             {([
-              [true, 'Filled from this game', game.status === 'finished' ? 'Rosters, fouls, running score and final' : 'So far — the game isn’t finished'],
+              [
+                true,
+                'Filled from this game',
+                game.data.status !== 'finished'
+                  ? 'So far — the game isn’t finished'
+                  : game.sport === 'volleyball'
+                    ? 'Line-ups, service rounds, points, time-outs and result'
+                    : 'Rosters, fouls, running score and final',
+              ],
               [false, 'Blank sheet', 'To score on paper'],
             ] as const).map(([value, title, sub]) => (
               <TouchableOpacity
@@ -776,7 +804,9 @@ export function PrintableScoreSheetView({ event, onClose }: PrintableScoreSheetV
           <Icon name="print" size={16} color={accentColor} />
           <Text style={[styles.infoText, { color: accentColor }]}>
             {useGame
-              ? 'The PDF comes out filled in with this game as recorded in the app — rosters, fouls, team fouls, the running score, quarter scores, the final and the officials. Share it as the game’s soft copy.'
+              ? useGame.sport === 'volleyball'
+                ? 'The PDF comes out filled in with this match as recorded in the app — each set’s line-ups, substitutions, service rounds, points, time-outs, start and end times, the results and the officials. Share it as the match’s soft copy.'
+                : 'The PDF comes out filled in with this game as recorded in the app — rosters, fouls, team fouls, the running score, quarter scores, the final and the officials. Share it as the game’s soft copy.'
               : `The printed form contains the full ${sportConfig.label} score sheet with all sections. Hand it to the committee before the event starts.`}
           </Text>
         </View>

@@ -179,7 +179,11 @@ class VolleyballScoringTest extends TestCase
         $this->assertTrue($board['setInProgress']);
         $board = $this->streak($this->home, 1);                     // 26–24
         $this->assertFalse($board['setInProgress']);
-        $this->assertSame([['number' => 1, 'home' => 26, 'away' => 24, 'winnerTeamId' => $this->home->id]], $board['sets']);
+        $this->assertSame(
+            [['number' => 1, 'home' => 26, 'away' => 24, 'winnerTeamId' => $this->home->id]],
+            array_map(fn ($x) => array_intersect_key($x, array_flip(['number', 'home', 'away', 'winnerTeamId'])), $board['sets']),
+        );
+        $this->assertNotNull($board['sets'][0]['endedAt']);   // the set's end, for its duration
         $this->assertSame(1, $this->team($board, $this->home)['setsWon']);
 
         // The next set is started explicitly; the other team serves first.
@@ -309,6 +313,37 @@ class VolleyballScoringTest extends TestCase
     }
 
     // ── Access and sport ────────────────────────────────────────────────
+
+    public function test_the_committee_gets_the_match_laid_out_for_the_fivb_scoresheet(): void
+    {
+        $this->startSet($this->home)->assertCreated();
+        $this->streak($this->home, 3);                                  // home serves from I: 3–0
+        $this->streak($this->away, 2);                                  // side-out: away serves from II
+        $this->point($this->home, 'TIMEOUT')->assertCreated();          // at 3:2
+        $this->postJson($this->url('/subs'), [                          // away: #7 for #3 (position III) at 2:3
+            'teamId' => $this->away->id, 'playerOutId' => $this->p($this->away, 2)->id, 'playerInId' => $this->p($this->away, 6)->id,
+        ])->assertCreated();
+        $this->point($this->home)->assertCreated();                     // side-out back to home, who rotate to II
+
+        $board = $this->getJson($this->url())->assertOk();
+        $this->assertNotNull($board->json('sets.0.startedAt'));
+        $this->assertNull($board->json('sets.0.endedAt'));
+
+        $sheet = $this->getJson($this->url('/scoresheet'))->assertOk();
+        $sheet->assertJsonPath('sets.0.firstServer', 0)
+            ->assertJsonPath('sets.0.teams.0.points', 4)
+            ->assertJsonPath('sets.0.teams.0.starting', ['1', '2', '3', '4', '5', '6'])
+            // Service rounds: home's I lost the serve at 3; away's I is crossed out, its II lost it at 2.
+            ->assertJsonPath('sets.0.teams.0.rounds.0.0.score', 3)
+            ->assertJsonPath('sets.0.teams.1.rounds.0.0.x', true)
+            ->assertJsonPath('sets.0.teams.1.rounds.1.0.score', 2)
+            ->assertJsonPath('sets.0.teams.0.timeouts', ['3:2'])
+            ->assertJsonPath('sets.0.teams.1.subs', [['column' => 2, 'jersey' => '7', 'score' => '2:3']]);
+
+        // Student numbers are on it: not for anyone else.
+        $this->actingAsRole('coach');
+        $this->getJson($this->url('/scoresheet'))->assertForbidden();
+    }
 
     public function test_only_the_assigned_committee_or_an_admin_can_write(): void
     {

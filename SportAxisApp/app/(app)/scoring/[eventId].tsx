@@ -365,7 +365,7 @@ export default function ScoringScreen() {
               <ActionTile
                 icon="print"
                 title="Score sheet"
-                sub={playByPlay && pbpSport === "basketball" ? "PDF filled in from this game, or blank" : "Preview, print or share"}
+                sub={playByPlay ? "PDF filled in from this game, or blank" : "Preview, print or share"}
                 onPress={() => setShowPrintableForm(true)}
               />
             </View>

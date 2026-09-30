@@ -360,7 +360,17 @@ export interface VolleyballScoreboard {
   nextSet: { number: number; target: number; suggestedServerTeamId: string | null } | null;
   playCount: number;
   teams: VolleyballTeam[];
-  sets: { number: number; home: number; away: number; winnerTeamId: string | null }[];
+  sets: {
+    number: number;
+    home: number;
+    away: number;
+    winnerTeamId: string | null;
+    /** When the set's first serve was whistled ("Start set") and its last point scored. */
+    startedAt: string | null;
+    endedAt: string | null;
+  }[];
   log: VolleyballLogEntry[];
+  /** The server's clock when this scoreboard was built — the set clock runs from it. */
+  serverTime?: string;
   updatedAt: string | null;
 }
