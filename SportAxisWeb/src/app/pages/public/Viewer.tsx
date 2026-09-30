@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useQueries } from '@tanstack/react-query';
-import { getEventRankings } from '../../services/api';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { getRankingsFor } from '../../services/api';
 import type { LiveScore } from '../../services/api';
 import { useDepartments, useEvents, useEventRankings, useLiveScores, useSeasons, qk } from '../../hooks/api';
 import { useScoreboardData } from '../../hooks/useScoreboardData';
@@ -335,21 +335,26 @@ export default function PublicViewer() {
   const upcomingEvents = filteredEvents.filter(e => e.status === 'upcoming');
   const completedEvents = filteredEvents.filter(e => e.status === 'completed');
 
-  // ── Rankings for every ongoing/completed event (fetched once with the schedule) ──
+  // ── Rankings for the ongoing/completed games on screen, in one request ──
+  // (Only shown cards display rankings; fetching every game in the season
+  // was one request per game — hundreds — on every visit.)
+  const rankingIdsKey = [...ongoingEvents, ...completedEvents]
+    .map(e => e.id)
+    .sort()
+    .join(',');
   const rankingEventIds = useMemo(
-    () =>
-      allEvents
-        .filter(e => e.status === 'ongoing' || e.status === 'completed')
-        .map(e => e.id),
-    [allEvents],
+    () => (rankingIdsKey ? rankingIdsKey.split(',') : []),
+    [rankingIdsKey],
   );
 
-  const rankingQueries = useQueries({
-    queries: rankingEventIds.map(id => ({
-      queryKey: qk.rankings(id),
-      queryFn: () => getEventRankings(id),
-      staleTime: STALE.live,
-    })),
+  const rankingsBatch = useQuery({
+    queryKey: qk.rankingsBatch(rankingEventIds),
+    queryFn: () => getRankingsFor(rankingEventIds),
+    enabled: rankingEventIds.length > 0,
+    staleTime: STALE.live,
+    // Switching day or filter keeps the cards' earlier rankings while the
+    // new set loads (the map is keyed by event id, so nothing mismatches).
+    placeholderData: keepPreviousData,
   });
 
   // Keep the open event's rankings fresh even if it is "upcoming".
@@ -359,18 +364,19 @@ export default function PublicViewer() {
 
   const rankings = useMemo<Record<string, Ranking[]>>(() => {
     const map: Record<string, Ranking[]> = {};
-    rankingEventIds.forEach((id, i) => {
-      const d = rankingQueries[i]?.data;
+    const byEvent = rankingsBatch.data ?? {};
+    rankingEventIds.forEach((id) => {
+      const d = byEvent[id];
       map[id] = Array.isArray(d) ? (d as Ranking[]) : [];
     });
     if (selectedEvent && Array.isArray(modalRankingsQuery.data)) {
       map[selectedEvent.id] = modalRankingsQuery.data as Ranking[];
     }
     return map;
-  }, [rankingEventIds, rankingQueries, selectedEvent, modalRankingsQuery.data]);
+  }, [rankingEventIds, rankingsBatch.data, selectedEvent, modalRankingsQuery.data]);
 
   const backgroundError =
-    eventsQuery.isRefetchError || rankingQueries.some(q => q.isRefetchError);
+    eventsQuery.isRefetchError || rankingsBatch.isRefetchError;
 
   // ── First-load states (cached data, if any, skips straight past these) ────
   if (eventsQuery.isLoading) {

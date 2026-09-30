@@ -28,6 +28,9 @@ export default defineConfig({
     alias: {
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
+      // No <Toaster /> is mounted (App.tsx), so toasts draw nothing; ship a
+      // no-op instead of sonner. Tests use vitest.config.ts and keep sonner.
+      sonner: path.resolve(__dirname, './src/app/lib/toastNoop.ts'),
     },
   },
 
@@ -53,9 +56,9 @@ export default defineConfig({
             return 'query-vendor'
           }
 
-          if (id.includes('@radix-ui') || id.includes('lucide-react')) {
-            return 'ui-vendor'
-          }
+          // Radix and lucide are left to Rollup on purpose: forcing them into
+          // one shared chunk made every visitor download every icon and
+          // widget any page uses (~140 KB) before the first screen.
 
           // recharts and its dependency tree are left out of manualChunks
           // on purpose: DashboardKit already lazy-loads recharts via

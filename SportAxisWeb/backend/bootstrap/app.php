@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\ConditionalPublicJson;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -27,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // (login, signup, tryouts) stack on top of this ceiling.
         $middleware->api(prepend: [
             ThrottleRequests::class.':api',
+        ], append: [
+            // Signed-out JSON reads get an ETag, so an unchanged poll is a 304.
+            ConditionalPublicJson::class,
         ]);
 
         // Behind a TLS-terminating load balancer (Render), trust its

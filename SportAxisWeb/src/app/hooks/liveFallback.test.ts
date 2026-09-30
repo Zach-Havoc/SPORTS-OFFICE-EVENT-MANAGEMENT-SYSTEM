@@ -15,7 +15,7 @@ vi.mock('../services/api', () => ({
   getLiveScores: (active: boolean) => getLiveScores(active),
 }))
 vi.mock('../lib/echo', () => ({
-  getEcho: () => null,
+  getEcho: async () => null,
   isRealtimeConnected: () => false,
   onRealtimeChange: () => () => {},
   useRealtimeConnected: () => false,

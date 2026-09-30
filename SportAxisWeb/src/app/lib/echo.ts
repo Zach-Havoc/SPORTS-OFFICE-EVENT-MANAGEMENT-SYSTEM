@@ -1,5 +1,4 @@
-import Echo from "laravel-echo";
-import Pusher from "pusher-js";
+import type Echo from "laravel-echo";
 import { useSyncExternalStore } from "react";
 
 type PusherConnection = {
@@ -10,8 +9,10 @@ type PusherConnection = {
  * A lazily-created Laravel Echo client for Reverb (the Pusher wire protocol).
  *
  * Realtime is optional: if `VITE_REVERB_APP_KEY` is not set, or the socket
- * fails to initialise, `getEcho()` returns null and callers fall back to their
- * polling refetch. Nothing throws.
+ * fails to initialise, `getEcho()` resolves to null and callers fall back to
+ * their polling refetch. Nothing throws. laravel-echo and pusher-js (~70 KB)
+ * are imported only when a key is set, so a site without Reverb never
+ * downloads them.
  *
  * `useRealtimeConnected()` says whether the socket is up right now, so live
  * screens can poll fast only while it isn't (no Reverb configured — as on
@@ -24,9 +25,9 @@ type PusherConnection = {
  *   VITE_REVERB_SCHEME    — http | https       (default: http)
  */
 
-type EchoClient = InstanceType<typeof Echo>;
+export type EchoClient = InstanceType<typeof Echo>;
 
-let client: EchoClient | null | undefined;
+let client: Promise<EchoClient | null> | undefined;
 
 // ── Connection state ─────────────────────────────────────────────────
 let connected = false;
@@ -45,7 +46,7 @@ export function isRealtimeConnected(): boolean {
 
 /** Subscribe to connect / disconnect. Returns the unsubscribe function. */
 export function onRealtimeChange(listener: () => void): () => void {
-  getEcho(); // make sure a client exists to report on
+  void getEcho(); // make sure a client exists to report on
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -56,12 +57,12 @@ export function useRealtimeConnected(): boolean {
   return useSyncExternalStore(onRealtimeChange, isRealtimeConnected, () => false);
 }
 
-export function getEcho(): EchoClient | null {
+export function getEcho(): Promise<EchoClient | null> {
   if (client !== undefined) return client;
 
   const key = import.meta.env.VITE_REVERB_APP_KEY as string | undefined;
   if (!key) {
-    client = null;
+    client = Promise.resolve(null);
     return client;
   }
 
@@ -73,23 +74,26 @@ export function getEcho(): EchoClient | null {
     (import.meta.env.VITE_REVERB_SCHEME as string | undefined) || "http";
   const tls = scheme === "https";
 
-  try {
-    (window as unknown as { Pusher: typeof Pusher }).Pusher = Pusher;
-    client = new Echo({
-      broadcaster: "reverb",
-      key,
-      wsHost: host,
-      wsPort: port,
-      wssPort: port,
-      forceTLS: tls,
-      enabledTransports: tls ? ["wss"] : ["ws", "wss"],
+  client = Promise.all([import("laravel-echo"), import("pusher-js")])
+    .then(([{ default: EchoCtor }, { default: Pusher }]) => {
+      (window as unknown as { Pusher: typeof Pusher }).Pusher = Pusher;
+      const echo = new EchoCtor({
+        broadcaster: "reverb",
+        key,
+        wsHost: host,
+        wsPort: port,
+        wssPort: port,
+        forceTLS: tls,
+        enabledTransports: tls ? ["wss"] : ["ws", "wss"],
+      }) as EchoClient;
+      const connection = (echo.connector as { pusher?: { connection?: PusherConnection } }).pusher?.connection;
+      connection?.bind("state_change", ({ current }: { current: string }) => setConnected(current === "connected"));
+      return echo;
+    })
+    .catch((err) => {
+      console.warn("[realtime] Echo init failed; falling back to polling", err);
+      return null;
     });
-    const connection = (client.connector as { pusher?: { connection?: PusherConnection } }).pusher?.connection;
-    connection?.bind("state_change", ({ current }: { current: string }) => setConnected(current === "connected"));
-  } catch (err) {
-    console.warn("[realtime] Echo init failed; falling back to polling", err);
-    client = null;
-  }
 
   return client;
 }

@@ -1,16 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { CalendarDays, ChevronDown, LogOut, Search, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, Search, UserRound } from "lucide-react";
 
 import { cn } from "../ui/utils";
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "../ui/command";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +13,9 @@ import {
 } from "../ui/dropdown-menu";
 import NotificationBell from "./NotificationBell";
 import { getNavigation, isPathActive, type NavItem } from "./navigation";
-import { useEvents } from "../../hooks/api";
+
+// cmdk + the search list load on first open, not with every page.
+const SearchPalette = lazy(() => import("./SearchPalette"));
 
 /** Two-letter initials for the avatar: first and last word of the name. */
 function initials(name: string) {
@@ -85,26 +79,12 @@ export function AppHeader({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const pages = useMemo(() => {
-    const { groups, footer } = getNavigation(role);
-    return [
-      ...groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.label ?? "Home" }))),
-      ...footer.map((i) => ({ ...i, group: "Settings" })),
-    ];
-  }, [role]);
-
-  // Only the office manages events, so only its search lists them. The query
-  // is shared with the dashboard and the Events page, so this costs nothing
-  // extra there, and it only runs once search is opened elsewhere.
+  // Mounted from the first open on, so the dialog can still animate closed.
+  const [searchUsed, setSearchUsed] = useState(false);
+  useEffect(() => {
+    if (open) setSearchUsed(true);
+  }, [open]);
   const isAdmin = role === "admin";
-  const eventsQuery = useEvents(undefined, { enabled: isAdmin && open });
-  const events = useMemo(
-    () =>
-      (eventsQuery.data ?? [])
-        .slice()
-        .sort((a: any, b: any) => String(b.schedule).localeCompare(String(a.schedule))),
-    [eventsQuery.data],
-  );
 
   const go = (to: string) => {
     setOpen(false);
@@ -187,43 +167,11 @@ export function AppHeader({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <CommandDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Search SportAxis"
-        description={isAdmin ? "Jump to a page or an event" : "Jump to a page"}
-      >
-        <CommandInput placeholder={isAdmin ? "Search pages and events…" : "Search pages…"} />
-        <CommandList>
-          <CommandEmpty>Nothing matches. Try a page name{isAdmin ? ", an event or a sport" : ""}.</CommandEmpty>
-          <CommandGroup heading="Pages">
-            {pages.map(({ name, path, icon: Icon, group }) => (
-              <CommandItem key={path} value={`${name} ${group}`} onSelect={() => go(path)}>
-                <Icon aria-hidden="true" />
-                <span>{name}</span>
-                <span className="ml-auto text-xs text-text-muted">{group}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          {isAdmin && events.length > 0 && (
-            <CommandGroup heading="Events">
-              {events.map((e: any) => (
-                <CommandItem
-                  key={e.id}
-                  value={`${e.name} ${e.category} ${e.schedule}`}
-                  onSelect={() => go(`/admin/events?q=${encodeURIComponent(e.name)}`)}
-                >
-                  <CalendarDays aria-hidden="true" />
-                  <span className="truncate">{e.name}</span>
-                  <span className="ml-auto shrink-0 text-xs text-text-muted">
-                    {e.category} · {e.schedule}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-        </CommandList>
-      </CommandDialog>
+      {searchUsed && (
+        <Suspense fallback={null}>
+          <SearchPalette role={role} open={open} onOpenChange={setOpen} go={go} />
+        </Suspense>
+      )}
     </div>
   );
 }

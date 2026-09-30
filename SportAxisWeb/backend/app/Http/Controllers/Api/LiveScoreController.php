@@ -9,6 +9,7 @@ use App\Models\Event;
 use App\Models\LiveScore;
 use App\Services\GameResultRecorder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -32,15 +33,38 @@ class LiveScoreController extends Controller
     {
         $statuses = $request->boolean('active') ? ['in_progress'] : ['in_progress', 'final'];
 
+        // Every open schedule / live board polls this every few seconds and
+        // most polls find nothing new, so the built list is reused until the
+        // scores change. Every write bumps `version` (and a delete drops the
+        // count), so the stamp moves on any change and a score is never
+        // served stale. The TTL bounds how long an event rename (name, venue,
+        // sport) can lag. One key per view, overwritten, so a busy live game
+        // doesn't pile up cache rows.
+        $stamp = LiveScore::whereIn('status', $statuses)
+            ->selectRaw('COUNT(*) AS c, MAX(updated_at) AS m, SUM(version) AS v')
+            ->first();
+        $stamp = "{$stamp->c}|{$stamp->m}|{$stamp->v}";
+        $key = 'live-scores:'.implode(',', $statuses);
+
+        $cached = Cache::get($key);
+        if (is_array($cached) && ($cached['stamp'] ?? null) === $stamp) {
+            return response()->json($cached['rows']);
+        }
+
         $rows = LiveScore::whereIn('status', $statuses)
             ->orderByDesc('updated_at')
             ->get();
 
-        $events = Event::whereIn('id', $rows->pluck('event_id'))->get()->keyBy('id');
+        $events = Event::whereIn('id', $rows->pluck('event_id'))
+            ->get(['id', 'name', 'venue_name', 'category'])
+            ->keyBy('id');
 
-        return response()->json(
+        $payload = json_decode(json_encode(
             $rows->map(fn (LiveScore $l) => $l->toApiFormat($events->get($l->event_id)))->values()
-        );
+        ), true);
+        Cache::put($key, ['stamp' => $stamp, 'rows' => $payload], 10);
+
+        return response()->json($payload);
     }
 
     /** GET /api/events/{id}/live */

@@ -8,6 +8,19 @@ RUN apt-get update \
  && a2enmod rewrite headers \
  && rm -rf /var/lib/apt/lists/*
 
+# Production PHP. The code in the image never changes while it runs, so
+# OPcache needn't re-check files on every request.
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+ && { \
+      echo 'opcache.enable=1'; \
+      echo 'opcache.memory_consumption=128'; \
+      echo 'opcache.interned_strings_buffer=16'; \
+      echo 'opcache.max_accelerated_files=20000'; \
+      echo 'opcache.validate_timestamps=0'; \
+      echo 'realpath_cache_size=4096K'; \
+      echo 'realpath_cache_ttl=600'; \
+    } > "$PHP_INI_DIR/conf.d/zz-production.ini"
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Serve Laravel's public/ folder, and let its .htaccess route requests.

@@ -64,34 +64,38 @@ class TransactionController extends Controller
 
     private function requirements(): Collection
     {
-        return Requirement::orderByDesc('submitted_at')->get()->map(fn (Requirement $r) => [
-            'id' => $r->id,
-            'type' => 'cmo_requirement',
-            'reference' => 'REQ-'.strtoupper(substr($r->id, 0, 8)),
-            'party' => $r->athlete_name,
-            'subject' => $r->name,
-            'status' => $r->status,
-            'open' => $r->status === 'pending',
-            'filedAt' => optional($r->submitted_at ?? $r->created_at)->toIso8601String(),
-            'decidedAt' => optional($r->reviewed_at)->toIso8601String(),
-            'link' => '/admin/requirements',
-        ]);
+        // Only the columns the list shows: the table has ~2,000 rows with
+        // descriptions, notes and file URLs this view never uses.
+        return Requirement::select(['id', 'athlete_name', 'name', 'status', 'submitted_at', 'created_at', 'reviewed_at'])
+            ->orderByDesc('submitted_at')->get()->map(fn (Requirement $r) => [
+                'id' => $r->id,
+                'type' => 'cmo_requirement',
+                'reference' => 'REQ-'.strtoupper(substr($r->id, 0, 8)),
+                'party' => $r->athlete_name,
+                'subject' => $r->name,
+                'status' => $r->status,
+                'open' => $r->status === 'pending',
+                'filedAt' => optional($r->submitted_at ?? $r->created_at)->toIso8601String(),
+                'decidedAt' => optional($r->reviewed_at)->toIso8601String(),
+                'link' => '/admin/requirements',
+            ]);
     }
 
     private function tryouts(): Collection
     {
-        return TryoutApplication::orderByDesc('applied_at')->get()->map(fn (TryoutApplication $t) => [
-            'id' => $t->id,
-            'type' => 'tryout_application',
-            'reference' => 'TRY-'.strtoupper(substr($t->id, 0, 8)),
-            'party' => trim("{$t->first_name} {$t->last_name}"),
-            'subject' => trim(($t->sport ? "{$t->sport} tryout" : 'Tryout').' · '.$t->department, ' ·'),
-            'status' => $t->status,
-            'open' => $t->status === 'pending',
-            'filedAt' => optional($t->applied_at ?? $t->created_at)->toIso8601String(),
-            'decidedAt' => optional($t->reviewed_at)->toIso8601String(),
-            'link' => '/admin/tryouts',
-        ]);
+        return TryoutApplication::select(['id', 'first_name', 'last_name', 'sport', 'department', 'status', 'applied_at', 'created_at', 'reviewed_at'])
+            ->orderByDesc('applied_at')->get()->map(fn (TryoutApplication $t) => [
+                'id' => $t->id,
+                'type' => 'tryout_application',
+                'reference' => 'TRY-'.strtoupper(substr($t->id, 0, 8)),
+                'party' => trim("{$t->first_name} {$t->last_name}"),
+                'subject' => trim(($t->sport ? "{$t->sport} tryout" : 'Tryout').' · '.$t->department, ' ·'),
+                'status' => $t->status,
+                'open' => $t->status === 'pending',
+                'filedAt' => optional($t->applied_at ?? $t->created_at)->toIso8601String(),
+                'decidedAt' => optional($t->reviewed_at)->toIso8601String(),
+                'link' => '/admin/tryouts',
+            ]);
     }
 
     private function protests(): Collection

@@ -67,6 +67,7 @@ Route::get('/seasons/current', [SeasonController::class, 'current']);
 Route::get('/events', [EventController::class, 'index']);
 Route::get('/events/{id}', [EventController::class, 'show']);
 Route::get('/announcements', [AnnouncementController::class, 'index']);
+Route::get('/rankings', [RankingController::class, 'many']);
 Route::get('/rankings/{eventId}', [RankingController::class, 'show']);
 Route::get('/leaderboard', [RankingController::class, 'leaderboard']);
 Route::get('/scores/{eventId}', [ScoreController::class, 'show']);

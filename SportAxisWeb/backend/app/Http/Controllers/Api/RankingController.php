@@ -34,6 +34,38 @@ class RankingController extends Controller
     }
 
     /**
+     * Several events' rankings in one request: GET /rankings?events=a,b,c →
+     * { "<eventId>": [ …rankings, by rank ], … }. The public schedule shows a
+     * card per game; this replaces one request per card. Same data and
+     * recalculation rule as show().
+     */
+    public function many(Request $request)
+    {
+        $ids = array_slice(array_values(array_unique(array_filter(
+            explode(',', (string) $request->query('events', '')),
+            fn ($id) => $id !== '',
+        ))), 0, 300);
+        if ($ids === []) {
+            return response()->json((object) []);
+        }
+
+        $ranked = Ranking::whereIn('event_id', $ids)->distinct()->pluck('event_id')->all();
+        $missing = array_diff($ids, $ranked);
+        if ($missing !== []) {
+            foreach (Score::whereIn('event_id', $missing)->distinct()->pluck('event_id') as $eventId) {
+                ScoreController::recalculateRankings($eventId);
+            }
+        }
+
+        $byEvent = array_fill_keys($ids, []);
+        foreach (Ranking::whereIn('event_id', $ids)->orderBy('rank')->get() as $ranking) {
+            $byEvent[$ranking->event_id][] = $ranking;
+        }
+
+        return response()->json($byEvent);
+    }
+
+    /**
      * The college medal table.
      *
      *   ranked sports (track, swimming, cultural) — each event's own top 3 is a

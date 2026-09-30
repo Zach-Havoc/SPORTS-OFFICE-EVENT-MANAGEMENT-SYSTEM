@@ -598,6 +598,10 @@ export const resolveProtest = (
 
 export const getEventRankings = (eventId: string) =>
   apiRequest(`/rankings/${eventId}`);
+
+/** Several events' rankings in one request, keyed by event id. */
+export const getRankingsFor = (eventIds: string[]): Promise<Record<string, any[]>> =>
+  apiRequest(`/rankings?events=${eventIds.map(encodeURIComponent).join(',')}`);
 export const getLeaderboard = (
   category?: string,
   parentSport?: string,

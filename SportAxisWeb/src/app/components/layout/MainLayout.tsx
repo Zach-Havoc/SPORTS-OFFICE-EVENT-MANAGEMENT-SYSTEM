@@ -94,7 +94,7 @@ export default function MainLayout() {
             <div className="page-container flex h-14 items-center gap-3">
               <Link to="/" className="flex shrink-0 items-center gap-2.5">
                 <img
-                  src="/sportaxis-mark.png"
+                  src="/sportaxis-mark-256.png"
                   alt=""
                   aria-hidden="true"
                   className="size-7 object-contain"

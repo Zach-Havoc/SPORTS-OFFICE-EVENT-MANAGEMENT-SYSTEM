@@ -17,8 +17,8 @@ elif [ -z "$MYSQL_ATTR_SSL_CA" ] && [ -f /etc/ssl/certs/ca-certificates.crt ]; t
 fi
 
 php artisan storage:link --force >/dev/null 2>&1 || true
-php artisan config:cache
-php artisan route:cache
+# Config, routes, events and views, all cached for production.
+php artisan optimize
 
 # The free plan has no pre-deploy step, so apply pending migrations on boot.
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then

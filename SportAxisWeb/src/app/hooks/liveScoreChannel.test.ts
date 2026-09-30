@@ -35,7 +35,7 @@ type Listener = (payload: { live: unknown }) => void
 let updatedListener: Listener | null = null
 
 vi.mock('../lib/echo', () => ({
-  getEcho: () => ({
+  getEcho: async () => ({
     channel: () => ({
       listen: (event: string, cb: Listener) => {
         if (event === '.updated') updatedListener = cb

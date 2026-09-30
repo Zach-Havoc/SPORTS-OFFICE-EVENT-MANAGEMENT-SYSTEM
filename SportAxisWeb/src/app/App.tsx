@@ -15,14 +15,12 @@ import { startWarmup } from "./services/api";
 // Start warming up the Edge Function immediately so pages don't have to wait as long
 startWarmup();
 
-// MainLayout, Login and PrivacyNotice are needed on first paint for most
-// visitors (the app shell + the two routes reachable from a cold load), so
-// they stay in the main bundle. Every other page is route-split below —
-// each one only downloads when a user actually visits a page for their role,
-// instead of every role's pages shipping in one shared bundle.
+// MainLayout (the app shell) is needed on every first paint, so it stays in
+// the main bundle. Every page — Login and PrivacyNotice included, since most
+// visitors land on the public home page and never open them — is route-split
+// below: each one only downloads when someone actually visits it, instead of
+// every role's pages shipping in one shared bundle.
 import MainLayout from "./components/layout/MainLayout";
-import Login from "./pages/Login";
-import PrivacyNotice from "./pages/PrivacyNotice";
 import NotFound from "./pages/NotFound";
 
 // `.then(m => ({ Component: m.default }))` matches every page's `export
@@ -32,6 +30,8 @@ const page = (
 ): LazyRouteFunction<RouteObject> =>
   (() => loader().then((m) => ({ Component: m.default }))) as LazyRouteFunction<RouteObject>;
 
+const Login = page(() => import("./pages/Login"));
+const PrivacyNotice = page(() => import("./pages/PrivacyNotice"));
 const AdminDashboardEnhanced = page(() => import("./pages/admin/DashboardEnhanced"));
 const AdminEventsEnhanced = page(() => import("./pages/admin/EventsEnhanced"));
 const AdminSettings = page(() => import("./pages/admin/Settings"));
@@ -130,8 +130,8 @@ export default function App() {
           ),
           children: [
             { index: true, Component: HomeRoute },
-            { path: "login", Component: Login },
-            { path: "privacy-notice", Component: PrivacyNotice },
+            { path: "login", lazy: Login },
+            { path: "privacy-notice", lazy: PrivacyNotice },
             {
               path: "leaderboard",
               lazy: PublicLeaderboard,

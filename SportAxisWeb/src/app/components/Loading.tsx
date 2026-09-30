@@ -13,7 +13,7 @@ function Mark({ size }: { size: "lg" | "sm" }) {
   return (
     <div className={size === "lg" ? "relative mb-7" : "relative mb-5"}>
       <img
-        src="/sportaxis-mark.png"
+        src="/sportaxis-mark-256.png"
         alt=""
         aria-hidden="true"
         className={

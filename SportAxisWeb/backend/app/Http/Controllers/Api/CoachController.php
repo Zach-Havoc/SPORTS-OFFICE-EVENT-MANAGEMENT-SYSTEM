@@ -127,16 +127,19 @@ class CoachController extends Controller
     /** GET /api/admin/coaches - Get all coaches with their sport and department */
     public function index()
     {
+        // One lookup for every college, not one query per coach. Keyed the way
+        // MySQL compares names (case- and trailing-space-insensitive).
+        $abbreviations = Department::pluck('abbreviation', 'name')
+            ->mapWithKeys(fn ($abbr, $name) => [mb_strtolower(rtrim($name)) => $abbr]);
+
         $coaches = User::where('role', 'coach')
             ->orderBy('name')
             ->get()
-            ->map(function ($coach) {
+            ->map(function ($coach) use ($abbreviations) {
                 // Look up department abbreviation
-                $departmentAbbreviation = null;
-                if ($coach->department) {
-                    $dept = Department::where('name', $coach->department)->first();
-                    $departmentAbbreviation = $dept ? $dept->abbreviation : null;
-                }
+                $departmentAbbreviation = $coach->department
+                    ? $abbreviations->get(mb_strtolower(rtrim($coach->department)))
+                    : null;
 
                 // Extract gender from sport (e.g., "Basketball Men" -> "Men")
                 $gender = null;

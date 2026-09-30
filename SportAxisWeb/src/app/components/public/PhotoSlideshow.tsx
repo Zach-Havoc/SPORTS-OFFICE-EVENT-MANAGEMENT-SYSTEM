@@ -56,9 +56,17 @@ export default function PhotoSlideshow() {
     };
   }, [paused, next, slides.length]);
 
+  // Every slide sits stacked in the page (faded out), so the browser would
+  // download every photo on the first visit, competing with the one on
+  // screen. Only the current and next slides get their image; the rest load
+  // as the show reaches them, and stay loaded for the crossfade back.
+  const reached = useRef(new Set<string>());
+
   if (slides.length === 0) return null;
 
   const active = slides[current];
+  if (active) reached.current.add(active.id);
+  if (slides.length > 1) reached.current.add(slides[(current + 1) % slides.length].id);
 
   const Frame = active.linkUrl ? 'a' : 'div';
   const frameProps = active.linkUrl
@@ -89,14 +97,17 @@ export default function PhotoSlideshow() {
             className="absolute inset-0 transition-opacity duration-700 ease-out"
             style={{ opacity: i === current ? 1 : 0, zIndex: i === current ? 2 : 1 }}
           >
-            <img
-              key={i === current ? `on-${progressKey}` : `off-${s.id}`}
-              src={s.imageUrl}
-              alt={s.title ?? 'Slide'}
-              draggable={false}
-              className="h-full w-full object-cover"
-              style={i === current ? { animation: `ps-kenburns ${INTERVAL}ms linear forwards` } : undefined}
-            />
+            {reached.current.has(s.id) && (
+              <img
+                key={i === current ? `on-${progressKey}` : `off-${s.id}`}
+                src={s.imageUrl}
+                alt={s.title ?? 'Slide'}
+                draggable={false}
+                decoding="async"
+                className="h-full w-full object-cover"
+                style={i === current ? { animation: `ps-kenburns ${INTERVAL}ms linear forwards` } : undefined}
+              />
+            )}
             <div
               className="absolute inset-0"
               style={{

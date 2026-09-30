@@ -141,7 +141,7 @@ export default function Login() {
           Collapses to a single column below md. */}
       <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-md md:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
         <aside className="hidden flex-col justify-between bg-nav p-8 text-nav-fg md:flex">
-          <img src="/sportaxis-mark-white.png" alt="" aria-hidden="true" className="h-11 w-11 object-contain" />
+          <img src="/sportaxis-mark-white-256.png" alt="" aria-hidden="true" className="h-11 w-11 object-contain" />
           <div>
             <h2 className="t-page-title text-nav-fg-strong">
               SportAxis
@@ -157,7 +157,7 @@ export default function Login() {
 
         <div className="p-6 sm:p-8">
           <img
-            src="/sportaxis-mark.png"
+            src="/sportaxis-mark-256.png"
             alt="SportAxis"
             className="mb-5 h-12 w-12 object-contain md:hidden"
           />

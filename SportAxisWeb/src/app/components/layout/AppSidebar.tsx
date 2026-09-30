@@ -101,7 +101,7 @@ export function AppSidebar({
         )}
       >
         <img
-          src="/sportaxis-mark-white.png"
+          src="/sportaxis-mark-white-256.png"
           alt=""
           aria-hidden="true"
           className="size-7 shrink-0 object-contain"

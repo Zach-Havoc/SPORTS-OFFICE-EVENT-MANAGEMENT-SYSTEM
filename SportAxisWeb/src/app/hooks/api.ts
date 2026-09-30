@@ -15,7 +15,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { STALE } from "../lib/queryClient";
-import { getEcho, isRealtimeConnected, onRealtimeChange, useRealtimeConnected } from "../lib/echo";
+import { getEcho, isRealtimeConnected, onRealtimeChange, useRealtimeConnected, type EchoClient } from "../lib/echo";
 import * as api from "../services/api";
 
 /** Per-call overrides a component may pass to a query hook. */
@@ -67,6 +67,8 @@ export const qk = {
   event: (id: string) => ["events", id] as const,
   scores: (eventId: string) => ["scores", eventId] as const,
   rankings: (eventId: string) => ["rankings", eventId] as const,
+  rankingsBatchAll: ["rankings", "_batch"] as const,
+  rankingsBatch: (eventIds: string[]) => ["rankings", "_batch", eventIds.join(",")] as const,
   leaderboard: (category?: string, parentSport?: string, season?: string) =>
     [
       "leaderboard",
@@ -567,10 +569,14 @@ function useLiveScoreChannel(): void {
   const qc = useQueryClient();
   useEffect(() => {
     if (liveChannelBound) return;
-    const echo = getEcho();
-    if (!echo) return;
     liveChannelBound = true;
+    void getEcho().then((echo) => {
+      if (echo) bindLiveChannel(qc, echo);
+    });
+  }, [qc]);
+}
 
+function bindLiveChannel(qc: QueryClient, echo: EchoClient): void {
     const channel = echo.channel("live-scores");
     channel.listen(".updated", (e: { live: api.LiveScore }) =>
       applyLiveUpdate(qc, e.live),
@@ -591,7 +597,6 @@ function useLiveScoreChannel(): void {
       wasConnected = now;
     });
     // The channel intentionally lives for the whole session; no teardown.
-  }, [qc]);
 }
 
 export const useLiveScores = (
@@ -984,6 +989,7 @@ export const useSubmitScore = () => {
         qc.invalidateQueries({ queryKey: qk.scores(eventId) });
         qc.invalidateQueries({ queryKey: qk.rankings(eventId) });
       }
+      qc.invalidateQueries({ queryKey: qk.rankingsBatchAll });
       qc.invalidateQueries({ queryKey: ["leaderboard"] });
       // Scoring a 2-team event also updates the derived match + standings.
       qc.invalidateQueries({ queryKey: ["standings"] });
