@@ -1,7 +1,6 @@
 # PaddleOCR service — versions pinned to exactly what's tested locally
 # (see paddleocr-env/lib/python3.11/site-packages/*.dist-info).
-# Runs as-is on a Hugging Face Space (Docker SDK, app_port 5001) or any
-# Docker host — see README.md.
+# Runs on any Docker host — see README.md.
 FROM python:3.11-slim
 
 # opencv-contrib-python (PaddleOCR's dependency) links against these even
@@ -23,8 +22,8 @@ RUN pip install --no-cache-dir \
     paddleocr==3.7.0 \
     flask==3.1.3
 
-# Hugging Face Spaces run the container as uid 1000, so the app and its model
-# cache (~/.paddlex) must belong to that user, not root.
+# Run as an unprivileged user (uid 1000, what most container hosts expect);
+# the app and its model cache (~/.paddlex) belong to it, not root.
 RUN useradd -m -u 1000 ocr && mkdir -p /app && chown ocr:ocr /app
 USER ocr
 ENV HOME=/app
