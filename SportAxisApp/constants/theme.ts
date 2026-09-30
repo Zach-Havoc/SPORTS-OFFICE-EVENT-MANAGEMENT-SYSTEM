@@ -10,10 +10,11 @@
  * button, the selected tab and the delete button are all that red, none of
  * them means anything.
  *
- *   ink      primary actions and text hierarchy
- *   crimson  identity: selected tab, brand moments, live indicators
- *   danger   its own red, and since no primary button is red it now reads
- *            unambiguously as destructive
+ *   ink      primary actions, text hierarchy — and, since 2026-09-30, the
+ *            brand too: selected tab, brand moments, live indicators are
+ *            black, not the crimson red (the user's call)
+ *   danger   the only red left: errors and destructive actions, so red
+ *            always means "something's wrong / this deletes"
  */
 
 // ── Ink: near-achromatic, blue arriving only at the dark end ────────────────
@@ -49,17 +50,18 @@ const CRIMSON = {
 } as const;
 
 export const COLORS = {
-  // Brand — identity, selection, live state. Not primary actions.
-  primary:        CRIMSON[700],
-  primaryDark:    CRIMSON[800],
-  primaryLight:   CRIMSON[600],
-  primaryLighter: CRIMSON[500],
-  primaryPale:    CRIMSON[100],
-  primarySubtle:  CRIMSON[50],
-  brand:          CRIMSON[700],
-  brandSubtle:    CRIMSON[50],
-  brandBorder:    CRIMSON[200],
-  brandText:      CRIMSON[800],
+  // Brand — identity, selection, live state. Black (ink), not red: red is
+  // kept for errors and destructive actions only.
+  primary:        INK[900],
+  primaryDark:    INK[1000],
+  primaryLight:   INK[800],
+  primaryLighter: INK[700],
+  primaryPale:    INK[200],
+  primarySubtle:  INK[100],
+  brand:          INK[900],
+  brandSubtle:    INK[100],
+  brandBorder:    INK[300],
+  brandText:      INK[900],
 
   // Action — the primary button, ink not red.
   action:         INK[900],
@@ -82,7 +84,7 @@ export const COLORS = {
   borderStrong:   INK[300],
   hairline:       INK[200],
   pressed:        'rgba(35,35,46,0.06)',
-  primaryTint:    CRIMSON[50],
+  primaryTint:    INK[100],
 
   // Text
   textPrimary:    INK[900],
@@ -90,7 +92,7 @@ export const COLORS = {
   textMuted:      INK[500],
   textDisabled:   INK[400],
   textInverse:    INK[50],
-  textRedAccent:  CRIMSON[800],
+  textRedAccent:  INK[900],   // name kept for existing styles; the accent is black now
 
   // Status — matched in lightness so a row of chips reads as one family
   // differing by hue, not as four unrelated colours.
@@ -220,8 +222,8 @@ export const SHADOWS = {
 /** @deprecated The red gradient was retired with the web shell redesign.
  *  A flat brand surface reads as deliberate; a gradient reads as decoration. */
 export const GRADIENTS = {
-  sidebarStart:  CRIMSON[700],
-  sidebarEnd:    CRIMSON[700],
+  sidebarStart:  INK[900],
+  sidebarEnd:    INK[900],
 } as const;
 
 // Legacy Colors export (keeps existing @/constants/theme imports working)

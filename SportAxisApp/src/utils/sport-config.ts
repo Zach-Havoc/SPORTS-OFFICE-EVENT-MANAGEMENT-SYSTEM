@@ -49,8 +49,8 @@ const BASKETBALL_CONFIG: SportConfig = {
   type: 'basketball',
   label: 'Basketball',
   icon: 'circle-dot',
-  color: '#B91C1C',
-  colorLight: '#FEE2E2',
+  color: '#23232E',   // ink — the app's accent is black, not red
+  colorLight: '#F0F0F3',
   layout: 'scoreboard',
   teamBased: true,
   periodLabels: ['Q1', 'Q2', 'Q3', 'Q4', 'OT1', 'OT2'],
@@ -145,8 +145,8 @@ const DEFAULT_CONFIG: SportConfig = {
   type: 'default',
   label: 'General Sport',
   icon: 'trophy',
-  color: '#B91C1C',
-  colorLight: '#FEE2E2',
+  color: '#23232E',   // ink — the app's accent is black, not red
+  colorLight: '#F0F0F3',
   layout: 'overall',
   teamBased: true,
 };
