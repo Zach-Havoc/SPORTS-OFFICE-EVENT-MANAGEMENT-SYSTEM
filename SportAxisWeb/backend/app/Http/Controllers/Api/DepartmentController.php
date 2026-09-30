@@ -65,7 +65,7 @@ class DepartmentController extends Controller
         }
 
         $this->deleteLogoFile($dept->logo_url);
-        $dept->update(['logo_url' => asset('storage/'.$stored)]);
+        $dept->update(['logo_url' => Storage::disk('public')->url($stored)]);
 
         return response()->json($dept->fresh());
     }

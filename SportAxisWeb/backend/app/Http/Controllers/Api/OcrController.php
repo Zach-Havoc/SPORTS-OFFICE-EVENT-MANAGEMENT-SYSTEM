@@ -461,7 +461,7 @@ class OcrController extends Controller
             $filename = 'ocr_captures/'.Str::uuid().'.jpg';
             \Storage::disk('public')->put($filename, $imageData);
 
-            return asset('storage/'.$filename);
+            return \Storage::disk('public')->url($filename);
         } catch (\Exception $e) {
             Log::error('OCR storeImage error: '.$e->getMessage());
 
