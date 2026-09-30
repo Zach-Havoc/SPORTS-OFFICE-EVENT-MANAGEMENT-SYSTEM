@@ -59,6 +59,25 @@ Health check: `curl http://127.0.0.1:5001/health` → `{"status":"ok"}`
 The Laravel backend finds it via `OCR_SERVICE_URL` in `.env` (defaults to
 `http://127.0.0.1:5001`, see `config/services.php`).
 
+## Serving the deployed app from this laptop (ngrok)
+
+The API on Render can't run PaddleOCR (its free plan has 512MB; the model
+alone needs ~560MB), so the deployed app borrows this laptop's OCR through a
+free ngrok tunnel. Scanning works while `./start-public.sh` is running.
+
+One-time setup:
+1. Sign up at ngrok.com (free, no card). Run the `ngrok config add-authtoken …`
+   command shown on the dashboard's *Your Authtoken* page.
+2. Dashboard → *Domains*: copy your free domain (`….ngrok-free.app`).
+3. Put it in `OCR/public.env` as `NGROK_DOMAIN=`. That file (not committed)
+   also holds `OCR_API_KEY`; `openssl rand -hex 32` makes one.
+4. Render → sportsaxis-api → *Environment*: set
+   `OCR_SERVICE_URL=https://<that domain>` and `OCR_API_KEY` to the same key.
+
+Each time: stop `./start.sh` if it's running, then `./start-public.sh`. It
+starts the service with the key, waits for the model, and opens the tunnel;
+Ctrl+C stops both.
+
 ## Deploying to a real server (Oracle Cloud "Always Free")
 
 Once the Laravel backend runs somewhere that can't run Python itself (e.g.

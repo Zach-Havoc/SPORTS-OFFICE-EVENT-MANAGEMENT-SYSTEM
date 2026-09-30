@@ -154,7 +154,7 @@ To try the app against the live API without building, run
 - **Live scores refresh every few seconds** instead of instantly (no websocket
   server on the free plan). This is the same as the InfinityFree site.
 - **OCR** (PaddleOCR) needs more memory than Render's free plan gives, so it
-  has to run somewhere else (`OCR/README.md` has the options). Point
+  runs on your laptop through an ngrok tunnel (`OCR/README.md`). Point
   `OCR_SERVICE_URL` at it, or leave scanning off.
 - **TiDB Cloud Starter** gives 5 GB of storage and a monthly allowance of
   request units. That's far more than an intramurals season needs.
