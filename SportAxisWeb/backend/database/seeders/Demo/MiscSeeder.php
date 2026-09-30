@@ -11,7 +11,6 @@ use App\Support\EventQr;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -167,9 +166,14 @@ class MiscSeeder extends Seeder
     /** Every athlete's eligibility checklist, most cleared, some still in review or sent back. */
     private function requirements(): void
     {
-        $path = 'requirements/samples/sample-document.pdf';
-        Storage::disk('public')->put($path, $this->samplePdf());
-        $url = Storage::url($path);
+        // A sample PDF shipped with the app (public/samples), so "View file" works
+        // wherever the demo is loaded from — even into a remote database.
+        $file = public_path('samples/requirement-sample.pdf');
+        if (! is_file($file)) {
+            @mkdir(dirname($file), 0775, true);
+            file_put_contents($file, $this->samplePdf());
+        }
+        $url = url('samples/requirement-sample.pdf');
         $types = DB::table('requirement_types')->pluck('id', 'name');
         $cleared = ['Waiver Form' => 'approved', 'Certificate of Enrollment' => 'approved', 'Medical Clearance' => 'approved'];
         $states = [
