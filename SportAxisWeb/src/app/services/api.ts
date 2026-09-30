@@ -696,7 +696,73 @@ export const deleteMatch = (id: string) =>
   apiRequest(`/matches/${id}`, { method: "DELETE" }, true);
 
 // Reports & exports (admin only)
-export const getEventReport = (eventId: string) =>
+
+export interface ReportPeriod {
+  label: string;
+  home: number;
+  away: number;
+}
+export interface ReportScorer {
+  name: string;
+  jersey: string | null;
+  points: number;
+}
+/** A match's result, as the report shows it (null for a judged event). */
+export interface ReportMatch {
+  state: "final" | "forfeit" | "live" | "scheduled";
+  home: string;
+  away: string;
+  homeScore: number;
+  awayScore: number;
+  winner: string | null;
+  isDraw: boolean;
+  stage: string | null;
+  playedAt: string | null;
+  recordedBy: string | null;
+  periodUnit: string | null;
+  periods: ReportPeriod[];
+  /** PHP sends an empty list when there are none. */
+  scorers: { home?: ReportScorer[]; away?: ReportScorer[] } | [];
+}
+export interface EventReport {
+  event: {
+    id: string;
+    name: string;
+    category: string;
+    format: "versus" | "ranked";
+    schedule: string | null;
+    startTime: string | null;
+    endTime: string | null;
+    venue: string | null;
+    status: string;
+    season: string | null;
+    departments: string[];
+    officials: string[];
+  };
+  match: ReportMatch | null;
+  rankings: {
+    rank: number;
+    department: string;
+    total: number;
+    medal: string | null;
+  }[];
+  scores: {
+    judgeName: string;
+    department: string;
+    total: number;
+    status: string;
+    disputeReason: string | null;
+  }[];
+  protests: {
+    department: string;
+    status: string;
+    reason: string;
+    resolution: string | null;
+  }[];
+  generatedAt: string;
+}
+
+export const getEventReport = (eventId: string): Promise<EventReport> =>
   apiRequest(`/reports/events/${eventId}`, {}, true);
 
 /** Fetch a CSV/HTML export with the auth token; returns the blob + filename. */
@@ -713,7 +779,7 @@ async function fetchExport(
   return { blob: await res.blob(), filename };
 }
 
-/** Download a CSV, or open a printable HTML page in a new tab. */
+/** Save a CSV export to the computer. */
 export function deliverExport({
   blob,
   filename,
@@ -722,29 +788,63 @@ export function deliverExport({
   filename: string;
 }) {
   const url = URL.createObjectURL(blob);
-  if (blob.type.includes("text/html")) {
-    window.open(url, "_blank", "noopener");
-  } else {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 15_000);
 }
 
+/**
+ * Open a printable report in a new tab. The tab is opened straight away,
+ * inside the click, and filled once the report arrives: a tab opened after
+ * the download (the API can take a while to wake up) is blocked as a pop-up,
+ * and a report opened from a temporary blob: link can come up blank.
+ */
+export async function openPrintable(
+  load: () => Promise<{ blob: Blob; filename: string }>,
+) {
+  const win = window.open("", "_blank");
+  if (!win) {
+    throw new Error(
+      "The browser blocked the report tab. Allow pop-ups for this site, then try again.",
+    );
+  }
+  win.document.write(
+    '<!doctype html><title>Preparing report…</title><p style="font:14px system-ui,sans-serif;padding:32px;color:#475569">Preparing the report…</p>',
+  );
+  try {
+    const html = await (await load()).blob.text();
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+  } catch (e) {
+    win.close();
+    throw e;
+  }
+}
+
+const seasonQuery = (season?: string) =>
+  season ? `season=${encodeURIComponent(season)}` : "";
+
 export const exportEventReport = (eventId: string, format: "csv" | "html") =>
   fetchExport(`/reports/events/${eventId}/export?format=${format}`);
+export const exportResults = (
+  format: "csv" | "html",
+  opts: { sport?: string; season?: string } = {},
+) =>
+  fetchExport(
+    `/reports/results/export?format=${format}${opts.sport ? `&sport=${encodeURIComponent(opts.sport)}` : ""}${opts.season ? `&${seasonQuery(opts.season)}` : ""}`,
+  );
 export const exportLeaderboard = (format: "csv" | "html", season?: string) =>
   fetchExport(
-    `/reports/leaderboard/export?format=${format}${season ? `&season=${encodeURIComponent(season)}` : ""}`,
+    `/reports/leaderboard/export?format=${format}${season ? `&${seasonQuery(season)}` : ""}`,
   );
 export const exportCertificates = (season?: string) =>
-  fetchExport(
-    `/reports/certificates${season ? `?season=${encodeURIComponent(season)}` : ""}`,
-  );
+  fetchExport(`/reports/certificates${season ? `?${seasonQuery(season)}` : ""}`);
 
 // ─────────────────────────────────────────────────────────────────────
 // Venues

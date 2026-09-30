@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { render, waitFor, screen, fireEvent } from '@testing-library/react'
 
 /**
  * Admin Reports — the event-picker dropdown.
@@ -80,3 +80,40 @@ describe('Admin Reports — event picker pagination', () => {
     expect(getEvents).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('Admin Reports — a match event', () => {
+  it('shows the recorded result instead of an empty report', async () => {
+    getEvents.mockReset()
+    getEvents.mockResolvedValueOnce([
+      { id: 'm1', name: 'Volleyball — Men: CICS vs CET', status: 'completed', category: 'Volleyball — Men', schedule: '2026-09-10' },
+    ])
+    getEventScores.mockResolvedValueOnce([])
+    getEventReport.mockResolvedValueOnce({
+      event: {
+        id: 'm1', name: 'Volleyball — Men: CICS vs CET', category: 'Volleyball — Men', format: 'versus',
+        schedule: '2026-09-10', startTime: '09:00', endTime: null, venue: 'Gym', status: 'completed',
+        season: 'Intramurals 2026', departments: ['CICS', 'CET'], officials: [],
+      },
+      match: {
+        state: 'final', home: 'CICS', away: 'CET', homeScore: 3, awayScore: 1, winner: 'CICS', isDraw: false,
+        stage: 'Semi-Finals', playedAt: null, recordedBy: 'Committee One', periodUnit: 'Set',
+        periods: [
+          { label: 'Set 1', home: 25, away: 18 }, { label: 'Set 2', home: 22, away: 25 },
+          { label: 'Set 3', home: 25, away: 23 }, { label: 'Set 4', home: 25, away: 20 },
+        ],
+        scorers: [],
+      },
+      rankings: [], scores: [], protests: [], generatedAt: '2026-09-30 10:00:00',
+    })
+
+    render(<AdminReports />)
+    fireEvent.click(await screen.findByRole('button', { name: /CICS vs CET/ }))
+
+    expect(await screen.findByText('CICS won.')).toBeTruthy()
+    expect(screen.getByText('Set 2')).toBeTruthy()
+    expect(screen.getByText('Semi-Finals')).toBeTruthy()
+    // A match has no judges, so the judge-score review stays out of the way.
+    expect(screen.queryByText(/Judges/)).toBeNull()
+  })
+})
+

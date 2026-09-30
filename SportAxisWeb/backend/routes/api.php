@@ -267,6 +267,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Office reports & exports (CSV / printable).
         Route::get('/reports/events/{eventId}', [ReportController::class, 'event']);
         Route::get('/reports/events/{eventId}/export', [ReportController::class, 'exportEvent']);
+        Route::get('/reports/results/export', [ReportController::class, 'exportResults']);
         Route::get('/reports/leaderboard/export', [ReportController::class, 'exportLeaderboard']);
         Route::get('/reports/certificates', [ReportController::class, 'certificates']);
 

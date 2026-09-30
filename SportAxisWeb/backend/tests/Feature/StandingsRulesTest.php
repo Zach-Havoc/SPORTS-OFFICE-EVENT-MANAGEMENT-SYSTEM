@@ -94,6 +94,7 @@ class StandingsRulesTest extends TestCase
 
         $this->putJson('/api/admin/standings-rules', ['method' => 'olympic'])->assertOk();
         $html = $this->get('/api/reports/leaderboard/export?format=html')->assertOk()->getContent();
-        $this->assertStringNotContainsString('<th>Points</th>', $html);
+        $this->assertStringNotContainsString('>Points</th>', $html);
+        $this->assertStringContainsString('>Gold</th>', $html);
     }
 }

@@ -73,6 +73,82 @@ class ReportExportTest extends TestCase
         $this->assertStringContainsString('CICS,10,1', $res->getContent());
     }
 
+    private function playedMatch(): Event
+    {
+        $event = $this->events()->create([
+            'name' => 'Volleyball — Men: CICS vs CET',
+            'category' => 'Volleyball — Men',
+            'departments' => ['CICS', 'CET'],
+            'status' => 'completed',
+        ]);
+        $this->teamMatches()->create([
+            'event_id' => $event->id, 'sport' => 'Volleyball — Men', 'stage' => 'group',
+            'home_team' => 'CICS', 'away_team' => 'CET', 'home_score' => 3, 'away_score' => 1,
+            'winner' => 'CICS', 'is_draw' => false,
+        ]);
+        $this->liveScores()->create([
+            'event_id' => $event->id, 'sport' => 'Volleyball — Men', 'home_team' => 'CICS', 'away_team' => 'CET',
+            'home_score' => 3, 'away_score' => 1, 'period' => 'Set 4 · 25–20', 'status' => 'final',
+            'detail' => ['bestOf' => 5, 'sets' => [[25, 18], [22, 25], [25, 23], [25, 20]]],
+        ]);
+
+        return $event;
+    }
+
+    public function test_a_match_report_carries_the_score_the_sets_and_the_winner(): void
+    {
+        $event = $this->playedMatch();
+        $this->actingAsRole('admin');
+
+        $this->getJson("/api/reports/events/{$event->id}")
+            ->assertOk()
+            ->assertJsonPath('event.format', 'versus')
+            ->assertJsonPath('match.homeScore', 3)
+            ->assertJsonPath('match.awayScore', 1)
+            ->assertJsonPath('match.winner', 'CICS')
+            ->assertJsonPath('match.stage', 'Group')
+            ->assertJsonPath('match.periodUnit', 'Set')
+            ->assertJsonCount(4, 'match.periods')
+            ->assertJsonPath('match.periods.1', ['label' => 'Set 2', 'home' => 22, 'away' => 25]);
+
+        // The printable page is no longer empty for a match: it shows the
+        // scoreline and the set-by-set table.
+        $html = $this->get("/api/reports/events/{$event->id}/export?format=html")->assertOk()->getContent();
+        $this->assertStringContainsString('3 – 1', $html);
+        $this->assertStringContainsString('Score by set', $html);
+        $this->assertStringContainsString('CICS won.', $html);
+
+        $csv = $this->get("/api/reports/events/{$event->id}/export?format=csv")->assertOk()->getContent();
+        $this->assertStringContainsString('CICS,25,22,25,25,3', $csv);
+    }
+
+    public function test_an_unplayed_match_says_so_instead_of_printing_blank(): void
+    {
+        $event = $this->events()->create(['departments' => ['CICS', 'CET'], 'status' => 'completed']);
+        $this->actingAsRole('admin');
+
+        $this->getJson("/api/reports/events/{$event->id}")->assertOk()->assertJsonPath('match', null);
+        $html = $this->get("/api/reports/events/{$event->id}/export?format=html")->getContent();
+        $this->assertStringContainsString('No result has been recorded for this match yet.', $html);
+    }
+
+    public function test_season_results_list_every_finished_match_by_sport(): void
+    {
+        $this->playedMatch();
+        $this->scoredEvent()->update(['status' => 'completed']);
+        $this->events()->create(['category' => 'Volleyball — Men', 'status' => 'upcoming']);
+        $this->actingAsRole('admin');
+
+        $html = $this->get('/api/reports/results/export?format=html')->assertOk()->getContent();
+        $this->assertStringContainsString('Volleyball — Men', $html);
+        $this->assertStringContainsString('3 – 1', $html);
+        $this->assertStringContainsString('2 finished events in 2 sports', $html);
+
+        $csv = $this->get('/api/reports/results/export?format=csv&sport=Volleyball')->assertOk()->getContent();
+        $this->assertStringContainsString('CICS,3,1,CET,CICS', $csv);
+        $this->assertStringNotContainsString('Cheerdance', $csv);
+    }
+
     public function test_certificates_name_the_champion_college(): void
     {
         $this->scoredEvent();
