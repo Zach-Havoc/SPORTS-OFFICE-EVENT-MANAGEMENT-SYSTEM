@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir \
-    paddlepaddle==3.3.1 \
+    paddlepaddle==3.2.2 \
     paddleocr==3.7.0 \
     flask==3.1.3
 

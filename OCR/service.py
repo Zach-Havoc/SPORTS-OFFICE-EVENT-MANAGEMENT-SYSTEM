@@ -15,7 +15,10 @@ import base64
 import hmac
 import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
+import cv2
+import numpy as np
 from flask import Flask, jsonify, request
 from paddleocr import PaddleOCR
 
@@ -40,19 +43,48 @@ def check_api_key():
         return jsonify({"error": "Invalid or missing X-OCR-Api-Key"}), 401
     return None
 
+def load_ocr(enable_mkldnn):
+    return PaddleOCR(
+        lang="en",
+        enable_mkldnn=enable_mkldnn,
+        use_doc_orientation_classify=False,
+        use_doc_unwarping=False,
+        use_textline_orientation=False,
+    )
+
+
+def warm_up(model):
+    # A line of text, so both detection and recognition actually run.
+    img = np.full((120, 480, 3), 255, dtype=np.uint8)
+    cv2.putText(img, "CICS 45", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 4)
+    model.predict(img)
+
+
+def load_warm():
+    # oneDNN (enable_mkldnn) makes CPU inference ~3x faster: a 215-line sheet
+    # took 15s instead of 42s on the dev laptop. paddlepaddle 3.3.x crashes in
+    # it (NotImplementedError: ConvertPirAttribute2RuntimeAttribute), hence the
+    # pinned 3.2.2. It fails at inference, not load, so warm up to find out,
+    # and fall back to plain CPU rather than fail every scan.
+    try:
+        model = load_ocr(enable_mkldnn=True)
+        warm_up(model)
+        print("Model loaded (oneDNN on) — ready.")
+    except Exception as e:
+        print(f"oneDNN unavailable ({type(e).__name__}); using plain CPU, about 3x slower.")
+        model = load_ocr(enable_mkldnn=False)
+        print("Model loaded — ready.")
+    return model
+
+
+# Every model call runs on this one thread. oneDNN keeps per-thread state, and
+# Flask gives each request a new thread: predicting from those failed every
+# other scan with "std::exception". One worker also means one scan at a time,
+# so a client that gives up and retries doesn't run a second scan next to the
+# abandoned one, with both crawling.
+ocr_worker = ThreadPoolExecutor(max_workers=1)
 print("Loading PaddleOCR model (one-time cost, ~20-30s)...")
-# enable_mkldnn=False works around a NotImplementedError in PaddlePaddle's
-# oneDNN CPU-acceleration path on this machine (PIR executor + a specific
-# op type it doesn't yet support) — full text detect+recognize still works
-# correctly with it off, just without that particular speed optimization.
-ocr = PaddleOCR(
-    lang="en",
-    enable_mkldnn=False,
-    use_doc_orientation_classify=False,
-    use_doc_unwarping=False,
-    use_textline_orientation=False,
-)
-print("Model loaded — ready.")
+ocr = ocr_worker.submit(load_warm).result()
 
 
 @app.route("/health", methods=["GET"])
@@ -81,7 +113,7 @@ def extract():
             tmp.write(image_bytes)
             tmp_path = tmp.name
 
-        results = ocr.predict(tmp_path)
+        results = ocr_worker.submit(ocr.predict, tmp_path).result()
         lines = []
         for res in results:
             texts = res.get("rec_texts", [])

@@ -26,7 +26,7 @@ cd OCR
 uv python install 3.11
 uv venv --python 3.11 paddleocr-env
 source paddleocr-env/bin/activate
-uv pip install paddlepaddle paddleocr flask
+uv pip install paddlepaddle==3.2.2 paddleocr flask   # 3.3.x breaks oneDNN (see service.py)
 ```
 
 The first run downloads the actual model weights (~20-30s, needs internet
@@ -106,7 +106,7 @@ cd SPORTS-OFFICE-EVENT-MANAGEMENT-SYSTEM/OCR
 uv python install 3.11
 uv venv --python 3.11 paddleocr-env
 source paddleocr-env/bin/activate
-uv pip install paddlepaddle paddleocr flask
+uv pip install paddlepaddle==3.2.2 paddleocr flask   # 3.3.x breaks oneDNN (see service.py)
 deactivate
 ```
 First run of the service downloads the model weights (~20-30s, needs
@@ -132,7 +132,7 @@ journalctl -u paddleocr -f             # watch the model load (~20-30s first tim
 ### Alternative to steps 2-5: Docker
 
 A `Dockerfile` is included, pinned to the exact package versions tested
-locally (`paddlepaddle==3.3.1`, `paddleocr==3.7.0`, `flask==3.1.3`). Use this
+locally (`paddlepaddle==3.2.2`, `paddleocr==3.7.0`, `flask==3.1.3`). Use this
 instead of the bare-venv + systemd setup above if you'd rather not manage
 Python/venv on the host directly — and it's **required**, not optional, if
 you go with Cloud Run or Render instead of a VM, since those only run
