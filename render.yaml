@@ -1,0 +1,137 @@
+# Render Blueprint — SportsAxis on Render, with the database on TiDB Cloud.
+#   sportsaxis-api   the Laravel API (Docker)            → https://sportsaxis-api.onrender.com
+#   sportsaxis-web   the React website (static site)     → https://sportsaxis-web.onrender.com
+# Walkthrough: DEPLOY_TIDB_RENDER.md. Values marked `sync: false` are asked
+# for in the Render dashboard the first time the Blueprint is applied.
+services:
+  # ── API ──────────────────────────────────────────────────────────────────
+  - type: web
+    name: sportsaxis-api
+    runtime: docker
+    plan: free
+    region: singapore            # next to TiDB Cloud's ap-southeast-1
+    rootDir: SportAxisWeb/backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /up
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - SportAxisWeb/backend/**
+    envVars:
+      - key: APP_NAME
+        value: SportsAxis
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false              # php artisan key:generate --show
+      - key: APP_URL
+        sync: false              # https://sportsaxis-api.onrender.com
+      - key: FRONTEND_URL
+        sync: false              # https://sportsaxis-web.onrender.com (links in emails)
+      - key: TRUSTED_PROXIES
+        value: "*"
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false              # https://sportsaxis-web.onrender.com,http://localhost:5173
+
+      # Database — TiDB Cloud (MySQL-compatible, TLS required). From the
+      # cluster's Connect dialog. The TLS certificate is verified with the
+      # system CA bundle (docker/entrypoint.sh), nothing to paste.
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false              # gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_DATABASE
+        value: sportsaxis
+      - key: DB_USERNAME
+        sync: false              # xxxxxxxxxxxx.root
+      - key: DB_PASSWORD
+        sync: false
+
+      # No worker, websockets or cron on the free plan.
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: BROADCAST_CONNECTION
+        value: log
+      - key: CACHE_STORE
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+
+      # Uploads: the free plan's disk is wiped on every deploy / restart. To
+      # keep uploaded files, set PUBLIC_DISK_DRIVER=s3 and the AWS_* values
+      # for an S3-compatible bucket (e.g. Cloudflare R2's free tier).
+      - key: PUBLIC_DISK_DRIVER
+        value: local
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: auto
+      - key: AWS_BUCKET
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false
+      - key: AWS_URL
+        sync: false
+      - key: AWS_USE_PATH_STYLE_ENDPOINT
+        value: "true"
+
+      # Mail (password reset, tryout codes) and the OCR service.
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: SportsAxis
+      - key: OCR_SERVICE_URL
+        sync: false
+      - key: OCR_API_KEY
+        sync: false
+
+      # /artisan-migrate?token=… — seeding (the first admin) without a shell.
+      - key: MIGRATION_TOKEN
+        sync: false              # openssl rand -hex 32
+
+      # Settings → System → "Reset & Load Demo Data". Leave false for a live season.
+      - key: ALLOW_DEMO_RESET
+        value: "false"
+
+  # ── Website ──────────────────────────────────────────────────────────────
+  - type: web
+    name: sportsaxis-web
+    runtime: static
+    rootDir: SportAxisWeb
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - SportAxisWeb/src/**
+        - SportAxisWeb/public/**
+        - SportAxisWeb/index.html
+        - SportAxisWeb/package.json
+        - SportAxisWeb/package-lock.json
+        - SportAxisWeb/vite.config.ts
+    envVars:
+      - key: VITE_API_URL
+        sync: false              # https://sportsaxis-api.onrender.com/api
+    routes:
+      # A single-page app: every path is served index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html
