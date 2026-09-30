@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import type { EventLineups } from '../../services/api';
+import type { DisciplineEntry, EventLineups } from '../../services/api';
 
 let lineups: EventLineups | undefined;
+let entries: DisciplineEntry[] = [];
 vi.mock('../../hooks/api', () => ({
   useEventLineups: () => ({ data: lineups, isLoading: false }),
+  useDisciplineEntries: () => ({ data: entries, isLoading: false }),
 }));
 vi.mock('../../utils/departments', () => ({ useDeptAbbreviator: () => (s: string) => s }));
 
@@ -76,9 +78,21 @@ describe('game details — lineups', () => {
     expect(screen.queryByText(/the starting rotation/)).not.toBeInTheDocument();
   });
 
-  it('has no lineup section for a racquet sport', () => {
+  it("shows a racquet line's players from the coaches' racquet lines", () => {
     lineups = undefined;
-    render(<MatchDetailModal event={game('Badminton')} rankings={[]} teams={teams} onClose={() => {}} />);
-    expect(screen.queryByText('Lineups')).not.toBeInTheDocument();
+    entries = [
+      { id: 'e1', category: 'Badminton — W Doubles', department: 'CICS', athleteId: 'a1', athleteName: 'Dee Ramos', pairSlot: 'D' },
+      { id: 'e2', category: 'Badminton — W Doubles', department: 'CICS', athleteId: 'a2', athleteName: 'Cai Lim', pairSlot: 'C' },
+      { id: 'e3', category: 'Badminton — W Doubles', department: 'CTE', athleteId: 'a3', athleteName: 'Not Playing', pairSlot: 'C' },
+    ];
+    render(<MatchDetailModal event={game('Badminton — W Doubles')} rankings={[]} teams={teams} onClose={() => {}} />);
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).queryByText('Lineups')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Players')).toBeInTheDocument();
+    const names = within(dialog).getAllByRole('listitem').map((li) => li.textContent);
+    expect(names).toEqual(['Cai Lim', 'Dee Ramos']); // pair C before D
+    expect(within(dialog).queryByText('Not Playing')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Not submitted yet')).toBeInTheDocument(); // CABEIHM
   });
 });

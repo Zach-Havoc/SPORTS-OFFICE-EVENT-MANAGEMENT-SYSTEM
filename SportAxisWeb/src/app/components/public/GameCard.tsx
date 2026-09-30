@@ -12,7 +12,7 @@ import {
   type MatchRow, type Record3, type Scoreboard,
 } from '../../utils/games';
 import { useDeptAbbreviator } from '../../utils/departments';
-import { useEventLineups } from '../../hooks/api';
+import { useDisciplineEntries, useEventLineups } from '../../hooks/api';
 
 /**
  * The public scoreboard card and its detail dialog — shared by the Match
@@ -406,6 +406,60 @@ function Lineups({ eventId, category }: { eventId: string; category: string }) {
   );
 }
 
+/**
+ * Who plays a racquet game (Badminton, Table Tennis). These sports have no
+ * game lineup: each coach names the college's player for a line — Singles A,
+ * Singles B, or the C / D pair for Doubles — once, on their racquet lines,
+ * and that player plays every game of the line.
+ */
+function RacquetPlayers({ category, departments }: { category: string; departments: string[] }) {
+  const abbr = useDeptAbbreviator();
+  const { data, isLoading } = useDisciplineEntries({ category });
+  const entries = data ?? [];
+  const same = (a: string, b: string) =>
+    a.trim().toLowerCase() === b.trim().toLowerCase() || abbr(a) === abbr(b);
+
+  return (
+    <div>
+      <h3 className="flex items-center gap-2 font-bold text-gray-900 mb-3 text-sm uppercase tracking-wide">
+        <Shirt className="h-4 w-4 text-gray-500" />
+        Players
+      </h3>
+      {isLoading ? (
+        <p className="text-sm text-gray-400">Loading players…</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {departments.map((dept) => {
+            const players = entries
+              .filter((e) => same(e.department, dept))
+              .sort((a, b) => String(a.pairSlot ?? '').localeCompare(String(b.pairSlot ?? '')));
+            return (
+              <div key={dept} className="rounded-xl border border-gray-200 p-3">
+                <p className="mb-2 text-sm font-semibold text-gray-900" title={dept}>
+                  {abbr(dept)}
+                </p>
+                {players.length === 0 ? (
+                  <p className="text-sm text-gray-400">Not submitted yet</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {players.map((p) => (
+                      <li key={p.id} className="py-1.5 text-sm text-gray-800 truncate">
+                        {p.athleteName}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const isRacquet = (category: string) => /badminton|table tennis/i.test(category);
+
 export function MatchDetailModal({
   event,
   rankings,
@@ -498,7 +552,12 @@ export function MatchDetailModal({
             </div>
 
             {/* Who plays — the lineups each coach submitted */}
-            {isVersus && <Lineups eventId={event.id} category={event.category} />}
+            {isVersus &&
+              (isRacquet(event.category) ? (
+                <RacquetPlayers category={event.category} departments={event.departments || []} />
+              ) : (
+                <Lineups eventId={event.id} category={event.category} />
+              ))}
 
             {/* Departments */}
             <div>
