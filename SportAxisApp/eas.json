@@ -11,7 +11,13 @@
     },
     "preview": {
       "distribution": "internal",
-      "environment": "preview"
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.254.207:8000/api"
+      }
     },
     "production": {
       "autoIncrement": true,
