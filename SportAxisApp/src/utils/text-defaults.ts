@@ -71,6 +71,19 @@ export function applyTextDefaults(): void {
         const extra = overrides(args[0]?.style);
         if (!extra || !React.isValidElement(element)) return element;
         const el = element as React.ReactElement<{ style?: unknown }>;
+        // On the web, react-native-web has already rendered a DOM <span>/<input>
+        // whose style is one plain CSS object — a style *array* there makes
+        // React DOM throw ("Failed to set an indexed property [0] on
+        // 'CSSStyleDeclaration'"). Merge into one object instead.
+        if (Platform.OS === 'web') {
+          const base = (StyleSheet.flatten(el.props.style as any) ?? {}) as Record<string, unknown>;
+          const merged: Record<string, unknown> = { ...base };
+          for (const [k, v] of Object.entries(extra)) {
+            if (v === undefined) delete merged[k];
+            else merged[k] = v;
+          }
+          return React.cloneElement(el, { style: merged });
+        }
         return React.cloneElement(el, { style: [el.props.style, extra] });
       } catch {
         return element;
