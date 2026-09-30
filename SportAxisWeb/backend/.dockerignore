@@ -12,3 +12,9 @@ storage/app/public/*
 storage/app/private/*
 public/storage
 .phpunit.cache
+# InfinityFree-only: this folder's .htaccess denies ALL web access (the code sits
+# inside the web root there). In the Docker image it is the web root's parent,
+# so Apache would refuse every request — including Render's /up health check.
+.htaccess
+# Vite dev-server marker from local development.
+public/hot
