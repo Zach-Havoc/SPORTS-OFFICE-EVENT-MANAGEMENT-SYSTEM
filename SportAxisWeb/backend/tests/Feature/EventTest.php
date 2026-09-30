@@ -420,4 +420,21 @@ class EventTest extends TestCase
         $this->postJson('/api/events/bulk-delete', ['ids' => []])->assertStatus(422);
         $this->postJson('/api/events/bulk-status', ['ids' => [$event->id], 'status' => 'nope'])->assertStatus(422);
     }
+
+    public function test_paging_through_same_day_games_returns_each_game_exactly_once(): void
+    {
+        // Many games share a date and a start time: without a unique
+        // tie-breaker, a page boundary among them repeated one game on the
+        // next page and skipped another.
+        foreach (range(1, 150) as $i) {
+            $this->events()->create(['schedule' => '2026-10-01', 'start_time' => '08:00']);
+        }
+
+        $ids = collect([1, 2])->flatMap(fn ($page) => collect(
+            $this->getJson("/api/events?season=all&per_page=100&page={$page}")->assertOk()->json('data')
+        )->pluck('id'));
+
+        $this->assertCount(150, $ids);
+        $this->assertCount(150, $ids->unique());
+    }
 }

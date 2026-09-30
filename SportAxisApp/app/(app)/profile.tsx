@@ -100,7 +100,7 @@ export default function ProfileScreen() {
         <Button
           label="Sign out"
           onPress={handleSignOut}
-          variant="danger"
+          variant="primary"
           size="lg"
           fullWidth
           icon={<Icon name="logout" size={18} color={COLORS.textInverse} />}

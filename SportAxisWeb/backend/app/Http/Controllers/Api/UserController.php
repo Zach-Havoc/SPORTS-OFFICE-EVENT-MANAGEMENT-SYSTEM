@@ -56,7 +56,7 @@ class UserController extends Controller
             $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
         }
 
-        $paginator = $query->orderBy('name')->paginate($this->perPage($request, 50));
+        $paginator = $query->orderBy('name')->orderBy('id')->paginate($this->perPage($request, 50));
 
         $rows = $this->withLinks($paginator->getCollection())
             ->map(fn ($entry) => $entry['row'])

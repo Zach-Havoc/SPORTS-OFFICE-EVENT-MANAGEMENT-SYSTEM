@@ -15,7 +15,7 @@ class RegistrationCodeController extends Controller
     public function index(Request $request)
     {
         return response()->json(
-            RegistrationCode::orderByDesc('created_at')->paginate($this->perPage($request, 50))
+            RegistrationCode::orderByDesc('created_at')->orderBy('code')->paginate($this->perPage($request, 50))
         );
     }
 

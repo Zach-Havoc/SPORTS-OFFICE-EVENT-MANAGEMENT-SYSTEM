@@ -34,7 +34,17 @@ async function fetchAllEvents(): Promise<EventSummary[]> {
     const pageBody = page.data;
     items = items.concat(Array.isArray(pageBody) ? pageBody : (pageBody as Paginator<EventSummary>).data ?? []);
   }
-  return items;
+  return uniqueById(items);
+}
+
+/**
+ * One entry per event. Pages fetched while the list changes (or from a server
+ * that sorted same-day games inconsistently) can repeat one — which React
+ * reports as "two children with the same key".
+ */
+export function uniqueById<T extends { id: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
 }
 
 export const eventService = {
@@ -60,13 +70,14 @@ export const eventService = {
     };
 
     if (cached) {
+      const deduped = uniqueById(cached);
       fetchFresh()
         .then((fresh) => onFresh?.(fresh))
         .catch(() => {
           // Background refresh failed — the caller is already showing the
           // cached list, so there's nothing more to do here.
         });
-      return cached;
+      return deduped;
     }
 
     return fetchFresh();

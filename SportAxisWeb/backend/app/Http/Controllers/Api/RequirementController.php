@@ -28,7 +28,7 @@ class RequirementController extends Controller
             $rosterIds = $athleteIds->merge($userIds)->unique();
 
             return response()->json(
-                Requirement::whereIn('athlete_id', $rosterIds)->orderByDesc('submitted_at')->paginate($perPage)
+                Requirement::whereIn('athlete_id', $rosterIds)->orderByDesc('submitted_at')->orderBy('id')->paginate($perPage)
             );
         }
 

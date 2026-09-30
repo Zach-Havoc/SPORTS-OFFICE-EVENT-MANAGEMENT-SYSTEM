@@ -42,7 +42,7 @@ class AthleteController extends Controller
             $query->where('coach_id', $user->id);
         }
 
-        $athletes = $query->orderBy('last_name')->paginate($this->perPage($request, 50));
+        $athletes = $query->orderBy('last_name')->orderBy('first_name')->orderBy('id')->paginate($this->perPage($request, 50));
         $athletes->getCollection()->transform(fn (Athlete $a) => $this->withAccountProfile($a));
 
         return response()->json($athletes);

@@ -141,5 +141,5 @@ const styles = StyleSheet.create({
   row: { paddingHorizontal: SPACING.md },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.hairline, marginLeft: SPACING.md + 40 + SPACING.md },
 
-  signOut: { ...TYPE.subhead, color: COLORS.destructive, textAlign: 'center', paddingVertical: SPACING.md },
+  signOut: { ...TYPE.subhead, color: COLORS.textPrimary, textAlign: 'center', paddingVertical: SPACING.md },
 });

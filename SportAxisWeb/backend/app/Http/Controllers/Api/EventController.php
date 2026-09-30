@@ -86,7 +86,9 @@ class EventController extends Controller
 
     public function index(Request $request)
     {
-        $query = Event::orderBy('schedule', 'asc');
+        // start_time and id break ties: a page boundary inside one day must not
+        // repeat a game on the next page (and skip another).
+        $query = Event::orderBy('schedule', 'asc')->orderBy('start_time')->orderBy('id');
 
         if ($request->has('date') && $request->date) {
             $query->whereDate('schedule', $request->date);

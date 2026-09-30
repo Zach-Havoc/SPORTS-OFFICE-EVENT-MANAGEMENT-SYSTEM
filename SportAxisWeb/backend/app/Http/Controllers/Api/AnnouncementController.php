@@ -21,7 +21,7 @@ class AnnouncementController extends Controller
 
     public function index(Request $request)
     {
-        $announcements = Announcement::orderByDesc('created_at')->paginate($this->perPage($request, 25));
+        $announcements = Announcement::orderByDesc('created_at')->orderBy('id')->paginate($this->perPage($request, 25));
         // The college whose team each post is for — a tryout only takes that
         // college's students, and the apply form says so up front.
         $colleges = User::whereIn('id', $announcements->getCollection()->pluck('coach_id')->filter()->unique())
