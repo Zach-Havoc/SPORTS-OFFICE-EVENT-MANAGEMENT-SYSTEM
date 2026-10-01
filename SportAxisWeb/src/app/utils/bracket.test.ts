@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextPowerOfTwo, seedSlots, seededSlotOrder, shuffle } from './bracket'
+import { nextPowerOfTwo, seedSlots, seededSlotOrder, shuffle, formatLabel, doubleEliminationGames, splitDoubleElimination } from './bracket'
 
 describe('nextPowerOfTwo', () => {
   it('rounds up to a power of two', () => {
@@ -86,5 +86,46 @@ describe('shuffle', () => {
     for (const n of counts.values()) {
       expect(Math.abs(n - runs / 6)).toBeLessThan(runs / 6 * 0.1)
     }
+  })
+})
+
+describe('formatLabel', () => {
+  it('names each format', () => {
+    expect(formatLabel('round_robin')).toBe('Round Robin')
+    expect(formatLabel('double_elimination')).toBe('Double Elimination')
+    expect(formatLabel('single_elimination')).toBe('Single Elimination')
+    expect(formatLabel(undefined)).toBe('Single Elimination')
+  })
+})
+
+describe('doubleEliminationGames', () => {
+  it('is 2n-2, plus the reset', () => {
+    expect(doubleEliminationGames(2)).toBe(0)
+    expect(doubleEliminationGames(3)).toBe(5)
+    expect(doubleEliminationGames(7)).toBe(13)
+    expect(doubleEliminationGames(7, false)).toBe(12)
+    expect(doubleEliminationGames(8, false)).toBe(14)
+  })
+})
+
+describe('splitDoubleElimination', () => {
+  const m = (id: string, section: string, round: number, slot: number, next: string | null) =>
+    ({ id, section, round, slot, stageLabel: `${section} ${round}`, nextMatchId: next })
+
+  it('separates the parts and cuts the upper tree loose from the grand final', () => {
+    const { upper, lower, grandFinal } = splitDoubleElimination([
+      m('u1', 'upper', 1, 0, 'u3'),
+      m('u2', 'upper', 1, 1, 'u3'),
+      m('l1', 'lower', 2, 0, 'l2'),
+      m('u3', 'upper', 3, 0, 'g1'),
+      m('l2', 'lower', 4, 0, 'g1'),
+      m('g2', 'grand_final', 6, 0, null),
+      m('g1', 'grand_final', 5, 0, 'g2'),
+    ])
+    expect(upper.map((x) => x.id)).toEqual(['u1', 'u2', 'u3'])
+    expect(upper.find((x) => x.id === 'u3')!.nextMatchId).toBeNull()
+    expect(upper.find((x) => x.id === 'u1')!.nextMatchId).toBe('u3')
+    expect(lower.map((r) => r.matches.map((x) => x.id))).toEqual([['l1'], ['l2']])
+    expect(grandFinal.map((r) => r.matches[0].id)).toEqual(['g1', 'g2'])
   })
 })

@@ -12,7 +12,10 @@ use Illuminate\Database\Seeder;
  * judge and both lineups on every game. Days are relative to today:
  *
  *   Single elimination (7 colleges, the top seed gets a bye):
- *     Basketball, Beach Volleyball, Sepak Takraw — Men's and Women's
+ *     Basketball, Beach Volleyball — Men's and Women's; Women's Sepak Takraw
+ *   Double elimination (7 colleges, 12 games + a grand-final reset if the
+ *   lower-bracket champion wins the grand final), fully played:
+ *     Men's Sepak Takraw
  *   Round robin (21 games each):
  *     Volleyball, Chess — Men's and Women's
  *     Badminton, Table Tennis — every line, Men's and Women's
@@ -26,9 +29,17 @@ class BracketSeeder extends Seeder
         ['Beach Volleyball — Men', 'Beach Volleyball Sand Court', [-12, -11, -9], '08:00', 60],
         ['Basketball — Women', 'University Gymnasium', [-11, -6, -4], '08:00', 90],
         ['Basketball — Men', 'University Gymnasium', [-9, -2, 0], '08:00', 90],
-        ['Sepak Takraw — Men', 'Multi-Purpose Hall', [-7, -5, -3], '08:00', 60],
         ['Sepak Takraw — Women', 'Multi-Purpose Hall', [-1, 0, 5], '08:00', 60],
         ['Beach Volleyball — Women', 'Beach Volleyball Sand Court', [-2, 1, 6], '08:00', 60],
+    ];
+
+    /**
+     * [division, venue, day of each step in the order of play, start, minutes]:
+     * upper 1, lower 1, upper 2, lower 2, lower 3, upper 3 (final),
+     * lower 4 (final), grand final, reset.
+     */
+    private const DOUBLE_ELIMINATION = [
+        ['Sepak Takraw — Men', 'Multi-Purpose Hall', [-9, -9, -8, -8, -7, -6, -6, -4, -4], '08:00', 60],
     ];
 
     /** [division or line, venue, first day, start, minutes] — the generator rolls to the next day at 6 PM. */
@@ -58,6 +69,9 @@ class BracketSeeder extends Seeder
 
         foreach (self::ELIMINATION as [$category, $venue, $days, $time, $minutes]) {
             $sched->bracket($category, 'single_elimination', $seeds($category), $venue, $days, $time, $minutes);
+        }
+        foreach (self::DOUBLE_ELIMINATION as [$category, $venue, $days, $time, $minutes]) {
+            $sched->bracket($category, 'double_elimination', $seeds($category), $venue, $days, $time, $minutes);
         }
         foreach (self::ROUND_ROBIN as [$category, $venue, $day, $time, $minutes]) {
             $name = null;

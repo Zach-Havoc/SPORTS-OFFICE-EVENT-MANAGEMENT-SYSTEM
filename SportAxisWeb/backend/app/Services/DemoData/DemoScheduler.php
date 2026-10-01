@@ -35,10 +35,12 @@ class DemoScheduler
     }
 
     /**
-     * Generate and publish a bracket. Single elimination takes one day per
-     * round (`$days`); a round robin runs from `$days[0]`, the generator
-     * rolling on to the next day at 6 PM. Teams go in seed order (best
-     * first), so the top seeds get the byes.
+     * Generate and publish a bracket. An elimination bracket takes the day
+     * `$days` gives each round — for a double elimination a round is a step
+     * in its order of play (upper 1, lower 1, upper 2, …, grand final, reset),
+     * and rounds sharing a day follow on from each other. A round robin runs
+     * from `$days[0]`, the generator rolling on to the next day at 6 PM.
+     * Teams go in seed order (best first), so the top seeds get the byes.
      */
     public function bracket(string $category, string $format, array $teams, string $venue, array $days, string $time, int $minutes, string $draw = 'manual', ?string $name = null): Bracket
     {
@@ -50,18 +52,20 @@ class DemoScheduler
 
         [$sport, $division] = DemoContext::parse($category);
         $bracket->update([
-            'name' => $name ?? "{$division}'s {$sport} — ".($format === 'round_robin' ? 'Round Robin' : 'Elimination'),
+            'name' => $name ?? "{$division}'s {$sport} — ".BracketService::formatName($format),
             'seeded' => true,
             'settings' => $bracket->settings + ['seedSource' => $draw === 'standings' ? 'group stage standings' : DemoContext::PREVIOUS_SEASON.' final ranking'],
         ]);
 
-        // One day per elimination round, back to back from `$time`.
-        if ($format === 'single_elimination') {
+        // Each elimination round on its day, back to back from `$time`.
+        if (BracketService::isElimination($format)) {
             $step = $minutes + 15;
-            foreach ($bracket->matches->groupBy('round') as $round => $matches) {
-                $clock = Carbon::parse($time);
+            $clocks = [];
+            foreach ($bracket->matches->groupBy('round')->sortKeys() as $round => $matches) {
+                $date = $this->day($days[$round - 1] ?? end($days))->toDateString();
+                $clock = $clocks[$date] ??= Carbon::parse($time);
                 foreach ($matches->where('is_bye', false)->sortBy('slot') as $bm) {
-                    $bm->update(['scheduled_date' => $this->day($days[$round - 1] ?? end($days))->toDateString(), 'scheduled_time' => $clock->format('H:i')]);
+                    $bm->update(['scheduled_date' => $date, 'scheduled_time' => $clock->format('H:i')]);
                     $clock->addMinutes($step);
                 }
             }

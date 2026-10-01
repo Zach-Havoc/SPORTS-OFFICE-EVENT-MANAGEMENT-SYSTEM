@@ -57,3 +57,53 @@ export function shuffle<T>(items: readonly T[], random: () => number = Math.rand
   }
   return out
 }
+
+export type BracketFormat = 'single_elimination' | 'double_elimination' | 'round_robin'
+
+/** How a bracket's format reads in the UI. */
+export function formatLabel(format: string | null | undefined): string {
+  if (format === 'round_robin') return 'Round Robin'
+  if (format === 'double_elimination') return 'Double Elimination'
+  return 'Single Elimination'
+}
+
+/**
+ * Games a double elimination of `n` teams plays: every team but the champion
+ * loses twice (2n-2 games), plus the grand-final reset when the lower-bracket
+ * champion wins the grand final. `withReset` → the most it can take.
+ */
+export function doubleEliminationGames(n: number, withReset = true): number {
+  if (n < 3) return 0
+  return 2 * n - 2 + (withReset ? 1 : 0)
+}
+
+export type BracketSection = 'upper' | 'lower' | 'grand_final'
+
+/**
+ * Split a double elimination's matches into its parts, each as rounds in
+ * play order. A match without a `section` (an older single elimination) is
+ * upper. The upper matches are returned with links to other parts removed,
+ * so they draw as a tree of their own.
+ */
+export function splitDoubleElimination<
+  M extends { id: string; round: number; slot: number; section?: string | null; stageLabel: string; nextMatchId: string | null },
+>(matches: M[]) {
+  const sectionOf = (m: M): BracketSection => (m.section === 'lower' || m.section === 'grand_final' ? m.section : 'upper')
+  const rounds = (section: BracketSection) => {
+    const byRound = new Map<number, M[]>()
+    for (const m of matches) {
+      if (sectionOf(m) !== section) continue
+      if (!byRound.has(m.round)) byRound.set(m.round, [])
+      byRound.get(m.round)!.push(m)
+    }
+    return [...byRound.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([round, ms]) => ({ round, label: ms[0].stageLabel, matches: [...ms].sort((a, b) => a.slot - b.slot) }))
+  }
+  const upperIds = new Set(matches.filter((m) => sectionOf(m) === 'upper').map((m) => m.id))
+  const upper = matches
+    .filter((m) => sectionOf(m) === 'upper')
+    .map((m) => ({ ...m, nextMatchId: m.nextMatchId && upperIds.has(m.nextMatchId) ? m.nextMatchId : null }))
+
+  return { upper, lower: rounds('lower'), grandFinal: rounds('grand_final') }
+}

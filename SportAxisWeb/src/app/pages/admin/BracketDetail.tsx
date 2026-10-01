@@ -11,11 +11,14 @@ import { toast } from 'sonner';
 import Loading from '../../components/Loading';
 import { useDeptAbbreviator } from '../../utils/departments';
 import BracketTree from '../../components/BracketTree';
+import DoubleEliminationView from '../../components/DoubleEliminationView';
+import { formatLabel } from '../../utils/bracket';
 
 interface BMatch {
   id: string;
   round: number;
   slot: number;
+  section?: 'upper' | 'lower' | 'grand_final';
   stageLabel: string;
   homeTeam: string | null;
   awayTeam: string | null;
@@ -24,7 +27,7 @@ interface BMatch {
   venueName: string | null;
   winner: string | null;
   isBye: boolean;
-  status: 'pending' | 'ready' | 'scheduled' | 'completed';
+  status: 'pending' | 'ready' | 'scheduled' | 'completed' | 'skipped';
   eventId: string | null;
   homeScore: number | null;
   awayScore: number | null;
@@ -35,6 +38,10 @@ interface BMatch {
 }
 
 const prevStageLabel = (label: string) => {
+  if (label === 'Grand Final (Reset)') return 'the Grand Final';
+  if (label === 'Grand Final') return 'the upper and lower finals';
+  if (label.startsWith('Lower ')) return 'earlier games';
+  label = label.replace(/^Upper /, '');
   if (label === 'Finals') return 'the Semi-Finals';
   if (label === 'Semi-Finals') return 'the Quarter-Finals';
   if (label === 'Quarter-Finals') return 'Round 1';
@@ -46,6 +53,7 @@ const STATUS_BADGE: Record<BMatch['status'], string> = {
   ready: 'bg-blue-50 text-blue-700',
   scheduled: 'bg-amber-50 text-amber-700',
   completed: 'bg-emerald-50 text-emerald-700',
+  skipped: 'bg-gray-100 text-gray-400',
 };
 
 type Advance = (matchId: string, body?: { winner?: string; force?: boolean }) => void;
@@ -59,6 +67,7 @@ function MatchActions({ m, onAdvance, busy }: { m: BMatch; onAdvance: Advance; b
   const actionable = bothKnown && !m.isBye && (m.status === 'scheduled' || m.status === 'ready');
 
   if (m.isBye) return <p className="text-xs text-gray-400">Bye — no game.</p>;
+  if (m.status === 'skipped') return <p className="text-xs text-gray-400">Not needed — the upper-bracket champion won the Grand Final.</p>;
   if (!bothKnown) return <p className="text-xs text-gray-400">Waiting on {prevStageLabel(m.stageLabel)}.</p>;
 
   return (
@@ -119,7 +128,7 @@ function MatchActions({ m, onAdvance, busy }: { m: BMatch; onAdvance: Advance; b
   );
 }
 
-/** A flat match card — used for round-robin (which has no tree). */
+/** A flat match card — round robin, and a double elimination's lower bracket and grand final. */
 function MatchCard({ m, onAdvance, busy }: { m: BMatch; onAdvance: Advance; busy: boolean }) {
   const abbr = useDeptAbbreviator();
   const short = (t: string | null) => (t ? abbr(t) : 'TBD');
@@ -221,7 +230,9 @@ export default function BracketDetail() {
   if (isLoading) return <div className="p-8"><Loading fullScreen={false} message="Loading bracket…" /></div>;
   if (!bracket) return <div className="p-8 text-gray-500">Bracket not found.</div>;
 
-  const isSingleElim = bracket.format !== 'round_robin';
+  const isSingleElim = bracket.format === 'single_elimination';
+  const isDoubleElim = bracket.format === 'double_elimination';
+  const isTree = isSingleElim || isDoubleElim;
   const manageMatch: BMatch | undefined = (bracket.matches as BMatch[]).find((m) => m.id === manageId);
 
   const onAdvance: Advance = (matchId, body) => {
@@ -259,7 +270,10 @@ export default function BracketDetail() {
         <div className="min-w-0 flex-1">
           <h1 className="t-page-title break-words">{bracket.name}</h1>
           <p className="text-sm text-gray-500">
-            {bracket.format === 'round_robin' ? 'Round Robin' : 'Single Elimination'} · {bracket.matches.length} matches
+            {formatLabel(bracket.format)} ·{' '}
+            {isDoubleElim
+              ? `${(bracket.matches as BMatch[]).filter((m) => !m.isBye && m.status !== 'skipped').length} games`
+              : `${bracket.matches.length} matches`}
           </p>
         </div>
         <Badge className={bracket.status === 'completed' ? 'bg-emerald-600' : bracket.status === 'active' ? 'bg-blue-600' : 'bg-gray-500'}>
@@ -300,15 +314,21 @@ export default function BracketDetail() {
 
       {bracket.status !== 'draft' && (
         <div className="mb-6 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
-          Every match {isSingleElim ? 'in the bracket' : 'below'} <strong className="font-medium text-gray-800">is a scheduled event</strong> — the
+          Every match {isTree ? 'in the bracket' : 'below'} <strong className="font-medium text-gray-800">is a scheduled event</strong> — the
           same events on the Events page and in the mobile scoring app. When a match is scored,{' '}
-          {isSingleElim ? 'click it and hit ' : 'hit '}
+          {isSingleElim ? 'click it and hit ' : isDoubleElim ? 'click it (upper bracket) or hit ' : 'hit '}
           <strong className="font-medium text-gray-800">Use result</strong> and the winner advances automatically (its event is renamed
           too). No score yet? Use <strong className="font-medium text-gray-800">Pick winner</strong> for a forfeit.
         </div>
       )}
 
-      {isSingleElim ? (
+      {isDoubleElim ? (
+        <DoubleEliminationView
+          matches={bracket.matches as BMatch[]}
+          onMatchClick={setManageId}
+          renderMatch={(m) => <MatchCard key={m.id} m={m} onAdvance={onAdvance} busy={advance.isPending} />}
+        />
+      ) : isSingleElim ? (
         <BracketTree matches={bracket.matches as any} onMatchClick={setManageId} />
       ) : (
         <div className="flex gap-6 overflow-x-auto pb-4">

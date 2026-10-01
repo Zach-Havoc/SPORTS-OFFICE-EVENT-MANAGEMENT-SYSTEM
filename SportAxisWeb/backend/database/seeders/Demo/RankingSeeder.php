@@ -26,7 +26,7 @@ class RankingSeeder extends Seeder
         $leaderboard = app(RankingController::class)->leaderboard(Request::create('/api/rankings/leaderboard'))->getData(true);
 
         // Champions, and which divisions are fully decided.
-        $withPlayoffs = Bracket::where('format', 'single_elimination')->pluck('sport')->flip();
+        $withPlayoffs = Bracket::whereIn('format', ['single_elimination', 'double_elimination'])->pluck('sport')->flip();
         $champions = $divisionsCrowned = [];
         foreach (Bracket::with('matches')->get() as $bracket) {
             if ($bracket->format === 'round_robin' && $withPlayoffs->has($bracket->sport)) {
@@ -35,7 +35,8 @@ class RankingSeeder extends Seeder
             if ($bracket->champion) {
                 $champions[$bracket->name] = $bracket->champion;
             }
-            if ($bracket->matches->reject->is_bye->every(fn ($m) => $m->status === 'completed')) {
+            // A grand-final reset that wasn't needed is 'skipped', not unplayed.
+            if ($bracket->matches->reject->is_bye->every(fn ($m) => in_array($m->status, ['completed', 'skipped'], true))) {
                 [$sport, $division] = DemoContext::parse($bracket->sport);
                 $divisionsCrowned["{$sport}|{$division}"][] = true;
             }
@@ -71,7 +72,7 @@ class RankingSeeder extends Seeder
      */
     private function settleTies(): void
     {
-        $bracketed = Bracket::where('format', 'single_elimination')->pluck('sport')->flip();
+        $bracketed = Bracket::whereIn('format', ['single_elimination', 'double_elimination'])->pluck('sport')->flip();
         foreach (Bracket::with('matches')->where('format', 'round_robin')->whereNull('champion')->get() as $bracket) {
             if ($bracketed->has($bracket->sport) || $bracket->matches->contains(fn ($m) => $m->status !== 'completed')) {
                 continue;

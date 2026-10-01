@@ -11,7 +11,7 @@ import { getStandings } from '../../services/api';
 import { useBrackets, useCategories, useDepartments, useVenues, useCreateBracket, usePublishBracket } from '../../hooks/api';
 import { Badge } from '../../components/ui/badge';
 import { SingleEliminationBracket, Match as BracketMatch } from '@g-loot/react-tournament-brackets';
-import { seededSlotOrder, shuffle } from '../../utils/bracket';
+import { seededSlotOrder, shuffle, doubleEliminationGames } from '../../utils/bracket';
 import { makeAbbreviator, shortDeptLabel } from '../../utils/departments';
 
 interface Venue {
@@ -43,9 +43,23 @@ interface Match {
   winner?: string;
 }
 
+type FormatChoice = 'single-elimination' | 'double-elimination' | 'round-robin';
+
+const API_FORMAT: Record<FormatChoice, string> = {
+  'single-elimination': 'single_elimination',
+  'double-elimination': 'double_elimination',
+  'round-robin': 'round_robin',
+};
+
+const FORMAT_LABEL: Record<FormatChoice, string> = {
+  'single-elimination': 'Single Elimination',
+  'double-elimination': 'Double Elimination',
+  'round-robin': 'Round Robin',
+};
+
 interface Bracket {
   sport: string;
-  format: 'single-elimination' | 'round-robin';
+  format: FormatChoice;
   participants: string[];
   matches: Match[];
   startDate: string;
@@ -138,7 +152,10 @@ export default function AdminBracketing() {
 
   const [config, setConfig] = useState({
     sport: '',
-    format: 'single-elimination' as 'single-elimination' | 'round-robin',
+    format: 'single-elimination' as FormatChoice,
+    // Double elimination: a second grand-final game if the lower-bracket
+    // champion wins the first (so the unbeaten team also gets two lives).
+    grandFinalReset: true,
     participants: [] as string[],
     venueId: '' as string,   // '' = no venue set — matches stay "TBD" until one is picked
     startDate: '',           // admin picks it — no default
@@ -166,6 +183,9 @@ export default function AdminBracketing() {
     ...new Set(categories.filter((c) => /Singles|Doubles/.test(c.division ?? '')).map((c) => c.parentSport as string)),
   ].sort();
   const isRacquet = racquetParents.includes(config.sport);
+  const isElimination = config.format !== 'round-robin';
+  const isDouble = config.format === 'double-elimination';
+  const minParticipants = isDouble ? 3 : 2;
   // A team sport's division that exists as its own sport ("Basketball — Men"):
   // its bracket is played under it, so its standings and medals stay separate.
   const divisionCategory = !isRacquet && config.teamDivision
@@ -401,8 +421,8 @@ export default function AdminBracketing() {
       return;
     }
 
-    if (config.participants.length < 2) {
-      toast.error('Please select at least 2 participants');
+    if (config.participants.length < minParticipants) {
+      toast.error(`Please select at least ${minParticipants} participants`);
       return;
     }
 
@@ -418,7 +438,7 @@ export default function AdminBracketing() {
       let seededOrder: (string | null)[] | undefined;
       let orderedForSave: string[] | null = null;
 
-      if (config.format === 'single-elimination') {
+      if (isElimination) {
         let ordered = [...config.participants];
 
         if (config.drawMethod === 'standings') {
@@ -439,18 +459,23 @@ export default function AdminBracketing() {
         seededOrder = seededSlotOrder(ordered);
       }
 
-      const newBracket = config.format === 'single-elimination'
-        ? generateSingleEliminationBracket(seededOrder)
+      // A double elimination previews its upper bracket (the same draw as a
+      // single elimination); the lower bracket is built from it on save.
+      const newBracket = isElimination
+        ? { ...generateSingleEliminationBracket(seededOrder), format: config.format }
         : generateRoundRobinBracket();
 
       setBracket(newBracket);
       setPreviewedOrder(orderedForSave);
       const drawNote =
-        config.format !== 'single-elimination' ? '' :
+        !isElimination ? '' :
         config.drawMethod === 'standings' ? ' · seeded from standings' :
         config.drawMethod === 'random' ? ' · random draw' : ' · manual order';
       const seededNote = drawNote;
-      toast.success(`Bracket generated — ${newBracket.matches.length} matches${seededNote}`);
+      const gameCount = isDouble
+        ? `${doubleEliminationGames(newBracket.participants.length, false)}${config.grandFinalReset ? '–' + doubleEliminationGames(newBracket.participants.length) : ''} games`
+        : `${newBracket.matches.length} matches`;
+      toast.success(`Bracket generated — ${gameCount}${seededNote}`);
 
       // Flag matches with no venue so the admin sets one before saving.
       const missingVenue = newBracket.matches.some(
@@ -478,9 +503,10 @@ export default function AdminBracketing() {
       setGenerating(true);
 
       const basePayload = {
-        format: config.format === 'single-elimination' ? 'single_elimination' : 'round_robin',
+        format: API_FORMAT[config.format],
         participants: previewedOrder ?? config.participants,
-        drawMethod: config.format === 'single-elimination' ? config.drawMethod : 'manual',
+        drawMethod: isElimination ? config.drawMethod : 'manual',
+        ...(isDouble ? { grandFinalReset: config.grandFinalReset } : {}),
         startDate: config.startDate,
         startTime: config.startTime,
         matchDuration: config.matchDuration,
@@ -788,11 +814,41 @@ export default function AdminBracketing() {
                 value={config.format}
                 onChange={(format) => setConfig({ ...config, format })}
                 options={[
-                  { value: 'single-elimination', label: 'Single elimination' },
+                  { value: 'single-elimination', label: 'Single elim.' },
+                  { value: 'double-elimination', label: 'Double elim.' },
                   { value: 'round-robin', label: 'Round robin' },
                 ]}
               />
-              {config.format === 'single-elimination' && (
+              {isDouble && (
+                <>
+                  <p className="text-xs text-gray-500">
+                    A team is out after its second loss: losers drop to a lower bracket, and the two bracket champions meet in
+                    the grand final. About twice the games of a single elimination.
+                  </p>
+                  <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={config.grandFinalReset}
+                      onChange={(e) => setConfig({ ...config, grandFinalReset: e.target.checked })}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-gray-900"
+                    />
+                    <span>
+                      <span className="font-medium text-gray-900">Grand-final reset</span>
+                      <span className="block text-xs text-gray-500">
+                        If the lower-bracket champion wins the grand final, a second game decides it — both teams then have one loss.
+                      </span>
+                    </span>
+                  </label>
+                  {/^chess/i.test(config.sport) && (
+                    <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      Chess games can end in a draw, and a drawn game won't move the bracket on — record the tiebreak winner
+                      with “Pick winner” on the bracket page.
+                    </div>
+                  )}
+                </>
+              )}
+              {isElimination && (
                 <Field
                   label="Draw"
                   hint={
@@ -815,7 +871,7 @@ export default function AdminBracketing() {
                 </Field>
               )}
 
-              {config.sport && config.format === 'single-elimination' && config.drawMethod === 'standings' && (
+              {config.sport && isElimination && config.drawMethod === 'standings' && (
                 <div className="overflow-hidden rounded-md border border-gray-200">
                   <div className="flex items-center justify-between bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600">
                     <span>Current standings · {config.sport}</span>
@@ -944,7 +1000,7 @@ export default function AdminBracketing() {
                         <span className="block text-sm font-medium text-gray-900">{dept.code || dept.name}</span>
                         {dept.code && <span className="block truncate text-xs text-gray-500">{dept.name}</span>}
                       </span>
-                      {on && config.format === 'single-elimination' && config.drawMethod === 'manual' && (
+                      {on && isElimination && config.drawMethod === 'manual' && (
                         <span className="text-xs tabular-nums text-gray-500">#{order + 1}</span>
                       )}
                     </label>
@@ -956,15 +1012,17 @@ export default function AdminBracketing() {
             <div className="pt-5">
               <Button
                 onClick={handleGenerateBracket}
-                disabled={generating || !config.sport || config.participants.length < 2 || !config.startDate || !config.startTime}
+                disabled={generating || !config.sport || config.participants.length < minParticipants || !config.startDate || !config.startTime}
                 className="w-full"
                 size="lg"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Generate bracket
               </Button>
-              {config.participants.length < 2 && (
-                <p className="mt-2 text-center text-xs text-gray-500">Pick at least two colleges.</p>
+              {config.participants.length < minParticipants && (
+                <p className="mt-2 text-center text-xs text-gray-500">
+                  Pick at least {isDouble ? 'three' : 'two'} colleges.
+                </p>
               )}
             </div>
 
@@ -980,7 +1038,11 @@ export default function AdminBracketing() {
             <CardTitle>Bracket Preview</CardTitle>
             <CardDescription>
               {bracket
-                ? `${bracket.sport} - ${bracket.format === 'single-elimination' ? 'Single Elimination' : 'Round Robin'} (${bracket.matches.length} matches)`
+                ? `${bracket.sport} - ${FORMAT_LABEL[bracket.format]} (${
+                    bracket.format === 'double-elimination'
+                      ? `${doubleEliminationGames(bracket.participants.length, false)}${config.grandFinalReset ? '–' + doubleEliminationGames(bracket.participants.length) : ''} games`
+                      : `${bracket.matches.length} matches`
+                  })`
                 : 'Configure and generate a bracket to preview'
               }
             </CardDescription>
@@ -1017,8 +1079,14 @@ export default function AdminBracketing() {
                     <CardContent className="pt-6">
                       <div className="text-center">
                         <Trophy className="h-6 w-6 mx-auto mb-2 text-yellow-600" />
-                        <div className="numeral text-2xl">{bracket.matches.length}</div>
-                        <div className="text-xs text-gray-600">Matches</div>
+                        <div className="numeral text-2xl">
+                          {bracket.format === 'double-elimination'
+                            ? doubleEliminationGames(bracket.participants.length, config.grandFinalReset)
+                            : bracket.matches.length}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {bracket.format === 'double-elimination' ? (config.grandFinalReset ? 'Games (at most)' : 'Games') : 'Matches'}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1027,14 +1095,21 @@ export default function AdminBracketing() {
                       <div className="text-center">
                         <Calendar className="h-6 w-6 mx-auto mb-2 text-green-600" />
                         <div className="numeral text-2xl">{bracket.rounds}</div>
-                        <div className="text-xs text-gray-600">Rounds</div>
+                        <div className="text-xs text-gray-600">{bracket.format === 'double-elimination' ? 'Upper rounds' : 'Rounds'}</div>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
                 {/* Matches by Round */}
-                {bracket.format === 'single-elimination' ? renderSingleEliminationBracket() : (
+                {bracket.format === 'double-elimination' && (
+                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                    <strong className="font-medium text-gray-800">Upper bracket shown below.</strong> Saving also builds the lower
+                    bracket ({Math.max(0, bracket.participants.length - 2)} games — every upper-bracket loser drops in) and the
+                    grand final{config.grandFinalReset ? ', plus a reset game that goes on the calendar only if it’s needed' : ''}.
+                  </div>
+                )}
+                {bracket.format !== 'round-robin' ? renderSingleEliminationBracket() : (
                   <div className="space-y-4 max-h-96 overflow-y-auto">
                     {Array.from({ length: bracket.rounds }, (_, i) => i + 1).map(round => {
                       const roundMatches = bracket.matches.filter(m => m.round === round);

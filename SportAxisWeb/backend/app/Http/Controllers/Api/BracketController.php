@@ -142,7 +142,7 @@ class BracketController extends Controller
     {
         $data = $request->validate([
             'sport' => 'required|string|max:100',
-            'format' => ['required', Rule::in(['single_elimination', 'round_robin'])],
+            'format' => ['required', Rule::in(['single_elimination', 'round_robin', 'double_elimination'])],
             'participants' => 'required|array|min:2',
             'participants.*' => 'string',
             'drawMethod' => ['sometimes', Rule::in(['random', 'standings', 'manual'])],
@@ -153,6 +153,7 @@ class BracketController extends Controller
             'breakDuration' => 'sometimes|integer|min:0|max:600',
             'venueId' => 'sometimes|nullable|string|exists:venues,id',
             'division' => ['sometimes', 'nullable', Rule::in(['Men', 'Women'])],
+            'grandFinalReset' => 'sometimes|boolean',   // double elimination only
         ]);
 
         $bracket = $this->brackets->generate($data, $request->user()->id);

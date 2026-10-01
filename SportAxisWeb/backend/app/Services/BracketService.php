@@ -58,6 +58,9 @@ class BracketService
         }
 
         $format = $cfg['format'] ?? 'single_elimination';
+        if ($format === 'double_elimination' && count($participants) < 3) {
+            throw ValidationException::withMessages(['participants' => ['Double elimination needs at least 3 participants.']]);
+        }
         $sport = $cfg['sport'];
         $settings = [
             'startDate' => $cfg['startDate'] ?? now()->toDateString(),
@@ -70,6 +73,11 @@ class BracketService
             // is how a college's Men's and Women's coaches tell them apart.
             'division' => in_array($cfg['division'] ?? null, ['Men', 'Women'], true) ? $cfg['division'] : null,
         ];
+        if ($format === 'double_elimination') {
+            // The lower-bracket champion has to beat the unbeaten upper-bracket
+            // champion twice: if they win the grand final, a reset game decides it.
+            $settings['grandFinalReset'] = (bool) ($cfg['grandFinalReset'] ?? true);
+        }
 
         // How the field is ordered before the standard serpentine slotting:
         //   standings — best record first (#1 vs the lowest seed)
@@ -78,7 +86,7 @@ class BracketService
         //   manual    — the order the admin chose them in (default)
         $method = $cfg['drawMethod'] ?? (! empty($cfg['seedFromStandings']) ? 'standings' : 'manual');
         $seeded = false;
-        if ($format === 'single_elimination') {
+        if (self::isElimination($format)) {
             if ($method === 'standings') {
                 $participants = $this->orderBySeed($participants, $sport);
                 $seeded = true;
@@ -92,18 +100,36 @@ class BracketService
             'id' => (string) Str::uuid(),
             'sport' => $sport,
             'format' => $format,
-            'name' => ($settings['division'] ? "{$settings['division']}'s " : '')."{$sport} — ".($format === 'round_robin' ? 'Round Robin' : 'Elimination'),
+            'name' => ($settings['division'] ? "{$settings['division']}'s " : '')."{$sport} — ".self::formatName($format),
             'status' => 'draft',
             'seeded' => $seeded,
             'settings' => $settings,
             'created_by' => $userId,
         ]);
 
-        $format === 'round_robin'
-            ? $this->buildRoundRobin($bracket, $participants, $settings)
-            : $this->buildSingleElimination($bracket, $participants, $settings);
+        match ($format) {
+            'round_robin' => $this->buildRoundRobin($bracket, $participants, $settings),
+            'double_elimination' => $this->buildDoubleElimination($bracket, $participants, $settings),
+            default => $this->buildSingleElimination($bracket, $participants, $settings),
+        };
 
         return $bracket->fresh('matches');
+    }
+
+    /** Single or double elimination — a knockout tree, seeded and with byes. */
+    public static function isElimination(?string $format): bool
+    {
+        return in_array($format, ['single_elimination', 'double_elimination'], true);
+    }
+
+    /** "Round Robin" / "Elimination" / "Double Elimination", as a bracket's name ends. */
+    public static function formatName(?string $format): string
+    {
+        return match ($format) {
+            'round_robin' => 'Round Robin',
+            'double_elimination' => 'Double Elimination',
+            default => 'Elimination',
+        };
     }
 
     // ── Single elimination ──────────────────────────────────────────────
@@ -186,6 +212,213 @@ class BracketService
         $this->resolve($bracket->fresh('matches'));
     }
 
+    // ── Double elimination ──────────────────────────────────────────────
+
+    /**
+     * A team is out after its second loss.
+     *
+     *   upper        the single-elimination tree (same seeding and byes)
+     *   lower        every upper-bracket loser drops in; a loss here is the end.
+     *                For a field of 2^R it has 2(R-1) rounds, alternating:
+     *                odd rounds pair lower survivors off, even rounds bring in
+     *                the losers of the next upper round (in reversed / swapped
+     *                order, so teams don't meet again straight away)
+     *   grand_final  upper champion (home) vs lower champion (away); with
+     *                `grandFinalReset`, a second game if the lower champion wins
+     *
+     * An upper bye has no loser, so lower matches it would have fed are left
+     * out: a lower match with one team waiting passes that team straight on,
+     * one with none disappears. Every match created is a real game, and a
+     * field of N plays 2N-2 games (2N-1 with a reset).
+     *
+     * `round` is the order of play across the whole bracket (upper 1, lower 1,
+     * upper 2, lower 2, lower 3, upper 3, …, grand final), so a team's earlier
+     * games always have a lower `round`. `slot` counts within a section's round.
+     */
+    private function buildDoubleElimination(Bracket $bracket, array $participants, array $settings): void
+    {
+        $rounds = (int) ceil(log(count($participants), 2));
+        $size = 2 ** $rounds;
+        $lowerRounds = 2 * ($rounds - 1);
+        $slots = array_map(fn ($seedNo) => $participants[$seedNo - 1] ?? null, self::seedSlots($size));
+
+        // Each planned match: [section, sectionRound, home, away, homeFeed, awayFeed, isBye]
+        // where a feed is [matchKey, 'winner'|'loser'] or null (no team comes).
+        $plan = [];
+        $feed = fn (string $key, string $outcome) => [$key, $outcome];
+
+        // Upper bracket — the single-elimination tree.
+        for ($r = 1; $r <= $rounds; $r++) {
+            for ($s = 0; $s < 2 ** ($rounds - $r); $s++) {
+                if ($r === 1) {
+                    $home = $slots[$s * 2];
+                    $away = $slots[$s * 2 + 1];
+                    $plan["U{$r}-{$s}"] = ['upper', $r, $home, $away, null, null, ($home === null) !== ($away === null)];
+                } else {
+                    $prev = $r - 1;
+                    $plan["U{$r}-{$s}"] = ['upper', $r, null, null, $feed("U{$prev}-".($s * 2), 'winner'), $feed("U{$prev}-".($s * 2 + 1), 'winner'), false];
+                }
+            }
+        }
+        // The loser of an upper match — none from a bye.
+        $upperLoser = fn (int $r, int $s) => $plan["U{$r}-{$s}"][6] ? null : $feed("U{$r}-{$s}", 'loser');
+
+        // A lower match between two feeds: created only when both teams come.
+        $lowerSlot = [];
+        $lower = function (int $j, ?array $home, ?array $away) use (&$plan, &$lowerSlot, $feed): ?array {
+            if ($home === null || $away === null) {
+                return $home ?? $away;   // one team walks on (or nobody comes)
+            }
+            $slot = $lowerSlot[$j] = ($lowerSlot[$j] ?? -1) + 1;
+            $plan["L{$j}-{$slot}"] = ['lower', $j, null, null, $home, $away, false];
+
+            return $feed("L{$j}-{$slot}", 'winner');
+        };
+
+        // Lower round 1: the first-round upper losers, in pairs.
+        $survivors = [];
+        for ($s = 0; $s < $size / 4; $s++) {
+            $survivors[] = $lower(1, $upperLoser(1, $s * 2), $upperLoser(1, $s * 2 + 1));
+        }
+        for ($k = 1; $k < $rounds; $k++) {
+            // Lower round 2k: the survivors meet the losers of upper round k+1.
+            $count = count($survivors);
+            $next = [];
+            foreach ($survivors as $s => $survivor) {
+                $from = $k % 2 === 1 ? $count - 1 - $s : ($s + intdiv($count, 2)) % $count;
+                $next[] = $lower(2 * $k, $survivor, $upperLoser($k + 1, $from));
+            }
+            $survivors = $next;
+
+            // Lower round 2k+1: the survivors pair off (not after the last drop-in).
+            if ($k < $rounds - 1) {
+                $next = [];
+                for ($s = 0; $s < count($survivors); $s += 2) {
+                    $next[] = $lower(2 * $k + 1, $survivors[$s], $survivors[$s + 1]);
+                }
+                $survivors = $next;
+            }
+        }
+
+        // Grand final: upper champion vs lower champion, then the reset.
+        $plan['G1-0'] = ['grand_final', 1, null, null, $feed("U{$rounds}-0", 'winner'), $survivors[0], false];
+        if ($settings['grandFinalReset'] ?? true) {
+            // Played only if the lower champion wins game 1 — the same two
+            // teams, the upper champion (game 1's loser) at home again.
+            $plan['G2-0'] = ['grand_final', 2, null, null, $feed('G1-0', 'loser'), $feed('G1-0', 'winner'), false];
+        }
+
+        // The order of play: upper 1, then (lower 2k-1, upper k+1, lower 2k) for each k.
+        $phases = [['upper', 1]];
+        for ($k = 1; $k < $rounds; $k++) {
+            array_push($phases, ['lower', 2 * $k - 1], ['upper', $k + 1], ['lower', 2 * $k]);
+        }
+        array_push($phases, ['grand_final', 1], ['grand_final', 2]);
+
+        // Lower rounds that were all walk-ons are dropped, so the labels count real rounds.
+        $realLower = array_values(array_unique(array_map(fn ($p) => $p[1], array_filter($plan, fn ($p) => $p[0] === 'lower'))));
+        sort($realLower);
+
+        $cursor = $this->startCursor($settings);
+        $step = ($settings['matchDuration'] + $settings['breakDuration']);
+        $created = [];
+        $order = 0;
+        foreach ($phases as [$section, $sectionRound]) {
+            $keys = array_keys(array_filter($plan, fn ($p) => $p[0] === $section && $p[1] === $sectionRound));
+            if (! $keys) {
+                continue;
+            }
+            $order++;
+            foreach ($keys as $key) {
+                [, , $home, $away, , , $isBye] = $plan[$key];
+                $created[$key] = BracketMatch::create([
+                    'id' => (string) Str::uuid(),
+                    'bracket_id' => $bracket->id,
+                    'round' => $order,
+                    'slot' => (int) explode('-', $key)[1],
+                    'section' => $section,
+                    'stage_label' => match ($section) {
+                        'upper' => 'Upper '.$this->stageLabel($sectionRound, $rounds),
+                        'lower' => $this->lowerStageLabel(array_search($sectionRound, $realLower, true) + 1, count($realLower)),
+                        default => $sectionRound === 1 ? 'Grand Final' : 'Grand Final (Reset)',
+                    },
+                    'home_team' => $home,
+                    'away_team' => $away,
+                    'is_bye' => $isBye,
+                    'status' => 'pending',
+                    'scheduled_date' => $cursor->toDateString(),
+                    'scheduled_time' => $cursor->format('H:i'),
+                    'venue_id' => $settings['venueId'],
+                    'venue_name' => $this->venueName($settings['venueId']),
+                ]);
+                if (! $isBye) {
+                    $cursor = $cursor->copy()->addMinutes($step);   // a bye takes no court time
+                }
+            }
+            $cursor = $cursor->copy()->addMinutes(30); // breather between rounds
+        }
+
+        // Wire every match to the matches that feed it. A winner's next match
+        // is what the bracket views draw lines to; losers just drop.
+        foreach ($plan as $key => [, , , , $homeFeed, $awayFeed]) {
+            $bm = $created[$key];
+            foreach (['home' => $homeFeed, 'away' => $awayFeed] as $side => $f) {
+                if ($f === null) {
+                    continue;
+                }
+                [$sourceKey, $outcome] = $f;
+                $bm->{"{$side}_source_match_id"} = $created[$sourceKey]->id;
+                $bm->{"{$side}_source_outcome"} = $outcome;
+                if ($outcome === 'winner') {
+                    $created[$sourceKey]->next_match_id = $bm->id;
+                    $created[$sourceKey]->next_match_slot = $side;
+                }
+            }
+        }
+        foreach ($created as $bm) {
+            if ($bm->section === 'upper' && ! $bm->is_bye && $bm->bothTeamsKnown()) {
+                $bm->status = 'ready';
+            }
+            $bm->save();
+        }
+
+        $this->resolve($bracket->fresh('matches'));
+    }
+
+    private function lowerStageLabel(int $round, int $totalRounds): string
+    {
+        return $round === $totalRounds ? 'Lower Final' : "Lower Round {$round}";
+    }
+
+    /**
+     * The grand-final reset game: the grand-final match fed by the other one.
+     * Null for any other bracket (or a double elimination without a reset).
+     */
+    private function resetMatch(Collection $matches): ?BracketMatch
+    {
+        $byId = $matches->keyBy('id');   // callers pass both keyed and plain lists
+
+        return $byId->first(fn ($m) => $m->section === 'grand_final'
+            && $m->home_source_match_id
+            && optional($byId->get($m->home_source_match_id))->section === 'grand_final');
+    }
+
+    /** The first grand-final game of a double elimination. */
+    private function grandFinal(Collection $matches): ?BracketMatch
+    {
+        $reset = $this->resetMatch($matches);
+
+        return $matches->first(fn ($m) => $m->section === 'grand_final' && $m->id !== $reset?->id);
+    }
+
+    /** True once the reset has to be played: the lower champion (away) won game 1. */
+    private function resetNeeded(Collection $matches): bool
+    {
+        $gf = $this->grandFinal($matches);
+
+        return $gf && $gf->status === 'completed' && $gf->winner !== null && $gf->winner === $gf->away_team;
+    }
+
     // ── Round robin ─────────────────────────────────────────────────────
 
     private function buildRoundRobin(Bracket $bracket, array $participants, array $settings): void
@@ -232,7 +465,10 @@ class BracketService
     public function publish(Bracket $bracket): array
     {
         $bracket->loadMissing('matches');
-        $playable = $bracket->matches->reject->is_bye;
+        // A grand-final reset goes on the calendar only once it's needed
+        // (resolve() schedules it), so an unplayed game never shows up.
+        $reset = $this->resetMatch($bracket->matches);
+        $playable = $bracket->matches->reject(fn ($m) => $m->is_bye || $m->id === $reset?->id);
 
         // Pre-flight venue conflicts against everything already on the calendar.
         $conflicts = collect();
@@ -300,8 +536,9 @@ class BracketService
     {
         // Only elimination rounds after the first (a round robin's fixtures are
         // all known from the start), and only sports with game lineups
-        // (racquet sports use racquet lines).
-        if ($bm->round <= 1 || $bracket->format !== 'single_elimination' || ! LineupRules::sportOf($event)) {
+        // (racquet sports use racquet lines). `round` is the order of play in
+        // a double elimination too, so "previous game" below holds there.
+        if ($bm->round <= 1 || ! self::isElimination($bracket->format) || ! LineupRules::sportOf($event)) {
             return;
         }
 
@@ -406,54 +643,64 @@ class BracketService
     {
         $bracket->load('matches');
         $matches = $bracket->matches->keyBy('id');
-        $maxRound = (int) ($matches->max('round') ?? 0);
+        $reset = $this->resetMatch($matches);
 
-        // Pass 1: clear derived team slots (the ones an earlier match feeds —
-        // elimination rounds after the first); settle byes. A round robin's
-        // later "rounds" are just later days of fixed fixtures: nothing feeds
-        // them, so their teams must stay.
-        foreach ($matches as $m) {
-            if ($m->home_source_match_id) {
-                $m->home_team = null;
+        // Every match, its feeders first: fill each fed slot (an elimination
+        // round after the first) from its source match — that match's winner,
+        // or in a double elimination its loser — then decide the match. A
+        // round robin's later "rounds" are just later days of fixed fixtures:
+        // nothing feeds them, so their teams stay.
+        foreach ($this->inPlayOrder($matches) as $m) {
+            foreach (['home', 'away'] as $side) {
+                if ($sourceId = $m->{"{$side}_source_match_id"}) {
+                    $source = $matches->get($sourceId);
+                    $m->{"{$side}_team"} = $source && $source->status === 'completed'
+                        ? ($m->{"{$side}_source_outcome"} === 'loser' ? $source->loser : $source->winner)
+                        : null;
+                }
             }
-            if ($m->away_source_match_id) {
-                $m->away_team = null;
-            }
+
             if ($m->is_bye) {
                 $m->winner = $m->home_team ?? $m->away_team;
                 $m->loser = null;
                 $m->status = 'completed';
+
+                continue;
+            }
+
+            // The grand-final reset waits on game 1, and is skipped when the
+            // upper-bracket champion wins it.
+            if ($m->id === $reset?->id && ! $this->resetNeeded($matches)) {
+                $m->home_team = $m->away_team = $m->winner = $m->loser = null;
+                $m->status = optional($this->grandFinal($matches))->status === 'completed' ? 'skipped' : 'pending';
+
+                continue;
+            }
+
+            $bothKnown = $m->home_team !== null && $m->away_team !== null;
+            $decided = $bothKnown && in_array($m->winner, [$m->home_team, $m->away_team], true);
+
+            if ($decided) {
+                $m->loser = $m->winner === $m->home_team ? $m->away_team : $m->home_team;
+                $m->status = 'completed';
+            } else {
+                $m->winner = null;
+                $m->loser = null;
+                $m->status = $bothKnown
+                    ? ($m->event_id ? 'scheduled' : 'ready')
+                    : 'pending';
             }
         }
 
-        // Pass 2: round by round — decide each match, then push its result up.
-        for ($r = 1; $r <= $maxRound; $r++) {
-            foreach ($matches->where('round', $r)->sortBy('slot') as $m) {
-                if (! $m->is_bye) {
-                    $bothKnown = $m->home_team !== null && $m->away_team !== null;
-                    $decided = $bothKnown && in_array($m->winner, [$m->home_team, $m->away_team], true);
-
-                    if ($decided) {
-                        $m->loser = $m->winner === $m->home_team ? $m->away_team : $m->home_team;
-                        $m->status = 'completed';
-                    } else {
-                        $m->winner = null;
-                        $m->loser = null;
-                        $m->status = $bothKnown
-                            ? ($m->event_id ? 'scheduled' : 'ready')
-                            : 'pending';
-                    }
-                }
-
-                if ($m->status === 'completed' && $m->next_match_id && isset($matches[$m->next_match_id])) {
-                    $parent = $matches[$m->next_match_id];
-                    if ($parent->home_source_match_id === $m->id) {
-                        $parent->home_team = $parent->home_source_outcome === 'loser' ? $m->loser : $m->winner;
-                    }
-                    if ($parent->away_source_match_id === $m->id) {
-                        $parent->away_team = $parent->away_source_outcome === 'loser' ? $m->loser : $m->winner;
-                    }
-                }
+        // The reset's game: on the calendar once it's needed, off it again if
+        // a corrected result means it isn't (a draft has no games yet).
+        if ($reset && $bracket->status !== 'draft') {
+            if (in_array($reset->status, ['ready', 'scheduled'], true) && ! $reset->event_id) {
+                $this->syncEvent($bracket, $reset);
+                $reset->status = 'scheduled';
+            } elseif (in_array($reset->status, ['pending', 'skipped'], true) && $reset->event_id) {
+                Event::find($reset->event_id)?->delete();
+                $reset->event_id = null;
             }
         }
 
@@ -499,6 +746,18 @@ class BracketService
             }
         }
 
+        // Double elimination: the grand final decides it — game 1 when the
+        // upper champion wins it (or there's no reset), else the reset.
+        if ($bracket->format === 'double_elimination') {
+            $champion = null;
+            $gf = $this->grandFinal($matches);
+            if ($gf && $gf->status === 'completed') {
+                $champion = $reset && $this->resetNeeded($matches)
+                    ? ($reset->status === 'completed' ? $reset->winner : null)
+                    : $gf->winner;
+            }
+        }
+
         $bracket->update([
             'champion' => $champion,
             'status' => $champion ? 'completed' : ($bracket->status === 'draft' ? 'draft' : 'active'),
@@ -510,6 +769,37 @@ class BracketService
     }
 
     // ── Helpers ────────────────────────────────────────────────────────
+
+    /**
+     * The matches with every match after the ones that feed it: by round and
+     * slot (generation always gives a feeder an earlier round), walking a
+     * match's sources first in case an edited row ever breaks that.
+     *
+     * @return array<int, BracketMatch>
+     */
+    private function inPlayOrder(Collection $matches): array
+    {
+        $ordered = [];
+        $state = [];   // id => 'visiting' | 'done'
+        $visit = function (BracketMatch $m) use (&$visit, &$ordered, &$state, $matches) {
+            if (isset($state[$m->id])) {
+                return;   // done, or a cycle in bad data — never loop
+            }
+            $state[$m->id] = 'visiting';
+            foreach ([$m->home_source_match_id, $m->away_source_match_id] as $sourceId) {
+                if ($sourceId && ($source = $matches->get($sourceId))) {
+                    $visit($source);
+                }
+            }
+            $state[$m->id] = 'done';
+            $ordered[] = $m;
+        };
+        foreach ($matches->sortBy([['round', 'asc'], ['slot', 'asc']]) as $m) {
+            $visit($m);
+        }
+
+        return $ordered;
+    }
 
     private function resolveWinner(BracketMatch $bm): ?string
     {

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useBrackets, useCategories } from '../../hooks/api';
 import { useDeptAbbreviator } from '../../utils/departments';
+import { formatLabel } from '../../utils/bracket';
 import Loading from '../../components/Loading';
 import { Trophy, ChevronRight } from 'lucide-react';
 
@@ -76,7 +77,7 @@ export default function PublicBrackets() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-gray-900">{b.name}</p>
                       <p className="mt-0.5 text-xs text-gray-500">
-                        {b.format === 'round_robin' ? 'Round Robin' : 'Single Elimination'} · {b.matchCount} matches
+                        {formatLabel(b.format)} · {b.matchCount} matches
                         {b.status === 'completed' && b.champion && (
                           <span className="ml-1 font-medium text-emerald-600" title={b.champion}>
                             · {abbr(b.champion)} 🏆

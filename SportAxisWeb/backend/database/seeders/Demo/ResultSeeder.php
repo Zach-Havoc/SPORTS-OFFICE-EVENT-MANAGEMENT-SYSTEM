@@ -6,6 +6,7 @@ use App\Models\Bracket;
 use App\Models\BracketMatch;
 use App\Models\Event;
 use App\Models\GamePlayer;
+use App\Services\BracketService;
 use App\Services\DemoData\DemoContext;
 use App\Services\DemoData\DemoScheduler;
 use App\Services\PlayByPlay;
@@ -134,6 +135,7 @@ class ResultSeeder extends Seeder
      */
     private function play(Event $event): void
     {
+        $this->judged($event);
         $this->sched->lineUp($event, onlyMissing: true);   // e.g. a team off a bye
         [$home, $away] = array_values($event->departments);
         $homeWins = $this->homeWins($event->category, $home, $away);
@@ -169,7 +171,7 @@ class ResultSeeder extends Seeder
         ]);
         DB::table('events')->where('id', $event->id)->update(['status' => 'completed']);
 
-        if ($bracketMatch?->bracket->format === 'single_elimination') {
+        if ($bracketMatch && BracketService::isElimination($bracketMatch->bracket->format)) {
             $this->sched->service()->advanceFromEvent($event->id);
         } elseif ($bracketMatch) {
             DB::table('bracket_matches')->where('id', $bracketMatch->id)->update([
@@ -178,9 +180,21 @@ class ResultSeeder extends Seeder
         }
     }
 
+    /**
+     * A game the bracket added along the way (a double elimination's
+     * grand-final reset) has no judge yet — the office assigns one.
+     */
+    private function judged(Event $event): void
+    {
+        if (empty($event->judges)) {
+            $this->sched->assignJudge($event);
+        }
+    }
+
     /** A game in progress right now, with a partial score. */
     private function goLive(Event $event): void
     {
+        $this->judged($event);
         $this->sched->lineUp($event, onlyMissing: true);
         [$home, $away] = array_values($event->departments);
         $homeWins = $this->homeWins($event->category, $home, $away);

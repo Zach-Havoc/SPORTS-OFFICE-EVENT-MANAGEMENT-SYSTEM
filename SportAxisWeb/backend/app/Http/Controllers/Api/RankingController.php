@@ -11,6 +11,7 @@ use App\Models\Event;
 use App\Models\Ranking;
 use App\Models\Score;
 use App\Models\TeamMatch;
+use App\Services\BracketService;
 use App\Support\StandingsRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -76,8 +77,9 @@ class RankingController extends Controller
      *   versus sports (basketball, volleyball …) — a single game is a win, not a
      *     medal. The medal is the sport's final podium: a completed
      *     single-elimination bracket (champion / finalist / both semi-final
-     *     losers = joint bronze), or the standings top 3 of a fully-played
-     *     round-robin. Per-game rankings never mint medals.
+     *     losers = joint bronze), a completed double-elimination bracket
+     *     (champion / grand-final loser / lower-final loser), or the standings
+     *     top 3 of a fully-played round-robin. Per-game rankings never mint medals.
      */
     public function leaderboard(Request $request)
     {
@@ -212,7 +214,7 @@ class RankingController extends Controller
 
         // A round robin followed by playoffs in the same sport is a group
         // stage: the playoffs decide the medals, so it mustn't mint its own.
-        $withPlayoffs = $brackets->where('format', 'single_elimination')->pluck('sport')->unique()->flip();
+        $withPlayoffs = $brackets->filter(fn ($b) => BracketService::isElimination($b->format))->pluck('sport')->unique()->flip();
 
         foreach ($brackets as $bracket) {
             if ($bracket->format === 'round_robin' && $withPlayoffs->has($bracket->sport)) {
@@ -271,6 +273,29 @@ class RankingController extends Controller
                 ->pluck('loser')->filter()->unique()->values()->all();
 
             return ['gold' => $bracket->champion, 'silver' => $silver, 'bronze' => $bronze];
+        }
+
+        if ($bracket->format === 'double_elimination') {
+            if ($bracket->status !== 'completed' || ! $bracket->champion) {
+                return $empty;
+            }
+            // Silver: whoever the champion beat in the grand final. Bronze:
+            // the team the lower final knocked out (the grand final's away
+            // side comes from it) — one bronze, not two.
+            $grandFinal = $bracket->matches
+                ->filter(fn ($m) => $m->section === 'grand_final' && $m->status === 'completed')
+                ->sortByDesc('round')->first();
+            $silver = $grandFinal
+                ? ($grandFinal->winner === $grandFinal->home_team ? $grandFinal->away_team : $grandFinal->home_team)
+                : null;
+            $firstGame = $bracket->matches->where('section', 'grand_final')->sortBy('round')->first();
+            $lowerFinal = $firstGame ? $bracket->matches->firstWhere('id', $firstGame->away_source_match_id) : null;
+
+            return [
+                'gold' => $bracket->champion,
+                'silver' => $silver,
+                'bronze' => $lowerFinal?->loser ? [$lowerFinal->loser] : [],
+            ];
         }
 
         if ($bracket->format === 'round_robin') {

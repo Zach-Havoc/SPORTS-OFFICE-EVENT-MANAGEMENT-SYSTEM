@@ -17,7 +17,7 @@ class BracketMatch extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'bracket_id', 'round', 'slot', 'stage_label',
+        'id', 'bracket_id', 'round', 'slot', 'section', 'stage_label',
         'home_team', 'away_team',
         'home_source_match_id', 'away_source_match_id',
         'home_source_outcome', 'away_source_outcome',
@@ -54,11 +54,14 @@ class BracketMatch extends Model
             'id' => $this->id,
             'round' => $this->round,
             'slot' => $this->slot,
+            'section' => $this->section ?? 'upper',
             'stageLabel' => $this->stage_label,
             'homeTeam' => $this->home_team,
             'awayTeam' => $this->away_team,
             'homeSourceMatchId' => $this->home_source_match_id,
             'awaySourceMatchId' => $this->away_source_match_id,
+            'homeSourceOutcome' => $this->home_source_outcome ?? 'winner',
+            'awaySourceOutcome' => $this->away_source_outcome ?? 'winner',
             'nextMatchId' => $this->next_match_id,
             'nextMatchSlot' => $this->next_match_slot,
             'scheduledDate' => $this->scheduled_date,
