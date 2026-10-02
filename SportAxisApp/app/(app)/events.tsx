@@ -187,7 +187,7 @@ export default function EventsScreen() {
           <View style={styles.grid}>
             <StatTile
               icon="activity"
-              label="Live now"
+              label="In progress"
               value={counts.ongoing}
               color={COLORS.success}
               tint={COLORS.successLight}

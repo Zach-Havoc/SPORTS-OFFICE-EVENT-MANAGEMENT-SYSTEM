@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { getRankingsFor } from '../../services/api';
 import type { LiveScore } from '../../services/api';
@@ -8,10 +8,10 @@ import { STALE } from '../../lib/queryClient';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
-  GameCard, MatchDetailModal, STATUS_CONFIG,
+  GameCard, MatchDetailModal, STATUS_CONFIG, type StatusKey,
   type Ranking, type ScheduleEvent, type TeamLookup,
 } from '../../components/public/GameCard';
-import type { MatchRow } from '../../utils/games';
+import { gameState, type MatchRow } from '../../utils/games';
 import Loading from '../../components/Loading';
 import { RefreshStatus } from '../../components/RefreshStatus';
 import PhotoSlideshow from '../../components/public/PhotoSlideshow';
@@ -45,7 +45,7 @@ function MatchSection({
   teams,
   onSelect,
 }: {
-  status: ScheduleEvent['status'];
+  status: StatusKey;
   events: ScheduleEvent[];
   rankings: Record<string, Ranking[]>;
   liveByEvent: Record<string, LiveScore>;
@@ -263,6 +263,14 @@ export default function PublicViewer() {
   const eventsQuery = useEvents(seasonPick ?? undefined);
   const liveQuery = useLiveScores();
 
+  // A game moves to "In progress" at its start time; tick so that happens
+  // without a reload.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const liveByEvent = useMemo<Record<string, LiveScore>>(
     () => Object.fromEntries((liveQuery.data ?? []).map((l) => [l.eventId, l])),
     [liveQuery.data],
@@ -331,9 +339,14 @@ export default function PublicViewer() {
     return evDate === selectedDate;
   });
 
-  const ongoingEvents = filteredEvents.filter(e => e.status === 'ongoing');
-  const upcomingEvents = filteredEvents.filter(e => e.status === 'upcoming');
-  const completedEvents = filteredEvents.filter(e => e.status === 'completed');
+  // Sections follow what the public is told about each game (games.ts
+  // gameState), not just the stored status: a game scored on paper, or past
+  // its start time today, is ongoing; an earlier one with no result is pending.
+  const stateOf = (e: ScheduleEvent) => gameState(e, liveByEvent[e.id], matchByEvent[e.id], now);
+  const ongoingEvents = filteredEvents.filter(e => ['live', 'in_progress'].includes(stateOf(e)));
+  const upcomingEvents = filteredEvents.filter(e => stateOf(e) === 'upcoming');
+  const pendingEvents = filteredEvents.filter(e => stateOf(e) === 'result_pending');
+  const completedEvents = filteredEvents.filter(e => stateOf(e) === 'completed');
 
   // ── Rankings for the ongoing/completed games on screen, in one request ──
   // (Only shown cards display rankings; fetching every game in the season
@@ -482,6 +495,9 @@ export default function PublicViewer() {
         <>
           <MatchSection status="ongoing" events={ongoingEvents} rankings={rankings} liveByEvent={liveByEvent} matchByEvent={matchByEvent} teams={teams} onSelect={setSelectedEvent} />
           <MatchSection status="upcoming" events={upcomingEvents} rankings={rankings} liveByEvent={liveByEvent} matchByEvent={matchByEvent} teams={teams} onSelect={setSelectedEvent} />
+          {pendingEvents.length > 0 && (
+            <MatchSection status="result_pending" events={pendingEvents} rankings={rankings} liveByEvent={liveByEvent} matchByEvent={matchByEvent} teams={teams} onSelect={setSelectedEvent} />
+          )}
           <MatchSection status="completed" events={completedEvents} rankings={rankings} liveByEvent={liveByEvent} matchByEvent={matchByEvent} teams={teams} onSelect={setSelectedEvent} />
         </>
       )}

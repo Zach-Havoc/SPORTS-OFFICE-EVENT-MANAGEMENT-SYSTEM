@@ -92,6 +92,42 @@ class LiveScoreTest extends TestCase
         $this->assertEquals(77, $match->home_score);
     }
 
+    public function test_a_game_scored_on_paper_is_in_progress_then_records_its_sheet_final(): void
+    {
+        $event = $this->events()->create([
+            'status' => 'upcoming',
+            'category' => 'Volleyball',
+            'departments' => ['Team A', 'Team B'],
+        ]);
+        $this->actingAsJudgeFor($event);
+
+        // Start · score on paper: the game is under way, with no running score.
+        $this->putJson("/api/events/{$event->id}/live", ['status' => 'in_progress', 'method' => 'paper'])
+            ->assertOk()
+            ->assertJsonPath('live.status', 'in_progress')
+            ->assertJsonPath('live.method', 'paper');
+        $this->assertSame('ongoing', $event->fresh()->status);
+        $this->getJson('/api/live-scores')->assertJsonFragment(['eventId' => $event->id, 'method' => 'paper']);
+
+        // The scanned sheet records the final; the method is kept.
+        $this->putJson("/api/events/{$event->id}/live", ['homeScore' => 3, 'awayScore' => 1, 'status' => 'final', 'version' => 1])
+            ->assertOk()
+            ->assertJsonPath('live.method', 'paper');
+        $this->assertSame('completed', $event->fresh()->status);
+        $this->assertSame('Team A', TeamMatch::where('event_id', $event->id)->value('winner'));
+    }
+
+    public function test_a_game_started_without_a_method_is_scored_live(): void
+    {
+        $event = $this->events()->create(['departments' => ['Team A', 'Team B']]);
+        $this->actingAsJudgeFor($event);
+
+        $this->putJson("/api/events/{$event->id}/live", ['homeScore' => 1])
+            ->assertOk()->assertJsonPath('live.method', 'live');
+        $this->putJson("/api/events/{$event->id}/live", ['method' => 'scoreboard', 'version' => 1])
+            ->assertUnprocessable();
+    }
+
     public function test_a_stale_write_is_rejected_with_409(): void
     {
         $event = $this->events()->create();

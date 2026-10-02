@@ -22,6 +22,7 @@ export interface LiveRow {
   awayScore: number;
   period: string | null;
   status: 'scheduled' | 'in_progress' | 'final';
+  method?: 'live' | 'paper';
 }
 
 export interface Side {
@@ -35,6 +36,8 @@ export interface Scoreboard {
   /** 'home' / 'away' when decided, 'draw' on a tie, null while undecided. */
   winner: 'home' | 'away' | 'draw' | null;
   live: boolean;
+  /** Under way, scored on the paper sheet: no running score to show. */
+  onPaper: boolean;
   period: string | null;
 }
 
@@ -51,6 +54,17 @@ export function scoreboardFor(
   live?: LiveRow | null,
   match?: MatchRow | null,
 ): Scoreboard {
+  if (live && live.status === 'in_progress' && live.method === 'paper') {
+    return {
+      home: { team: live.homeTeam ?? departments[0] ?? 'Home', score: null },
+      away: { team: live.awayTeam ?? departments[1] ?? 'Away', score: null },
+      winner: null,
+      live: false,
+      onPaper: true,
+      period: null,
+    };
+  }
+
   if (live && (live.status === 'in_progress' || live.status === 'final')) {
     const final = live.status === 'final';
     return {
@@ -58,6 +72,7 @@ export function scoreboardFor(
       away: { team: live.awayTeam ?? departments[1] ?? 'Away', score: live.awayScore },
       winner: final ? decide(live.homeScore, live.awayScore) : null,
       live: !final,
+      onPaper: false,
       period: final ? null : live.period,
     };
   }
@@ -79,6 +94,7 @@ export function scoreboardFor(
       away: { team: match.awayTeam, score: a },
       winner,
       live: false,
+      onPaper: false,
       period: null,
     };
   }
@@ -88,8 +104,45 @@ export function scoreboardFor(
     away: { team: departments[1] ?? 'TBA', score: null },
     winner: null,
     live: false,
+    onPaper: false,
     period: null,
   };
+}
+
+/**
+ * What the public is told about a game:
+ *   live           the committee is scoring it in the app (running score)
+ *   in_progress    under way without a running score: scored on paper, or
+ *                  its start time has passed today and nobody started it
+ *   upcoming       not started yet
+ *   result_pending an earlier day, and no result has been recorded
+ *   completed      a result is recorded (live or from the scanned sheet;
+ *                  they look the same)
+ */
+export type GameState = 'live' | 'in_progress' | 'upcoming' | 'result_pending' | 'completed';
+
+export function gameState(
+  event: { status: string; schedule?: string | null; startTime?: string | null; departments?: string[] },
+  live?: LiveRow | null,
+  match?: MatchRow | null,
+  now: Date = new Date(),
+): GameState {
+  if (event.status === 'completed' || live?.status === 'final') return 'completed';
+  if (match && match.status !== 'scheduled') return 'completed';
+  if (live?.status === 'in_progress') return live.method === 'paper' ? 'in_progress' : 'live';
+
+  const day = String(event.schedule ?? '').slice(0, 10);
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (day && day < today) return 'result_pending';
+
+  // A judged event (more than two colleges) marked ongoing has live rankings.
+  if (event.status === 'ongoing') return (event.departments ?? []).length > 2 ? 'live' : 'in_progress';
+
+  if (day === today && event.startTime) {
+    const [h, m] = event.startTime.split(':').map(Number);
+    if (!Number.isNaN(h) && now.getHours() * 60 + now.getMinutes() >= h * 60 + (m || 0)) return 'in_progress';
+  }
+  return 'upcoming';
 }
 
 function decide(h: number, a: number): 'home' | 'away' | 'draw' {

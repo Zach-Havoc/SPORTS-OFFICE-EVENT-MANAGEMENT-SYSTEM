@@ -114,6 +114,8 @@ export type ScoringMethod = 'manual' | 'ocr';
 // ── Live game score ──────────────────────────────────────────────────────────
 
 export type LiveStatus = 'scheduled' | 'in_progress' | 'final';
+/** live: scored in the app. paper: on the printed sheet; the public sees "In progress", no score. */
+export type ScoringMethodLive = 'live' | 'paper';
 
 export interface LiveScore {
   eventId: string;
@@ -125,6 +127,7 @@ export interface LiveScore {
   period: string | null;
   detail: Record<string, unknown>;
   status: LiveStatus;
+  method?: ScoringMethodLive;
   version: number;
   updatedBy: string | null;
   startedAt: string | null;
@@ -140,6 +143,7 @@ export interface LiveScorePush {
   period?: string | null;
   detail?: Record<string, unknown>;
   status?: LiveStatus;
+  method?: ScoringMethodLive;
   version?: number;
 }
 

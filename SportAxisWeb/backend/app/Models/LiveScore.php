@@ -16,7 +16,7 @@ class LiveScore extends Model
 
     protected $fillable = [
         'id', 'event_id', 'sport', 'home_team', 'away_team',
-        'home_score', 'away_score', 'period', 'current_period', 'detail', 'status',
+        'home_score', 'away_score', 'period', 'current_period', 'detail', 'status', 'method',
         'version', 'updated_by', 'started_at', 'finalized_at',
     ];
 
@@ -50,6 +50,9 @@ class LiveScore extends Model
             'period' => $this->period,
             'detail' => $this->detail ?? [],
             'status' => $this->status,
+            // live: scored in the app. paper: on the printed sheet, so there
+            // is no running score to show until the final is recorded.
+            'method' => $this->method ?? 'live',
             'version' => (int) $this->version,
             'updatedBy' => $this->updated_by,
             'startedAt' => $this->started_at,

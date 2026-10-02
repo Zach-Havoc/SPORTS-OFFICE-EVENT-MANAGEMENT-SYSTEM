@@ -635,6 +635,8 @@ export interface LiveScore {
   period: string | null;
   detail: any;
   status: "scheduled" | "in_progress" | "final";
+  /** live: scored in the app. paper: on the printed sheet (no running score). */
+  method?: "live" | "paper";
   version: number;
   updatedBy: string | null;
   startedAt: string | null;

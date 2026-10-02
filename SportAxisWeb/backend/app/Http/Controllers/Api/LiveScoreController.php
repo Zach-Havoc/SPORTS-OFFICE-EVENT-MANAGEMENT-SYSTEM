@@ -25,6 +25,9 @@ use Illuminate\Support\Str;
  * stored one is told to reload (409). Starting a game flips the event to
  * `ongoing`; finalising flips it to `completed` and records the head-to-head
  * result in `team_matches`.
+ *
+ * `method` is how the committee scores it: `live` in the app, or `paper` on
+ * the printed sheet (no running score; the scanned sheet records the final).
  */
 class LiveScoreController extends Controller
 {
@@ -93,6 +96,7 @@ class LiveScoreController extends Controller
             'period' => 'sometimes|nullable|string|max:40',
             'detail' => 'sometimes|nullable|array',
             'status' => 'sometimes|in:scheduled,in_progress,final',
+            'method' => 'sometimes|in:live,paper',
             'version' => 'sometimes|integer|min:0',
         ]);
 
@@ -120,6 +124,7 @@ class LiveScoreController extends Controller
             'period' => array_key_exists('period', $data) ? $data['period'] : $live->period,
             'detail' => array_key_exists('detail', $data) ? $data['detail'] : $live->detail,
             'status' => $newStatus,
+            'method' => $data['method'] ?? $live->method ?? 'live',
             'updated_by' => $request->user()->id,
             'version' => (int) ($live->version ?? 0) + 1,
         ]);

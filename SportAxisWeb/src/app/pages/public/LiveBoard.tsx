@@ -62,7 +62,8 @@ export default function PublicLiveBoard() {
             Live Scores
           </h1>
           <p className="mt-1.5 text-sm text-gray-500">
-            Games whose scoreboard is running right now. Scores update on their own.
+            Games being played right now. Scores update on their own; a game scored on paper shows
+            its final once the committee records it.
             {isFetching && <span className="ml-2 text-gray-400">· refreshing…</span>}
           </p>
         </div>

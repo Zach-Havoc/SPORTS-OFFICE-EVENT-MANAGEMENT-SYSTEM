@@ -308,7 +308,11 @@ export default function ScoringScreen() {
             ) : playByPlay ? (
               <BasketballScoreboard event={event} onBoard={onBoard} />
             ) : isMatch ? (
-              <MatchScoreboard ref={scoreboard} event={event} />
+              <MatchScoreboard
+                ref={scoreboard}
+                event={event}
+                onPrintSheet={() => setShowPrintableForm(true)}
+              />
             ) : (
               <View style={styles.card}>
                 <View style={styles.cardHead}>

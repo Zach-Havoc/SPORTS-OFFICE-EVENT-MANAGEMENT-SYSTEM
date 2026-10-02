@@ -6,7 +6,7 @@ import { useDeptAbbreviator, useDeptLogos } from '../../hooks/use-dept-abbr';
 import { useLiveSync } from '../../hooks/use-live-sync';
 import { useNetwork } from '../../hooks/use-network';
 import { liveScoreService } from '../../services/live-score.service';
-import type { EventSession, LiveScore, LiveStatus } from '../../types';
+import type { EventSession, LiveScore, LiveStatus, ScoringMethodLive } from '../../types';
 import { getSportConfigFromEvent } from '../../utils/sport-config';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
@@ -20,9 +20,13 @@ import { TeamLogo } from '../ui/TeamLogo';
 // screen picks up the other device's changes every few seconds. Finalizing
 // records the head-to-head result and completes the event.
 //
-// Recorded from paper: a scanned score sheet fills both scores and asks to
-// record them as the final, so both of the committee's methods end in the
-// same place.
+// Recorded from paper: the committee starts the game "on paper" (the public
+// sees "In progress", no score), and the scanned score sheet fills both
+// scores and asks to record them as the final, so both of the committee's
+// methods end in the same place.
+//
+// Either way the score sheet is printed first: a notice above the Start
+// buttons says so (a reminder, not a lock).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface MatchScoreboardHandle {
@@ -32,8 +36,11 @@ export interface MatchScoreboardHandle {
 
 type Sync = 'idle' | 'saving' | 'saved' | 'offline' | 'error';
 
-export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventSession }>(
-  function MatchScoreboard({ event }, ref) {
+export const MatchScoreboard = forwardRef<
+  MatchScoreboardHandle,
+  { event: EventSession; onPrintSheet?: () => void }
+>(
+  function MatchScoreboard({ event, onPrintSheet }, ref) {
     const sportCfg = getSportConfigFromEvent(event.category, event.name);
     // Table tennis / tennis are scored in games won; the committee sets BO2/BO3.
     const isRacquet = sportCfg.type === 'table-tennis' || sportCfg.type === 'tennis';
@@ -49,6 +56,7 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
     const [away, setAway] = useState(0);
     const [period, setPeriod] = useState('');
     const [status, setStatus] = useState<LiveStatus>('scheduled');
+    const [method, setMethod] = useState<ScoringMethodLive>('live');
     const [version, setVersion] = useState(0);
     const [sync, setSync] = useState<Sync>('idle');
     const [loaded, setLoaded] = useState(false);
@@ -68,6 +76,7 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
       setAway(ls.awayScore);
       setPeriod(ls.period ?? '');
       setStatus(ls.status);
+      setMethod(ls.method ?? 'live');
       setVersion(ls.version);
       detailRef.current = ls.detail ?? {};
       const b = (ls.detail as any)?.bestOf;
@@ -91,7 +100,13 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
     }, [event.id, adopt]);
 
     const push = useCallback(
-      async (next: { home: number; away: number; period: string; status: LiveStatus }) => {
+      async (next: {
+        home: number;
+        away: number;
+        period: string;
+        status: LiveStatus;
+        method?: ScoringMethodLive;
+      }) => {
         pendingRef.current = true;
         if (!isConnected) {
           setSync('offline');
@@ -107,6 +122,7 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
             awayScore: next.away,
             period: next.period || null,
             status: next.status,
+            ...(next.method ? { method: next.method } : {}),
             version,
             ...(Object.keys(detail).length ? { detail } : {}),
           });
@@ -208,9 +224,15 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
       if (status !== 'scheduled') push({ home, away, period, status });
     };
 
-    const start = () => {
+    const start = (m: ScoringMethodLive) => {
       setStatus('in_progress');
-      push({ home, away, period, status: 'in_progress' });
+      setMethod(m);
+      push({ home, away, period, status: 'in_progress', method: m });
+    };
+
+    const switchToLive = () => {
+      setMethod('live');
+      push({ home, away, period, status, method: 'live' });
     };
 
     const reopen = () => {
@@ -241,12 +263,14 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
     }
 
     const locked = status === 'final';
+    // On paper there's no running score to keep: the sheet's final is scanned in.
+    const onPaper = method === 'paper' && status === 'in_progress';
     const winner = locked ? (home > away ? 'home' : away > home ? 'away' : null) : null;
 
     return (
       <View style={[styles.card, status === 'in_progress' && styles.cardLive]}>
         <View style={styles.topRow}>
-          <StatusPill status={status} />
+          <StatusPill status={status} onPaper={onPaper} />
           <SyncChip sync={sync} onRetry={() => push({ home, away, period, status })} />
         </View>
 
@@ -257,7 +281,7 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
             logoUrl={logoOf(homeTeam)}
             value={home}
             dim={winner === 'away'}
-            locked={locked}
+            locked={locked || onPaper}
             caption={isRacquet ? 'Games' : undefined}
             onBump={(d) => bump('home', d)}
           />
@@ -268,13 +292,13 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
             logoUrl={logoOf(awayTeam)}
             value={away}
             dim={winner === 'home'}
-            locked={locked}
+            locked={locked || onPaper}
             caption={isRacquet ? 'Games' : undefined}
             onBump={(d) => bump('away', d)}
           />
         </View>
 
-        {!locked && (
+        {!locked && !onPaper && (
           <View style={styles.fieldRow}>
             {isRacquet ? (
               <>
@@ -305,15 +329,55 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
         )}
 
         {status === 'scheduled' && (
-          <Button
-            label="Start game"
-            onPress={start}
-            size="lg"
-            fullWidth
-            icon={<Icon name="play" size={16} color={COLORS.textInverse} />}
-          />
+          <>
+            <View style={styles.notice} accessibilityRole="text">
+              <Icon name="info" size={16} color={COLORS.info} strokeWidth={2.2} />
+              <View style={styles.flex}>
+                <Text style={styles.noticeTitle}>Print the score sheet first</Text>
+                <Text style={styles.noticeText}>
+                  Print the physical score sheet before you start the game, whether you score live in
+                  the app or on paper.
+                </Text>
+                {onPrintSheet && (
+                  <Pressable onPress={onPrintSheet} hitSlop={8} accessibilityRole="button">
+                    <Text style={styles.noticeLink}>Open the score sheet</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+            <Button
+              label="Start · score live"
+              onPress={() => start('live')}
+              size="lg"
+              fullWidth
+              icon={<Icon name="play" size={16} color={COLORS.textInverse} />}
+            />
+            <Button
+              label="Start · score on paper"
+              onPress={() => start('paper')}
+              variant="secondary"
+              size="lg"
+              fullWidth
+              icon={<Icon name="file-text" size={16} color={COLORS.textPrimary} />}
+            />
+          </>
         )}
-        {status === 'in_progress' && (
+        {onPaper && (
+          <View style={styles.notice}>
+            <Icon name="file-text" size={16} color={COLORS.info} strokeWidth={2.2} />
+            <View style={styles.flex}>
+              <Text style={styles.noticeTitle}>Scoring on paper</Text>
+              <Text style={styles.noticeText}>
+                The public sees this game as In progress, without a score. When it ends, tap Scan paper
+                sheet below to record the final.
+              </Text>
+              <Pressable onPress={switchToLive} hitSlop={8} accessibilityRole="button">
+                <Text style={styles.noticeLink}>Switch to live scoring</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+        {status === 'in_progress' && !onPaper && (
           <Button
             label="Finalize game"
             onPress={() => confirmFinal(home, away, false)}
@@ -334,10 +398,12 @@ export const MatchScoreboard = forwardRef<MatchScoreboardHandle, { event: EventS
 
         <Text style={styles.foot}>
           {status === 'scheduled'
-            ? 'Starting shows the game as LIVE on the public schedule.'
+            ? 'Live shows the running score on the public schedule; on paper shows it as In progress.'
             : locked
               ? 'The public schedule shows this as the final score.'
-              : 'Every change publishes to the public schedule.'}
+              : onPaper
+                ? 'The final score appears publicly once the sheet is scanned.'
+                : 'Every change publishes to the public schedule.'}
         </Text>
       </View>
     );
@@ -391,7 +457,14 @@ function Side({
   );
 }
 
-function StatusPill({ status }: { status: LiveStatus }) {
+function StatusPill({ status, onPaper }: { status: LiveStatus; onPaper?: boolean }) {
+  if (onPaper) {
+    return (
+      <View style={[styles.pill, styles.pillPaper]}>
+        <Text style={[styles.pillText, { color: COLORS.info }]}>IN PROGRESS · PAPER</Text>
+      </View>
+    );
+  }
   if (status === 'in_progress') {
     return (
       <View style={[styles.pill, styles.pillLive]}>
@@ -450,6 +523,18 @@ const styles = StyleSheet.create({
   sync: { ...TYPE.caption, color: COLORS.textMuted },
   retry: { flexDirection: 'row', alignItems: 'center', gap: 4 },
 
+  flex: { flex: 1, minWidth: 0 },
+  notice: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.infoLight,
+  },
+  noticeTitle: { ...TYPE.label, color: COLORS.textPrimary },
+  noticeText: { ...TYPE.caption, color: COLORS.textSecondary, marginTop: 2 },
+  noticeLink: { ...TYPE.label, color: COLORS.info, marginTop: SPACING.xs },
+  pillPaper: { backgroundColor: COLORS.infoLight },
   board: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACING.sm },
   side: { flex: 1, alignItems: 'center', gap: 4 },
   team: { ...TYPE.subhead, color: COLORS.textPrimary, marginTop: 2, maxWidth: '100%' },

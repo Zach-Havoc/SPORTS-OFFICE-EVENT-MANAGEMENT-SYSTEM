@@ -4,12 +4,12 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import {
   Trophy, Calendar, Users, Clock, MapPin, Award, Shirt,
-  Activity, CheckCircle2, Timer,
+  Activity, CheckCircle2, Timer, Hourglass, PencilLine,
 } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
 import {
-  formatRecord, scoreboardFor,
-  type MatchRow, type Record3, type Scoreboard,
+  formatRecord, scoreboardFor, gameState,
+  type GameState, type MatchRow, type Record3, type Scoreboard,
 } from '../../utils/games';
 import { useDeptAbbreviator } from '../../utils/departments';
 import { useDisciplineEntries, useEventLineups } from '../../hooks/api';
@@ -83,6 +83,28 @@ export const STATUS_CONFIG = {
     sectionBg: 'bg-blue-50 border-blue-200',
     pulse: false,
   },
+  in_progress: {
+    label: 'In progress',
+    sectionLabel: 'Ongoing',
+    icon: PencilLine,
+    borderClass: 'border-l-2 border-sky-500',
+    badgeClass: 'bg-sky-700 text-white',
+    barClass: 'bg-sky-500',
+    sectionColor: 'text-sky-700',
+    sectionBg: 'bg-sky-50 border-sky-200',
+    pulse: false,
+  },
+  result_pending: {
+    label: 'Result pending',
+    sectionLabel: 'Result pending',
+    icon: Hourglass,
+    borderClass: 'border-l-2 border-amber-500',
+    badgeClass: 'bg-amber-600 text-white',
+    barClass: 'bg-amber-500',
+    sectionColor: 'text-amber-700',
+    sectionBg: 'bg-amber-50 border-amber-200',
+    pulse: false,
+  },
   completed: {
     label: 'Completed',
     sectionLabel: 'Completed',
@@ -96,9 +118,20 @@ export const STATUS_CONFIG = {
   },
 } as const;
 
+export type StatusKey = keyof typeof STATUS_CONFIG;
+
+/** The badge / section a game's public state belongs to. */
+export const STATE_KEY: Record<GameState, StatusKey> = {
+  live: 'ongoing',
+  in_progress: 'in_progress',
+  upcoming: 'upcoming',
+  result_pending: 'result_pending',
+  completed: 'completed',
+};
+
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: ScheduleEvent['status'] }) {
+function StatusBadge({ status }: { status: StatusKey }) {
   const cfg = STATUS_CONFIG[status];
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.badgeClass}`}>
@@ -167,11 +200,13 @@ function TeamColumn({
 function ScoreRow({
   board,
   event,
+  state,
   teams,
   size = 'md',
 }: {
   board: Scoreboard;
   event: ScheduleEvent;
+  state: GameState;
   teams: TeamLookup;
   size?: 'md' | 'lg';
 }) {
@@ -195,6 +230,16 @@ function ScoreRow({
         </span>
         {board.period && <span className="mt-0.5 text-[11px] font-medium text-gray-500">{board.period}</span>}
       </div>
+    );
+  } else if (state === 'in_progress' || state === 'result_pending') {
+    middle = (
+      <span
+        className={`text-center text-xs font-bold uppercase leading-tight tracking-wide ${
+          state === 'in_progress' ? 'text-sky-700' : 'text-amber-700'
+        }`}
+      >
+        {state === 'in_progress' ? 'In progress' : 'Result pending'}
+      </span>
     );
   } else if (event.status === 'completed' || hasScore) {
     middle = (
@@ -298,7 +343,8 @@ export function GameCard({
 }) {
   const isVersus = (event.departments || []).length <= 2;
   const board = isVersus ? scoreboardFor(event.departments, live, match) : null;
-  const isLive = board?.live || (event.status === 'ongoing' && !isVersus);
+  const state = gameState(event, live, match);
+  const isLive = state === 'live';
 
   return (
     <article
@@ -314,7 +360,11 @@ export function GameCard({
       </div>
 
       <div className="flex-1 px-4 pt-4 pb-4">
-        {board ? <ScoreRow board={board} event={event} teams={teams} /> : <RankedRows event={event} rankings={rankings} teams={teams} />}
+        {board ? (
+          <ScoreRow board={board} event={event} state={state} teams={teams} />
+        ) : (
+          <RankedRows event={event} rankings={rankings} teams={teams} />
+        )}
       </div>
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-gray-100 px-4 py-2.5">
@@ -477,7 +527,8 @@ export function MatchDetailModal({
 }) {
   const abbr = useDeptAbbreviator();
   if (!event) return null;
-  const cfg = STATUS_CONFIG[event.status];
+  const state = gameState(event, live, match);
+  const cfg = STATUS_CONFIG[STATE_KEY[state]];
   // Two colleges = a match, not a ranking. The score covers it.
   const isVersus = (event.departments || []).length <= 2;
 
@@ -493,7 +544,7 @@ export function MatchDetailModal({
               <div>
                 <DialogTitle className="text-2xl font-bold text-gray-900 mb-2">{abbr(event.name)}</DialogTitle>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <StatusBadge status={event.status} />
+                  <StatusBadge status={STATE_KEY[state]} />
                   <Badge variant="outline" className="text-sm">{event.category}</Badge>
                 </div>
               </div>
@@ -504,7 +555,7 @@ export function MatchDetailModal({
             {/* Game score */}
             {isVersus && (
               <div className="rounded-xl border border-gray-200 px-4 py-5">
-                <ScoreRow board={scoreboardFor(event.departments, live, match)} event={event} teams={teams} size="lg" />
+                <ScoreRow board={scoreboardFor(event.departments, live, match)} event={event} state={state} teams={teams} size="lg" />
               </div>
             )}
 
