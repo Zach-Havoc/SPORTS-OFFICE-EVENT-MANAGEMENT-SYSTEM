@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Protest;
 use App\Models\Requirement;
-use App\Models\TryoutApplication;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -13,14 +12,14 @@ use Illuminate\Support\Collection;
  * GET /api/admin/transactions — the Sports Office's transaction log.
  *
  * "Sports Office transactions" are the requests the office and its coaches
- * process: CMO requirement submissions, tryout applications and game
+ * process: CMO requirement submissions and game
  * protests. Each lives in its own module; this puts them in one list —
  * who filed what, when, its status and when it was decided — so the office
  * can track every open item in one place.
  */
 class TransactionController extends Controller
 {
-    public const TYPES = ['cmo_requirement', 'tryout_application', 'protest'];
+    public const TYPES = ['cmo_requirement', 'protest'];
 
     public function index(Request $request)
     {
@@ -35,7 +34,6 @@ class TransactionController extends Controller
 
         $rows = collect()
             ->merge(! $type || $type === 'cmo_requirement' ? $this->requirements() : [])
-            ->merge(! $type || $type === 'tryout_application' ? $this->tryouts() : [])
             ->merge(! $type || $type === 'protest' ? $this->protests() : []);
 
         if (! empty($data['status'])) {
@@ -80,23 +78,6 @@ class TransactionController extends Controller
                 'filedAt' => optional($r->submitted_at ?? $r->created_at)->toIso8601String(),
                 'decidedAt' => optional($r->reviewed_at)->toIso8601String(),
                 'link' => '/admin/requirements',
-            ]);
-    }
-
-    private function tryouts(): Collection
-    {
-        return TryoutApplication::select(['id', 'first_name', 'last_name', 'sport', 'department', 'status', 'applied_at', 'created_at', 'reviewed_at'])
-            ->orderByDesc('applied_at')->get()->map(fn (TryoutApplication $t) => [
-                'id' => $t->id,
-                'type' => 'tryout_application',
-                'reference' => 'TRY-'.strtoupper(substr($t->id, 0, 8)),
-                'party' => trim("{$t->first_name} {$t->last_name}"),
-                'subject' => trim(($t->sport ? "{$t->sport} tryout" : 'Tryout').' · '.$t->department, ' ·'),
-                'status' => $t->status,
-                'open' => $t->status === 'pending',
-                'filedAt' => optional($t->applied_at ?? $t->created_at)->toIso8601String(),
-                'decidedAt' => optional($t->reviewed_at)->toIso8601String(),
-                'link' => '/admin/tryouts',
             ]);
     }
 

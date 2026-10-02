@@ -23,7 +23,6 @@ import {
   Megaphone,
   Radio,
   Trophy,
-  UserPlus,
   UserRound,
   Users,
   type LucideIcon,
@@ -205,13 +204,11 @@ export default function DashboardEnhanced() {
         by[k] ?? by[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] ?? 0;
       return {
         cmo_requirement: pick("cmo_requirement"),
-        tryout_application: pick("tryout_application"),
         protest: pick("protest"),
       };
     }
     const c = {
       cmo_requirement: 0,
-      tryout_application: 0,
       protest: 0,
     } as Record<string, number>;
     openItems.forEach((t) => (c[t.type] = (c[t.type] ?? 0) + 1));
@@ -347,8 +344,6 @@ export default function DashboardEnhanced() {
               ? [
                   openByType.cmo_requirement &&
                     `${openByType.cmo_requirement} CMO ${openByType.cmo_requirement === 1 ? "requirement" : "requirements"}`,
-                  openByType.tryout_application &&
-                    `${openByType.tryout_application} ${openByType.tryout_application === 1 ? "tryout" : "tryouts"}`,
                   openByType.protest && `${openByType.protest} ${openByType.protest === 1 ? "appeal" : "appeals"}`,
                 ]
                   .filter(Boolean)
@@ -1017,7 +1012,6 @@ const TX_LABEL: Record<
   { label: string; icon: LucideIcon }
 > = {
   cmo_requirement: { label: "CMO requirement", icon: FileBadge },
-  tryout_application: { label: "Tryout", icon: UserPlus },
   protest: { label: "Appeal", icon: Flag },
 };
 
@@ -1121,8 +1115,7 @@ function NeedsAttention({
       ) : (
         alerts.length === 0 && (
           <p className="t-caption py-2">
-            New CMO submissions, tryout applications and appeals land here for
-            a decision.
+            New CMO submissions and appeals land here for a decision.
           </p>
         )
       )}

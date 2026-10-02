@@ -7,7 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-/** GET /api/admin/transactions — CMO requirements, tryout applications and protests in one log. */
+/** GET /api/admin/transactions — CMO requirements and protests in one log (tryouts are the coaches'). */
 class TransactionLogTest extends TestCase
 {
     use RefreshDatabase;
@@ -15,6 +15,7 @@ class TransactionLogTest extends TestCase
     private function seedOneOfEach(): void
     {
         $this->requirements()->create(['athlete_name' => 'Ana Reyes', 'name' => 'Parental Consent', 'status' => 'pending', 'submitted_at' => now()->subDays(3)]);
+        $this->requirements()->create(['athlete_name' => 'Ben Cruz', 'name' => 'Medical Certificate', 'status' => 'approved', 'submitted_at' => now()->subDays(2), 'reviewed_at' => now()]);
         $this->tryouts()->create(['first_name' => 'Ben', 'last_name' => 'Cruz', 'sport' => 'Volleyball', 'status' => 'accepted', 'applied_at' => now()->subDays(2), 'reviewed_at' => now()]);
         $event = $this->events()->create(['name' => 'CICS vs CoE']);
         $coach = $this->users()->coach()->create();
@@ -30,10 +31,10 @@ class TransactionLogTest extends TestCase
         $res = $this->getJson('/api/admin/transactions')->assertOk();
 
         $this->assertSame(3, $res->json('total'));
-        $this->assertSame(['protest', 'tryout_application', 'cmo_requirement'], array_column($res->json('data'), 'type'));
+        $this->assertSame(['protest', 'cmo_requirement', 'cmo_requirement'], array_column($res->json('data'), 'type'));
         $this->assertSame([
             'open' => 2, 'closed' => 1,
-            'byType' => ['cmo_requirement' => 1, 'tryout_application' => 1, 'protest' => 1],
+            'byType' => ['cmo_requirement' => 2, 'protest' => 1],
         ], $res->json('counts'));
         $this->assertStringStartsWith('REQ-', $res->json('data.2.reference'));
     }
@@ -43,9 +44,18 @@ class TransactionLogTest extends TestCase
         $this->seedOneOfEach();
         $this->actingAsRole('admin');
 
-        $this->assertSame(['cmo_requirement'], array_column($this->getJson('/api/admin/transactions?type=cmo_requirement')->json('data'), 'type'));
-        $this->assertSame(['tryout_application'], array_column($this->getJson('/api/admin/transactions?status=closed')->json('data'), 'type'));
+        $this->assertSame(['cmo_requirement', 'cmo_requirement'], array_column($this->getJson('/api/admin/transactions?type=cmo_requirement')->json('data'), 'type'));
+        $this->assertSame(['cmo_requirement'], array_column($this->getJson('/api/admin/transactions?status=closed')->json('data'), 'type'));
         $this->assertSame('Ben Cruz', $this->getJson('/api/admin/transactions?q=ben')->json('data.0.party'));
+    }
+
+    public function test_tryout_applications_stay_out_of_the_office_queue(): void
+    {
+        $this->tryouts()->create(['first_name' => 'Cara', 'last_name' => 'Lim', 'sport' => 'Volleyball', 'status' => 'pending', 'applied_at' => now()]);
+        $this->actingAsRole('admin');
+
+        $this->getJson('/api/admin/transactions')->assertOk()->assertJsonPath('total', 0);
+        $this->getJson('/api/admin/transactions?type=tryout_application')->assertUnprocessable();
     }
 
     public function test_only_the_office_can_read_it(): void

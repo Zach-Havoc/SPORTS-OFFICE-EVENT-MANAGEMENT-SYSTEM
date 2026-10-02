@@ -1167,7 +1167,7 @@ export interface TrainingSession {
 /** One Sports Office transaction: a CMO requirement, tryout application or protest. */
 export interface OfficeTransaction {
   id: string;
-  type: "cmo_requirement" | "tryout_application" | "protest";
+  type: "cmo_requirement" | "protest";
   reference: string;
   party: string;
   subject: string;

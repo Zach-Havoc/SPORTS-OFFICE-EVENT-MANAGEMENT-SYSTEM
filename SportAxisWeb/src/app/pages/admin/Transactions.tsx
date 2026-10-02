@@ -16,7 +16,6 @@ import type { OfficeTransaction } from '../../services/api';
 
 const TYPE_LABEL: Record<OfficeTransaction['type'], string> = {
   cmo_requirement: 'CMO requirement',
-  tryout_application: 'Tryout application',
   protest: 'Appeal',
 };
 
@@ -107,7 +106,6 @@ export default function AdminTransactions() {
             <SelectContent>
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value="cmo_requirement">CMO requirements</SelectItem>
-              <SelectItem value="tryout_application">Tryout applications</SelectItem>
               <SelectItem value="protest">Appeals</SelectItem>
             </SelectContent>
           </Select>

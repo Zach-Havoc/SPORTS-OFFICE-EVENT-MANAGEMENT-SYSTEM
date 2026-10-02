@@ -184,7 +184,6 @@ export default function App() {
               path: "admin/requirements",
               lazy: AdminRequirements,
             },
-            { path: "admin/tryouts", lazy: Tryouts },
             { path: "admin/transactions", lazy: AdminTransactions },
             { path: "admin/seasons", lazy: AdminSeasons },
             { path: "admin/protests", lazy: AdminProtests },

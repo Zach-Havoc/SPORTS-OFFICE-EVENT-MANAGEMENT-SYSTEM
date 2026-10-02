@@ -67,7 +67,6 @@ export function getNavigation(role: string | undefined): {
           items: [
             { name: "Users", path: "/admin/users", icon: UserCog, primary: true },
             { name: "Coaches", path: "/admin/coaches", icon: Users },
-            { name: "Tryout Applicants", path: "/admin/tryouts", icon: UserPlus },
             { name: "CMO Requirements", path: "/admin/requirements", icon: FileBadge },
             { name: "Transactions", path: "/admin/transactions", icon: Inbox },
             { name: "Registration Codes", path: "/admin/registration-codes", icon: Shield },

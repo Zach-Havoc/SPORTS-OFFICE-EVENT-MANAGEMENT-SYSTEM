@@ -58,15 +58,13 @@ const formatDate = (d: string | null) =>
 /**
  * Students who applied through a tryout announcement. The coach decides each
  * one: accepting adds them to the roster, rejecting closes it, and both email
- * the applicant. The office sees every coach's applicants on the same page.
+ * the applicant.
  */
 export default function Tryouts() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isAdmin = user?.role === "admin";
-
   useEffect(() => {
-    if (!user || (user.role !== "coach" && user.role !== "admin")) navigate("/login");
+    if (!user || user.role !== "coach") navigate("/login");
   }, [user, navigate]);
 
   const query = useTryoutApplications();
@@ -127,11 +125,7 @@ export default function Tryouts() {
     <div className="page-container px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="Tryout Applicants"
-        description={
-          isAdmin
-            ? "Students who applied through a tryout announcement, across every coach."
-            : "Students who applied through your tryout announcements. Accepting one adds them to your roster."
-        }
+        description="Students who applied through your tryout announcements. Accepting one adds them to your roster."
         actions={
           <RefreshStatus
             fetching={query.isFetching && !query.isLoading}
@@ -194,7 +188,7 @@ export default function Tryouts() {
                     : "No one turned down"
             }
             description={
-              tab === "pending" && !search && !isAdmin ? (
+              tab === "pending" && !search ? (
                 <>
                   Students apply from a tryout announcement on the public site.{" "}
                   <Link to="/coach/announcements" className="font-medium text-primary hover:underline">
