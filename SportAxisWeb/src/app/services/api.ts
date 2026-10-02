@@ -1182,7 +1182,12 @@ export interface TransactionPage {
   total: number;
   page: number;
   perPage: number;
-  counts: { open: number; closed: number };
+  counts: {
+    open: number;
+    closed: number;
+    /** Older API builds don't send it. */
+    byType?: Partial<Record<OfficeTransaction["type"], number>>;
+  };
 }
 export const getTransactions = (params: { type?: string; status?: string; q?: string; page?: number; perPage?: number }) => {
   const qs = new URLSearchParams();

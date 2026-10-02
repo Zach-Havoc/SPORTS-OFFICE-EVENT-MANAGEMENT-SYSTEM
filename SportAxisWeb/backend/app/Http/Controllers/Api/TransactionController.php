@@ -58,6 +58,8 @@ class TransactionController extends Controller
             'counts' => [
                 'open' => $rows->where('open', true)->count(),
                 'closed' => $rows->where('open', false)->count(),
+                // Per type across every page, so a summary needn't fetch them all.
+                'byType' => collect(self::TYPES)->mapWithKeys(fn ($t) => [$t => $rows->where('type', $t)->count()]),
             ],
         ]);
     }

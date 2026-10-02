@@ -12,7 +12,6 @@ import {
 } from "recharts";
 import {
   AlertTriangle,
-  BarChart3,
   CalendarDays,
   CalendarPlus,
   ClipboardCheck,
@@ -21,13 +20,11 @@ import {
   Gavel,
   History,
   Inbox,
-  KeyRound,
   Megaphone,
   Radio,
   Trophy,
   UserPlus,
   UserRound,
-  UserX,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -35,17 +32,12 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import {
   useAuditLogs,
-  useBrackets,
-  useCategories,
-  useCoaches,
   useCurrentSeason,
   useDepartments,
   useEvents,
-  useJudges,
   useLeaderboard,
   useTransactions,
   useUsers,
-  useVenues,
 } from "../../hooks/api";
 import type { AuditLogEntry, OfficeTransaction } from "../../services/api";
 import { useDeptAbbreviator, shortDeptLabel } from "../../utils/departments";
@@ -60,14 +52,7 @@ import {
   StatCard,
   timeAgo,
 } from "../../components/dashboard/ConsoleKit";
-import {
-  CHART_COLORS,
-  DistBar,
-  RankList,
-  STATUS_COLORS,
-  periodDelta,
-  tally,
-} from "../../components/dashboard/DashboardKit";
+import { periodDelta } from "../../components/dashboard/DashboardKit";
 import { cn } from "../../components/ui/utils";
 
 /* Played vs scheduled. Brand crimson for what has happened, the teal accent
@@ -127,37 +112,22 @@ export default function DashboardEnhanced() {
   const abbreviate = useDeptAbbreviator();
   const eventsQuery = useEvents();
   const departmentsQuery = useDepartments();
-  const categoriesQuery = useCategories();
   const leaderboardQuery = useLeaderboard();
-  const judgesQuery = useJudges();
-  const coachesQuery = useCoaches();
-  const venuesQuery = useVenues();
-  const bracketsQuery = useBrackets();
   const usersQuery = useUsers({});
   const seasonQuery = useCurrentSeason();
   const openQuery = useTransactions({ status: "open", perPage: 100 });
-  const auditQuery = useAuditLogs({ limit: 8 });
+  const auditQuery = useAuditLogs({ limit: 5 });
 
   const queries = [
     eventsQuery,
     departmentsQuery,
-    categoriesQuery,
     leaderboardQuery,
-    judgesQuery,
-    coachesQuery,
-    venuesQuery,
-    bracketsQuery,
     usersQuery,
   ];
 
   const events: any[] = eventsQuery.data ?? [];
   const departments: any[] = departmentsQuery.data ?? [];
-  const categories: any[] = categoriesQuery.data ?? [];
   const leaderboard: any[] = leaderboardQuery.data ?? [];
-  const judges: any[] = judgesQuery.data ?? [];
-  const coaches: any[] = coachesQuery.data ?? [];
-  const venues: any[] = venuesQuery.data ?? [];
-  const brackets: any[] = bracketsQuery.data ?? [];
   const users: any[] = usersQuery.data ?? [];
   const openItems: OfficeTransaction[] = openQuery.data?.data ?? [];
   const openTotal = openQuery.data?.counts.open ?? 0;
@@ -226,7 +196,19 @@ export default function DashboardEnhanced() {
     [athleteUsers],
   );
 
+  const serverByType = openQuery.data?.counts.byType;
   const openByType = useMemo(() => {
+    if (serverByType) {
+      // The API client camel-cases keys (cmo_requirement → cmoRequirement).
+      const by = serverByType as Record<string, number>;
+      const pick = (k: string) =>
+        by[k] ?? by[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] ?? 0;
+      return {
+        cmo_requirement: pick("cmo_requirement"),
+        tryout_application: pick("tryout_application"),
+        protest: pick("protest"),
+      };
+    }
     const c = {
       cmo_requirement: 0,
       tryout_application: 0,
@@ -234,10 +216,9 @@ export default function DashboardEnhanced() {
     } as Record<string, number>;
     openItems.forEach((t) => (c[t.type] = (c[t.type] ?? 0) + 1));
     return c;
-  }, [openItems]);
+  }, [openItems, serverByType]);
 
   const unstaffed = ahead.filter((e) => (e.judges || []).length === 0);
-  const disabledAccounts = users.filter((u) => u.active === false).length;
   // Past games that never reached "completed": the result was never closed,
   // so they never reach the standings. The office should see them.
   const unclosed = events.filter((e) => {
@@ -246,29 +227,6 @@ export default function DashboardEnhanced() {
       d !== null && d.getTime() < today.getTime() && e.status !== "completed"
     );
   }).length;
-  const hasStandings = leaderboard.some(
-    (r) =>
-      Number(r.points ?? 0) > 0 ||
-      Number(r.total ?? 0) > 0 ||
-      Number(r.gold ?? 0) + Number(r.silver ?? 0) + Number(r.bronze ?? 0) > 0,
-  );
-  const needsAttention = unstaffed.length + disabledAccounts + unclosed;
-
-  const recent = useMemo(
-    () =>
-      events
-        .filter((e) => {
-          const d = eventDate(e.schedule);
-          return d !== null && d.getTime() < today.getTime();
-        })
-        .sort(
-          (a, b) =>
-            String(b.schedule).localeCompare(String(a.schedule)) ||
-            String(b.startTime ?? "").localeCompare(String(a.startTime ?? "")),
-        ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [events, todayIso],
-  );
 
   /* ── Status sentence: the five-second read ───────────────────────────── */
   const sentence: string[] = [];
@@ -281,11 +239,11 @@ export default function DashboardEnhanced() {
   );
   if (openTotal)
     sentence.push(
-      `${openTotal} ${openTotal === 1 ? "request is" : "requests are"} waiting on you`,
+      `${openTotal} ${openTotal === 1 ? "request needs" : "requests need"} a decision`,
     );
   if (unstaffed.length)
     sentence.push(
-      `${unstaffed.length} upcoming ${unstaffed.length === 1 ? "event needs" : "events need"} a committee`,
+      `${unstaffed.length} upcoming ${unstaffed.length === 1 ? "event has" : "events have"} no committee`,
     );
 
   if (loading) return <DashboardLoading />;
@@ -341,26 +299,30 @@ export default function DashboardEnhanced() {
       >
         <StatCard
           icon={Radio}
-          label="Live now"
+          label="Live today"
           value={liveNow}
           live={liveNow > 0}
           tone={liveNow > 0 ? "live" : "neutral"}
           to="/live"
           detail={
             liveNow
-              ? "In progress today · open the live board"
-              : "No game in progress"
+              ? "Games in progress · open the live board"
+              : "No games in progress"
           }
         />
         <StatCard
           icon={CalendarDays}
-          label="Next 7 days"
+          label="Coming up · 7 days"
           value={nextSeven.length}
           tone="scheduled"
           to="/admin/events"
           detail={
             nextEvent
-              ? `Next: ${nextEvent.name} · ${
+              ? `Next: ${
+                  (nextEvent.departments ?? []).length === 2
+                    ? `${shortDeptLabel(abbreviate, nextEvent.departments[0], 12)} vs ${shortDeptLabel(abbreviate, nextEvent.departments[1], 12)}`
+                    : abbreviate(nextEvent.name)
+                } · ${
                   nextEvent.schedule === todayIso
                     ? "today"
                     : (
@@ -376,7 +338,7 @@ export default function DashboardEnhanced() {
         />
         <StatCard
           icon={Inbox}
-          label="Waiting on you"
+          label="Pending requests"
           value={openTotal}
           tone={openTotal ? "attention" : "neutral"}
           to="/admin/transactions"
@@ -384,19 +346,19 @@ export default function DashboardEnhanced() {
             openTotal
               ? [
                   openByType.cmo_requirement &&
-                    `${openByType.cmo_requirement} CMO`,
+                    `${openByType.cmo_requirement} CMO ${openByType.cmo_requirement === 1 ? "requirement" : "requirements"}`,
                   openByType.tryout_application &&
-                    `${openByType.tryout_application} tryout`,
+                    `${openByType.tryout_application} ${openByType.tryout_application === 1 ? "tryout" : "tryouts"}`,
                   openByType.protest && `${openByType.protest} ${openByType.protest === 1 ? "appeal" : "appeals"}`,
                 ]
                   .filter(Boolean)
                   .join(" · ")
-              : "Every request is decided"
+              : "No requests to decide"
           }
         />
         <StatCard
           icon={Users}
-          label="Athletes"
+          label="Registered athletes"
           value={athleteUsers.length.toLocaleString()}
           to="/admin/users"
           delta={
@@ -407,17 +369,15 @@ export default function DashboardEnhanced() {
                 }
               : null
           }
-          detail={`${coachUsers.length || coaches.length} coaches · ${committeeUsers.length || judges.length} committee members`}
+          detail={`${coachUsers.length} ${coachUsers.length === 1 ? "coach" : "coaches"} · ${committeeUsers.length} committee ${committeeUsers.length === 1 ? "member" : "members"}`}
         />
       </div>
 
-      {/* The running order leads, on every width: what is next and what is
-          waiting (the office's own priority list), then the season's rhythm,
-          then what changed. */}
+      {/* Five panels, in the office's order: what is next and what needs a
+          decision, then the season's rhythm and the standings. */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
         <UpcomingEvents
-          events={ahead.slice(0, 6)}
-          recent={ahead.length < 6 ? recent.slice(0, 6 - ahead.length) : []}
+          events={ahead.slice(0, 9)}
           total={ahead.length}
           todayIso={todayIso}
           now={now}
@@ -425,15 +385,17 @@ export default function DashboardEnhanced() {
           className="lg:col-span-8"
         />
         <div className="flex min-w-0 flex-col gap-4 lg:col-span-4">
-          <WaitingOnYou
+          <NeedsAttention
             items={openItems.slice(0, 4)}
             total={openTotal}
             unstaffed={unstaffed.length}
             unclosed={unclosed}
-            disabledAccounts={disabledAccounts}
-            attentionCount={needsAttention}
           />
-          <QuickActions />
+          <RecentActivity
+            logs={auditLogs}
+            events={events}
+            abbreviate={abbreviate}
+          />
         </div>
       </div>
 
@@ -441,132 +403,14 @@ export default function DashboardEnhanced() {
         <SeasonActivity
           events={events}
           today={today}
-          className="lg:col-span-8"
-        />
-        {/* Standings take this slot once there are points; until then the
-            medal tally, which fills first, holds it instead of an empty panel. */}
-        {hasStandings ? (
-          <Standings
-            rows={leaderboard}
-            abbreviate={abbreviate}
-            deptByName={deptByName}
-            className="lg:col-span-4"
-          />
-        ) : (
-          <MedalTally
-            rows={leaderboard}
-            abbreviate={abbreviate}
-            className="lg:col-span-4"
-          />
-        )}
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <RecentActivity
-          logs={auditLogs}
-          events={events}
-          abbreviate={abbreviate}
           className="lg:col-span-7"
         />
-        <div className="flex min-w-0 flex-col gap-4 lg:col-span-5">
-          {hasStandings && (
-            <MedalTally rows={leaderboard} abbreviate={abbreviate} />
-          )}
-          <Panel
-            title="Events by status"
-            description={`${events.length} events this season`}
-          >
-            <DistBar
-              segments={[
-                {
-                  label: "Scheduled",
-                  value: Math.max(0, ahead.length - liveNow),
-                  color: SCHEDULED,
-                },
-                { label: "Live today", value: liveNow, color: PLAYED },
-                ...(unclosed
-                  ? [
-                      {
-                        label: "Not closed",
-                        value: unclosed,
-                        color: NOT_CLOSED,
-                      },
-                    ]
-                  : []),
-                {
-                  label: "Final",
-                  value: events.filter((e) => e.status === "completed").length,
-                  color: STATUS_COLORS.completed,
-                },
-              ]}
-            />
-          </Panel>
-        </div>
-      </div>
-
-      {/* ── Shape of the season ─────────────────────────────────────────── */}
-      <div className="mt-4 grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-        <Panel title="Events by sport" description="Fixtures per discipline">
-          <RankList
-            items={tally(
-              events.map((e) => e.category),
-              6,
-              "Uncategorised",
-            )}
-            color={CHART_COLORS[0]}
-          />
-        </Panel>
-        <Panel
-          title="Athletes by college"
-          description="Registered athlete accounts"
-        >
-          <RankList
-            items={tally(
-              athleteUsers.map(
-                (u) => shortDeptLabel(abbreviate, u.department, 26) || null,
-              ),
-              6,
-            )}
-            color={CHART_COLORS[1]}
-          />
-        </Panel>
-        <Panel
-          title="Season setup"
-          description="What the office has configured"
-        >
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-            {(
-              [
-                ["Colleges", departments.length, "/admin/settings"],
-                ["Sports", categories.length, "/admin/settings"],
-                ["Venues", venues.length, "/admin/venues"],
-                ["Brackets", brackets.length, "/admin/bracketing"],
-                [
-                  "Coaches",
-                  coachUsers.length || coaches.length,
-                  "/admin/coaches",
-                ],
-                [
-                  "Committee",
-                  committeeUsers.length || judges.length,
-                  "/admin/users",
-                ],
-              ] as const
-            ).map(([label, value, to]) => (
-              <div key={label} className="min-w-0">
-                <dt className="t-caption">{label}</dt>
-                <dd>
-                  <Link
-                    to={to}
-                    className="numeral rounded-sm text-lg leading-tight text-text underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]"
-                  >
-                    {value.toLocaleString()}
-                  </Link>
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </Panel>
+        <Standings
+          rows={leaderboard}
+          abbreviate={abbreviate}
+          deptByName={deptByName}
+          className="lg:col-span-5"
+        />
       </div>
     </ConsolePage>
   );
@@ -585,7 +429,7 @@ function SeasonActivity({
   today: Date;
   className?: string;
 }) {
-  const { data, thisWeekLabel, played, notClosed, scheduled, busiest } =
+  const { data, thisWeekLabel, played, notClosed, scheduled } =
     useMemo(() => {
       const thisWeek = weekStart(today).getTime();
       const dated = events
@@ -633,12 +477,6 @@ function SeasonActivity({
         else if (d.getTime() < today.getTime()) b.notClosed++;
         else b.scheduled++;
       }
-      const sum = (b: (typeof buckets)[number]) =>
-        b.played + b.notClosed + b.scheduled;
-      const top = buckets.reduce(
-        (m, b) => (sum(b) > sum(m) ? b : m),
-        buckets[0],
-      );
       const totals = dated.reduce(
         (t, { e, d }) => {
           if (e.status === "completed") t.played++;
@@ -652,7 +490,6 @@ function SeasonActivity({
         data: buckets,
         thisWeekLabel: byKey.get(thisWeek)?.label,
         ...totals,
-        busiest: top && sum(top) > 0 ? top : null,
       };
     }, [events, today]);
 
@@ -661,7 +498,7 @@ function SeasonActivity({
     { key: "played" as const, label: "Played", color: PLAYED, show: true },
     {
       key: "notClosed" as const,
-      label: "Not closed",
+      label: "No result",
       color: NOT_CLOSED,
       show: notClosed > 0,
     },
@@ -679,37 +516,35 @@ function SeasonActivity({
       title="Season activity"
       description={
         hasAny
-          ? `${played} played · ${scheduled} to play${notClosed ? ` · ${notClosed} never closed` : ""}${busiest ? ` · busiest week ${busiest.range}` : ""}`
+          ? `${played} played · ${scheduled} to play${notClosed ? ` · ${notClosed} past without a result` : ""}`
           : "Events per week"
-      }
-      action={
-        <div
-          className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 pt-0.5 text-xs text-text-secondary"
-          aria-hidden="true"
-        >
-          {series.map((x) => (
-            <span key={x.key} className="flex items-center gap-1.5">
-              <span
-                className="size-2.5 rounded-[3px]"
-                style={{ background: x.color }}
-              />
-              {x.label}
-            </span>
-          ))}
-        </div>
       }
     >
       {hasAny ? (
         <>
           <div
+            className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary"
+            aria-hidden="true"
+          >
+            {series.map((x) => (
+              <span key={x.key} className="flex items-center gap-1.5">
+                <span
+                  className="size-2.5 rounded-[3px]"
+                  style={{ background: x.color }}
+                />
+                {x.label}
+              </span>
+            ))}
+          </div>
+          <div
             className="h-60 w-full"
             role="img"
-            aria-label="Events per week: played, not closed and scheduled"
+            aria-label="Events per week: played, no result and scheduled"
           >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={data}
-                margin={{ top: 18, right: 4, bottom: 0, left: -18 }}
+                margin={{ top: 18, right: 4, bottom: 0, left: -8 }}
                 barCategoryGap="28%"
               >
                 <CartesianGrid vertical={false} stroke="var(--border-subtle)" />
@@ -743,7 +578,7 @@ function SeasonActivity({
                   tickLine={false}
                   axisLine={false}
                   tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                  width={40}
+                  width={44}
                 />
                 <Tooltip
                   cursor={{ fill: "var(--surface-hover)" }}
@@ -798,7 +633,7 @@ function SeasonActivity({
                 <tr>
                   <th scope="col">Week</th>
                   <th scope="col">Played</th>
-                  <th scope="col">Not closed</th>
+                  <th scope="col">No result</th>
                   <th scope="col">Scheduled</th>
                 </tr>
               </thead>
@@ -872,74 +707,110 @@ function Standings({
   className?: string;
 }) {
   // The server already orders the rows by the office's ranking rules.
-  // Olympic-style standings have no points: show the medal count instead.
+  // Olympic-style standings have no points column.
   const usesPoints = rows.some((r) => r.points != null);
   const ranked = rows
     .map((r) => ({
       name: String(r.department ?? ""),
-      total: usesPoints
-        ? Number(r.points ?? 0)
-        : Number(r.gold ?? 0) + Number(r.silver ?? 0) + Number(r.bronze ?? 0),
       gold: Number(r.gold ?? 0),
+      silver: Number(r.silver ?? 0),
+      bronze: Number(r.bronze ?? 0),
+      points: Number(r.points ?? 0),
     }))
-    .filter((r) => r.name && r.total > 0)
-    .slice(0, 6);
-  const max = Math.max(1, ...ranked.map((r) => r.total));
+    .filter(
+      (r) => r.name && (r.points > 0 || r.gold + r.silver + r.bronze > 0),
+    )
+    .slice(0, 7);
+
+  const medalHead = (label: string, color: string) => (
+    <th scope="col" className="w-8 pb-2 text-right font-medium sm:w-11">
+      <span className="inline-flex items-center gap-1">
+        <span
+          className="size-2 rounded-full"
+          style={{ background: color }}
+          aria-hidden="true"
+        />
+        <abbr title={label} className="no-underline">
+          {label[0]}
+        </abbr>
+      </span>
+    </th>
+  );
 
   return (
     <Panel
       className={className}
       title="College standings"
-      description={usesPoints ? "Points from medals won" : "Medals won"}
+      description={
+        usesPoints ? "Medals won and the points they earn" : "Medals won"
+      }
       action={<PanelLink to="/leaderboard">Full table</PanelLink>}
     >
       {ranked.length ? (
-        <ol className="space-y-3">
-          {ranked.map((r, i) => (
-            <li key={r.name} className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "numeral w-4 shrink-0 text-right text-[0.8125rem]",
-                  i === 0 ? "text-brand-text" : "text-text-muted",
-                )}
-              >
-                {i + 1}
-              </span>
-              <CollegeMark
-                name={r.name}
-                dept={deptByName.get(r.name)}
-                abbreviate={abbreviate}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span
-                    className="truncate text-[0.8125rem] font-medium text-text"
-                    title={r.name}
-                  >
-                    {shortDeptLabel(abbreviate, r.name, 22)}
+        <table className="w-full text-[0.8125rem]">
+          <thead className="t-caption">
+            <tr className="border-b border-border-subtle">
+              <th scope="col" className="pb-2 text-left font-medium">
+                College
+              </th>
+              {medalHead("Gold", "#CB8B2E")}
+              {medalHead("Silver", "#A9A19E")}
+              {medalHead("Bronze", "#8A5A1E")}
+              {usesPoints && (
+                <th scope="col" className="w-12 pb-2 text-right font-medium sm:w-14">
+                  Points
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-subtle">
+            {ranked.map((r, i) => (
+              <tr key={r.name}>
+                <td className="max-w-0 py-2 pr-3">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "numeral w-4 shrink-0 text-right",
+                        i === 0 ? "text-brand-text" : "text-text-muted",
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                    <CollegeMark
+                      name={r.name}
+                      dept={deptByName.get(r.name)}
+                      abbreviate={abbreviate}
+                    />
+                    <span
+                      className="truncate font-medium text-text"
+                      title={r.name}
+                    >
+                      {shortDeptLabel(abbreviate, r.name, 26)}
+                    </span>
                   </span>
-                  <span className="numeral shrink-0 text-[0.875rem] text-text">
-                    {r.total.toLocaleString(undefined, {
+                </td>
+                <td className="numeral py-2 text-right text-text">{r.gold}</td>
+                <td className="numeral py-2 text-right text-text-secondary">
+                  {r.silver}
+                </td>
+                <td className="numeral py-2 text-right text-text-secondary">
+                  {r.bronze}
+                </td>
+                {usesPoints && (
+                  <td className="numeral py-2 text-right text-text">
+                    {r.points.toLocaleString(undefined, {
                       maximumFractionDigits: 1,
                     })}
-                  </span>
-                </div>
-                <div className="mt-1 h-1.5 w-full rounded-full bg-bg-subtle">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${(r.total / max) * 100}%`,
-                      background: i === 0 ? PLAYED : "var(--color-ink-400)",
-                    }}
-                  />
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       ) : (
         <PanelEmpty icon={Trophy} title="No medals yet">
-          Standings fill in as judged events are scored and games are finished.
+          Standings fill in as judged events are scored and brackets crown
+          their podiums.
         </PanelEmpty>
       )}
     </Panel>
@@ -990,24 +861,24 @@ function EventRow({
   // A past game still marked scheduled was never closed; say that, not "Scheduled".
   const unclosed = past && e.status !== "completed";
   const proximity = isToday && !past ? untilStart(e, now) : null;
+  // The event name repeats the sport, round and matchup; show each once.
   const matchup =
     teams.length === 2
-      ? `${shortDeptLabel(abbreviate, teams[0], 10)} vs ${shortDeptLabel(abbreviate, teams[1], 10)}`
-      : teams.length
-        ? `${teams.length} ${teams.length === 1 ? "college" : "colleges"}`
-        : "Colleges not set";
-  const when = e.startTime
-    ? `${d.toLocaleDateString(undefined, { weekday: "short" })} ${fmtTime(e.startTime)}`
-    : "";
+      ? `${shortDeptLabel(abbreviate, teams[0], 12)} vs ${shortDeptLabel(abbreviate, teams[1], 12)}`
+      : abbreviate(e.name);
+  const round = String(e.name ?? "").match(/\(([^)]+)\)/)?.[1];
+  const when = e.startTime ? fmtTime(e.startTime) : "";
+  const detail = [e.category, round, when].filter(Boolean).join(" · ");
   return (
     <li>
       <Link
         to={`/admin/events?q=${encodeURIComponent(e.name)}`}
+        title={e.name}
         className={cn(
           "grid grid-cols-[3rem_minmax(0,1fr)_5.25rem] items-center gap-x-4 gap-y-1 px-5 py-3",
           "transition-colors duration-[140ms] hover:bg-surface-hover",
           "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[--focus-ring]",
-          "md:grid-cols-[3rem_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_5.25rem]",
+          "md:grid-cols-[3rem_minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1fr)_5.25rem]",
         )}
       >
         <span
@@ -1028,21 +899,13 @@ function EventRow({
         <span className="min-w-0">
           <span
             className={cn(
-              "line-clamp-2 text-[0.875rem] font-medium leading-snug md:line-clamp-1 md:block",
+              "block truncate text-[0.875rem] font-medium leading-snug",
               past ? "text-text-secondary" : "text-text",
             )}
-            title={e.name}
           >
-            {abbreviate(e.name)}
+            {matchup}
           </span>
-          {/* Phones drop the matchup column, so the matchup rides here instead,
-              with the time on its own line so neither gets cut. */}
-          <span className="t-caption block truncate md:hidden">{matchup}</span>
-          <span className="t-caption block truncate md:hidden">{when}</span>
-          <span className="t-caption hidden truncate md:block">
-            {e.category}
-            {when && ` · ${when}`}
-          </span>
+          <span className="t-caption block truncate">{detail}</span>
           {proximity && (
             <span className="block text-[0.75rem] font-medium text-brand-text">
               {proximity}
@@ -1050,13 +913,8 @@ function EventRow({
           )}
         </span>
 
-        <span className="hidden min-w-0 md:block">
-          <span className="block truncate text-[0.8125rem] text-text-secondary">
-            {matchup}
-          </span>
-          <span className="t-caption block truncate">
-            {e.venueName || "No venue"}
-          </span>
+        <span className="hidden min-w-0 truncate text-[0.8125rem] text-text-secondary md:block">
+          {e.venueName || "No venue set"}
         </span>
 
         <span className="hidden min-w-0 md:block">
@@ -1081,7 +939,7 @@ function EventRow({
         <span className="justify-self-end">
           {unclosed ? (
             <span className="inline-flex items-center rounded-sm bg-warning-subtle px-1.5 py-0.5 text-[0.6875rem] font-semibold text-warning-foreground">
-              Not closed
+              No result
             </span>
           ) : (
             <EventStatusBadge status={e.status} />
@@ -1094,7 +952,6 @@ function EventRow({
 
 function UpcomingEvents({
   events,
-  recent,
   total,
   todayIso,
   now,
@@ -1102,7 +959,6 @@ function UpcomingEvents({
   className,
 }: {
   events: any[];
-  recent: any[];
   total: number;
   todayIso: string;
   now: Date;
@@ -1148,72 +1004,13 @@ function UpcomingEvents({
         </div>
       )}
 
-      {recent.length > 0 && (
-        <>
-          <h3 className="border-t border-border-subtle bg-bg-subtle px-5 py-2 text-[0.75rem] font-semibold text-text-secondary">
-            Recently played
-          </h3>
-          <ul className="divide-y divide-border-subtle border-t border-border-subtle">
-            {recent.map((e) => (
-              <EventRow
-                key={e.id}
-                e={e}
-                todayIso={todayIso}
-                now={now}
-                abbreviate={abbreviate}
-                past
-              />
-            ))}
-          </ul>
-        </>
-      )}
     </Panel>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Quick actions and the queue.
+   What needs the office: requests to decide, and gaps before game day.
    ═══════════════════════════════════════════════════════════════════════ */
-
-const ACTIONS: { label: string; to: string; icon: LucideIcon }[] = [
-  { label: "Create event", to: "/admin/events?new=1", icon: CalendarPlus },
-  { label: "Build bracket", to: "/admin/bracketing", icon: Trophy },
-  { label: "CMO requirements", to: "/admin/requirements", icon: FileBadge },
-  {
-    label: "Registration codes",
-    to: "/admin/registration-codes",
-    icon: KeyRound,
-  },
-  { label: "Reports", to: "/admin/reports", icon: BarChart3 },
-  { label: "Tryout applicants", to: "/admin/tryouts", icon: UserPlus },
-];
-
-function QuickActions() {
-  return (
-    <Panel title="Quick actions" bodyClassName="pb-4">
-      <ul className="grid grid-cols-2 gap-2">
-        {ACTIONS.map(({ label, to, icon: Icon }) => (
-          <li key={label}>
-            <Link
-              to={to}
-              className={cn(
-                "flex min-h-10 items-center gap-2 rounded-md border border-border px-2.5 py-2 text-[0.8125rem] font-medium leading-tight text-text",
-                "transition-colors duration-[140ms] hover:border-border-strong hover:bg-surface-hover",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
-              )}
-            >
-              <Icon
-                className="size-4 shrink-0 text-text-muted"
-                aria-hidden="true"
-              />
-              <span>{label}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-}
 
 const TX_LABEL: Record<
   OfficeTransaction["type"],
@@ -1224,45 +1021,36 @@ const TX_LABEL: Record<
   protest: { label: "Appeal", icon: Flag },
 };
 
-function WaitingOnYou({
+function NeedsAttention({
   items,
   total,
   unstaffed,
   unclosed,
-  disabledAccounts,
-  attentionCount,
 }: {
   items: OfficeTransaction[];
   total: number;
   unstaffed: number;
   unclosed: number;
-  disabledAccounts: number;
-  attentionCount: number;
 }) {
   const alerts = [
     unstaffed > 0 && {
       icon: ClipboardCheck,
-      text: `${unstaffed} upcoming ${unstaffed === 1 ? "event has" : "events have"} no committee`,
+      text: `${unstaffed} upcoming ${unstaffed === 1 ? "event has" : "events have"} no committee assigned`,
       to: "/admin/events",
     },
     unclosed > 0 && {
       icon: AlertTriangle,
-      text: `${unclosed} past ${unclosed === 1 ? "game was" : "games were"} never closed`,
+      text: `${unclosed} past ${unclosed === 1 ? "game has" : "games have"} no final result`,
       to: "/admin/events",
-    },
-    disabledAccounts > 0 && {
-      icon: UserX,
-      text: `${disabledAccounts} disabled ${disabledAccounts === 1 ? "account" : "accounts"}`,
-      to: "/admin/users",
     },
   ].filter(Boolean) as { icon: LucideIcon; text: string; to: string }[];
 
   return (
     <Panel
-      title="Waiting on you"
+      title="Needs attention"
       description={
-        total + attentionCount
-          ? `${total} ${total === 1 ? "request" : "requests"} to decide${alerts.length ? ", plus setup gaps" : ""}`
+        total || alerts.length
+          ? `${total} ${total === 1 ? "request" : "requests"} to decide`
           : "Nothing needs a decision"
       }
       action={
@@ -1333,7 +1121,7 @@ function WaitingOnYou({
       ) : (
         alerts.length === 0 && (
           <p className="t-caption py-2">
-            New CMO submissions, tryout applications and protests land here for
+            New CMO submissions, tryout applications and appeals land here for
             a decision.
           </p>
         )
@@ -1354,6 +1142,8 @@ const AUDIT_NOUN: Record<string, { noun: string; icon: LucideIcon }> = {
   Requirement: { noun: "CMO requirement", icon: FileBadge },
   Bracket: { noun: "bracket", icon: Trophy },
   Announcement: { noun: "announcement", icon: Megaphone },
+  TeamMatch: { noun: "match result", icon: Trophy },
+  System: { noun: "system", icon: History },
 };
 
 function describe(log: AuditLogEntry, eventNames: Map<string, string>) {
@@ -1363,7 +1153,12 @@ function describe(log: AuditLogEntry, eventNames: Map<string, string>) {
   };
   const nv = (log.newValues ?? {}) as Record<string, any>;
   const ov = (log.oldValues ?? {}) as Record<string, any>;
+  const matchWinner =
+    log.auditableType === "TeamMatch" && typeof nv.winner === "string"
+      ? `${nv.winner} won`
+      : undefined;
   const subject: string | undefined =
+    matchWinner ||
     (typeof nv.name === "string" && nv.name) ||
     (typeof ov.name === "string" && ov.name) ||
     (log.auditableType === "Event"
@@ -1372,8 +1167,13 @@ function describe(log: AuditLogEntry, eventNames: Map<string, string>) {
 
   let verb: string;
   switch (log.event) {
+    case "demo_reset":
+      return { icon: kind.icon, verb: "reset the demo data", subject: undefined };
     case "created":
-      verb = `created ${kind.noun}`;
+      verb =
+        log.auditableType === "TeamMatch"
+          ? `recorded a ${typeof nv.sport === "string" ? nv.sport : "match"} result${matchWinner ? ":" : ""}`
+          : `created ${kind.noun}`;
       break;
     case "deleted":
       verb = `moved ${kind.noun} to trash`;
@@ -1424,8 +1224,8 @@ function RecentActivity({
     <Panel
       className={className}
       title="Recent activity"
-      description="Latest changes across the system"
-      action={<PanelLink to="/admin/trash">Audit trail</PanelLink>}
+      description="Latest changes, newest first"
+      action={<PanelLink to="/admin/trash">Audit log</PanelLink>}
     >
       {logs.length ? (
         <ol className="relative space-y-3.5 before:absolute before:top-2 before:bottom-2 before:left-[0.9375rem] before:w-px before:bg-border-subtle">
@@ -1472,107 +1272,6 @@ function RecentActivity({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Medal tally: a table, because the numbers are the content.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function MedalTally({
-  rows,
-  abbreviate,
-  className,
-}: {
-  rows: any[];
-  abbreviate: Abbr;
-  className?: string;
-}) {
-  const medals = rows
-    .map((r) => ({
-      name: String(r.department ?? ""),
-      gold: Number(r.gold ?? 0),
-      silver: Number(r.silver ?? 0),
-      bronze: Number(r.bronze ?? 0),
-    }))
-    .filter((r) => r.name && r.gold + r.silver + r.bronze > 0)
-    .sort(
-      (a, b) => b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze,
-    )
-    .slice(0, 7);
-
-  const head = (label: string, color: string) => (
-    <th
-      scope="col"
-      className="w-12 pb-2 pl-2 text-right font-medium sm:w-[4.5rem]"
-    >
-      <span className="inline-flex items-center gap-1.5">
-        <span
-          className="size-2 rounded-full"
-          style={{ background: color }}
-          aria-hidden="true"
-        />
-        <span className="hidden sm:inline">{label}</span>
-        <abbr title={label} className="no-underline sm:hidden">
-          {label[0]}
-        </abbr>
-      </span>
-    </th>
-  );
-
-  return (
-    <Panel
-      className={className}
-      title="Medal tally"
-      description="Podium finishes by college"
-      action={<PanelLink to="/leaderboard">Leaderboard</PanelLink>}
-    >
-      {medals.length ? (
-        <table className="w-full text-[0.8125rem]">
-          <thead className="t-caption">
-            <tr className="border-b border-border-subtle">
-              <th scope="col" className="pb-2 text-left font-medium">
-                College
-              </th>
-              {head("Gold", "#CB8B2E")}
-              {head("Silver", "#A9A19E")}
-              {head("Bronze", "#8A5A1E")}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-subtle">
-            {medals.map((m, i) => (
-              <tr key={m.name}>
-                <td className="max-w-0 py-2 pr-3">
-                  <span className="flex items-center gap-2">
-                    <span className="numeral w-4 shrink-0 text-right text-text-muted">
-                      {i + 1}
-                    </span>
-                    <span
-                      className="truncate font-medium text-text"
-                      title={m.name}
-                    >
-                      {shortDeptLabel(abbreviate, m.name, 26)}
-                    </span>
-                  </span>
-                </td>
-                <td className="numeral py-2 text-right text-text">{m.gold}</td>
-                <td className="numeral py-2 text-right text-text-secondary">
-                  {m.silver}
-                </td>
-                <td className="numeral py-2 text-right text-text-secondary">
-                  {m.bronze}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <PanelEmpty icon={Trophy} title="No medals awarded yet">
-          Medals count once a judged event is final or a bracket crowns its
-          podium.
-        </PanelEmpty>
-      )}
-    </Panel>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
    Loading: the same frame, so nothing jumps when data lands.
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1602,8 +1301,8 @@ function DashboardLoading() {
         <div className={cn(block, "h-80 lg:col-span-4")} />
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className={cn(block, "h-96 lg:col-span-8")} />
-        <div className={cn(block, "h-96 lg:col-span-4")} />
+        <div className={cn(block, "h-80 lg:col-span-7")} />
+        <div className={cn(block, "h-80 lg:col-span-5")} />
       </div>
     </ConsolePage>
   );

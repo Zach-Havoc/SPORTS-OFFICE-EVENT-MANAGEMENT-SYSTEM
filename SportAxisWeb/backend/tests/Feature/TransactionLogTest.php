@@ -31,7 +31,10 @@ class TransactionLogTest extends TestCase
 
         $this->assertSame(3, $res->json('total'));
         $this->assertSame(['protest', 'tryout_application', 'cmo_requirement'], array_column($res->json('data'), 'type'));
-        $this->assertSame(['open' => 2, 'closed' => 1], $res->json('counts'));
+        $this->assertSame([
+            'open' => 2, 'closed' => 1,
+            'byType' => ['cmo_requirement' => 1, 'tryout_application' => 1, 'protest' => 1],
+        ], $res->json('counts'));
         $this->assertStringStartsWith('REQ-', $res->json('data.2.reference'));
     }
 
