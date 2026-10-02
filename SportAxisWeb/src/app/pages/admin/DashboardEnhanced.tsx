@@ -378,8 +378,23 @@ export default function DashboardEnhanced() {
         />
       </div>
 
-      {/* Five panels, in the office's order: what is next and what needs a
-          decision, then the season's rhythm and the standings. */}
+      {/* Five panels. The two charts lead, right under the headline figures:
+          the season's rhythm and who is registered. Then what is next, beside
+          what needs a decision and the standings. */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <SeasonActivity
+          events={events}
+          today={today}
+          className="lg:col-span-8"
+        />
+        <AthletesByCollege
+          athletes={athleteUsers}
+          departments={departments}
+          abbreviate={abbreviate}
+          className="lg:col-span-4"
+        />
+      </div>
+
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
         <UpcomingEvents
           events={ahead.slice(0, 9)}
@@ -396,26 +411,12 @@ export default function DashboardEnhanced() {
             unstaffed={unstaffed.length}
             unclosed={unclosed}
           />
-          <AthletesByCollege
-            athletes={athleteUsers}
-            departments={departments}
+          <Standings
+            rows={leaderboard}
             abbreviate={abbreviate}
+            deptByName={deptByName}
           />
         </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <SeasonActivity
-          events={events}
-          today={today}
-          className="lg:col-span-7"
-        />
-        <Standings
-          rows={leaderboard}
-          abbreviate={abbreviate}
-          deptByName={deptByName}
-          className="lg:col-span-5"
-        />
       </div>
     </ConsolePage>
   );
@@ -542,7 +543,7 @@ function SeasonActivity({
             ))}
           </div>
           <div
-            className="chart-reveal h-60 w-full"
+            className="chart-reveal h-60 w-full lg:h-[22rem]"
             role="img"
             aria-label="Events per week: played, no result and scheduled"
           >
@@ -883,7 +884,7 @@ function Standings({
     .slice(0, 7);
 
   const medalHead = (label: string, color: string) => (
-    <th scope="col" className="w-8 pb-2 text-right font-medium sm:w-11">
+    <th scope="col" className="w-8 pb-2 text-right font-medium">
       <span className="inline-flex items-center gap-1">
         <span
           className="size-2 rounded-full"
@@ -917,7 +918,7 @@ function Standings({
               {medalHead("Silver", "#A9A19E")}
               {medalHead("Bronze", "#8A5A1E")}
               {usesPoints && (
-                <th scope="col" className="w-12 pb-2 text-right font-medium sm:w-14">
+                <th scope="col" className="w-12 pb-2 text-right font-medium">
                   Points
                 </th>
               )}
@@ -1318,8 +1319,8 @@ function DashboardLoading() {
         <div className={cn(block, "h-80 lg:col-span-4")} />
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className={cn(block, "h-80 lg:col-span-7")} />
-        <div className={cn(block, "h-80 lg:col-span-5")} />
+        <div className={cn(block, "h-80 lg:col-span-8")} />
+        <div className={cn(block, "h-80 lg:col-span-4")} />
       </div>
     </ConsolePage>
   );
