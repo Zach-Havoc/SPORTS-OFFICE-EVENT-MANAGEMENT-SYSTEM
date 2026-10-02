@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Area,
@@ -43,7 +43,6 @@ import { RefreshStatus } from "../../components/RefreshStatus";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
   ConsolePage,
-  EventStatusBadge,
   Panel,
   PanelEmpty,
   PanelLink,
@@ -379,8 +378,8 @@ export default function DashboardEnhanced() {
       </div>
 
       {/* Five panels. The two charts lead, right under the headline figures:
-          the season's rhythm and who is registered. Then what is next, beside
-          what needs a decision and the standings. */}
+          the season's rhythm and who is registered. Then the game day board,
+          beside what needs a decision and the standings. */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
         <SeasonActivity
           events={events}
@@ -396,10 +395,9 @@ export default function DashboardEnhanced() {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <UpcomingEvents
-          events={ahead.slice(0, 9)}
-          total={ahead.length}
-          todayIso={todayIso}
+        <GameDay
+          events={events}
+          today={today}
           now={now}
           abbreviate={abbreviate}
           className="lg:col-span-8"
@@ -979,194 +977,392 @@ function Standings({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Upcoming events: the running order, committee gaps flagged.
+   Game day: a day's games by venue, and what is next. An intramurals day is
+   dozens of games running side by side on courts and tables, so a flat
+   "upcoming" list showed only the first few of one time slot.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/** "in 2h 10m" / "started 40m ago" for a game today; null otherwise. */
-function untilStart(e: any, now: Date): string | null {
-  if (!e.startTime) return null;
-  const [h, m] = String(e.startTime).split(":").map(Number);
-  if (Number.isNaN(h)) return null;
-  const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    h,
-    m || 0,
-  );
-  const mins = Math.round((start.getTime() - now.getTime()) / 60000);
-  const span = (x: number) =>
-    x >= 60 ? `${Math.floor(x / 60)}h${x % 60 ? ` ${x % 60}m` : ""}` : `${x}m`;
-  if (mins > 0) return `starts in ${span(mins)}`;
-  if (e.status === "ongoing") return `started ${span(-mins)} ago`;
-  return null;
+type GameStatus = "final" | "live" | "overdue" | "scheduled";
+
+/** "Badminton Hall — Court 2" → ["Badminton Hall", "Court 2"]. */
+function splitVenue(v?: string | null): [string, string | null] {
+  const name = String(v ?? "").trim();
+  if (!name) return ["No venue set", null];
+  const i = name.indexOf(" — ");
+  return i > 0 ? [name.slice(0, i), name.slice(i + 3)] : [name, null];
 }
 
-function EventRow({
-  e,
-  todayIso,
-  now,
-  abbreviate,
-  past = false,
-}: {
-  e: any;
-  todayIso: string;
-  now: Date;
-  abbreviate: Abbr;
-  past?: boolean;
-}) {
-  const d = eventDate(e.schedule) as Date;
-  const isToday = e.schedule === todayIso;
-  const committee = (e.judges || [])[0]?.name as string | undefined;
-  const teams: string[] = e.departments || [];
-  // A past game still marked scheduled was never closed; say that, not "Scheduled".
-  const unclosed = past && e.status !== "completed";
-  const proximity = isToday && !past ? untilStart(e, now) : null;
-  // The event name repeats the sport, round and matchup; show each once.
-  const matchup =
-    teams.length === 2
-      ? `${shortDeptLabel(abbreviate, teams[0], 12)} vs ${shortDeptLabel(abbreviate, teams[1], 12)}`
-      : abbreviate(e.name);
-  const round = String(e.name ?? "").match(/\(([^)]+)\)/)?.[1];
-  const when = e.startTime ? fmtTime(e.startTime) : "";
-  const detail = [e.category, round, when].filter(Boolean).join(" · ");
+function minutesOf(t?: string | null): number | null {
+  if (!t) return null;
+  const [h, m] = String(t).split(":").map(Number);
+  return Number.isNaN(h) ? null : h * 60 + (m || 0);
+}
+
+function gameStatus(e: any, isToday: boolean, nowMin: number): GameStatus {
+  if (e.status === "completed") return "final";
+  // Ongoing covers both live scoring and a game scored on paper.
+  if (e.status === "ongoing") return "live";
+  const start = minutesOf(e.startTime);
+  if (isToday && start !== null && start <= nowMin) return "overdue";
+  return "scheduled";
+}
+
+const GAME_STATUS: Record<GameStatus, { label: string; color: string }> = {
+  final: { label: "Final", color: "var(--color-ink-400)" },
+  live: { label: "Under way", color: PLAYED },
+  overdue: { label: "Overdue", color: NOT_CLOSED },
+  scheduled: { label: "To play", color: SCHEDULED },
+};
+
+function StatusChip({ status }: { status: GameStatus }) {
+  if (status === "scheduled") return null;
+  const cls =
+    status === "live"
+      ? "bg-brand-subtle text-brand-text"
+      : status === "overdue"
+        ? "bg-warning-subtle text-warning-foreground"
+        : "bg-bg-subtle text-text-secondary";
   return (
-    <li>
-      <Link
-        to={`/admin/events?q=${encodeURIComponent(e.name)}`}
-        title={e.name}
-        className={cn(
-          "grid grid-cols-[3rem_minmax(0,1fr)_5.25rem] items-center gap-x-4 gap-y-1 px-5 py-3",
-          "transition-colors duration-[140ms] hover:bg-surface-hover",
-          "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[--focus-ring]",
-          "md:grid-cols-[3rem_minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1fr)_5.25rem]",
-        )}
-      >
-        <span
-          className={cn(
-            "flex flex-col items-center rounded-md py-1 leading-none",
-            isToday ? "bg-brand-subtle text-brand-text" : "bg-bg-subtle",
-            past ? "text-text-muted" : !isToday && "text-text",
-          )}
-        >
-          <span className="text-[0.625rem] font-semibold uppercase">
-            {isToday
-              ? "Today"
-              : d.toLocaleDateString(undefined, { month: "short" })}
-          </span>
-          <span className="numeral text-base">{d.getDate()}</span>
-        </span>
-
-        <span className="min-w-0">
-          <span
-            className={cn(
-              "block truncate text-[0.875rem] font-medium leading-snug",
-              past ? "text-text-secondary" : "text-text",
-            )}
-          >
-            {matchup}
-          </span>
-          <span className="t-caption block truncate">{detail}</span>
-          {proximity && (
-            <span className="block text-[0.75rem] font-medium text-brand-text">
-              {proximity}
-            </span>
-          )}
-        </span>
-
-        <span className="hidden min-w-0 truncate text-[0.8125rem] text-text-secondary md:block">
-          {e.venueName || "No venue set"}
-        </span>
-
-        <span className="hidden min-w-0 md:block">
-          {committee ? (
-            <span className="flex items-center gap-1.5 truncate text-[0.8125rem] text-text-secondary">
-              <Gavel
-                className="size-3.5 shrink-0 text-text-muted"
-                aria-hidden="true"
-              />
-              <span className="truncate">{committee}</span>
-            </span>
-          ) : past ? (
-            <span className="t-caption">No committee</span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-warning-foreground">
-              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-              No committee
-            </span>
-          )}
-        </span>
-
-        <span className="justify-self-end">
-          {unclosed ? (
-            <span className="inline-flex items-center rounded-sm bg-warning-subtle px-1.5 py-0.5 text-[0.6875rem] font-semibold text-warning-foreground">
-              No result
-            </span>
-          ) : (
-            <EventStatusBadge status={e.status} />
-          )}
-        </span>
-      </Link>
-    </li>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[0.6875rem] font-semibold whitespace-nowrap",
+        cls,
+      )}
+    >
+      {status === "live" && (
+        <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
+      )}
+      {GAME_STATUS[status].label}
+    </span>
   );
 }
 
-function UpcomingEvents({
+function GameDay({
   events,
-  total,
-  todayIso,
+  today,
   now,
   abbreviate,
   className,
 }: {
   events: any[];
-  total: number;
-  todayIso: string;
+  today: Date;
   now: Date;
   abbreviate: Abbr;
   className?: string;
 }) {
+  const todayIso = isoDay(today);
+
+  // Today, then each of the next six days that has games.
+  const days = useMemo(() => {
+    const counts = new Map<string, number>();
+    events.forEach((e) => {
+      const d = String(e.schedule ?? "").slice(0, 10);
+      if (d) counts.set(d, (counts.get(d) ?? 0) + 1);
+    });
+    const out: { iso: string; date: Date; count: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today.getTime() + i * DAY);
+      const iso = isoDay(date);
+      const count = counts.get(iso) ?? 0;
+      if (i === 0 || count > 0) out.push({ iso, date, count });
+    }
+    return out;
+  }, [events, today]);
+
+  const [picked, setPicked] = useState<string | null>(null);
+  const firstWithGames = days.find((d) => d.count > 0)?.iso ?? todayIso;
+  const dayIso = picked ?? firstWithGames;
+  const isToday = dayIso === todayIso;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const games = useMemo(
+    () =>
+      events
+        .filter((e) => String(e.schedule ?? "").slice(0, 10) === dayIso)
+        .map((e) => {
+          const [venue, spot] = splitVenue(e.venueName);
+          return {
+            e,
+            venue,
+            spot,
+            start: minutesOf(e.startTime),
+            status: gameStatus(e, isToday, nowMin),
+          };
+        })
+        .sort(
+          (a, b) =>
+            (a.start ?? 9999) - (b.start ?? 9999) ||
+            String(a.e.venueName ?? "").localeCompare(String(b.e.venueName ?? "")),
+        ),
+    [events, dayIso, isToday, nowMin],
+  );
+
+  const venues = useMemo(() => {
+    const by = new Map<
+      string,
+      { name: string; spots: Set<string>; counts: Record<GameStatus, number>; next: number | null }
+    >();
+    games.forEach((g) => {
+      if (!by.has(g.venue))
+        by.set(g.venue, {
+          name: g.venue,
+          spots: new Set(),
+          counts: { final: 0, live: 0, overdue: 0, scheduled: 0 },
+          next: null,
+        });
+      const v = by.get(g.venue)!;
+      if (g.spot) v.spots.add(g.spot);
+      v.counts[g.status]++;
+      if (g.status !== "final" && g.start !== null && (v.next === null || g.start < v.next))
+        v.next = g.start;
+    });
+    return [...by.values()].sort(
+      (a, b) => total(b.counts) - total(a.counts) || a.name.localeCompare(b.name),
+    );
+  }, [games]);
+
+  // The next time slots still to finish, up to eight games.
+  const nextUp = useMemo(() => {
+    const open = games.filter((g) => g.status !== "final");
+    const perSlot = new Map<number | null, number>();
+    open.forEach((g) => perSlot.set(g.start, (perSlot.get(g.start) ?? 0) + 1));
+    const slots: { start: number | null; size: number; games: typeof open }[] = [];
+    let shown = 0;
+    for (const g of open) {
+      if (shown >= 8) break;
+      const last = slots[slots.length - 1];
+      if (last && last.start === g.start) last.games.push(g);
+      else {
+        if (slots.length === 2) break;
+        slots.push({ start: g.start, size: perSlot.get(g.start) ?? 1, games: [g] });
+      }
+      shown++;
+    }
+    return { slots, hidden: open.length - shown };
+  }, [games]);
+
+  const sum = (k: GameStatus) => games.filter((g) => g.status === k).length;
+  const noCommittee = games.filter(
+    (g) => g.status !== "final" && (g.e.judges || []).length === 0,
+  ).length;
+  const starts = games.map((g) => g.start).filter((x): x is number => x !== null);
+  const clock = (m: number) =>
+    fmtTime(`${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`);
+
+  const summary = games.length
+    ? [
+        `${games.length} ${games.length === 1 ? "game" : "games"}`,
+        `${venues.length} ${venues.length === 1 ? "venue" : "venues"}`,
+        starts.length
+          ? `${clock(Math.min(...starts))} – ${clock(Math.max(...starts))}`
+          : null,
+        sum("final") ? `${sum("final")} final` : null,
+        sum("live") ? `${sum("live")} under way` : null,
+        sum("overdue") ? `${sum("overdue")} overdue` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : isToday
+      ? "No games today"
+      : "No games this day";
+
+  const dayLabel = (d: { iso: string; date: Date }) =>
+    d.iso === todayIso
+      ? "Today"
+      : d.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
+
   return (
     <Panel
       className={className}
-      title="Upcoming events"
-      description={
-        total
-          ? `${total} still to play, soonest first`
-          : "Nothing scheduled ahead"
-      }
+      title="Game day"
+      description={summary}
       action={<PanelLink to="/admin/events">All events</PanelLink>}
       bodyClassName="px-0 pb-2"
     >
-      {events.length ? (
-        <ul className="divide-y divide-border-subtle border-t border-border-subtle">
-          {events.map((e) => (
-            <EventRow
-              key={e.id}
-              e={e}
-              todayIso={todayIso}
-              now={now}
-              abbreviate={abbreviate}
-            />
-          ))}
-        </ul>
-      ) : (
-        <div className="px-5 pb-3">
-          <PanelEmpty
-            icon={CalendarDays}
-            title="The calendar ahead is empty"
-            action={
-              <PanelLink to="/admin/events?new=1">Schedule an event</PanelLink>
-            }
-          >
-            Events you create, or brackets you publish, show here in the order
-            they will be played.
-          </PanelEmpty>
+      {days.length > 1 && (
+        <div
+          className="flex gap-1.5 overflow-x-auto px-5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Day"
+        >
+          {days.map((d) => {
+            const on = d.iso === dayIso;
+            return (
+              <button
+                key={d.iso}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setPicked(d.iso)}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[0.8125rem] font-medium transition-colors duration-[140ms]",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
+                  on
+                    ? "border-text bg-text text-surface"
+                    : "border-border text-text-secondary hover:bg-surface-hover",
+                )}
+              >
+                {dayLabel(d)}
+                <span className={cn("numeral text-[0.75rem]", on ? "opacity-80" : "text-text-muted")}>
+                  {d.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
+      {games.length === 0 ? (
+        <div className="px-5 pb-3">
+          <PanelEmpty
+            icon={CalendarDays}
+            title={isToday ? "No games today" : "No games this day"}
+            action={<PanelLink to="/admin/events?new=1">Schedule an event</PanelLink>}
+          >
+            Games you schedule, or brackets you publish, show here by venue.
+          </PanelEmpty>
+        </div>
+      ) : (
+        <>
+          <h3 className="t-overline border-t border-border-subtle px-5 pt-3 pb-1.5">By venue</h3>
+          <ul className="px-5">
+            {venues.map((v) => {
+              const n = total(v.counts);
+              const done = v.counts.final;
+              return (
+                <li key={v.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[0.875rem] font-medium text-text" title={v.name}>
+                      {v.name}
+                      {v.spots.size > 1 && (
+                        <span className="t-caption ml-1.5">
+                          {v.spots.size} {/table/i.test([...v.spots][0]) ? "tables" : /court/i.test([...v.spots][0]) ? "courts" : "areas"}
+                        </span>
+                      )}
+                    </p>
+                    <div
+                      className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-bg-subtle"
+                      role="img"
+                      aria-label={`${done} of ${n} final at ${v.name}`}
+                    >
+                      {(["final", "live", "overdue", "scheduled"] as const).map((k) =>
+                        v.counts[k] ? (
+                          <span
+                            key={k}
+                            className="h-full"
+                            style={{
+                              width: `${(v.counts[k] / n) * 100}%`,
+                              background: GAME_STATUS[k].color,
+                              opacity: k === "scheduled" ? 0.35 : 1,
+                            }}
+                          />
+                        ) : null,
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="numeral text-[0.875rem] text-text">
+                      {done}
+                      <span className="text-text-muted">/{n}</span>
+                    </p>
+                    <p className="t-caption whitespace-nowrap">
+                      {v.next !== null ? `next ${clock(v.next)}` : "all final"}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {nextUp.slots.length > 0 && (
+            <>
+              <h3 className="t-overline mt-2 border-t border-border-subtle px-5 pt-3 pb-1">Next up</h3>
+              {nextUp.slots.map((slot) => (
+                <div key={String(slot.start)}>
+                  <p className="px-5 pt-2 pb-1 text-[0.75rem] font-semibold text-text-secondary">
+                    {slot.start !== null ? clock(slot.start) : "Time not set"}
+                    <span className="t-caption ml-1.5 font-normal">
+                      {slot.size} {slot.size === 1 ? "game" : "games"}
+                      {slot.size > slot.games.length && ` · showing ${slot.games.length}`}
+                    </span>
+                  </p>
+                  <ul className="divide-y divide-border-subtle">
+                    {slot.games.map(({ e, spot, venue, status }) => {
+                      const teams: string[] = e.departments || [];
+                      const matchup =
+                        teams.length === 2
+                          ? `${shortDeptLabel(abbreviate, teams[0], 12)} vs ${shortDeptLabel(abbreviate, teams[1], 12)}`
+                          : teams.length > 2
+                            ? `${teams.length} colleges`
+                            : "Teams to be decided";
+                      const round = String(e.name ?? "").match(/\(([^)]+)\)/)?.[1];
+                      const committee = (e.judges || [])[0]?.name as string | undefined;
+                      return (
+                        <li key={e.id}>
+                          <Link
+                            to={`/admin/events?q=${encodeURIComponent(e.name)}`}
+                            title={e.name}
+                            className={cn(
+                              "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-5 py-2",
+                              "md:grid-cols-[6.5rem_minmax(0,1fr)_minmax(0,9rem)_auto]",
+                              "transition-colors duration-[140ms] hover:bg-surface-hover",
+                              "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[--focus-ring]",
+                            )}
+                          >
+                            <span className="t-caption hidden truncate md:block">{spot ?? venue}</span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-[0.875rem] font-medium text-text">{matchup}</span>
+                              <span className="t-caption block truncate">
+                                {[e.category, round].filter(Boolean).join(" · ")}
+                                <span className="md:hidden"> · {spot ?? venue}</span>
+                              </span>
+                            </span>
+                            <span className="hidden min-w-0 md:block">
+                              {committee ? (
+                                <span className="flex items-center gap-1.5 truncate text-[0.8125rem] text-text-secondary">
+                                  <Gavel className="size-3.5 shrink-0 text-text-muted" aria-hidden="true" />
+                                  <span className="truncate">{committee}</span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-warning-foreground">
+                                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+                                  No committee
+                                </span>
+                              )}
+                            </span>
+                            <span className="justify-self-end">
+                              <StatusChip status={status} />
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+              {nextUp.hidden > 0 && (
+                <p className="px-5 pt-2 pb-1">
+                  <PanelLink to="/admin/events">
+                    {nextUp.hidden} more {isToday ? "today" : "that day"}
+                  </PanelLink>
+                </p>
+              )}
+            </>
+          )}
+          {noCommittee > 0 && (
+            <p className="mx-5 mt-2 flex items-center gap-1.5 rounded-md bg-warning-subtle px-2.5 py-1.5 text-[0.8125rem] font-medium text-warning-foreground">
+              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+              {noCommittee} {noCommittee === 1 ? "game has" : "games have"} no committee assigned
+            </p>
+          )}
+        </>
+      )}
     </Panel>
   );
+}
+
+function total(c: Record<GameStatus, number>) {
+  return c.final + c.live + c.overdue + c.scheduled;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
