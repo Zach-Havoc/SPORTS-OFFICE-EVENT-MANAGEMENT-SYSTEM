@@ -9,6 +9,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  LabelList,
 } from "recharts";
 import {
   AlertTriangle,
@@ -18,19 +19,15 @@ import {
   FileBadge,
   Flag,
   Gavel,
-  History,
   Inbox,
-  Megaphone,
   Radio,
   Trophy,
-  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
 import {
-  useAuditLogs,
   useCurrentSeason,
   useDepartments,
   useEvents,
@@ -38,7 +35,7 @@ import {
   useTransactions,
   useUsers,
 } from "../../hooks/api";
-import type { AuditLogEntry, OfficeTransaction } from "../../services/api";
+import type { OfficeTransaction } from "../../services/api";
 import { useDeptAbbreviator, shortDeptLabel } from "../../utils/departments";
 import { RefreshStatus } from "../../components/RefreshStatus";
 import { Skeleton } from "../../components/ui/skeleton";
@@ -60,6 +57,12 @@ const PLAYED = "#D02525";
 const SCHEDULED = "#0092A0";
 /* Past games never closed. Amber, validated as the middle of the three. */
 const NOT_CLOSED = "#C98A1C";
+/* Athletes by gender. Steel and pine: clear of the red / teal / amber that
+   mean played / scheduled / no result above, and apart in hue for
+   colour-vision deficiency (blue against green, not blue against purple). */
+const MEN = "#436590";
+const WOMEN = "#497F5D";
+const UNSET = "#A9A19E";
 
 const DAY = 86_400_000;
 
@@ -115,7 +118,6 @@ export default function DashboardEnhanced() {
   const usersQuery = useUsers({});
   const seasonQuery = useCurrentSeason();
   const openQuery = useTransactions({ status: "open", perPage: 100 });
-  const auditQuery = useAuditLogs({ limit: 5 });
 
   const queries = [
     eventsQuery,
@@ -130,7 +132,6 @@ export default function DashboardEnhanced() {
   const users: any[] = usersQuery.data ?? [];
   const openItems: OfficeTransaction[] = openQuery.data?.data ?? [];
   const openTotal = openQuery.data?.counts.open ?? 0;
-  const auditLogs: AuditLogEntry[] = auditQuery.data?.logs ?? [];
 
   const loading = queries.some((q) => q.isLoading);
   const fetching = queries.some((q) => q.isFetching) && !loading;
@@ -386,9 +387,9 @@ export default function DashboardEnhanced() {
             unstaffed={unstaffed.length}
             unclosed={unclosed}
           />
-          <RecentActivity
-            logs={auditLogs}
-            events={events}
+          <AthletesByCollege
+            athletes={athleteUsers}
+            departments={departments}
             abbreviate={abbreviate}
           />
         </div>
@@ -657,6 +658,198 @@ function SeasonActivity({
         >
           Each week's played and scheduled games appear here once events are
           created.
+        </PanelEmpty>
+      )}
+    </Panel>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Athletes by college: registered athlete accounts, men and women.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function AthletesByCollege({
+  athletes,
+  departments,
+  abbreviate,
+  className,
+}: {
+  athletes: any[];
+  departments: any[];
+  abbreviate: Abbr;
+  className?: string;
+}) {
+  const rows = useMemo(() => {
+    const by = new Map<
+      string,
+      { name: string; label: string; men: number; women: number; unset: number }
+    >();
+    const row = (name: string) => {
+      if (!by.has(name))
+        by.set(name, {
+          name,
+          label: shortDeptLabel(abbreviate, name, 12),
+          men: 0,
+          women: 0,
+          unset: 0,
+        });
+      return by.get(name)!;
+    };
+    // Every college gets a bar, so one with no athletes shows as zero
+    // instead of going missing.
+    departments.forEach((d) => d?.name && row(d.name));
+    athletes.forEach((a) => {
+      const r = row(a.department || "No college");
+      const g = String(a.gender ?? "").toLowerCase();
+      if (g === "male") r.men++;
+      else if (g === "female") r.women++;
+      else r.unset++;
+    });
+    return [...by.values()]
+      .map((r) => ({ ...r, total: r.men + r.women + r.unset }))
+      .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+  }, [athletes, departments, abbreviate]);
+
+  const total = athletes.length;
+  const series = [
+    { key: "men" as const, label: "Men", color: MEN },
+    { key: "women" as const, label: "Women", color: WOMEN },
+    ...(rows.some((r) => r.unset > 0)
+      ? [{ key: "unset" as const, label: "Not stated", color: UNSET }]
+      : []),
+  ];
+
+  return (
+    <Panel
+      className={className}
+      title="Athletes by college"
+      description={`${total.toLocaleString()} registered athlete ${total === 1 ? "account" : "accounts"}`}
+      action={<PanelLink to="/admin/users">Users</PanelLink>}
+    >
+      {total ? (
+        <>
+          <div
+            className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary"
+            aria-hidden="true"
+          >
+            {series.map((x) => (
+              <span key={x.key} className="flex items-center gap-1.5">
+                <span
+                  className="size-2.5 rounded-[3px]"
+                  style={{ background: x.color }}
+                />
+                {x.label}
+              </span>
+            ))}
+          </div>
+          <div
+            className="w-full"
+            style={{ height: Math.max(160, rows.length * 34 + 16) }}
+            role="img"
+            aria-label="Registered athletes per college, men and women"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={rows}
+                layout="vertical"
+                margin={{ top: 0, right: 36, bottom: 0, left: 0 }}
+                barCategoryGap="22%"
+              >
+                <XAxis type="number" hide allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  width={76}
+                  tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--surface-hover)" }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const r = payload[0].payload as (typeof rows)[number];
+                    return (
+                      <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-[var(--shadow-3)]">
+                        <p className="mb-1 font-semibold text-text">{r.name}</p>
+                        {series.map((x) => (
+                          <p
+                            key={x.key}
+                            className="flex items-center gap-2 text-text-secondary"
+                          >
+                            <span
+                              className="size-2 rounded-[2px]"
+                              style={{ background: x.color }}
+                            />
+                            {x.label}
+                            <span className="ml-auto pl-4 font-semibold tabular-nums text-text">
+                              {r[x.key]}
+                            </span>
+                          </p>
+                        ))}
+                        <p className="mt-1 flex border-t border-border-subtle pt-1 font-semibold text-text">
+                          Total
+                          <span className="ml-auto pl-4 tabular-nums">{r.total}</span>
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                {series.map((x, i) => (
+                  <Bar
+                    key={x.key}
+                    dataKey={x.key}
+                    stackId="a"
+                    fill={x.color}
+                    isAnimationActive={false}
+                    stroke="var(--surface)"
+                    strokeWidth={1}
+                    radius={i === series.length - 1 ? [0, 4, 4, 0] : undefined}
+                  >
+                    {i === series.length - 1 && (
+                      <LabelList
+                        dataKey="total"
+                        position="right"
+                        className="numeral"
+                        style={{ fill: "var(--text)", fontSize: 12 }}
+                      />
+                    )}
+                  </Bar>
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="sr-only">
+            <table>
+              <caption>Registered athletes per college</caption>
+              <thead>
+                <tr>
+                  <th scope="col">College</th>
+                  {series.map((x) => (
+                    <th key={x.key} scope="col">
+                      {x.label}
+                    </th>
+                  ))}
+                  <th scope="col">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.name}>
+                    <th scope="row">{r.name}</th>
+                    {series.map((x) => (
+                      <td key={x.key}>{r[x.key]}</td>
+                    ))}
+                    <td>{r.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <PanelEmpty icon={Users} title="No athletes registered yet">
+          Each college's count shows here as students sign up as athletes.
         </PanelEmpty>
       )}
     </Panel>
@@ -1118,147 +1311,6 @@ function NeedsAttention({
             New CMO submissions and appeals land here for a decision.
           </p>
         )
-      )}
-    </Panel>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   Recent activity, from the audit trail.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-const AUDIT_NOUN: Record<string, { noun: string; icon: LucideIcon }> = {
-  Event: { noun: "event", icon: CalendarDays },
-  Score: { noun: "score", icon: ClipboardCheck },
-  User: { noun: "account", icon: UserRound },
-  Athlete: { noun: "athlete", icon: Users },
-  Requirement: { noun: "CMO requirement", icon: FileBadge },
-  Bracket: { noun: "bracket", icon: Trophy },
-  Announcement: { noun: "announcement", icon: Megaphone },
-  TeamMatch: { noun: "match result", icon: Trophy },
-  System: { noun: "system", icon: History },
-};
-
-function describe(log: AuditLogEntry, eventNames: Map<string, string>) {
-  const kind = AUDIT_NOUN[log.auditableType] ?? {
-    noun: log.auditableType.toLowerCase(),
-    icon: History,
-  };
-  const nv = (log.newValues ?? {}) as Record<string, any>;
-  const ov = (log.oldValues ?? {}) as Record<string, any>;
-  const matchWinner =
-    log.auditableType === "TeamMatch" && typeof nv.winner === "string"
-      ? `${nv.winner} won`
-      : undefined;
-  const subject: string | undefined =
-    matchWinner ||
-    (typeof nv.name === "string" && nv.name) ||
-    (typeof ov.name === "string" && ov.name) ||
-    (log.auditableType === "Event"
-      ? eventNames.get(log.auditableId)
-      : undefined);
-
-  let verb: string;
-  switch (log.event) {
-    case "demo_reset":
-      return { icon: kind.icon, verb: "reset the demo data", subject: undefined };
-    case "created":
-      verb =
-        log.auditableType === "TeamMatch"
-          ? `recorded a ${typeof nv.sport === "string" ? nv.sport : "match"} result${matchWinner ? ":" : ""}`
-          : `created ${kind.noun}`;
-      break;
-    case "deleted":
-      verb = `moved ${kind.noun} to trash`;
-      break;
-    case "restored":
-      verb = `restored ${kind.noun}`;
-      break;
-    case "force_deleted":
-      verb = `permanently deleted ${kind.noun}`;
-      break;
-    default: {
-      const keys = Object.keys(nv).filter((k) => k !== "_redacted");
-      if (keys.includes("status") && typeof nv.status === "string") {
-        const s =
-          nv.status === "ongoing"
-            ? "live"
-            : nv.status === "completed"
-              ? "final"
-              : nv.status;
-        verb = `marked ${kind.noun} ${s}`;
-      } else if (keys.includes("judges")) {
-        verb = `assigned the committee for ${kind.noun}`;
-      } else {
-        verb = `updated ${kind.noun}`;
-      }
-    }
-  }
-  return { icon: kind.icon, verb, subject };
-}
-
-function RecentActivity({
-  logs,
-  events,
-  abbreviate,
-  className,
-}: {
-  logs: AuditLogEntry[];
-  events: any[];
-  abbreviate: Abbr;
-  className?: string;
-}) {
-  const eventNames = useMemo(
-    () => new Map(events.map((e) => [e.id as string, e.name as string])),
-    [events],
-  );
-
-  return (
-    <Panel
-      className={className}
-      title="Recent activity"
-      description="Latest changes, newest first"
-      action={<PanelLink to="/admin/trash">Audit log</PanelLink>}
-    >
-      {logs.length ? (
-        <ol className="relative space-y-3.5 before:absolute before:top-2 before:bottom-2 before:left-[0.9375rem] before:w-px before:bg-border-subtle">
-          {logs.map((log) => {
-            const { icon: Icon, verb, subject } = describe(log, eventNames);
-            return (
-              <li key={log.id} className="relative flex items-start gap-3">
-                <span className="z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-text-muted">
-                  <Icon className="size-3.5" aria-hidden="true" />
-                </span>
-                <p className="min-w-0 flex-1 pt-1.5 text-[0.8125rem] leading-snug text-text-secondary">
-                  <span className="font-medium text-text">
-                    {log.userName ?? "System"}
-                  </span>{" "}
-                  {verb}
-                  {subject && (
-                    <>
-                      {" "}
-                      <span className="font-medium text-text">
-                        {abbreviate(subject)}
-                      </span>
-                    </>
-                  )}
-                </p>
-                <time
-                  className="t-caption shrink-0 pt-1.5"
-                  dateTime={log.createdAt}
-                  title={new Date(log.createdAt).toLocaleString()}
-                >
-                  {timeAgo(log.createdAt)}
-                </time>
-              </li>
-            );
-          })}
-        </ol>
-      ) : (
-        <PanelEmpty icon={History} title="No recorded changes yet">
-          Scores, events, accounts and requirements are logged here as people
-          work.
-        </PanelEmpty>
       )}
     </Panel>
   );
