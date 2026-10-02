@@ -1,15 +1,17 @@
 import { useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
-  ReferenceArea,
+  Cell,
+  Pie,
+  PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  LabelList,
 } from "recharts";
 import {
   AlertTriangle,
@@ -60,9 +62,16 @@ const NOT_CLOSED = "#C98A1C";
 /* Athletes by gender. Steel and pine: clear of the red / teal / amber that
    mean played / scheduled / no result above, and apart in hue for
    colour-vision deficiency (blue against green, not blue against purple). */
-const MEN = "#436590";
-const WOMEN = "#497F5D";
-const UNSET = "#A9A19E";
+/* One colour per college on the donut: the shared chart palette, plus slate. */
+const COLLEGE_COLORS = [
+  "#436590",
+  "#0092A0",
+  "#CB8B2E",
+  "#834765",
+  "#497F5D",
+  "#D02525",
+  "#6B7A8C",
+];
 
 const DAY = 86_400_000;
 
@@ -533,28 +542,39 @@ function SeasonActivity({
             ))}
           </div>
           <div
-            className="h-60 w-full"
+            className="chart-reveal h-60 w-full"
             role="img"
             aria-label="Events per week: played, no result and scheduled"
           >
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
+              <AreaChart
                 data={data}
-                margin={{ top: 18, right: 4, bottom: 0, left: -8 }}
-                barCategoryGap="28%"
+                margin={{ top: 18, right: 8, bottom: 0, left: -8 }}
               >
+                <defs>
+                  {series.map((x) => (
+                    <linearGradient
+                      key={x.key}
+                      id={`season-${x.key}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor={x.color} stopOpacity={0.55} />
+                      <stop offset="100%" stopColor={x.color} stopOpacity={0.12} />
+                    </linearGradient>
+                  ))}
+                </defs>
                 <CartesianGrid vertical={false} stroke="var(--border-subtle)" />
                 {thisWeekLabel && (
-                  <ReferenceArea
-                    x1={thisWeekLabel}
-                    x2={thisWeekLabel}
-                    fill="var(--surface-sunken)"
-                    fillOpacity={1}
-                    ifOverflow="extendDomain"
+                  <ReferenceLine
+                    x={thisWeekLabel}
+                    stroke="var(--text-muted)"
+                    strokeDasharray="3 3"
                     label={{
                       value: "This week",
-                      position: "insideTop",
-                      offset: -14,
+                      position: "top",
                       fill: "var(--text-secondary)",
                       fontSize: 11,
                       fontWeight: 600,
@@ -577,7 +597,7 @@ function SeasonActivity({
                   width={44}
                 />
                 <Tooltip
-                  cursor={{ fill: "var(--surface-hover)" }}
+                  cursor={{ stroke: "var(--border-strong)" }}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const b = payload[0].payload as (typeof data)[number];
@@ -605,20 +625,20 @@ function SeasonActivity({
                     );
                   }}
                 />
-                {series.map((x, i) => (
-                  <Bar
+                {series.map((x) => (
+                  <Area
                     key={x.key}
+                    type="monotone"
                     dataKey={x.key}
                     stackId="w"
-                    fill={x.color}
-                    maxBarSize={24}
+                    stroke={x.color}
+                    strokeWidth={2}
+                    fill={`url(#season-${x.key})`}
                     isAnimationActive={false}
-                    radius={i === series.length - 1 ? [4, 4, 0, 0] : undefined}
-                    stroke="var(--surface)"
-                    strokeWidth={1}
+                    activeDot={{ r: 3.5, strokeWidth: 0 }}
                   />
                 ))}
-              </BarChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
           {/* The wrapper carries sr-only: a table ignores the 1px width trick and widens the page. */}
@@ -682,7 +702,7 @@ function AthletesByCollege({
   const rows = useMemo(() => {
     const by = new Map<
       string,
-      { name: string; label: string; men: number; women: number; unset: number }
+      { name: string; label: string; men: number; women: number; total: number }
     >();
     const row = (name: string) => {
       if (!by.has(name))
@@ -691,11 +711,11 @@ function AthletesByCollege({
           label: shortDeptLabel(abbreviate, name, 12),
           men: 0,
           women: 0,
-          unset: 0,
+          total: 0,
         });
       return by.get(name)!;
     };
-    // Every college gets a bar, so one with no athletes shows as zero
+    // Every college is listed, so one with no athletes shows as zero
     // instead of going missing.
     departments.forEach((d) => d?.name && row(d.name));
     athletes.forEach((a) => {
@@ -703,21 +723,15 @@ function AthletesByCollege({
       const g = String(a.gender ?? "").toLowerCase();
       if (g === "male") r.men++;
       else if (g === "female") r.women++;
-      else r.unset++;
+      r.total++;
     });
-    return [...by.values()]
-      .map((r) => ({ ...r, total: r.men + r.women + r.unset }))
-      .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+    return [...by.values()].sort(
+      (a, b) => b.total - a.total || a.label.localeCompare(b.label),
+    );
   }, [athletes, departments, abbreviate]);
 
   const total = athletes.length;
-  const series = [
-    { key: "men" as const, label: "Men", color: MEN },
-    { key: "women" as const, label: "Women", color: WOMEN },
-    ...(rows.some((r) => r.unset > 0)
-      ? [{ key: "unset" as const, label: "Not stated", color: UNSET }]
-      : []),
-  ];
+  const color = (i: number) => COLLEGE_COLORS[i % COLLEGE_COLORS.length];
 
   return (
     <Panel
@@ -729,123 +743,81 @@ function AthletesByCollege({
       {total ? (
         <>
           <div
-            className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary"
-            aria-hidden="true"
-          >
-            {series.map((x) => (
-              <span key={x.key} className="flex items-center gap-1.5">
-                <span
-                  className="size-2.5 rounded-[3px]"
-                  style={{ background: x.color }}
-                />
-                {x.label}
-              </span>
-            ))}
-          </div>
-          <div
-            className="w-full"
-            style={{ height: Math.max(160, rows.length * 34 + 16) }}
+            className="chart-sweep relative mx-auto size-44"
             role="img"
-            aria-label="Registered athletes per college, men and women"
+            aria-label="Registered athletes per college"
           >
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={rows}
-                layout="vertical"
-                margin={{ top: 0, right: 36, bottom: 0, left: 0 }}
-                barCategoryGap="22%"
-              >
-                <XAxis type="number" hide allowDecimals={false} />
-                <YAxis
-                  type="category"
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  width={76}
-                  tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
-                />
+              <PieChart>
+                <Pie
+                  data={rows.filter((r) => r.total > 0)}
+                  dataKey="total"
+                  nameKey="label"
+                  innerRadius="68%"
+                  outerRadius="100%"
+                  paddingAngle={2}
+                  cornerRadius={3}
+                  startAngle={90}
+                  endAngle={-270}
+                  stroke="var(--surface)"
+                  strokeWidth={1}
+                  isAnimationActive={false}
+                >
+                  {rows
+                    .filter((r) => r.total > 0)
+                    .map((r) => (
+                      <Cell key={r.name} fill={color(rows.indexOf(r))} />
+                    ))}
+                </Pie>
                 <Tooltip
-                  cursor={{ fill: "var(--surface-hover)" }}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const r = payload[0].payload as (typeof rows)[number];
                     return (
                       <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-[var(--shadow-3)]">
-                        <p className="mb-1 font-semibold text-text">{r.name}</p>
-                        {series.map((x) => (
-                          <p
-                            key={x.key}
-                            className="flex items-center gap-2 text-text-secondary"
-                          >
-                            <span
-                              className="size-2 rounded-[2px]"
-                              style={{ background: x.color }}
-                            />
-                            {x.label}
-                            <span className="ml-auto pl-4 font-semibold tabular-nums text-text">
-                              {r[x.key]}
-                            </span>
-                          </p>
-                        ))}
-                        <p className="mt-1 flex border-t border-border-subtle pt-1 font-semibold text-text">
-                          Total
-                          <span className="ml-auto pl-4 tabular-nums">{r.total}</span>
+                        <p className="font-semibold text-text">{r.name}</p>
+                        <p className="text-text-secondary">
+                          {r.total} athletes · {r.men} men · {r.women} women
                         </p>
                       </div>
                     );
                   }}
                 />
-                {series.map((x, i) => (
-                  <Bar
-                    key={x.key}
-                    dataKey={x.key}
-                    stackId="a"
-                    fill={x.color}
-                    isAnimationActive={false}
-                    stroke="var(--surface)"
-                    strokeWidth={1}
-                    radius={i === series.length - 1 ? [0, 4, 4, 0] : undefined}
-                  >
-                    {i === series.length - 1 && (
-                      <LabelList
-                        dataKey="total"
-                        position="right"
-                        className="numeral"
-                        style={{ fill: "var(--text)", fontSize: 12 }}
-                      />
-                    )}
-                  </Bar>
-                ))}
-              </BarChart>
+              </PieChart>
             </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="numeral text-2xl leading-none text-text">
+                {total.toLocaleString()}
+              </span>
+              <span className="t-caption mt-1">athletes</span>
+            </div>
           </div>
-          <div className="sr-only">
-            <table>
-              <caption>Registered athletes per college</caption>
-              <thead>
-                <tr>
-                  <th scope="col">College</th>
-                  {series.map((x) => (
-                    <th key={x.key} scope="col">
-                      {x.label}
-                    </th>
-                  ))}
-                  <th scope="col">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.name}>
-                    <th scope="row">{r.name}</th>
-                    {series.map((x) => (
-                      <td key={x.key}>{r[x.key]}</td>
-                    ))}
-                    <td>{r.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+          <ul className="mt-4 space-y-1.5 text-[0.8125rem]">
+            {rows.map((r, i) => (
+              <li
+                key={r.name}
+                className="chart-rise flex min-w-0 items-center gap-2"
+                style={{ animationDelay: `${120 + i * 40}ms` }}
+                title={`${r.name}: ${r.men} men, ${r.women} women`}
+              >
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ background: color(i) }}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1 truncate font-medium text-text">
+                  {r.label}
+                </span>
+                <span className="t-caption shrink-0 whitespace-nowrap">
+                  {r.men}M · {r.women}W
+                </span>
+                <span className="numeral w-8 shrink-0 text-right text-text">
+                  {r.total}
+                </span>
+              </li>
+            ))}
+          </ul>
         </>
       ) : (
         <PanelEmpty icon={Users} title="No athletes registered yet">

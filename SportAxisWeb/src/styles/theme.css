@@ -859,4 +859,48 @@
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: none; }
   }
+
+  /* Dashboard charts: drawn in once, when the page loads. A CSS animation on
+     a wrapper, so a resize or a background refetch never replays it. */
+  @keyframes chart-reveal {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+  @keyframes chart-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .chart-reveal {
+    animation: chart-reveal 560ms var(--ease-out-expo) both;
+  }
+  /* A donut sweeps clockwise from 12 o'clock: a conic mask on the ring
+     itself (not the wrapper, so tooltips are never clipped). Browsers
+     without @property just show it whole. */
+  @keyframes chart-sweep {
+    from { --chart-sweep: 0deg; }
+    to { --chart-sweep: 360deg; }
+  }
+  .chart-sweep svg.recharts-surface {
+    -webkit-mask-image: conic-gradient(#000 var(--chart-sweep), transparent 0);
+    mask-image: conic-gradient(#000 var(--chart-sweep), transparent 0);
+    animation: chart-sweep 640ms var(--ease-out-expo) both;
+  }
+  .chart-rise {
+    animation: rise var(--duration-base) var(--ease-out-expo) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chart-reveal,
+    .chart-rise,
+    .chart-sweep svg.recharts-surface {
+      animation: chart-fade var(--duration-base) ease both;
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+  }
+}
+
+@property --chart-sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
 }
