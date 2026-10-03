@@ -16,7 +16,7 @@ import { Badge } from '../../components/ui/badge';
 import {
   Calendar, Edit, Plus, Trash2, Users, QrCode, Search, Filter, Download,
   Clock, ArrowUpDown, Grid3x3, List, Archive, CheckCircle2, MapPin,
-  UserCheck, Trophy, AlertTriangle, Printer
+  UserCheck, Trophy, AlertTriangle, Printer, Check, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { printScoreSheet } from '../../utils/scoresheet';
 
@@ -160,6 +160,14 @@ const EMPTY_FORM: FormData = {
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
+/** The parts of the event form, in order. */
+const FORM_PARTS = [
+  { label: 'The game', hint: 'Name the event and pick its sport.' },
+  { label: 'Colleges', hint: 'Choose the colleges taking part.' },
+  { label: 'When & where', hint: 'Set the date, time and venue.' },
+  { label: 'Committee', hint: 'Check the details and assign who scores it.' },
+] as const;
+
 export default function AdminEventsEnhanced() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -186,6 +194,10 @@ export default function AdminEventsEnhanced() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  // The form is filled in four parts, in the order each depends on the last:
+  // the sport decides how colleges are picked, and the time decides which
+  // committee members are free.
+  const [part, setPart] = useState(0);
   const [emailResult, setEmailResult] = useState<{ result: CommitteeEmailResult; eventName: string } | null>(null);
 
   // Filters
@@ -264,25 +276,24 @@ export default function AdminEventsEnhanced() {
   };
 
   // ── Overlap checks (client-side) ──────────────────────────────────────
-  const validateForm = (data: FormData, editId?: string): string | null => {
-    if (!data.name.trim()) return 'Event name is required.';
-    if (!data.category) return 'Sport type is required.';
-    if (!data.schedule) return 'Schedule date is required.';
-    if (!data.startTime) return 'Start time is required.';
-    if (!data.endTime) return 'End time is required.';
-    if (timeToMinutes(data.startTime) >= timeToMinutes(data.endTime))
-      return 'End time must be after start time.';
-    if (!data.venueId) return 'Venue is required.';
-    if (data.judgeIds.length === 0) return 'Assign a committee member.';
-    if (data.judgeIds.length > 1) return 'Only one committee member can be assigned to an event.';
+  /** The first problem with the form, and which part of it (0–3) it's in. */
+  const findProblem = (data: FormData, editId?: string): { part: number; message: string } | null => {
+    if (!data.name.trim()) return { part: 0, message: 'Event name is required.' };
+    if (!data.category) return { part: 0, message: 'Sport type is required.' };
     {
       const picked = data.departments.filter(Boolean);
       if (formatOf(data.category) === 'versus') {
-        if (new Set(picked).size !== 2) return 'Two-team sport — pick exactly two colleges.';
+        if (new Set(picked).size !== 2) return { part: 1, message: 'Two-team sport — pick exactly two colleges.' };
       } else if (picked.length < 2) {
-        return 'Pick at least two colleges.';
+        return { part: 1, message: 'Pick at least two colleges.' };
       }
     }
+    if (!data.schedule) return { part: 2, message: 'Schedule date is required.' };
+    if (!data.startTime) return { part: 2, message: 'Start time is required.' };
+    if (!data.endTime) return { part: 2, message: 'End time is required.' };
+    if (timeToMinutes(data.startTime) >= timeToMinutes(data.endTime))
+      return { part: 2, message: 'End time must be after start time.' };
+    if (!data.venueId) return { part: 2, message: 'Venue is required.' };
 
     // Venue overlap
     const venueConflict = events.find(e => {
@@ -294,8 +305,11 @@ export default function AdminEventsEnhanced() {
       );
     });
     if (venueConflict) {
-      return `Venue already scheduled at ${formatTime(venueConflict.startTime)}–${formatTime(venueConflict.endTime)}.`;
+      return { part: 2, message: `Venue already scheduled at ${formatTime(venueConflict.startTime)}–${formatTime(venueConflict.endTime)}.` };
     }
+
+    if (data.judgeIds.length === 0) return { part: 3, message: 'Assign a committee member.' };
+    if (data.judgeIds.length > 1) return { part: 3, message: 'Only one committee member can be assigned to an event.' };
 
     // Judge overlap
     for (const judgeId of data.judgeIds) {
@@ -309,11 +323,23 @@ export default function AdminEventsEnhanced() {
         );
       });
       if (judgeConflict) {
-        return `${judge?.name || 'Committee'} already assigned at ${formatTime(judgeConflict.startTime)}–${formatTime(judgeConflict.endTime)}.`;
+        return { part: 3, message: `${judge?.name || 'Committee'} already assigned at ${formatTime(judgeConflict.startTime)}–${formatTime(judgeConflict.endTime)}.` };
       }
     }
 
     return null;
+  };
+
+  /** Move on, once everything up to the current part is filled in. */
+  const goNext = () => {
+    const problem = findProblem(formData, editingEvent?.id);
+    if (problem && problem.part <= part) {
+      setPart(problem.part);
+      setFormError(problem.message);
+      return;
+    }
+    setFormError(null);
+    setPart(p => Math.min(p + 1, FORM_PARTS.length - 1));
   };
 
   useEffect(() => {
@@ -329,6 +355,7 @@ export default function AdminEventsEnhanced() {
   // ── Dialog ────────────────────────────────────────────────────────────
   const handleOpenDialog = useCallback((event?: Event) => {
     setFormError(null);
+    setPart(0);
     if (event) {
       setEditingEvent(event);
       setFormData({
@@ -353,8 +380,8 @@ export default function AdminEventsEnhanced() {
 
   const handleSubmit = async () => {
     setFormError(null);
-    const error = validateForm(formData, editingEvent?.id);
-    if (error) { setFormError(error); return; }
+    const problem = findProblem(formData, editingEvent?.id);
+    if (problem) { setPart(problem.part); setFormError(problem.message); return; }
 
     const selectedJudges = judges
       .filter(j => formData.judgeIds.includes(j.id))
@@ -680,8 +707,54 @@ export default function AdminEventsEnhanced() {
         <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Create New Sports Event'}</DialogTitle>
-            <DialogDescription>All fields are required.</DialogDescription>
+            <DialogDescription>
+              {editingEvent
+                ? 'Open any part to change it, then save.'
+                : `${FORM_PARTS[part].hint} All fields are required.`}
+            </DialogDescription>
           </DialogHeader>
+
+          {/* Where you are in the form. Earlier parts (any part, when editing) can be reopened. */}
+          <ol className="grid grid-cols-4 gap-2" aria-label="Event form">
+            {FORM_PARTS.map((p, i) => {
+              const done = i < part;
+              const current = i === part;
+              const reachable = !!editingEvent || i < part;
+              return (
+                <li key={p.label}>
+                  <button
+                    type="button"
+                    disabled={!reachable || current}
+                    onClick={() => { setFormError(null); setPart(i); }}
+                    aria-current={current ? 'true' : undefined}
+                    className="group flex w-full flex-col gap-1.5 text-left disabled:cursor-default"
+                  >
+                    <span
+                      className={`h-1 w-full rounded-full transition-colors duration-200 ${
+                        current || done ? 'bg-gray-900' : 'bg-gray-200'
+                      }`}
+                    />
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.6875rem] font-semibold ${
+                          current ? 'bg-gray-900 text-white' : done ? 'bg-gray-200 text-gray-900' : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {done ? <Check className="h-3 w-3" /> : i + 1}
+                      </span>
+                      <span
+                        className={`truncate font-medium ${
+                          current ? 'text-gray-900' : reachable ? 'text-gray-600 group-hover:text-gray-900' : 'text-gray-400'
+                        }`}
+                      >
+                        {p.label}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
 
           {formError && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
@@ -690,7 +763,9 @@ export default function AdminEventsEnhanced() {
             </div>
           )}
 
-          <div className="space-y-5">
+          <div key={part} className="chart-rise min-h-[14rem] space-y-5">
+            {part === 0 && (
+              <>
             {/* Name */}
             <div>
               <Label>Event Name <span className="text-red-500">*</span></Label>
@@ -735,72 +810,11 @@ export default function AdminEventsEnhanced() {
               </div>
             </div>
 
-            {/* Date + Times */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Date <span className="text-red-500">*</span></Label>
-                <Input type="date" value={formData.schedule} onChange={e => setFormData(f => ({ ...f, schedule: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Start Time <span className="text-red-500">*</span></Label>
-                <Input type="time" value={formData.startTime} onChange={e => setFormData(f => ({ ...f, startTime: e.target.value }))} />
-              </div>
-              <div>
-                <Label>End Time <span className="text-red-500">*</span></Label>
-                <Input type="time" value={formData.endTime} onChange={e => setFormData(f => ({ ...f, endTime: e.target.value }))} />
-              </div>
-            </div>
+              </>
+            )}
 
-            {/* Venue */}
-            <div>
-              <Label>Venue <span className="text-red-500">*</span></Label>
-              {venues.length === 0 ? (
-                <p className="text-sm text-amber-600 mt-1 p-2 bg-amber-50 rounded border border-amber-200">
-                  No available venues. Please add a venue in Venue Management first.
-                </p>
-              ) : (
-                <Select value={formData.venueId} onValueChange={v => setFormData(f => ({ ...f, venueId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
-                  <SelectContent>
-                    {venues.map((v: any) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name} {v.location ? `— ${v.location}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            {/* Committee — one member scores each event */}
-            <div>
-              <Label>
-                Assign Committee <span className="text-red-500">*</span>
-                <span className="ml-2 text-xs text-gray-500 font-normal">one member per event</span>
-              </Label>
-              {judges.length === 0 ? (
-                <p className="text-sm text-amber-600 mt-1 p-2 bg-amber-50 rounded border border-amber-200">
-                  No judge accounts found. Register judge users first.
-                </p>
-              ) : (
-                <RadioGroup
-                  value={formData.judgeIds[0] ?? ''}
-                  onValueChange={id => setFormData(f => ({ ...f, judgeIds: [id] }))}
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-h-36 overflow-y-auto border rounded p-3 bg-gray-50"
-                >
-                  {judges.map((j: any) => (
-                    <div key={j.id} className="flex items-center gap-2">
-                      <RadioGroupItem id={`judge-${j.id}`} value={j.id} />
-                      <label htmlFor={`judge-${j.id}`} className="text-sm cursor-pointer">
-                        <span className="font-medium">{j.name}</span>
-                        <span className="text-gray-500 ml-1 text-xs">{j.email}</span>
-                      </label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
-            </div>
-
+            {part === 1 && (
+              <>
             {/* Colleges — two-team sports pick Home/Away, ranked sports pick a list */}
             {formatOf(formData.category) === 'versus' ? (
               <div>
@@ -845,7 +859,7 @@ export default function AdminEventsEnhanced() {
                   Participating Colleges <span className="text-red-500">*</span>
                   <span className="ml-2 text-xs text-gray-500 font-normal">({formData.departments.length} selected)</span>
                 </Label>
-                <div className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto border rounded p-3 bg-gray-50">
+                <div className="grid grid-cols-2 gap-2 mt-2 max-h-72 overflow-y-auto border rounded p-3 bg-gray-50">
                   {departments.map((dept: any) => (
                     <div key={dept.id} className="flex items-center gap-2">
                       <Checkbox
@@ -866,14 +880,141 @@ export default function AdminEventsEnhanced() {
                 </div>
               </div>
             )}
+              </>
+            )}
 
+            {part === 2 && (
+              <>
+            {/* Date + Times */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Date <span className="text-red-500">*</span></Label>
+                <Input type="date" value={formData.schedule} onChange={e => setFormData(f => ({ ...f, schedule: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Start Time <span className="text-red-500">*</span></Label>
+                <Input type="time" value={formData.startTime} onChange={e => setFormData(f => ({ ...f, startTime: e.target.value }))} />
+              </div>
+              <div>
+                <Label>End Time <span className="text-red-500">*</span></Label>
+                <Input type="time" value={formData.endTime} onChange={e => setFormData(f => ({ ...f, endTime: e.target.value }))} />
+              </div>
+            </div>
+
+            {/* Venue */}
+            <div>
+              <Label>Venue <span className="text-red-500">*</span></Label>
+              {venues.length === 0 ? (
+                <p className="text-sm text-amber-600 mt-1 p-2 bg-amber-50 rounded border border-amber-200">
+                  No available venues. Please add a venue in Venue Management first.
+                </p>
+              ) : (
+                <Select value={formData.venueId} onValueChange={v => setFormData(f => ({ ...f, venueId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
+                  <SelectContent>
+                    {venues.map((v: any) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name} {v.location ? `— ${v.location}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+              </>
+            )}
+
+            {part === 3 && (
+              <>
+                {/* What this event is, before it's saved */}
+                <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-md border bg-gray-50 p-3 text-sm">
+                  <dt className="text-gray-500">Event</dt>
+                  <dd className="truncate font-medium text-gray-900">{formData.name || '—'}</dd>
+                  <dt className="text-gray-500">Sport</dt>
+                  <dd className="truncate text-gray-900">{formData.category || '—'}</dd>
+                  <dt className="text-gray-500">Colleges</dt>
+                  <dd className="truncate text-gray-900">
+                    {formData.departments
+                      .filter(Boolean)
+                      .map(d => departments.find((x: any) => x.name === d)?.abbreviation || d)
+                      .join(formatOf(formData.category) === 'versus' ? ' vs ' : ', ') || '—'}
+                  </dd>
+                  <dt className="text-gray-500">When</dt>
+                  <dd className="truncate text-gray-900">
+                    {formData.schedule
+                      ? `${new Date(`${formData.schedule}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} · ${formatTime(formData.startTime)}–${formatTime(formData.endTime)}`
+                      : '—'}
+                  </dd>
+                  <dt className="text-gray-500">Venue</dt>
+                  <dd className="truncate text-gray-900">{venues.find((v: any) => v.id === formData.venueId)?.name || formData.venueName || '—'}</dd>
+                </dl>
+            {/* Committee — one member scores each event */}
+            <div>
+              <Label>
+                Assign Committee <span className="text-red-500">*</span>
+                <span className="ml-2 text-xs text-gray-500 font-normal">one member per event</span>
+              </Label>
+              {judges.length === 0 ? (
+                <p className="text-sm text-amber-600 mt-1 p-2 bg-amber-50 rounded border border-amber-200">
+                  No judge accounts found. Register judge users first.
+                </p>
+              ) : (
+                <RadioGroup
+                  value={formData.judgeIds[0] ?? ''}
+                  onValueChange={id => setFormData(f => ({ ...f, judgeIds: [id] }))}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-h-72 overflow-y-auto"
+                >
+                  {judges.map((j: any) => {
+                    const on = formData.judgeIds[0] === j.id;
+                    return (
+                      <label
+                        key={j.id}
+                        htmlFor={`judge-${j.id}`}
+                        className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition-colors ${
+                          on ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <RadioGroupItem id={`judge-${j.id}`} value={j.id} className="border-gray-400" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-gray-900">{j.name}</span>
+                          <span className="block truncate text-xs text-gray-500">{j.email}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </RadioGroup>
+              )}
+            </div>
+
+              </>
+            )}
           </div>
 
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Saving...' : editingEvent ? 'Update Event' : 'Create Event'}
-            </Button>
+          <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
+            {part === 0 ? (
+              <Button variant="secondary" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
+            ) : (
+              <Button variant="secondary" onClick={() => { setFormError(null); setPart(p => p - 1); }} disabled={submitting}>
+                <ChevronLeft className="mr-1 h-4 w-4" />Back
+              </Button>
+            )}
+            <div className="flex items-center gap-2">
+              {editingEvent && part < FORM_PARTS.length - 1 && (
+                <Button variant="ghost" onClick={handleSubmit} disabled={submitting}>
+                  {submitting ? 'Saving...' : 'Save now'}
+                </Button>
+              )}
+              {part < FORM_PARTS.length - 1 ? (
+                <Button onClick={goNext} disabled={submitting}>
+                  Continue<ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button onClick={handleSubmit} disabled={submitting}>
+                  {submitting ? 'Saving...' : editingEvent ? 'Update Event' : 'Create Event'}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
