@@ -149,6 +149,11 @@ To try the app against the live API without building, run
   `PUBLIC_DISK_DRIVER=s3` and fill in the `AWS_*` values (R2 → *Manage API tokens*
   gives the key, secret and endpoint; make the bucket public and put its public
   address in `AWS_URL`).
+- **Emails go out a few seconds after saving.** Committee QR codes and schedule
+  notices are queued, and a queue worker runs inside the API's container
+  (`docker/entrypoint.sh`), so saving an event doesn't wait on ~50 emails. If
+  the API was asleep, queued emails send once it wakes. Set `QUEUE_WORKER=false`
+  to turn the worker off.
 - **No daily database backup runs** (there's no cron on the free plan). TiDB
   Cloud keeps its own automatic backups; you can also export from its console.
 - **Live scores refresh every few seconds** instead of instantly (no websocket

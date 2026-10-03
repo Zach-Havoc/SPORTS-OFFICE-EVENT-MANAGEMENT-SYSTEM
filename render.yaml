@@ -53,9 +53,10 @@ services:
       - key: DB_PASSWORD
         sync: false
 
-      # No worker, websockets or cron on the free plan.
+      # No websockets or cron on the free plan. Emails are queued, and a queue
+      # worker runs inside this container (docker/entrypoint.sh, QUEUE_WORKER).
       - key: QUEUE_CONNECTION
-        value: sync
+        value: database
       - key: BROADCAST_CONNECTION
         value: log
       - key: CACHE_STORE

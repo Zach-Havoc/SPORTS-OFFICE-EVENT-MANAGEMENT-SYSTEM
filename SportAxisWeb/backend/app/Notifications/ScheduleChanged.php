@@ -2,6 +2,9 @@
 
 namespace App\Notifications;
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -10,8 +13,12 @@ use Illuminate\Notifications\Notification;
  * a game, a training session or a tryout. One class for all three so the
  * in-app list and the email read the same way whatever changed.
  */
-class ScheduleChanged extends Notification
+class ScheduleChanged extends Notification implements ShouldQueue
 {
+    // Queued: sent after the request, not while the admin waits on Save (a
+    // new game notifies ~50 athletes and coaches, ~1-3s per email).
+    use Queueable;
+
     /**
      * @param  'scheduled'|'rescheduled'|'postponed'|'venue_changed'|'cancelled'  $change
      * @param  array<int, string>  $details  one line each: what, when, where, what changed
@@ -27,7 +34,7 @@ class ScheduleChanged extends Notification
     public function via(object $notifiable): array
     {
         // Tryout applicants have no account: they're reached by email only.
-        if ($notifiable instanceof \Illuminate\Notifications\AnonymousNotifiable) {
+        if ($notifiable instanceof AnonymousNotifiable) {
             return ['mail'];
         }
 

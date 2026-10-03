@@ -12,7 +12,10 @@ interface Props {
   onClose: () => void;
 }
 
-/** Popup confirming who the committee QR code email reached (or didn't). */
+/**
+ * Popup confirming who the committee QR code email is going to (or couldn't).
+ * The email is queued and sent right after saving, so "on its way", not "sent".
+ */
 export function CommitteeEmailDialog({ result, eventName, onClose }: Props) {
   const ok = !!result && result.failed.length === 0 && result.sent.length > 0;
 
@@ -24,11 +27,11 @@ export function CommitteeEmailDialog({ result, eventName, onClose }: Props) {
             {ok ? <CheckCircle2 className="h-6 w-6" /> : <MailWarning className="h-6 w-6" />}
           </div>
           <AlertDialogTitle className="text-center">
-            {ok ? 'Email sent' : result?.sent.length ? 'Email partly sent' : 'Email not sent'}
+            {ok ? 'Email on its way' : result?.sent.length ? 'Email partly sent' : 'Email not sent'}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-center">
             {eventName ? <>The QR code for <strong>{eventName}</strong></> : 'The QR code'}
-            {ok ? ' was emailed to the committee member.' : ' could not reach everyone.'}
+            {ok ? ' is being emailed to the committee member. It usually arrives within a minute.' : ' could not reach everyone.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

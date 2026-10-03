@@ -16,6 +16,15 @@ elif [ -z "$MYSQL_ATTR_SSL_CA" ] && [ -f /etc/ssl/certs/ca-certificates.crt ]; t
     export MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt
 fi
 
+# Emails (committee QR codes, schedule notices) are queued so saving an event
+# doesn't wait on ~50 SMTP sends. The free plan has no separate worker service,
+# so a worker runs in this container beside Apache. QUEUE_WORKER=false turns it
+# off (the queue then follows QUEUE_CONNECTION). Set before `optimize` caches
+# the config.
+if [ "${QUEUE_WORKER:-true}" = "true" ]; then
+    export QUEUE_CONNECTION=database
+fi
+
 php artisan storage:link --force >/dev/null 2>&1 || true
 # Config, routes, events and views, all cached for production.
 php artisan optimize
@@ -26,4 +35,13 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
 fi
 
 chown -R www-data:www-data storage bootstrap/cache
+
+if [ "${QUEUE_WORKER:-true}" = "true" ]; then
+    # Restarted if it exits (--max-time keeps memory in check on a long run).
+    ( while true; do
+        su -s /bin/sh www-data -c "php artisan queue:work --sleep=3 --tries=3 --max-time=3600" || true
+        sleep 2
+    done ) &
+fi
+
 exec apache2-foreground

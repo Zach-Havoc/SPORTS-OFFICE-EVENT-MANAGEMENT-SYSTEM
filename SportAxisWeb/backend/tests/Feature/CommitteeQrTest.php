@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Notifications\CommitteeAssigned;
 use App\Support\EventQr;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\SendQueuedNotifications;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /** Assigning committee members emails them the event's QR code. */
@@ -39,6 +42,25 @@ class CommitteeQrTest extends TestCase
             ->assertJsonPath('committeeEmail.failed', []);
 
         Notification::assertSentTo($judge, CommitteeAssigned::class);
+    }
+
+    public function test_saving_an_event_queues_its_emails_instead_of_sending_them_while_the_admin_waits(): void
+    {
+        // A new game notifies its committee member and every athlete and coach
+        // of both colleges (~50 people). Sending those inline made Save take a
+        // minute or more; they go on the queue and send right after.
+        Queue::fake();
+        Mail::fake();
+        $judge = $this->users()->judge()->create();
+
+        $this->actingAsRole('admin');
+        $this->postJson('/api/events', $this->eventPayload([$this->judgeRef($judge)]))->assertCreated();
+
+        Mail::assertNothingSent();
+        Queue::assertPushed(
+            SendQueuedNotifications::class,
+            fn (SendQueuedNotifications $job) => $job->notification instanceof CommitteeAssigned,
+        );
     }
 
     public function test_an_event_takes_only_one_committee_member(): void

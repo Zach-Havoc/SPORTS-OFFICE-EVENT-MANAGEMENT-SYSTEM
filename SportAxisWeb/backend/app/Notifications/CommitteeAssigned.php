@@ -4,6 +4,8 @@ namespace App\Notifications;
 
 use App\Models\Event;
 use App\Support\EventQr;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -13,8 +15,12 @@ use Illuminate\Notifications\Notification;
  * another screen or open the attachment in the app's scanner; the in-app
  * notification opens the score sheet directly.
  */
-class CommitteeAssigned extends Notification
+class CommitteeAssigned extends Notification implements ShouldQueue
 {
+    // Queued: sent after the request, not while the admin waits on Save (a
+    // new game notifies ~50 athletes and coaches, ~1-3s per email).
+    use Queueable;
+
     public function __construct(public Event $event) {}
 
     /** @return array<int, string> */
