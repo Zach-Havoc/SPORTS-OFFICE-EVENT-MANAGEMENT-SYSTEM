@@ -52,6 +52,8 @@ export default function PublicAnnouncements() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState<string>('all');
+  // A college's full name, or 'all'. An announcement's college is its coach's.
+  const [deptFilter, setDeptFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [step, setStep] = useState<'form' | 'verify' | 'success'>('form');
@@ -211,11 +213,20 @@ export default function PublicAnnouncements() {
     return ['all', ...sports];
   };
 
-  const hasActiveFilters = searchQuery.trim() !== '' || sportFilter !== 'all';
+  const hasActiveFilters = searchQuery.trim() !== '' || sportFilter !== 'all' || deptFilter !== 'all';
 
   const clearFilters = () => {
     setSearchQuery('');
     setSportFilter('all');
+    setDeptFilter('all');
+  };
+
+  // The college's stored value may be its name or its abbreviation.
+  const isCollege = (value: string | null | undefined, deptName: string) => {
+    const v = (value ?? '').trim().toLowerCase();
+    if (!v) return false;
+    const d = deptByName.get(deptName);
+    return v === deptName.toLowerCase() || (!!d?.abbreviation && v === d.abbreviation.toLowerCase());
   };
 
   const filteredAnnouncements = announcements.filter(announcement => {
@@ -226,8 +237,9 @@ export default function PublicAnnouncements() {
       announcement.coachName.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesSport = sportFilter === 'all' || announcement.sport === sportFilter;
+    const matchesDept = deptFilter === 'all' || isCollege(announcement.coachCollege, deptFilter);
 
-    return matchesSearch && matchesSport;
+    return matchesSearch && matchesSport && matchesDept;
   });
 
   return (
@@ -271,7 +283,29 @@ export default function PublicAnnouncements() {
             )}
           </div>
 
-          {/* Secondary filter */}
+          {/* Secondary filters */}
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
+            <SelectTrigger className="h-10 w-full sm:w-48" aria-label="Filter by department">
+              <SelectValue placeholder="All departments">
+                {deptFilter === 'all' ? 'All departments' : deptByName.get(deptFilter)?.abbreviation || deptFilter}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All departments</SelectItem>
+              {[...departments]
+                .sort((a, b) => (a.abbreviation || a.name).localeCompare(b.abbreviation || b.name))
+                .map(d => (
+                  <SelectItem key={d.name} value={d.name}>
+                    {d.abbreviation ? (
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        <span className="font-medium">{d.abbreviation}</span>
+                        <span className="truncate text-xs text-gray-500">{d.name}</span>
+                      </span>
+                    ) : d.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
           <Select value={sportFilter} onValueChange={setSportFilter}>
             <SelectTrigger className="h-10 w-full sm:w-48" aria-label="Filter by sport">
               <SelectValue placeholder="All sports" />
@@ -319,7 +353,7 @@ export default function PublicAnnouncements() {
               {hasActiveFilters ? 'No announcements match your filters' : 'No announcements yet'}
             </p>
             <p className="mt-1 text-sm text-gray-500">
-              {hasActiveFilters ? 'Try a different search term or sport.' : 'Check back later for updates from coaches.'}
+              {hasActiveFilters ? 'Try a different search term, department or sport.' : 'Check back later for updates from coaches.'}
             </p>
             {hasActiveFilters && (
               <button
@@ -342,6 +376,11 @@ export default function PublicAnnouncements() {
                       <CardTitle className="text-lg font-semibold">{announcement.title}</CardTitle>
                       {announcement.sport && (
                         <Badge variant="neutral" className="font-normal">{announcement.sport}</Badge>
+                      )}
+                      {announcement.coachCollege && (
+                        <Badge variant="outline" className="font-medium" title={announcement.coachCollege}>
+                          {deptByName.get(announcement.coachCollege)?.abbreviation || announcement.coachCollege}
+                        </Badge>
                       )}
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600">
