@@ -111,7 +111,7 @@ export function AppHeader({
         className={cn(
           "group flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-text-muted",
           "transition-colors duration-[140ms] hover:border-border-strong hover:text-text",
-          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring)",
           "sm:w-64 lg:w-72",
         )}
         aria-label="Search"
@@ -132,7 +132,7 @@ export function AppHeader({
           className={cn(
             "flex items-center gap-2.5 rounded-md py-1 pl-1 pr-1.5",
             "transition-colors duration-[140ms] hover:bg-surface-hover",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring)",
           )}
           aria-label={`Account: ${userName}`}
         >

@@ -1196,7 +1196,7 @@ function GameDay({
                 onClick={() => setPicked(d.iso)}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[0.8125rem] font-medium transition-colors duration-[140ms]",
-                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring)",
                   on
                     ? "border-text bg-text text-surface"
                     : "border-border text-text-secondary hover:bg-surface-hover",
@@ -1306,7 +1306,7 @@ function GameDay({
                               "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-5 py-2",
                               "md:grid-cols-[6.5rem_minmax(0,1fr)_minmax(0,9rem)_auto]",
                               "transition-colors duration-[140ms] hover:bg-surface-hover",
-                              "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[--focus-ring]",
+                              "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--focus-ring)",
                             )}
                           >
                             <span className="t-caption hidden truncate md:block">{spot ?? venue}</span>
@@ -1425,7 +1425,7 @@ function NeedsAttention({
                 className={cn(
                   "flex items-center gap-2 rounded-md bg-warning-subtle px-2.5 py-2 text-[0.8125rem] font-medium text-warning-foreground",
                   "transition-colors duration-[140ms] hover:brightness-[0.98]",
-                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring)",
                 )}
               >
                 <a.icon className="size-4 shrink-0" aria-hidden="true" />
@@ -1447,7 +1447,7 @@ function NeedsAttention({
                   className={cn(
                     "flex items-start gap-2.5 rounded-md px-2 py-2",
                     "transition-colors duration-[140ms] hover:bg-surface-hover",
-                    "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[--focus-ring]",
+                    "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--focus-ring)",
                   )}
                 >
                   <meta.icon

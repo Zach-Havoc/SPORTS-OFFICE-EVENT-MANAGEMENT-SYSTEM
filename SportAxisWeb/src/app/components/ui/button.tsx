@@ -22,8 +22,8 @@ const buttonVariants = cva(
     "motion-reduce:transition-none motion-reduce:active:translate-y-0",
     "disabled:pointer-events-none disabled:opacity-40 disabled:shadow-none",
     "[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
-    "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
-    "aria-invalid:outline-[--danger]",
+    "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring)",
+    "aria-invalid:outline-(--danger)",
   ].join(" "),
   {
     variants: {
@@ -40,7 +40,7 @@ const buttonVariants = cva(
           "bg-danger text-white shadow-xs hover:brightness-[0.94] active:brightness-90",
         "destructive-subtle":
           "border border-danger-border bg-danger-subtle text-danger-text hover:bg-danger-subtle hover:border-danger",
-        link: "h-auto p-0 text-brand-text underline decoration-[color-mix(in_oklch,var(--brand)_32%,transparent)] underline-offset-4 hover:decoration-[--brand] active:translate-y-0",
+        link: "h-auto p-0 text-brand-text underline decoration-[color-mix(in_oklch,var(--brand)_32%,transparent)] underline-offset-4 hover:decoration-(--brand) active:translate-y-0",
       },
       size: {
         sm: "h-8 rounded-sm px-2.5 text-[0.8125rem] has-[>svg]:px-2",

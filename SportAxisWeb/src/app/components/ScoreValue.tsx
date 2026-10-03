@@ -45,7 +45,7 @@ export function ScoreValue({
       data-lit={lit || undefined}
       className={cn(
         "relative inline-flex items-center justify-center rounded-md px-1.5",
-        "transition-[background-color,color] duration-700 ease-[--ease-out-expo]",
+        "transition-[background-color,color] duration-700 ease-(--ease-out-expo)",
         "data-[lit]:duration-0",
         flashClassName ?? "data-[lit]:bg-brand-subtle",
         "motion-reduce:transition-none",

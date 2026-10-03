@@ -63,7 +63,7 @@ export function PanelLink({ to, children }: { to: string; children: ReactNode })
       className={cn(
         "group inline-flex items-center gap-1 rounded-sm text-[0.8125rem] font-medium text-text-secondary",
         "transition-colors duration-[140ms] hover:text-text",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring)",
       )}
     >
       {children}
@@ -163,7 +163,7 @@ export function StatCard({
       className={cn(
         frame,
         "transition-[border-color,box-shadow] duration-[140ms] hover:border-border-strong hover:shadow-[var(--shadow-2)]",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[--focus-ring]",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring)",
       )}
     >
       {body}

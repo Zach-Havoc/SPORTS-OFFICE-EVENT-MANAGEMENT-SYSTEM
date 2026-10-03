@@ -40,7 +40,7 @@ export default function ScoreInApp() {
   }, [token]);
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[--bg] px-4 py-10">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-(--bg) px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 text-center sm:p-8">
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-surface-sunken">
           <Smartphone className="size-6 text-text-secondary" />

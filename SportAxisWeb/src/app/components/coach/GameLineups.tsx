@@ -181,7 +181,7 @@ function LineupDialog({ game, onClose }: { game: CoachLineupGame; onClose: () =>
                 <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
-                    className="size-5 accent-[--action]"
+                    className="size-5 accent-(--action)"
                     checked={r.on}
                     disabled={r.hasPlays}
                     onChange={(e) => set(id, { on: e.target.checked, ...(e.target.checked ? {} : { position: null }) })}

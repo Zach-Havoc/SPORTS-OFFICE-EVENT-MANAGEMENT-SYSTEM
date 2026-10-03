@@ -99,8 +99,8 @@ export function MobileNav({
             aria-label="Close menu"
             onClick={() => setSheetOpen(false)}
             className={cn(
-              "absolute inset-0 bg-[--overlay] backdrop-blur-[2px]",
-              "transition-opacity duration-200 ease-[--ease-out-expo]",
+              "absolute inset-0 bg-(--overlay) backdrop-blur-[2px]",
+              "transition-opacity duration-200 ease-(--ease-out-expo)",
               shown ? "opacity-100" : "opacity-0",
               "motion-reduce:transition-none",
             )}
@@ -113,7 +113,7 @@ export function MobileNav({
               "safe-b absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto",
               "rounded-t-xl border-t border-border bg-surface shadow-lg",
               // Leaves through the bottom because that is where it came from.
-              "transition-transform duration-[240ms] ease-[--ease-drawer]",
+              "transition-transform duration-[240ms] ease-(--ease-drawer)",
               shown ? "translate-y-0" : "translate-y-full",
               "motion-reduce:transition-none motion-reduce:translate-y-0",
             )}

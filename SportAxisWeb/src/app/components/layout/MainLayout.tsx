@@ -67,7 +67,7 @@ export default function MainLayout() {
   const publicNav = getNavigation(undefined).groups[0].items;
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-[--bg] lg:h-[100dvh] lg:flex-row lg:overflow-hidden">
+    <div className="relative flex min-h-[100dvh] flex-col bg-(--bg) lg:h-[100dvh] lg:flex-row lg:overflow-hidden">
       {user && (
         <AppSidebar
           role={user.role}
