@@ -19,6 +19,9 @@ import {
   UserCheck, Trophy, AlertTriangle, Printer, Check, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { printScoreSheet } from '../../utils/scoresheet';
+import {
+  VENUE_DAY_END, VENUE_DAY_START, minutesToTime, suggestTimes, type Booking,
+} from '../../utils/venueAvailability';
 
 /** `abbr` turns a college's full name into its short name, for sheets that print those. */
 const openScoreSheet = (event: any, abbr?: (name: string) => string) => {
@@ -328,6 +331,37 @@ export default function AdminEventsEnhanced() {
     }
 
     return null;
+  };
+
+  // The picked venue's bookings on the picked day (this event excluded when editing).
+  const venueDay = useMemo(() => {
+    if (!formData.venueId || !formData.schedule) return null;
+    const bookings: Booking[] = events
+      .filter(e => e.venueId === formData.venueId && e.schedule === formData.schedule && e.id !== editingEvent?.id)
+      .filter(e => e.startTime && e.endTime)
+      .map(e => ({ start: timeToMinutes(e.startTime), end: timeToMinutes(e.endTime), name: e.name }))
+      .sort((a, b) => a.start - b.start);
+    const hasTime = !!formData.startTime && !!formData.endTime;
+    const start = timeToMinutes(formData.startTime);
+    const end = timeToMinutes(formData.endTime);
+    // The length asked for, or an hour until the times are set.
+    const length = hasTime && end > start ? end - start : 60;
+    const clash = hasTime && end > start ? bookings.find(b => start < b.end && b.start < end) ?? null : null;
+    const suggestions = suggestTimes(bookings, length, hasTime ? start : VENUE_DAY_START);
+    return {
+      bookings,
+      length,
+      clash,
+      suggestions,
+      fullyBooked: suggestions.length === 0,
+      venueName: venues.find((v: any) => v.id === formData.venueId)?.name ?? 'This venue',
+      dayLabel: new Date(`${formData.schedule}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+    };
+  }, [events, venues, formData.venueId, formData.schedule, formData.startTime, formData.endTime, editingEvent?.id]);
+
+  const applyTimes = ([from, to]: [number, number]) => {
+    setFormError(null);
+    setFormData(f => ({ ...f, startTime: minutesToTime(from), endTime: minutesToTime(to) }));
   };
 
   /** Move on, once everything up to the current part is filled in. */
@@ -921,6 +955,60 @@ export default function AdminEventsEnhanced() {
                 </Select>
               )}
             </div>
+
+            {/* Is the venue free then? Suggest times that are, or say it's full. */}
+            {venueDay && (() => {
+              const hours = (m: number) => `${Math.floor(m / 60) ? `${Math.floor(m / 60)}h` : ''}${m % 60 ? ` ${m % 60}m` : ''}`.trim();
+              const range = ([a, b]: [number, number]) => `${formatTime(minutesToTime(a))}–${formatTime(minutesToTime(b))}`;
+              if (venueDay.fullyBooked) {
+                return (
+                  <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="status">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>
+                      <span className="font-semibold">{venueDay.venueName} is fully booked on {venueDay.dayLabel}.</span>{' '}
+                      There's no free {hours(venueDay.length)} between {formatTime(minutesToTime(VENUE_DAY_START))} and{' '}
+                      {formatTime(minutesToTime(VENUE_DAY_END))}. Pick another day or venue.
+                    </p>
+                  </div>
+                );
+              }
+              if (venueDay.clash) {
+                return (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+                    <p className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>
+                        <span className="font-semibold">{venueDay.venueName} is already booked {range([venueDay.clash.start, venueDay.clash.end])}</span>{' '}
+                        on {venueDay.dayLabel} ({venueDay.clash.name}).
+                      </span>
+                    </p>
+                    <p className="mt-2 text-xs font-medium text-amber-900/80">Free for {hours(venueDay.length)}:</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {venueDay.suggestions.map(sug => (
+                        <button
+                          key={sug[0]}
+                          type="button"
+                          onClick={() => applyTimes(sug)}
+                          className="rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-900 transition-colors hover:border-gray-900"
+                        >
+                          {range(sug)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              if (venueDay.bookings.length > 0) {
+                return (
+                  <p className="text-xs text-gray-500">
+                    Already booked on {venueDay.dayLabel}:{' '}
+                    {venueDay.bookings.slice(0, 3).map(b => range([b.start, b.end])).join(', ')}
+                    {venueDay.bookings.length > 3 ? ` and ${venueDay.bookings.length - 3} more` : ''}.
+                  </p>
+                );
+              }
+              return <p className="text-xs text-gray-500">{venueDay.venueName} is free all day on {venueDay.dayLabel}.</p>;
+            })()}
 
               </>
             )}
