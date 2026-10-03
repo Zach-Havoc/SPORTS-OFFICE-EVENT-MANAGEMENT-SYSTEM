@@ -33,6 +33,8 @@ export interface ScheduleEvent {
   status: 'upcoming' | 'ongoing' | 'completed';
   departments: string[];
   seasonId?: string | null;
+  /** An earlier game on the same court / table that day has no result yet. */
+  waitingOnEarlier?: boolean;
 }
 
 /** Logo + short label for a college, and its record in a sport. */

@@ -114,6 +114,8 @@ export function scoreboardFor(
  *   live           the committee is scoring it in the app (running score)
  *   in_progress    under way without a running score: scored on paper, or
  *                  its start time has passed today and nobody started it
+ *                  (only once its teams are known and the game before it
+ *                  on the same court / table has a result)
  *   upcoming       not started yet
  *   result_pending an earlier day, and no result has been recorded
  *   completed      a result is recorded (live or from the scanned sheet;
@@ -122,7 +124,14 @@ export function scoreboardFor(
 export type GameState = 'live' | 'in_progress' | 'upcoming' | 'result_pending' | 'completed';
 
 export function gameState(
-  event: { status: string; schedule?: string | null; startTime?: string | null; departments?: string[] },
+  event: {
+    status: string;
+    schedule?: string | null;
+    startTime?: string | null;
+    departments?: string[];
+    /** An earlier game on the same court / table that day has no result yet. */
+    waitingOnEarlier?: boolean;
+  },
   live?: LiveRow | null,
   match?: MatchRow | null,
   now: Date = new Date(),
@@ -138,7 +147,11 @@ export function gameState(
   // A judged event (more than two colleges) marked ongoing has live rankings.
   if (event.status === 'ongoing') return (event.departments ?? []).length > 2 ? 'live' : 'in_progress';
 
-  if (day === today && event.startTime) {
+  // The clock alone only says "In progress" for a game that can actually be
+  // under way: both colleges known (a bracket slot waiting on the previous
+  // round is not), and nothing earlier still unfinished on its court / table.
+  const teamsKnown = (event.departments ?? []).filter((d) => d && !/^tb[ad]$/i.test(d.trim())).length >= 2;
+  if (day === today && event.startTime && teamsKnown && !event.waitingOnEarlier) {
     const [h, m] = event.startTime.split(':').map(Number);
     if (!Number.isNaN(h) && now.getHours() * 60 + now.getMinutes() >= h * 60 + (m || 0)) return 'in_progress';
   }
@@ -188,3 +201,32 @@ export function recordsBySport(
   }
   return out;
 }
+
+/**
+ * Ids of games queued behind an earlier game on the same court / table the
+ * same day that has no result yet (not completed, no final live score).
+ */
+export function queuedBehindEarlier(
+  events: { id: string; status: string; schedule?: string | null; startTime?: string | null; venueName?: string | null }[],
+  finished: (id: string) => boolean = () => false,
+): Set<string> {
+  const byPlace = new Map<string, typeof events>();
+  for (const e of events) {
+    const place = String(e.venueName ?? '').trim();
+    const day = String(e.schedule ?? '').slice(0, 10);
+    if (!place || !day || !e.startTime) continue;
+    const key = `${day}|${place}`;
+    byPlace.set(key, [...(byPlace.get(key) ?? []), e]);
+  }
+  const queued = new Set<string>();
+  for (const list of byPlace.values()) {
+    list.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+    let open = false;
+    for (const e of list) {
+      if (open) queued.add(e.id);
+      if (e.status !== 'completed' && !finished(e.id)) open = true;
+    }
+  }
+  return queued;
+}
+

@@ -11,7 +11,7 @@ import {
   GameCard, MatchDetailModal, STATUS_CONFIG, type StatusKey,
   type Ranking, type ScheduleEvent, type TeamLookup,
 } from '../../components/public/GameCard';
-import { gameState, type MatchRow } from '../../utils/games';
+import { gameState, queuedBehindEarlier, type MatchRow } from '../../utils/games';
 import Loading from '../../components/Loading';
 import { RefreshStatus } from '../../components/RefreshStatus';
 import PhotoSlideshow from '../../components/public/PhotoSlideshow';
@@ -331,13 +331,28 @@ export default function PublicViewer() {
   // ── Results, logos and records ────────────────────────────────────────────
   const { teams, matchByEvent } = useScoreboardData(allEvents, seasonId, activeSeasonId);
 
+  // Courts and tables run one game at a time: a game queued behind an
+  // unfinished earlier one on the same spot isn't "In progress" by the clock.
+  // Worked out over every game (not just the filtered ones), since the game
+  // before may belong to another sport.
+  const queued = useMemo(
+    () =>
+      queuedBehindEarlier(allEvents, (id) => {
+        const m = matchByEvent[id];
+        return liveByEvent[id]?.status === 'final' || (!!m && m.status !== 'scheduled');
+      }),
+    [allEvents, liveByEvent, matchByEvent],
+  );
+
   // ── Filter events client-side ─────────────────────────────────────────────
-  const filteredEvents = allEvents.filter(e => {
-    if (!matchesFilters(e)) return false;
-    if (!selectedDate) return true;
-    const evDate = e.schedule?.split('T')[0] ?? e.schedule;
-    return evDate === selectedDate;
-  });
+  const filteredEvents = allEvents
+    .filter(e => {
+      if (!matchesFilters(e)) return false;
+      if (!selectedDate) return true;
+      const evDate = e.schedule?.split('T')[0] ?? e.schedule;
+      return evDate === selectedDate;
+    })
+    .map(e => (queued.has(e.id) ? { ...e, waitingOnEarlier: true } : e));
 
   // Sections follow what the public is told about each game (games.ts
   // gameState), not just the stored status: a game scored on paper, or past

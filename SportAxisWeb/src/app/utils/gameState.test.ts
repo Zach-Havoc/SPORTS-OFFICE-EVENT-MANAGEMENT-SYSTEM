@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gameState, scoreboardFor } from './games';
+import { gameState, queuedBehindEarlier, scoreboardFor } from './games';
 
 /**
  * What the public is told about a game. A committee can score live in the
@@ -48,3 +48,31 @@ describe('gameState', () => {
     expect(sheetFinal).toMatchObject({ winner: 'home', onPaper: false, home: { score: 3 } });
   });
 });
+
+describe('the schedule fallback only claims a game that can be under way', () => {
+  it('keeps a bracket slot with no teams yet (TBA vs TBA) as Upcoming', () => {
+    expect(gameState(game({ startTime: '08:00', departments: [] }), null, null, now)).toBe('upcoming');
+    expect(gameState(game({ startTime: '08:00', departments: ['TBD', 'TBD'] }), null, null, now)).toBe('upcoming');
+  });
+
+  it('keeps a game queued behind an unfinished earlier one on the same table as Upcoming', () => {
+    const day = [
+      { id: 'a', status: 'upcoming', schedule: '2026-10-03', startTime: '08:00', venueName: 'Table 1' },
+      { id: 'b', status: 'upcoming', schedule: '2026-10-03', startTime: '09:00', venueName: 'Table 1' },
+      { id: 'c', status: 'upcoming', schedule: '2026-10-03', startTime: '09:00', venueName: 'Table 2' },
+    ];
+    const queued = queuedBehindEarlier(day);
+    expect([...queued]).toEqual(['b']);
+    expect(gameState(game({ startTime: '08:00' }), null, null, now)).toBe('in_progress');
+    expect(gameState(game({ startTime: '09:00', waitingOnEarlier: true }), null, null, now)).toBe('upcoming');
+
+    // Once the 8:00 game has its result, the 9:00 game is free to start.
+    expect([...queuedBehindEarlier(day, (id) => id === 'a')]).toEqual([]);
+  });
+
+  it('still trusts a committee that pressed Start, queue or not', () => {
+    const paper = live({ method: 'paper' });
+    expect(gameState(game({ status: 'ongoing', waitingOnEarlier: true }), paper, null, now)).toBe('in_progress');
+  });
+});
+
