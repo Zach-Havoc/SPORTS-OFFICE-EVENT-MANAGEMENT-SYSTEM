@@ -290,16 +290,16 @@ export default function PublicAnnouncements() {
                 {deptFilter === 'all' ? 'All departments' : deptByName.get(deptFilter)?.abbreviation || deptFilter}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="w-[min(20rem,calc(100vw-2rem))]">
               <SelectItem value="all">All departments</SelectItem>
               {[...departments]
                 .sort((a, b) => (a.abbreviation || a.name).localeCompare(b.abbreviation || b.name))
                 .map(d => (
                   <SelectItem key={d.name} value={d.name}>
                     {d.abbreviation ? (
-                      <span className="flex min-w-0 items-baseline gap-2">
-                        <span className="font-medium">{d.abbreviation}</span>
-                        <span className="truncate text-xs text-gray-500">{d.name}</span>
+                      <span className="block py-0.5">
+                        <span className="block font-medium">{d.abbreviation}</span>
+                        <span className="block whitespace-normal text-xs leading-snug text-gray-500">{d.name}</span>
                       </span>
                     ) : d.name}
                   </SelectItem>
