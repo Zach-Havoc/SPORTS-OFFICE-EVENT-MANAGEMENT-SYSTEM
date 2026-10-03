@@ -8,14 +8,16 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { MapPin, Plus, Edit, Trash2, Building } from 'lucide-react';
+import { MapPin, Plus, Edit, Trash2, Building, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useVenues,
   useCreateVenue,
   useUpdateVenue,
   useDeleteVenue,
+  useEvents,
 } from '../../hooks/api';
+import { VenueScheduleDialog, atVenue, isoDay } from '../../components/admin/VenueScheduleDialog';
 import { RefreshStatus } from '../../components/RefreshStatus';
 
 interface Venue {
@@ -34,6 +36,10 @@ export default function AdminVenues() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
+  // The venue whose schedule is open.
+  const [scheduleOf, setScheduleOf] = useState<Venue | null>(null);
+  const eventsQuery = useEvents();
+  const allEvents: any[] = eventsQuery.data ?? [];
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -316,11 +322,25 @@ export default function AdminVenues() {
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => handleEdit(venue)}
+                    onClick={() => setScheduleOf(venue)}
                     className="flex-1"
                   >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
+                    <CalendarDays className="h-4 w-4 mr-1" />
+                    View schedule
+                    {(() => {
+                      const today = isoDay(new Date());
+                      const n = allEvents.filter(e => atVenue(e, venue) && String(e.schedule).slice(0, 10) >= today).length;
+                      return n > 0 ? <span className="ml-1.5 rounded-full bg-gray-900 px-1.5 text-[11px] font-semibold text-white tabular-nums">{n}</span> : null;
+                    })()}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleEdit(venue)}
+                    aria-label={`Edit ${venue.name}`}
+                    title="Edit venue"
+                  >
+                    <Edit className="h-4 w-4" />
                   </Button>
                   <Button
                     size="sm"
@@ -336,6 +356,8 @@ export default function AdminVenues() {
           ))
         )}
       </div>
+
+      <VenueScheduleDialog venue={scheduleOf} events={allEvents} onClose={() => setScheduleOf(null)} />
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => {
