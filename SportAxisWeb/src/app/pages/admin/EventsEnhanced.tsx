@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
 import {
@@ -19,6 +19,7 @@ import {
   UserCheck, Trophy, AlertTriangle, Printer, Check, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { printScoreSheet } from '../../utils/scoresheet';
+import { divisionOf, matchesSport, sportCatalog } from '../../utils/sports';
 import {
   VENUE_DAY_END, VENUE_DAY_START, minutesToTime, suggestTimes, type Booking,
 } from '../../utils/venueAvailability';
@@ -66,9 +67,6 @@ function guessFormat(sport: string): 'versus' | 'ranked' {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-/** "Badminton — W Doubles" → "Badminton". */
-const sportOf = (category: string) => category.split(' — ')[0].trim();
-
 /** Local YYYY-MM-DD (event dates are stored that way). */
 const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -214,8 +212,10 @@ export default function AdminEventsEnhanced() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') ?? '');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  // 'all', 'sport:Badminton' (every division) or 'cat:Badminton — W Doubles'.
+  // Sport first ('all' or 'Badminton'), then its division ('all' or the full
+  // stored category, 'Badminton — W Doubles').
   const [sportFilter, setSportFilter] = useState<string>('all');
+  const [divisionFilter, setDivisionFilter] = useState<string>('all');
   // 'all' | 'today' | 'tomorrow' | 'week' | 'past' | 'pick'
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [pickedDate, setPickedDate] = useState('');
@@ -519,8 +519,7 @@ export default function AdminEventsEnhanced() {
     let list = [...events];
     if (searchQuery) list = list.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()) || e.category.toLowerCase().includes(searchQuery.toLowerCase()));
     if (statusFilter !== 'all') list = list.filter(e => e.status === statusFilter);
-    if (sportFilter.startsWith('cat:')) list = list.filter(e => e.category === sportFilter.slice(4));
-    else if (sportFilter.startsWith('sport:')) list = list.filter(e => sportOf(e.category) === sportFilter.slice(6));
+    if (sportFilter !== 'all') list = list.filter(e => matchesSport(e.category, sportFilter, divisionFilter));
     if (dateFilter !== 'all') {
       const today = isoDate(new Date());
       const plus = (n: number) => isoDate(new Date(Date.now() + n * 86_400_000));
@@ -540,25 +539,17 @@ export default function AdminEventsEnhanced() {
       return sortOrder === 'asc' ? cmp : -cmp;
     });
     return list;
-  }, [events, searchQuery, statusFilter, sportFilter, dateFilter, pickedDate, sortBy, sortOrder]);
+  }, [events, searchQuery, statusFilter, sportFilter, divisionFilter, dateFilter, pickedDate, sortBy, sortOrder]);
 
-  // Sports as scheduled ("Badminton — W Doubles"), grouped under their sport.
-  const sportGroups = useMemo(() => {
-    const by = new Map<string, Set<string>>();
-    events.forEach(e => {
-      if (!e.category) return;
-      const sport = sportOf(e.category);
-      by.set(sport, (by.get(sport) ?? new Set()).add(e.category));
-    });
-    return [...by.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([sport, cats]) => ({ sport, divisions: [...cats].sort((a, b) => a.localeCompare(b)) }));
-  }, [events]);
+  const catalog = useMemo(() => sportCatalog(events.map(e => e.category)), [events]);
+  const divisions = catalog.find(x => x.sport === sportFilter)?.divisions ?? [];
+  const showDivision = sportFilter !== 'all' && divisions.length > 1;
 
   const filtersOn = statusFilter !== 'all' || sportFilter !== 'all' || dateFilter !== 'all';
   const clearFilters = () => {
     setStatusFilter('all');
     setSportFilter('all');
+    setDivisionFilter('all');
     setDateFilter('all');
     setPickedDate('');
   };
@@ -670,25 +661,29 @@ export default function AdminEventsEnhanced() {
                   )}
                 </div>
               </div>
-              <div>
-                <Label className="mb-1 block text-xs text-gray-500">Sport type</Label>
-                <Select value={sportFilter} onValueChange={setSportFilter}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All sports</SelectItem>
-                    {sportGroups.map(g => (
-                      <SelectGroup key={g.sport}>
-                        <SelectLabel>{g.sport}</SelectLabel>
-                        {g.divisions.length > 1 && (
-                          <SelectItem value={`sport:${g.sport}`}>All {g.sport}</SelectItem>
-                        )}
-                        {g.divisions.map(c => (
-                          <SelectItem key={c} value={`cat:${c}`}>{c}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className={showDivision ? 'grid grid-cols-2 gap-2' : ''}>
+                <div className="min-w-0">
+                  <Label className="mb-1 block text-xs text-gray-500">Sport type</Label>
+                  <Select value={sportFilter} onValueChange={v => { setSportFilter(v); setDivisionFilter('all'); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sports</SelectItem>
+                      {catalog.map(x => <SelectItem key={x.sport} value={x.sport}>{x.sport}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {showDivision && (
+                  <div className="min-w-0">
+                    <Label className="mb-1 block text-xs text-gray-500">Division</Label>
+                    <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All {sportFilter}</SelectItem>
+                        {divisions.map(c => <SelectItem key={c} value={c}>{divisionOf(c) ?? c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <div>
                 <Label className="mb-1 block text-xs text-gray-500">Status</Label>

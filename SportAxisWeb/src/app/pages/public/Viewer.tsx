@@ -12,6 +12,7 @@ import {
   type Ranking, type ScheduleEvent, type TeamLookup,
 } from '../../components/public/GameCard';
 import { gameState, queuedBehindEarlier, type MatchRow } from '../../utils/games';
+import { divisionOf, matchesSport, sportCatalog } from '../../utils/sports';
 import Loading from '../../components/Loading';
 import { RefreshStatus } from '../../components/RefreshStatus';
 import PhotoSlideshow from '../../components/public/PhotoSlideshow';
@@ -297,7 +298,9 @@ export default function PublicViewer() {
   const activeSeasonId = seasons.find((x) => x.isActive)?.id ?? null;
   const seasonId = seasonPick ?? activeSeasonId ?? ALL;
   const [team, setTeam] = useState<string>(ALL);
+  // Sport first, then (if it has several) its division.
   const [game, setGame] = useState<string>(ALL);
+  const [division, setDivision] = useState<string>(ALL);
 
   // Events saved before seasons existed have none; they count as the running one.
   const inSeason = (e: ScheduleEvent) =>
@@ -312,21 +315,23 @@ export default function PublicViewer() {
   };
 
   const seasonEvents = allEvents.filter(inSeason);
-  const gameOptions = [...new Set(seasonEvents.map((e) => e.category).filter(Boolean))]
-    .sort()
-    .map((c) => ({ value: c, label: c }));
+  const catalog = sportCatalog(seasonEvents.map((e) => e.category));
+  const gameOptions = catalog.map((x) => ({ value: x.sport, label: x.sport }));
+  const divisionOptions = (catalog.find((x) => x.sport === game)?.divisions ?? [])
+    .map((c) => ({ value: c, label: divisionOf(c) ?? c }));
+  const showDivision = game !== ALL && divisionOptions.length > 1;
   const teamOptions = depts.map((d) => ({ value: d.name as string, label: (d.abbreviation as string) || d.name }));
 
   const filtersActive = team !== ALL || game !== ALL;
   const matchesFilters = (e: ScheduleEvent) =>
     inSeason(e) &&
-    (game === ALL || e.category === game) &&
+    matchesSport(e.category, game, division) &&
     (team === ALL || e.departments.some((d) => sameTeam(team, d)));
 
   // Picking a college or a game means "show me their games", not just today's.
   const pickTeam = (v: string) => { setTeam(v); if (v !== ALL) setSelectedDate(null); };
-  const pickGame = (v: string) => { setGame(v); if (v !== ALL) setSelectedDate(null); };
-  const clearFilters = () => { setTeam(ALL); setGame(ALL); setSeasonPick(null); };
+  const pickGame = (v: string) => { setGame(v); setDivision(ALL); if (v !== ALL) setSelectedDate(null); };
+  const clearFilters = () => { setTeam(ALL); setGame(ALL); setDivision(ALL); setSeasonPick(null); };
 
   // ── Results, logos and records ────────────────────────────────────────────
   const { teams, matchByEvent } = useScoreboardData(allEvents, seasonId, activeSeasonId);
@@ -457,7 +462,11 @@ export default function PublicViewer() {
       </header>
 
       {/* Season / College / Game */}
-      <div className="mb-3 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto] sm:items-end">
+      <div
+        className={`mb-3 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:items-end ${
+          showDivision ? 'sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]' : 'sm:grid-cols-[repeat(3,minmax(0,1fr))_auto]'
+        }`}
+      >
         <FilterSelect
           label="Season"
           value={seasonId}
@@ -466,7 +475,10 @@ export default function PublicViewer() {
           options={seasons.map((x) => ({ value: x.id, label: x.isActive ? `${x.name} (current)` : x.name }))}
         />
         <FilterSelect label="College" value={team} onChange={pickTeam} allLabel="All colleges" options={teamOptions} />
-        <FilterSelect label="Game" value={game} onChange={pickGame} allLabel="All games" options={gameOptions} />
+        <FilterSelect label="Sport" value={game} onChange={pickGame} allLabel="All sports" options={gameOptions} />
+        {showDivision && (
+          <FilterSelect label="Division" value={division} onChange={setDivision} allLabel={`All ${game}`} options={divisionOptions} />
+        )}
         <button
           onClick={clearFilters}
           disabled={!filtersActive && seasonPick === null}
@@ -494,7 +506,7 @@ export default function PublicViewer() {
             {selectedDate ? 'No matches on this date' : 'No matches for these filters'}
           </p>
           <p className="mt-1 text-sm text-gray-500">
-            {selectedDate ? 'Pick another date, or view every scheduled match.' : 'Try another college, game or season.'}
+            {selectedDate ? 'Pick another date, or view every scheduled match.' : 'Try another college, sport or season.'}
           </p>
           <button
             onClick={() => (selectedDate ? setSelectedDate(null) : clearFilters())}
