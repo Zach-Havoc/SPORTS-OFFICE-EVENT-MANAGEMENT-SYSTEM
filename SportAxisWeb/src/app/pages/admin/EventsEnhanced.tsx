@@ -10,11 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
 import {
-  Calendar, Edit, Plus, Trash2, Users, QrCode, Search, Filter, Download,
+  Calendar, Edit, Plus, Trash2, Users, QrCode, Search, Download,
   Clock, ArrowUpDown, Grid3x3, List, Archive, CheckCircle2, MapPin,
   UserCheck, Trophy, AlertTriangle, Printer, Check, ChevronLeft, ChevronRight
 } from 'lucide-react';
@@ -66,6 +66,12 @@ function guessFormat(sport: string): 'versus' | 'ranked' {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+/** "Badminton — W Doubles" → "Badminton". */
+const sportOf = (category: string) => category.split(' — ')[0].trim();
+
+/** Local YYYY-MM-DD (event dates are stored that way). */
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function timeToMinutes(time: string): number {
   if (!time) return 0;
   const [h, m] = time.split(':').map(Number);
@@ -208,11 +214,14 @@ export default function AdminEventsEnhanced() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') ?? '');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  // 'all', 'sport:Badminton' (every division) or 'cat:Badminton — W Doubles'.
   const [sportFilter, setSportFilter] = useState<string>('all');
+  // 'all' | 'today' | 'tomorrow' | 'week' | 'past' | 'pick'
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [pickedDate, setPickedDate] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'status' | 'category'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
 
   const [stats, setStats] = useState({ total: 0, upcoming: 0, ongoing: 0, completed: 0 });
@@ -510,7 +519,18 @@ export default function AdminEventsEnhanced() {
     let list = [...events];
     if (searchQuery) list = list.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()) || e.category.toLowerCase().includes(searchQuery.toLowerCase()));
     if (statusFilter !== 'all') list = list.filter(e => e.status === statusFilter);
-    if (sportFilter !== 'all') list = list.filter(e => e.category === sportFilter);
+    if (sportFilter.startsWith('cat:')) list = list.filter(e => e.category === sportFilter.slice(4));
+    else if (sportFilter.startsWith('sport:')) list = list.filter(e => sportOf(e.category) === sportFilter.slice(6));
+    if (dateFilter !== 'all') {
+      const today = isoDate(new Date());
+      const plus = (n: number) => isoDate(new Date(Date.now() + n * 86_400_000));
+      const day = (e: Event) => String(e.schedule).slice(0, 10);
+      if (dateFilter === 'today') list = list.filter(e => day(e) === today);
+      else if (dateFilter === 'tomorrow') list = list.filter(e => day(e) === plus(1));
+      else if (dateFilter === 'week') list = list.filter(e => day(e) >= today && day(e) <= plus(6));
+      else if (dateFilter === 'past') list = list.filter(e => day(e) < today && e.status !== 'completed');
+      else if (dateFilter === 'pick' && pickedDate) list = list.filter(e => day(e) === pickedDate);
+    }
     list.sort((a, b) => {
       let cmp = 0;
       if (sortBy === 'name') cmp = a.name.localeCompare(b.name);
@@ -520,7 +540,28 @@ export default function AdminEventsEnhanced() {
       return sortOrder === 'asc' ? cmp : -cmp;
     });
     return list;
-  }, [events, searchQuery, statusFilter, sportFilter, sortBy, sortOrder]);
+  }, [events, searchQuery, statusFilter, sportFilter, dateFilter, pickedDate, sortBy, sortOrder]);
+
+  // Sports as scheduled ("Badminton — W Doubles"), grouped under their sport.
+  const sportGroups = useMemo(() => {
+    const by = new Map<string, Set<string>>();
+    events.forEach(e => {
+      if (!e.category) return;
+      const sport = sportOf(e.category);
+      by.set(sport, (by.get(sport) ?? new Set()).add(e.category));
+    });
+    return [...by.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([sport, cats]) => ({ sport, divisions: [...cats].sort((a, b) => a.localeCompare(b)) }));
+  }, [events]);
+
+  const filtersOn = statusFilter !== 'all' || sportFilter !== 'all' || dateFilter !== 'all';
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setSportFilter('all');
+    setDateFilter('all');
+    setPickedDate('');
+  };
 
   // ── Stable row callbacks (memoized cards/rows rely on referential
   // stability so a keystroke in the dialog doesn't re-render every card) ──
@@ -596,57 +637,100 @@ export default function AdminEventsEnhanced() {
                 <Input placeholder="Search by name or sport..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
               </div>
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                  <Filter className="h-4 w-4 mr-2" />Filters
-                </Button>
                 <div className="flex border rounded-md">
-                  <Button variant={viewMode === 'grid' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="rounded-r-none"><Grid3x3 className="h-4 w-4" /></Button>
-                  <Button variant={viewMode === 'list' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="rounded-l-none"><List className="h-4 w-4" /></Button>
+                  <Button variant={viewMode === 'grid' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="rounded-r-none" aria-label="Grid view"><Grid3x3 className="h-4 w-4" /></Button>
+                  <Button variant={viewMode === 'list' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="rounded-l-none" aria-label="List view"><List className="h-4 w-4" /></Button>
                 </div>
               </div>
             </div>
 
-            {showFilters && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-md">
-                <div>
-                  <Label>Status</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <div>
+                <Label className="mb-1 block text-xs text-gray-500">Date</Label>
+                <div className="flex gap-2">
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger className="min-w-0 flex-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="upcoming">Upcoming</SelectItem>
-                      <SelectItem value="ongoing">Ongoing</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="all">Any date</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="tomorrow">Tomorrow</SelectItem>
+                      <SelectItem value="week">Next 7 days</SelectItem>
+                      <SelectItem value="past">Past, no result yet</SelectItem>
+                      <SelectItem value="pick">Pick a date…</SelectItem>
                     </SelectContent>
                   </Select>
+                  {dateFilter === 'pick' && (
+                    <Input
+                      type="date"
+                      value={pickedDate}
+                      onChange={e => setPickedDate(e.target.value)}
+                      className="w-[9.5rem] shrink-0"
+                      aria-label="Date"
+                    />
+                  )}
                 </div>
-                <div>
-                  <Label>Sport</Label>
-                  <Select value={sportFilter} onValueChange={setSportFilter}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+              </div>
+              <div>
+                <Label className="mb-1 block text-xs text-gray-500">Sport type</Label>
+                <Select value={sportFilter} onValueChange={setSportFilter}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sports</SelectItem>
+                    {sportGroups.map(g => (
+                      <SelectGroup key={g.sport}>
+                        <SelectLabel>{g.sport}</SelectLabel>
+                        {g.divisions.length > 1 && (
+                          <SelectItem value={`sport:${g.sport}`}>All {g.sport}</SelectItem>
+                        )}
+                        {g.divisions.map(c => (
+                          <SelectItem key={c} value={`cat:${c}`}>{c}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1 block text-xs text-gray-500">Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="ongoing">Ongoing</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1 block text-xs text-gray-500">Sort by</Label>
+                <div className="flex gap-2">
+                  <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                    <SelectTrigger className="min-w-0 flex-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Sports</SelectItem>
-                      {SPORTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                      <SelectItem value="category">Sport</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-10 shrink-0"
+                    onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
+                    aria-label={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                    title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
                 </div>
-                <div>
-                  <Label>Sort By</Label>
-                  <div className="flex gap-2">
-                    <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="name">Name</SelectItem>
-                        <SelectItem value="date">Date</SelectItem>
-                        <SelectItem value="status">Status</SelectItem>
-                        <SelectItem value="category">Sport</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button variant="secondary" size="sm" onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}>
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+              </div>
+            </div>
+
+            {filtersOn && (
+              <div className="-mt-1 flex justify-end">
+                <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>
               </div>
             )}
 
@@ -727,7 +811,7 @@ export default function AdminEventsEnhanced() {
             <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No events found</h3>
             <p className="text-gray-600 mb-4">
-              {searchQuery || statusFilter !== 'all' || sportFilter !== 'all'
+              {searchQuery || filtersOn
                 ? 'Try adjusting your filters'
                 : 'Create your first sports event'}
             </p>
