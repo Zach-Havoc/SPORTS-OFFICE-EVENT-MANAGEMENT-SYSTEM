@@ -25,6 +25,7 @@ import { CheckCircle, XCircle, Clock, Download, Eye, Search } from "lucide-react
 import { toast } from "sonner";
 import { useRequirements, useUpdateRequirementStatus } from "../../hooks/api";
 import { RefreshStatus } from "../../components/RefreshStatus";
+import { CmoOfficeBoard } from "../../components/cmo/CmoOfficeBoard";
 
 interface Requirement {
   id: string;
@@ -60,7 +61,9 @@ export default function AdminRequirements() {
     if (!user || user.role !== "admin") navigate("/login");
   }, [user, navigate]);
 
-  const requirementsQuery = useRequirements();
+  // The coach-forwarded board leads; the flat list of every document stays one tab away.
+  const [view, setView] = useState<"board" | "documents">("board");
+  const requirementsQuery = useRequirements({ enabled: view === "documents" });
   const updateStatus = useUpdateRequirementStatus();
 
   const requirements: Requirement[] = useMemo(() => {
@@ -139,10 +142,38 @@ export default function AdminRequirements() {
           />
         </div>
         <p className="mt-2 text-gray-600">
-          The Sports Office's view of the documents athletes submit. Same
-          checklist the coach reviews.
+          Coaches review their athletes&rsquo; documents, then forward the
+          cleared athletes here. Accept each athlete, or return them to the
+          coach with a note.
         </p>
       </div>
+
+      <div className="mb-6 inline-flex rounded-md border p-0.5" role="tablist" aria-label="View">
+        {(
+          [
+            ["board", "By college & sport"],
+            ["documents", "All documents"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => setView(key)}
+            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              view === key ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === "board" ? (
+        <CmoOfficeBoard />
+      ) : (
+      <>
 
       <StatStrip
         stats={[
@@ -281,6 +312,9 @@ export default function AdminRequirements() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      </>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

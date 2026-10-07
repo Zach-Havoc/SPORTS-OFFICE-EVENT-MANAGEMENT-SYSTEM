@@ -1581,6 +1581,40 @@ export const useProtests = (
     ...opts,
   });
 
+export const useCmoRoster = (opts?: QueryOpts<api.CmoRosterAthlete[]>) =>
+  useQuery({ queryKey: ["cmo", "roster"], queryFn: api.getCmoRoster, staleTime: STALE.live, ...opts });
+
+export const useCmoOverview = (opts?: QueryOpts<api.CmoEntry[]>) =>
+  useQuery({ queryKey: ["cmo", "overview"], queryFn: api.getCmoOverview, staleTime: STALE.live, ...opts });
+
+export const useCmoDocuments = (athleteId: string | null, opts?: QueryOpts<api.CmoDocument[]>) =>
+  useQuery({
+    queryKey: ["cmo", "documents", athleteId],
+    queryFn: () => api.getCmoDocuments(athleteId as string),
+    enabled: !!athleteId,
+    staleTime: STALE.live,
+    ...opts,
+  });
+
+export const useSubmitCmo = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.submitCmo,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cmo"] }),
+  });
+};
+
+export const useReviewCmo = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.reviewCmo,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cmo"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+};
+
 export const useProtestableGames = (opts?: QueryOpts<api.ProtestableGame[]>) =>
   useQuery({
     queryKey: ["protests", "eligible-games"],

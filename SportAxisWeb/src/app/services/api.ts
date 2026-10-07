@@ -594,6 +594,62 @@ export const getProtests = (
     Protest[]
   >;
 };
+// ─────────────────────────────────────────────────────────────────────
+// CMO documents, coach → sports office
+// ─────────────────────────────────────────────────────────────────────
+
+/** One athlete as forwarded to the office, and the office's decision. */
+export interface CmoEntry {
+  id: number;
+  submissionId: string;
+  athleteId: string;
+  athleteName: string;
+  department: string;
+  sport: string | null;
+  division: string | null;
+  status: "submitted" | "accepted" | "returned";
+  officeNote: string | null;
+  reviewerName: string | null;
+  reviewedAt: string | null;
+  coachName: string | null;
+  coachNote: string | null;
+  submittedAt: string | null;
+}
+
+/** A coach's athlete: document clearance, and where they stand with the office. */
+export interface CmoRosterAthlete {
+  id: string;
+  name: string;
+  department: string | null;
+  sport: string | null;
+  division: string | null;
+  cleared: boolean;
+  requiredCount: number;
+  approvedCount: number;
+  missing: string[];
+  office: CmoEntry | null;
+}
+
+export interface CmoDocument {
+  id: string;
+  type: string;
+  name: string;
+  fileUrl: string | null;
+  status: "pending" | "approved" | "rejected";
+  notes: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+}
+
+export const getCmoRoster = () => apiRequest("/cmo/roster", {}, true) as Promise<CmoRosterAthlete[]>;
+export const submitCmo = (data: { athleteIds: string[]; note?: string }) =>
+  apiRequest("/cmo/submissions", { method: "POST", body: JSON.stringify(data) }, true) as Promise<{ id: string; count: number }>;
+export const getCmoOverview = () => apiRequest("/cmo/overview", {}, true) as Promise<CmoEntry[]>;
+export const getCmoDocuments = (athleteId: string) =>
+  apiRequest(`/cmo/athletes/${encodeURIComponent(athleteId)}/documents`, {}, true) as Promise<CmoDocument[]>;
+export const reviewCmo = (data: { entryIds: number[]; status: "accepted" | "returned"; note?: string }) =>
+  apiRequest("/cmo/review", { method: "POST", body: JSON.stringify(data) }, true) as Promise<{ updated: number }>;
+
 /** A coach's game still inside the 12-hour protest window. */
 export interface ProtestableGame {
   id: string;

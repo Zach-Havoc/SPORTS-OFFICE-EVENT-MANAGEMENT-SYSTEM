@@ -1,3 +1,4 @@
+import { CmoForwardPanel } from "../../components/cmo/CmoForwardPanel";
 import { StatStrip } from '../../components/page/StatStrip';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
@@ -386,7 +387,7 @@ export default function CoachRequirements() {
           />
         </div>
         <p className="text-gray-600 mt-2">
-          Review and approve athlete document submissions
+          Review your athletes&rsquo; documents, then forward the cleared athletes to the Sports Office.
         </p>
       </div>
 
@@ -401,6 +402,8 @@ export default function CoachRequirements() {
           { label: 'Rejected', value: requirements.filter((r) => r.status === "rejected").length },
         ]}
       />
+
+      <CmoForwardPanel />
 
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />

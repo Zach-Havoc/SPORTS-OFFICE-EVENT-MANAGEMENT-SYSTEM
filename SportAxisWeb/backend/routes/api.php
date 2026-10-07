@@ -9,14 +9,15 @@ use App\Http\Controllers\Api\BasketballGameController;
 use App\Http\Controllers\Api\BracketController;
 use App\Http\Controllers\Api\CampusStudentController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CmoSubmissionController;
 use App\Http\Controllers\Api\CoachController;
 use App\Http\Controllers\Api\DemoResetController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DisciplineEntryController;
 use App\Http\Controllers\Api\EnrollController;
 use App\Http\Controllers\Api\EventController;
-use App\Http\Controllers\Api\GameLineupController;
 use App\Http\Controllers\Api\EventSessionController;
+use App\Http\Controllers\Api\GameLineupController;
 use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\LiveScoreController;
 use App\Http\Controllers\Api\MatchController;
@@ -34,11 +35,12 @@ use App\Http\Controllers\Api\SeasonController;
 use App\Http\Controllers\Api\SiteSlideController;
 use App\Http\Controllers\Api\StandingsRulesController;
 use App\Http\Controllers\Api\TeamScheduleController;
+use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\TrashController;
 use App\Http\Controllers\Api\TryoutController;
 use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\VolleyballGameController;
 use App\Http\Controllers\Api\VenueController;
+use App\Http\Controllers\Api\VolleyballGameController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -200,7 +202,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/system/reset-demo/link', [DemoResetController::class, 'link']);
         Route::post('/admin/system/reset-demo', [DemoResetController::class, 'reset'])
             ->middleware(['signed:relative', 'throttle:3,10'])->name('admin.system.reset-demo');
-        Route::get('/admin/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
+        Route::get('/admin/transactions', [TransactionController::class, 'index']);
         Route::post('/events/{id}/restore', [EventController::class, 'restore']);
         Route::post('/brackets/{id}/restore', [BracketController::class, 'restore']);
         Route::delete('/scores/{id}', [ScoreController::class, 'destroy']);
@@ -304,6 +306,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/requirements', [RequirementController::class, 'index']);
         Route::put('/requirements/{id}/status', [RequirementController::class, 'updateStatus']);
     });
+
+    // CMO documents, forwarded by coaches to the sports office.
+    Route::get('/cmo/roster', [CmoSubmissionController::class, 'roster'])->middleware('role:coach');
+    Route::post('/cmo/submissions', [CmoSubmissionController::class, 'store'])->middleware('role:coach');
+    Route::get('/cmo/overview', [CmoSubmissionController::class, 'overview'])->middleware('role:admin');
+    Route::get('/cmo/athletes/{athleteId}/documents', [CmoSubmissionController::class, 'documents'])->middleware('role:admin,coach');
+    Route::post('/cmo/review', [CmoSubmissionController::class, 'review'])->middleware('role:admin');
 
     // ─── COACH ONLY ───────────────────────────
     Route::middleware('role:coach')->group(function () {

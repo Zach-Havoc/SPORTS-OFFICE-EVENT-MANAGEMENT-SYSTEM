@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CmoSubmission;
 use App\Models\Protest;
-use App\Models\Requirement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
  * GET /api/admin/transactions — the Sports Office's transaction log.
  *
  * "Sports Office transactions" are the requests the office and its coaches
- * process: CMO requirement submissions and game
+ * process: CMO submissions from coaches and game
  * protests. Each lives in its own module; this puts them in one list —
  * who filed what, when, its status and when it was decided — so the office
  * can track every open item in one place.
@@ -62,21 +62,28 @@ class TransactionController extends Controller
         ]);
     }
 
+    /**
+     * CMO submissions: the batches of cleared athletes coaches forward to the
+     * office. Open while any athlete in the batch waits for the office's
+     * decision. (A document waiting on its coach's review isn't the office's.)
+     */
     private function requirements(): Collection
     {
-        // Only the columns the list shows: the table has ~2,000 rows with
-        // descriptions, notes and file URLs this view never uses.
-        return Requirement::select(['id', 'athlete_name', 'name', 'status', 'submitted_at', 'created_at', 'reviewed_at'])
-            ->orderByDesc('submitted_at')->get()->map(fn (Requirement $r) => [
-                'id' => $r->id,
+        return CmoSubmission::withCount([
+            'athletes',
+            'athletes as waiting_count' => fn ($q) => $q->where('status', 'submitted'),
+            'athletes as returned_count' => fn ($q) => $q->where('status', 'returned'),
+        ])->with('athletes:id,submission_id,reviewed_at')
+            ->orderByDesc('submitted_at')->get()->map(fn (CmoSubmission $s) => [
+                'id' => $s->id,
                 'type' => 'cmo_requirement',
-                'reference' => 'REQ-'.strtoupper(substr($r->id, 0, 8)),
-                'party' => $r->athlete_name,
-                'subject' => $r->name,
-                'status' => $r->status,
-                'open' => $r->status === 'pending',
-                'filedAt' => optional($r->submitted_at ?? $r->created_at)->toIso8601String(),
-                'decidedAt' => optional($r->reviewed_at)->toIso8601String(),
+                'reference' => 'CMO-'.strtoupper(substr($s->id, 0, 8)),
+                'party' => $s->department,
+                'subject' => trim(($s->sport ? "{$s->sport} · " : '').$s->athletes_count.' '.($s->athletes_count === 1 ? 'athlete' : 'athletes')),
+                'status' => $s->waiting_count > 0 ? 'pending' : ($s->returned_count > 0 ? 'returned' : 'accepted'),
+                'open' => $s->waiting_count > 0,
+                'filedAt' => optional($s->submitted_at)->toIso8601String(),
+                'decidedAt' => $s->waiting_count > 0 ? null : optional($s->athletes->max('reviewed_at'))->toIso8601String(),
                 'link' => '/admin/requirements',
             ]);
     }

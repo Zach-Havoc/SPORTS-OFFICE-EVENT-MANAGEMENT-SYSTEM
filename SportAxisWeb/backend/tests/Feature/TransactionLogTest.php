@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CmoSubmission;
 use App\Models\Protest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -14,8 +15,14 @@ class TransactionLogTest extends TestCase
 
     private function seedOneOfEach(): void
     {
-        $this->requirements()->create(['athlete_name' => 'Ana Reyes', 'name' => 'Parental Consent', 'status' => 'pending', 'submitted_at' => now()->subDays(3)]);
-        $this->requirements()->create(['athlete_name' => 'Ben Cruz', 'name' => 'Medical Certificate', 'status' => 'approved', 'submitted_at' => now()->subDays(2), 'reviewed_at' => now()]);
+        // Two CMO submissions from a coach: one waiting for the office, one accepted.
+        $cmoCoach = $this->users()->coach()->create(['department' => 'CICS']);
+        foreach ([['Ana Reyes', 'submitted', 3], ['Ben Cruz', 'accepted', 2]] as [$name, $status, $days]) {
+            $sub = CmoSubmission::create(['id' => (string) Str::uuid(), 'coach_id' => $cmoCoach->id,
+                'department' => 'CICS', 'sport' => 'Basketball', 'submitted_at' => now()->subDays($days)]);
+            $sub->athletes()->create(['athlete_id' => (string) Str::uuid(), 'athlete_name' => $name, 'department' => 'CICS',
+                'sport' => 'Basketball', 'status' => $status, 'reviewed_at' => $status === 'accepted' ? now() : null]);
+        }
         $this->tryouts()->create(['first_name' => 'Ben', 'last_name' => 'Cruz', 'sport' => 'Volleyball', 'status' => 'accepted', 'applied_at' => now()->subDays(2), 'reviewed_at' => now()]);
         $event = $this->events()->create(['name' => 'CICS vs CoE']);
         $coach = $this->users()->coach()->create();
@@ -36,7 +43,7 @@ class TransactionLogTest extends TestCase
             'open' => 2, 'closed' => 1,
             'byType' => ['cmo_requirement' => 2, 'protest' => 1],
         ], $res->json('counts'));
-        $this->assertStringStartsWith('REQ-', $res->json('data.2.reference'));
+        $this->assertStringStartsWith('CMO-', $res->json('data.2.reference'));
     }
 
     public function test_it_filters_by_type_status_and_search(): void
@@ -46,7 +53,7 @@ class TransactionLogTest extends TestCase
 
         $this->assertSame(['cmo_requirement', 'cmo_requirement'], array_column($this->getJson('/api/admin/transactions?type=cmo_requirement')->json('data'), 'type'));
         $this->assertSame(['cmo_requirement'], array_column($this->getJson('/api/admin/transactions?status=closed')->json('data'), 'type'));
-        $this->assertSame('Ben Cruz', $this->getJson('/api/admin/transactions?q=ben')->json('data.0.party'));
+        $this->assertSame('APL-', substr($this->getJson('/api/admin/transactions?q=CoE')->json('data.0.reference'), 0, 4));
     }
 
     public function test_tryout_applications_stay_out_of_the_office_queue(): void
