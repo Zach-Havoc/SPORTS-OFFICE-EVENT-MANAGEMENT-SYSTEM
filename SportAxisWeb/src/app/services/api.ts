@@ -554,12 +554,26 @@ export interface Protest {
   eventId: string;
   eventName: string | null;
   eventCategory: string | null;
+  /** The colleges in the game; the other one(s) can be asked for a counter. */
+  eventDepartments: string[];
   seasonId: string | null;
   filedBy: string;
   filerName: string | null;
   department: string;
   reason: string;
-  status: "open" | "upheld" | "dismissed";
+  /** The formal protest form (PDF). Older protests have none. */
+  formUrl: string | null;
+  /** awaiting_counter: the other team has 12 hours to file its counter. */
+  status: "open" | "awaiting_counter" | "upheld" | "dismissed";
+  counterDepartment: string | null;
+  counterRequestedAt: string | null;
+  counterDueAt: string | null;
+  /** Asked for a counter, and its 12 hours ran out without one. */
+  counterLapsed: boolean;
+  counterReason: string | null;
+  counterFormUrl: string | null;
+  counterFiledAt: string | null;
+  counterFilerName: string | null;
   resolution: string | null;
   resolvedBy: string | null;
   resolverName: string | null;
@@ -580,12 +594,45 @@ export const getProtests = (
     Protest[]
   >;
 };
-export const fileProtest = (data: { eventId: string; reason: string }) =>
+/** A coach's game still inside the 12-hour protest window. */
+export interface ProtestableGame {
+  id: string;
+  name: string;
+  category: string;
+  schedule: string;
+  startTime: string | null;
+  status: string;
+  /** When the protest window closes (ISO). */
+  deadline: string;
+}
+
+export const getProtestableGames = () =>
+  apiRequest("/protests/eligible-games", {}, true) as Promise<ProtestableGame[]>;
+
+/** A protest, with its formal protest form (PDF). */
+export const fileProtest = (data: { eventId: string; reason: string; form: File }) => {
+  const fd = new FormData();
+  fd.append("eventId", data.eventId);
+  fd.append("reason", data.reason);
+  fd.append("form", data.form);
+  return authMultipart("/protests", fd) as Promise<Protest>;
+};
+
+/** The office asks the other team for a counter (12 hours to file it). */
+export const requestProtestCounter = (id: string, department?: string) =>
   apiRequest(
-    "/protests",
-    { method: "POST", body: JSON.stringify(data) },
+    `/protests/${id}/request-counter`,
+    { method: "POST", body: JSON.stringify(department ? { department } : {}) },
     true,
   ) as Promise<Protest>;
+
+/** The other team's counter, with its formal counter form (PDF). */
+export const fileProtestCounter = (id: string, data: { reason: string; form: File }) => {
+  const fd = new FormData();
+  fd.append("reason", data.reason);
+  fd.append("form", data.form);
+  return authMultipart(`/protests/${id}/counter`, fd) as Promise<Protest>;
+};
 export const resolveProtest = (
   id: string,
   data: { status: "upheld" | "dismissed"; resolution: string },

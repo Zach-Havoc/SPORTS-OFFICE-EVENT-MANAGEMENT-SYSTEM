@@ -535,7 +535,7 @@ class ReportController extends Controller
         if ($r['protests']) {
             $rows = '';
             foreach ($r['protests'] as $p) {
-                $rows .= '<tr><td>'.e($p['department']).'</td><td>'.e(ucfirst($p['status'])).'</td><td>'.e($p['reason'])
+                $rows .= '<tr><td>'.e($p['department']).'</td><td>'.e(['open' => 'Under review', 'awaiting_counter' => 'Waiting for counter'][$p['status']] ?? ucfirst($p['status'])).'</td><td>'.e($p['reason'])
                     .'</td><td>'.e($p['resolution'] ?? '—').'</td></tr>';
             }
             $out .= '<h2>Protests</h2><table><tr><th>Filed by</th><th>Status</th><th>Reason</th><th>Resolution</th></tr>'.$rows.'</table>';

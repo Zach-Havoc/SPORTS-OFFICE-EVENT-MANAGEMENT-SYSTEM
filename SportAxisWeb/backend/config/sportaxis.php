@@ -10,6 +10,13 @@
 */
 
 return [
+    // Game dates and times are stored as local time (no zone); deadlines such
+    // as the 12-hour protest window read them in this zone.
+    'local_timezone' => env('LOCAL_TIMEZONE', 'Asia/Manila'),
+
+    // Protests: filed within this many hours after a game, and a counter
+    // within this many hours after the office asks for one.
+    'protest_window_hours' => (int) env('PROTEST_WINDOW_HOURS', 12),
 
     'basketball' => [
 

@@ -90,7 +90,7 @@ class TransactionController extends Controller
             'party' => $p->department,
             'subject' => $p->event?->name ? "Appeal: {$p->event->name}" : 'Appeal',
             'status' => $p->status,
-            'open' => $p->status === 'open',
+            'open' => in_array($p->status, ['open', 'awaiting_counter'], true),
             'filedAt' => optional($p->created_at)->toIso8601String(),
             'decidedAt' => optional($p->resolved_at)->toIso8601String(),
             'link' => '/admin/protests',

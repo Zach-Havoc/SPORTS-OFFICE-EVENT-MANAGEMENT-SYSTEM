@@ -141,7 +141,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Protests — a coach files, the sports office resolves.
     Route::get('/protests', [ProtestController::class, 'index'])->middleware('role:admin,coach');
+    Route::get('/protests/eligible-games', [ProtestController::class, 'eligibleGames'])->middleware('role:coach');
     Route::post('/protests', [ProtestController::class, 'store'])->middleware('role:coach');
+    Route::post('/protests/{id}/request-counter', [ProtestController::class, 'requestCounter'])->middleware('role:admin');
+    Route::post('/protests/{id}/counter', [ProtestController::class, 'counter'])->middleware('role:coach');
     Route::post('/protests/{id}/resolve', [ProtestController::class, 'resolve'])->middleware('role:admin');
 
     // Live game score — the assigned scorekeeper (committee) or an admin pushes

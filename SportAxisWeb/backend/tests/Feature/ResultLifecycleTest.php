@@ -8,6 +8,9 @@ use App\Models\Ranking;
 use App\Models\Score;
 use App\Models\ScoreAmendment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -105,12 +108,17 @@ class ResultLifecycleTest extends TestCase
     public function test_a_coach_files_a_protest_and_the_office_resolves_it(): void
     {
         [$event] = $this->twoScores();
+        // A game CICS played, finished an hour ago: inside the 12-hour window.
+        Storage::fake('public');
+        $this->travelTo(Carbon::parse('2026-10-07 04:00:00', 'UTC'));
+        $event->update(['departments' => ['CICS', 'CET'], 'schedule' => '2026-10-07', 'start_time' => '09:00', 'end_time' => '11:00', 'status' => 'completed']);
 
         $coach = $this->actingAsRole('coach', ['department' => 'CICS']);
-        $filed = $this->postJson('/api/protests', [
+        $filed = $this->post('/api/protests', [
             'eventId' => $event->id,
             'reason' => 'The final tally does not match the score sheet our representative signed.',
-        ])->assertCreated()->assertJsonPath('status', 'open')->json();
+            'form' => UploadedFile::fake()->create('protest.pdf', 80, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('status', 'open')->json();
 
         // The admin sees it and resolves it.
         $admin = $this->actingAsRole('admin');
@@ -145,6 +153,6 @@ class ResultLifecycleTest extends TestCase
     {
         $this->actingAsRole('coach', ['department' => 'CICS']);
         $this->postJson('/api/protests', ['eventId' => 'nope', 'reason' => 'too short'])
-            ->assertJsonValidationErrors(['eventId', 'reason']);
+            ->assertJsonValidationErrors(['eventId', 'reason', 'form']);
     }
 }

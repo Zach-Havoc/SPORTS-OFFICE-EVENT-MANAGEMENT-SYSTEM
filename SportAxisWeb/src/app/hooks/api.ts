@@ -1581,6 +1581,32 @@ export const useProtests = (
     ...opts,
   });
 
+export const useProtestableGames = (opts?: QueryOpts<api.ProtestableGame[]>) =>
+  useQuery({
+    queryKey: ["protests", "eligible-games"],
+    queryFn: api.getProtestableGames,
+    staleTime: STALE.live,
+    ...opts,
+  });
+
+export const useRequestProtestCounter = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, department }: { id: string; department?: string }) =>
+      api.requestProtestCounter(id, department),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["protests"] }),
+  });
+};
+
+export const useFileProtestCounter = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { reason: string; form: File } }) =>
+      api.fileProtestCounter(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["protests"] }),
+  });
+};
+
 export const useFileProtest = () => {
   const qc = useQueryClient();
   return useMutation({

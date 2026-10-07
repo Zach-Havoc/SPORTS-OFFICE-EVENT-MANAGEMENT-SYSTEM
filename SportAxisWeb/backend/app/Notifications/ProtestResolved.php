@@ -3,12 +3,17 @@
 namespace App\Notifications;
 
 use App\Models\Protest;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /** To the coach who filed it: the sports office has ruled on a protest. */
-class ProtestResolved extends Notification
+class ProtestResolved extends Notification implements ShouldQueue
 {
+    // Queued, so saving a decision doesn't wait on the email.
+    use Queueable;
+
     public function __construct(public Protest $protest) {}
 
     /** @return array<int, string> */

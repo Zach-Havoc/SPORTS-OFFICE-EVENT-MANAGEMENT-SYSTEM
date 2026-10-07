@@ -7,6 +7,9 @@ use App\Models\Protest;
 use App\Models\Requirement;
 use App\Notifications\ProtestResolved;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -14,16 +17,34 @@ class NotificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** A game CICS and CET played this morning, inside the 12-hour protest window. */
+    private function playedGame()
+    {
+        Storage::fake('public');
+        $this->travelTo(Carbon::parse('2026-10-07 04:00:00', 'UTC'));
+
+        return $this->events()->create([
+            'departments' => ['CICS', 'CET'], 'schedule' => '2026-10-07',
+            'start_time' => '09:00', 'end_time' => '11:00', 'status' => 'completed',
+        ]);
+    }
+
+    private function fileProtest(string $eventId, string $reason)
+    {
+        return $this->post('/api/protests', [
+            'eventId' => $eventId,
+            'reason' => $reason,
+            'form' => UploadedFile::fake()->create('protest.pdf', 80, 'application/pdf'),
+        ], ['Accept' => 'application/json']);
+    }
+
     public function test_filing_a_protest_notifies_the_admins(): void
     {
         $admin = $this->users()->state(['role' => 'admin', 'active' => true])->create();
-        $event = $this->events()->create();
+        $event = $this->playedGame();
 
         $this->actingAsRole('coach', ['department' => 'CICS']);
-        $this->postJson('/api/protests', [
-            'eventId' => $event->id,
-            'reason' => 'The tally on the board did not match our signed score sheet.',
-        ])->assertCreated();
+        $this->fileProtest($event->id, 'The tally on the board did not match our signed score sheet.')->assertCreated();
 
         $this->assertSame(1, $admin->fresh()->notifications()->count());
         $this->assertSame('protest_filed', $admin->notifications()->first()->data['kind']);
@@ -31,12 +52,9 @@ class NotificationTest extends TestCase
 
     public function test_resolving_a_protest_notifies_the_filing_coach(): void
     {
-        $event = $this->events()->create();
+        $event = $this->playedGame();
         $coach = $this->actingAsRole('coach', ['department' => 'CET']);
-        $filed = $this->postJson('/api/protests', [
-            'eventId' => $event->id,
-            'reason' => 'Requesting a review of the final margin in this game.',
-        ])->json();
+        $filed = $this->fileProtest($event->id, 'Requesting a review of the final margin in this game.')->json();
 
         $this->actingAsRole('admin');
         $this->postJson("/api/protests/{$filed['id']}/resolve", [
@@ -87,12 +105,14 @@ class NotificationTest extends TestCase
         $me = $this->actingAsRole('coach');
         $other = $this->users()->state(['role' => 'coach'])->create();
 
-        $me->notify(new ProtestResolved(new Protest([
-            'id' => 'p1', 'status' => 'upheld', 'event_id' => 'e1',
-        ])));
-        $other->notify(new ProtestResolved(new Protest([
-            'id' => 'p2', 'status' => 'upheld', 'event_id' => 'e1',
-        ])));
+        // The notice is queued, so the protests it names have to exist.
+        $event = $this->events()->create();
+        $mine = Protest::create(['id' => 'p1', 'status' => 'upheld', 'event_id' => $event->id,
+            'filed_by' => $me->id, 'department' => 'CICS', 'reason' => str_repeat('r', 20)]);
+        $theirs = Protest::create(['id' => 'p2', 'status' => 'upheld', 'event_id' => $event->id,
+            'filed_by' => $other->id, 'department' => 'CET', 'reason' => str_repeat('r', 20)]);
+        $me->notify(new ProtestResolved($mine));
+        $other->notify(new ProtestResolved($theirs));
 
         $res = $this->getJson('/api/notifications')->assertOk();
         $res->assertJsonPath('unreadCount', 1)->assertJsonCount(1, 'items');
