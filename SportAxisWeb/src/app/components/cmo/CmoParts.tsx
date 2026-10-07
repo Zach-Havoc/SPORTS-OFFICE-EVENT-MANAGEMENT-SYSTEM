@@ -39,28 +39,32 @@ const DOC_STYLE: Record<CmoDocument['status'], string> = {
 };
 
 /** An athlete's current documents, loaded when shown. */
-export function AthleteDocuments({ athleteId }: { athleteId: string }) {
+export function AthleteDocuments({ athleteId, stacked = false }: { athleteId: string; stacked?: boolean }) {
   const docs = useCmoDocuments(athleteId);
   if (docs.isLoading) return <p className="py-2 text-xs text-gray-500">Loading documents…</p>;
   if (docs.isError) return <p className="py-2 text-xs text-red-600">Couldn&rsquo;t load the documents.</p>;
   const list = docs.data ?? [];
   if (list.length === 0) return <p className="py-2 text-xs text-gray-500">No documents uploaded.</p>;
   return (
-    <ul className="grid gap-1.5 py-1 sm:grid-cols-2">
+    <ul className={`grid gap-1.5 py-1 ${stacked ? '' : 'sm:grid-cols-2'}`}>
       {list.map((d) => (
-        <li key={d.id} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
+        <li key={d.id} className={`flex min-w-0 items-center justify-between gap-2 rounded-md border border-gray-200 bg-white ${stacked ? 'px-3 py-2.5' : 'px-2.5 py-1.5'}`}>
           <span className="min-w-0">
-            <span className="block truncate text-xs font-medium text-gray-900">{d.type}</span>
-            <span className={`text-[11px] font-semibold capitalize ${DOC_STYLE[d.status]}`}>
+            <span className={`block truncate font-medium text-gray-900 ${stacked ? 'text-sm' : 'text-xs'}`}>{d.type}</span>
+            <span className={`text-[11px] font-semibold ${d.status === 'approved' ? '' : 'capitalize'} ${DOC_STYLE[d.status]}`}>
               {d.status === 'approved' ? 'Approved by coach' : d.status}
             </span>
+            {stacked && d.submittedAt && (
+              <span className="text-[11px] text-gray-500"> · uploaded {fmtDate(d.submittedAt)}</span>
+            )}
+            {stacked && d.notes && <span className="block text-[11px] text-gray-600">{d.notes}</span>}
           </span>
           {d.fileUrl ? (
             <a
               href={d.fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900"
+              className={`inline-flex shrink-0 items-center gap-1 font-medium text-gray-700 hover:text-gray-900 ${stacked ? 'rounded-md border border-gray-200 px-2.5 py-1 text-sm hover:bg-gray-50' : 'text-xs'}`}
             >
               <FileText className="h-3.5 w-3.5 text-red-600" />
               Open
