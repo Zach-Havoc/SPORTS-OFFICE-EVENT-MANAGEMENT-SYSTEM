@@ -17,7 +17,8 @@
     "test:e2e:auto": "bash e2e/selenium/run.sh",
     "test:e2e:headless": "E2E_HEADLESS=1 mocha --config e2e/selenium/.mocharc.json",
     "test:e2e:cleanup": "node e2e/selenium/support/accounts.mjs delete",
-    "test:api": "E2E_ONLY=api bash e2e/selenium/run.sh"
+    "test:api": "E2E_ONLY=api bash e2e/selenium/run.sh",
+    "test:load": "E2E_ONLY=load bash e2e/selenium/run.sh"
   },
   "dependencies": {
     "@g-loot/react-tournament-brackets": "^1.0.31-rc",

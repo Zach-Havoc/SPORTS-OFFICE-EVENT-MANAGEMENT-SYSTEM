@@ -19,7 +19,8 @@
 #   E2E_ONLY        "pages"  = only the read-only page tests,
 #                   "flow"   = only the full-system test,
 #                   "errors" = only the error catcher (invalid input),
-#                   "api"    = only the Postman API collection (Newman)
+#                   "api"    = only the Postman API collection (Newman),
+#                   "load"   = the JMeter load test (never part of a full run)
 #   E2E_SERVE_ONLY  1 = start the site and keep it up (no tests), to look
 #                   at a failure by hand; Ctrl+C stops it
 #   DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD  MySQL server
@@ -91,7 +92,12 @@ say "API on $API_URL"
 # Not `artisan serve`: it drops variables that aren't in .env, which would
 # quietly point the API back at the real database.
 # Laravel's router script expects to be started from public/.
-(cd public && PHP_CLI_SERVER_WORKERS=4 exec php -S "127.0.0.1:$API_PORT" \
+# The load test lifts the API's rate limits (one machine sends every request,
+# so the per-IP limits would cap it) and gives the server a worker per CPU.
+if [[ "${E2E_ONLY:-}" == "load" ]]; then
+  export API_RATE_LIMIT=1000000 LOGIN_RATE_LIMIT=1000000 LOGIN_IP_RATE_LIMIT=1000000 LIVE_RATE_LIMIT=1000000
+fi
+(cd public && PHP_CLI_SERVER_WORKERS="${E2E_PHP_WORKERS:-$([[ "${E2E_ONLY:-}" == "load" ]] && nproc || echo 4)}" exec php -S "127.0.0.1:$API_PORT" \
   ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php) \
   >"$LOG_DIR/api.log" 2>&1 &
 PIDS+=($!)
@@ -137,6 +143,10 @@ fi
 if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "errors" ]]; then
   say "Error catcher: invalid input, refused cleanly? (in $E2E_DB)"
   npx mocha --config e2e/selenium/.mocharc.errors.json $(report errors) "$@" || STATUS=$?
+fi
+if [[ "${E2E_ONLY:-}" == "load" ]]; then
+  say "Load test: Apache JMeter (in $E2E_DB, rate limits lifted, $(nproc) PHP workers)"
+  node e2e/jmeter/run-jmeter.mjs || STATUS=$?
 fi
 if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "api" ]]; then
   say "API tests: the Postman collection, run with Newman (in $E2E_DB)"

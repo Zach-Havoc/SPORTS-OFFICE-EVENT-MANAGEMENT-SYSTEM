@@ -23,3 +23,6 @@ pnpm-debug.log*
 # Selenium failure screenshots
 e2e/selenium/artifacts/
 e2e/selenium/.site/
+
+# OCR accuracy test: generated sheets, fonts and results (rebuilt by the scripts)
+e2e/ocr-accuracy/out/
