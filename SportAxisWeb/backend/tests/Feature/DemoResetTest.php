@@ -20,20 +20,34 @@ class DemoResetTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Placeholder backups written during a test, removed afterwards. */
+    private array $written = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         // mysqldump against the test database isn't what's under test here.
-        $this->app->instance(DatabaseBackup::class, new class extends DatabaseBackup
+        $written = &$this->written;
+        $this->app->instance(DatabaseBackup::class, new class($written) extends DatabaseBackup
         {
+            public function __construct(private array &$written) {}
+
             public function dump(string $path): string
             {
                 File::ensureDirectoryExists(dirname($path));
                 File::put($path, "-- test backup\n");
+                $this->written[] = $path;
 
                 return $path;
             }
         });
+    }
+
+    protected function tearDown(): void
+    {
+        // The placeholders land in the real storage/app/backups; don't leave them there.
+        File::delete($this->written);
+        parent::tearDown();
     }
 
     private function signedUrl(): string
