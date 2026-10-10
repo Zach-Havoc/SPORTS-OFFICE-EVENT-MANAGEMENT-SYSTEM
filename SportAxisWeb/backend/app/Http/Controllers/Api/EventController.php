@@ -14,6 +14,7 @@ use App\Models\Venue;
 use App\Notifications\CommitteeAssigned;
 use App\Services\ScheduleNotifier;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -23,7 +24,10 @@ class EventController extends Controller
     /** One committee member scores each event. */
     private const RESEND_COOLDOWN_MINUTES = 5;
 
-    private const ONE_COMMITTEE = ['judges.max' => 'Only one committee member can be assigned to an event.'];
+    private const ONE_COMMITTEE = [
+        'judges.max' => 'Only one committee member can be assigned to an event.',
+        'judges.*.id.exists' => 'Only a committee account can be assigned to score an event.',
+    ];
 
     use Paginates, ResolvesSeason;
 
@@ -43,6 +47,19 @@ class EventController extends Controller
      * field name. A side that won't parse is left alone, matching the leniency
      * venueConflicts() already applies.
      */
+    /** A real time of day ("14:30", "14:30:00" or "2:30 PM"), not "noon-ish" or "10:75". */
+    private function clockTime(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            $time = is_string($value) ? trim($value) : '';
+            $h24 = '/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/';
+            $h12 = '/^(0?[1-9]|1[0-2]):[0-5]\d\s*[AaPp][Mm]$/';
+            if (! preg_match($h24, $time) && ! preg_match($h12, $time)) {
+                $fail('Enter a time of day, like 14:30.');
+            }
+        };
+    }
+
     private function endAfterStart(callable $startValue): \Closure
     {
         return function (string $attribute, mixed $value, \Closure $fail) use ($startValue) {
@@ -118,13 +135,15 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string',
-            'category' => 'required|string',
+            'name' => 'required|string|max:255',
+            'category' => 'required|string|max:255',
             'schedule' => 'required|date',
-            'startTime' => 'required|string',
-            'endTime' => ['required', 'string', $this->endAfterStart(fn () => $request->startTime)],
+            'startTime' => ['required', 'string', $this->clockTime()],
+            'endTime' => ['required', 'string', $this->clockTime(), $this->endAfterStart(fn () => $request->startTime)],
             'departments' => 'required|array',
+            'departments.*' => 'string|max:255', // duplicates: rosterError() explains it
             'judges' => 'sometimes|array|max:1',
+            'judges.*.id' => ['required', Rule::exists('users', 'id')->where('role', 'judge')],
             'status' => 'in:upcoming,ongoing,completed',
         ], self::ONE_COMMITTEE, ['category' => 'sport']);
 
@@ -181,15 +200,17 @@ class EventController extends Controller
         // Either half of the time pair may be absent; the missing side is read
         // from the stored event so a partial edit can't invert the window.
         $rules = [
-            'name' => 'sometimes|string',
-            'category' => 'sometimes|string',
+            'name' => 'sometimes|string|max:255',
+            'category' => 'sometimes|string|max:255',
             'schedule' => 'sometimes|date',
-            'startTime' => ['sometimes', 'string'],
-            'endTime' => ['sometimes', 'string'],
+            'startTime' => ['sometimes', 'string', $this->clockTime()],
+            'endTime' => ['sometimes', 'string', $this->clockTime()],
             'venueId' => 'sometimes|nullable|string',
             'venueName' => 'sometimes|string',
             'departments' => 'sometimes|array',
+            'departments.*' => 'string|max:255', // duplicates: rosterError() explains it
             'judges' => 'sometimes|array|max:1',
+            'judges.*.id' => ['required', Rule::exists('users', 'id')->where('role', 'judge')],
             'status' => 'sometimes|in:upcoming,ongoing,completed',
         ];
         if ($request->has('endTime')) {

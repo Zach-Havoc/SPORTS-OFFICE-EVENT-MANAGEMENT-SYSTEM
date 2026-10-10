@@ -40,11 +40,14 @@ class AnnouncementController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'title' => 'required|string',
+            'title' => 'required|string|max:255',
             'content' => 'required|string',
             'isTryout' => 'boolean',
             ...self::TRYOUT_RULES,
-        ]);
+            // A new tryout can't be scheduled on a day that has already passed
+            // (campus time). Editing an older one keeps its date.
+            'tryoutDate' => 'sometimes|nullable|date|after_or_equal:'.now(config('sportaxis.local_timezone'))->toDateString(),
+        ], ['tryoutDate.after_or_equal' => 'The tryout date has already passed.']);
 
         if ($clash = $this->venueClash($request)) {
             return response()->json(['error' => $clash], 422);

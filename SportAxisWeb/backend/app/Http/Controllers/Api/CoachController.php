@@ -43,7 +43,7 @@ class CoachController extends Controller
             'sports.*' => 'nullable|string|max:100',
             'sport' => 'sometimes|nullable|string|max:100', // legacy single-sport clients
             'department' => 'required|string|max:255',
-            'genderCategory' => 'nullable|string',
+            'genderCategory' => 'nullable|in:Men,Women,Men & Women',
         ]);
 
         $user = $request->user();

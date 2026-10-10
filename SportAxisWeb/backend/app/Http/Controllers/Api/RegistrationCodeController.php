@@ -24,7 +24,7 @@ class RegistrationCodeController extends Controller
         $request->validate([
             'role' => 'required|in:admin,coach,athlete,judge',
             'label' => 'nullable|string|max:255',
-            'expiresInDays' => 'nullable|integer|min:1',
+            'expiresInDays' => 'nullable|integer|min:1|max:3650', // up to ten years
         ]);
 
         $code = RegistrationCode::create([

@@ -90,10 +90,11 @@ class AthleteController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'studentId' => 'required|string|unique:athletes,student_id',
-            'firstName' => 'required|string',
-            'lastName' => 'required|string',
-            'email' => 'required|email',
+            'studentId' => 'required|string|max:50|unique:athletes,student_id',
+            'firstName' => 'required|string|max:255',
+            'lastName' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'status' => ['sometimes', Rule::in(['active', 'inactive', 'injured'])],
         ]);
 
         $coachId = $request->user()->id;

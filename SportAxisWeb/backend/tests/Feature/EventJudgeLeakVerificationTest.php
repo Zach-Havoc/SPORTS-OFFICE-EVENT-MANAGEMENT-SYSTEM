@@ -53,6 +53,8 @@ class EventJudgeLeakVerificationTest extends TestCase
     public function test_admin_write_path_still_persists_judge_email_to_the_database_raw(): void
     {
         $this->actingAsRole('admin');
+        // Only a real committee account can be assigned (EventController).
+        $judge = $this->users()->judge()->create(['id' => 'j1', 'name' => 'Judge One', 'email' => 'judge-one@example.com']);
 
         $res = $this->postJson('/api/events', [
             'name' => 'Finals',

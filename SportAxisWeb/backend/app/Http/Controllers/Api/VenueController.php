@@ -17,10 +17,10 @@ class VenueController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string',
-            'type' => 'required|string',
-            'capacity' => 'required|integer|min:1',
-            'location' => 'required|string',
+            'name' => 'required|string|max:255',
+            'type' => 'required|string|max:100',
+            'capacity' => 'required|integer|min:1|max:1000000',
+            'location' => 'required|string|max:255',
             'status' => 'in:available,unavailable,maintenance',
         ]);
 
@@ -46,7 +46,7 @@ class VenueController extends Controller
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'type' => 'sometimes|required|string|max:100',
-            'capacity' => 'sometimes|required|integer|min:1',
+            'capacity' => 'sometimes|required|integer|min:1|max:1000000',
             'location' => 'sometimes|required|string|max:255',
             'sports' => 'sometimes|array',
             'facilities' => 'sometimes|nullable|string',

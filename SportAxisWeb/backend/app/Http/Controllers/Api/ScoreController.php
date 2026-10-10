@@ -61,8 +61,19 @@ class ScoreController extends Controller
         // rigging the event rankings.
         $judge = $request->user();
 
-        if (! Event::find($request->eventId)?->isScorableBy($judge)) {
+        $event = Event::find($request->eventId);
+        if (! $event?->isScorableBy($judge)) {
             return $this->notAssigned();
+        }
+
+        // Only a college that is in this game can be scored in it; a score for
+        // anyone else would quietly count toward their standings.
+        $playing = collect($event->departments ?? [])->filter()->values();
+        if ($playing->isNotEmpty() && ! $playing->contains($request->department)) {
+            return response()->json([
+                'error' => "{$request->department} is not playing in this game.",
+                'message' => "{$request->department} is not playing in this game.",
+            ], 422);
         }
 
         $score = Score::updateOrCreate(

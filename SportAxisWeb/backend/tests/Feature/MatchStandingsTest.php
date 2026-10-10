@@ -21,7 +21,7 @@ class MatchStandingsTest extends TestCase
 
     public function test_scoring_a_two_team_event_creates_a_match_record(): void
     {
-        $event = $this->events()->ongoing()->create(['category' => 'Basketball']);
+        $event = $this->events()->ongoing()->create(['category' => 'Basketball', 'departments' => ['CICS', 'CABEIHM']]);
         $this->actingAsJudgeFor($event);
 
         $this->postJson('/api/scores', [
@@ -52,7 +52,7 @@ class MatchStandingsTest extends TestCase
 
     public function test_multi_team_judged_event_does_not_create_a_match(): void
     {
-        $event = $this->events()->ongoing()->create(['category' => 'Cheerdance']);
+        $event = $this->events()->ongoing()->create(['category' => 'Cheerdance', 'departments' => ['A', 'B', 'C']]);
 
         foreach (['A' => 90, 'B' => 85, 'C' => 80] as $dept => $score) {
             $this->actingAsJudgeFor($event);
@@ -67,7 +67,7 @@ class MatchStandingsTest extends TestCase
 
     public function test_a_re_score_updates_the_same_match_and_can_flip_the_winner(): void
     {
-        $event = $this->events()->ongoing()->create(['category' => 'Basketball']);
+        $event = $this->events()->ongoing()->create(['category' => 'Basketball', 'departments' => ['CICS', 'CABEIHM']]);
         $this->actingAsJudgeFor($event);
 
         $post = fn (string $dept, float $total) => $this->postJson('/api/scores', [

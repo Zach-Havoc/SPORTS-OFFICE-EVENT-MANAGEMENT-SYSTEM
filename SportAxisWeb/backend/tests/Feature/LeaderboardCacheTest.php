@@ -47,7 +47,7 @@ class LeaderboardCacheTest extends TestCase
     public function test_submitting_a_score_invalidates_the_cached_leaderboard(): void
     {
         $this->categories()->create(['name' => 'Cheerdance', 'format' => 'ranked']);
-        $event = $this->events()->create(['category' => 'Cheerdance']);
+        $event = $this->events()->create(['category' => 'Cheerdance', 'departments' => ['CET', 'CICS']]);
         $judge = $this->actingAsJudgeFor($event);
         // Same judge_id as the resubmission below, so the update replaces this
         // row instead of averaging in as a second judge's score.

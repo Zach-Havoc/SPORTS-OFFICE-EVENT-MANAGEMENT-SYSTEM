@@ -17,7 +17,7 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|unique:categories,name',
+            'name' => 'required|string|max:255|unique:categories,name',
             'description' => 'nullable|string',
             'format' => 'nullable|in:versus,ranked',
             'parent_sport' => 'nullable|string',
@@ -41,7 +41,7 @@ class CategoryController extends Controller
         $category = Category::findOrFail($id);
 
         $request->validate([
-            'name' => 'required|string|unique:categories,name,'.$id.',id',
+            'name' => 'required|string|max:255|unique:categories,name,'.$id.',id',
             'description' => 'nullable|string',
             'format' => 'nullable|in:versus,ranked',
             'parent_sport' => 'nullable|string',

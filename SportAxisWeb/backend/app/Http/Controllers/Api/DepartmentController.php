@@ -19,7 +19,7 @@ class DepartmentController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|unique:departments,name',
+            'name' => 'required|string|max:255|unique:departments,name',
             'abbreviation' => 'nullable|string|max:20',
         ]);
 
@@ -37,7 +37,7 @@ class DepartmentController extends Controller
         $dept = Department::findOrFail($id);
 
         $request->validate([
-            'name' => 'required|string|unique:departments,name,'.$id.',id',
+            'name' => 'required|string|max:255|unique:departments,name,'.$id.',id',
             'abbreviation' => 'nullable|string|max:20',
         ]);
 

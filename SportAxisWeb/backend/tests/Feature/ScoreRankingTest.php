@@ -153,7 +153,7 @@ class ScoreRankingTest extends TestCase
 
     public function test_submitting_a_score_recalculates_rankings_highest_average_first(): void
     {
-        $event = $this->events()->ongoing()->create();
+        $event = $this->events()->ongoing()->create(['departments' => ['Team A', 'Team B']]);
         $this->actingAsJudgeFor($event);
 
         $this->postJson('/api/scores', $this->scorePayload($event->id, [
