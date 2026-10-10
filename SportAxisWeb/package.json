@@ -16,7 +16,8 @@
     "test:e2e": "mocha --config e2e/selenium/.mocharc.json",
     "test:e2e:auto": "bash e2e/selenium/run.sh",
     "test:e2e:headless": "E2E_HEADLESS=1 mocha --config e2e/selenium/.mocharc.json",
-    "test:e2e:cleanup": "node e2e/selenium/support/accounts.mjs delete"
+    "test:e2e:cleanup": "node e2e/selenium/support/accounts.mjs delete",
+    "test:api": "E2E_ONLY=api bash e2e/selenium/run.sh"
   },
   "dependencies": {
     "@g-loot/react-tournament-brackets": "^1.0.31-rc",
@@ -91,6 +92,8 @@
     "globals": "^15.14.0",
     "jsdom": "^25.0.1",
     "mocha": "^11.8.0",
+    "newman": "^6.2.3",
+    "newman-reporter-htmlextra": "^1.23.1",
     "prettier": "^3.4.2",
     "selenium-webdriver": "^4.51.0",
     "tailwindcss": "4.1.12",

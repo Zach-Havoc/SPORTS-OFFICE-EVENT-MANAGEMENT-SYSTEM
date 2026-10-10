@@ -18,7 +18,8 @@
 #   E2E_SKIP_RESET  1 = reuse the data from the last run (faster re-runs)
 #   E2E_ONLY        "pages"  = only the read-only page tests,
 #                   "flow"   = only the full-system test,
-#                   "errors" = only the error catcher (invalid input)
+#                   "errors" = only the error catcher (invalid input),
+#                   "api"    = only the Postman API collection (Newman)
 #   E2E_SERVE_ONLY  1 = start the site and keep it up (no tests), to look
 #                   at a failure by hand; Ctrl+C stops it
 #   DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD  MySQL server
@@ -118,16 +119,27 @@ fi
 # The suite makes its own temporary accounts in this database and deletes
 # them at the end (support/accounts.mjs).
 STATUS=0
+# E2E_JSON=1 also saves each suite's results as JSON (for reports), next to
+# the screenshots: artifacts/results-<suite>.json.
+report() {
+  if [[ "${E2E_JSON:-0}" == "1" ]]; then
+    echo "--reporter e2e/selenium/support/spec-json-reporter.cjs --reporter-option output=$LOG_DIR/results-$1.json"
+  fi
+}
 if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "pages" ]]; then
   say "Selenium: every page, read-only"
-  npx mocha --config e2e/selenium/.mocharc.json "$@" || STATUS=$?
+  npx mocha --config e2e/selenium/.mocharc.json $(report pages) "$@" || STATUS=$?
 fi
 if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "flow" ]]; then
   say "Selenium: the whole system, end to end (creates records in $E2E_DB)"
-  npx mocha --config e2e/selenium/.mocharc.flow.json "$@" || STATUS=$?
+  npx mocha --config e2e/selenium/.mocharc.flow.json $(report flow) "$@" || STATUS=$?
 fi
 if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "errors" ]]; then
   say "Error catcher: invalid input, refused cleanly? (in $E2E_DB)"
-  npx mocha --config e2e/selenium/.mocharc.errors.json "$@" || STATUS=$?
+  npx mocha --config e2e/selenium/.mocharc.errors.json $(report errors) "$@" || STATUS=$?
+fi
+if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "api" ]]; then
+  say "API tests: the Postman collection, run with Newman (in $E2E_DB)"
+  node e2e/postman/run-newman.mjs || STATUS=$?
 fi
 exit $STATUS
