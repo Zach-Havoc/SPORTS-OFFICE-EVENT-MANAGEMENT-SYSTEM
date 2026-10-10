@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Notifications\ScoreDisputed;
 use App\Services\BracketService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
@@ -235,6 +236,14 @@ class ScoreController extends Controller
             RankingController::forgetLeaderboardCacheFor($event->category, $event->season_id);
         }
 
+        // Two committee members saving at the same moment both rebuild this
+        // table; without a transaction MySQL deadlocks one of them (found by
+        // the JMeter load test). Retried, the second rebuild sees both scores.
+        DB::transaction(fn () => self::rebuildRankings($eventId), 5);
+    }
+
+    private static function rebuildRankings(string $eventId): void
+    {
         // Only verified / official scores decide the table; a disputed score is
         // held out until it is checked and re-verified.
         $scores = Score::where('event_id', $eventId)
