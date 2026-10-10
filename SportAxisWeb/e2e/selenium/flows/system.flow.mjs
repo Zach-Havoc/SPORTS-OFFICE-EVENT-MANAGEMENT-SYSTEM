@@ -110,7 +110,7 @@ describe('The whole system, end to end', function () {
     before(async () => login(d(), 'admin'));
 
     for (const role of ['coach', 'judge', 'athlete']) {
-      it(`generates a ${role === 'judge' ? 'committee' : role} registration code`, async () => {
+      it(`generates ${role === 'athlete' ? 'an athlete' : role === 'judge' ? 'a committee' : 'a coach'} registration code`, async () => {
         await visit(d(), '/admin/registration-codes');
         await expectHeading(d(), 'Registration Codes');
         await (await button(d(), 'Generate Code')).click();
