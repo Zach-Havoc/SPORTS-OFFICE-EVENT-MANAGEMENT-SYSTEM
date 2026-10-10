@@ -19,3 +19,6 @@ pnpm-debug.log*
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Selenium failure screenshots
+e2e/selenium/artifacts/

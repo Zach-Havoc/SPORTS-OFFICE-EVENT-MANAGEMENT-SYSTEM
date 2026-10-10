@@ -12,7 +12,9 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "node verify-setup.js"
+    "verify": "node verify-setup.js",
+    "test:e2e": "mocha --config e2e/selenium/.mocharc.json",
+    "test:e2e:headed": "E2E_HEADLESS=0 mocha --config e2e/selenium/.mocharc.json"
   },
   "dependencies": {
     "@g-loot/react-tournament-brackets": "^1.0.31-rc",
@@ -86,7 +88,9 @@
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",
     "jsdom": "^25.0.1",
+    "mocha": "^11.8.0",
     "prettier": "^3.4.2",
+    "selenium-webdriver": "^4.51.0",
     "tailwindcss": "4.1.12",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.29.0",
