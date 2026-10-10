@@ -16,6 +16,8 @@
 #   E2E_API_PORT    port for the throwaway API     (default 8001)
 #   E2E_WEB_PORT    port for the throwaway website (default 4173)
 #   E2E_SKIP_RESET  1 = reuse the data from the last run (faster re-runs)
+#   E2E_ONLY        "pages" = only the read-only page tests,
+#                   "flow"  = only the full-system test
 #   E2E_SERVE_ONLY  1 = start the site and keep it up (no tests), to look
 #                   at a failure by hand; Ctrl+C stops it
 #   DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD  MySQL server
@@ -30,38 +32,19 @@ SITE_DIR="$WEB_DIR/e2e/selenium/.site"
 LOG_DIR="$WEB_DIR/e2e/selenium/artifacts"
 mkdir -p "$LOG_DIR"
 
-E2E_DB="${E2E_DB:-sportaxis_e2e}"
-API_PORT="${E2E_API_PORT:-8001}"
-WEB_PORT="${E2E_WEB_PORT:-4173}"
-API_URL="http://127.0.0.1:$API_PORT"
-WEB_URL="http://localhost:$WEB_PORT"
-
-say() { printf '\n\033[1m▶ %s\033[0m\n' "$*"; }
-fail() { printf '\n\033[31m✖ %s\033[0m\n' "$*" >&2; exit 1; }
-
-# A reset wipes the database, so only ever run against a scratch one.
-[[ "$E2E_DB" == *e2e* || "$E2E_DB" == *test* ]] \
-  || fail "E2E_DB must contain 'e2e' or 'test' (got '$E2E_DB'); the run wipes it."
-
-# MySQL credentials: the environment wins, else backend/.env.
-from_env_file() { grep -E "^$1=" "$API_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
-export DB_CONNECTION=mysql
-export DB_HOST="${DB_HOST:-$(from_env_file DB_HOST)}"
-export DB_PORT="${DB_PORT:-$(from_env_file DB_PORT)}"
-export DB_USERNAME="${DB_USERNAME:-$(from_env_file DB_USERNAME)}"
-export DB_PASSWORD="${DB_PASSWORD:-$(from_env_file DB_PASSWORD)}"
-export DB_DATABASE="$E2E_DB"
-
-# Keep the throwaway app self-contained: no mail out, no workers, no sockets.
-export APP_ENV=e2e APP_DEBUG=false APP_URL="$API_URL"
-export MAIL_MAILER=log QUEUE_CONNECTION=sync BROADCAST_CONNECTION=log
-export CACHE_STORE=file SESSION_DRIVER=file
-export ALLOW_DEMO_RESET=true
-export CORS_ALLOWED_ORIGINS="$WEB_URL,http://127.0.0.1:$WEB_PORT"
+# Database, ports, mail-to-log etc.
+source "$WEB_DIR/e2e/selenium/env.sh"
 
 PIDS=()
+# Stop a server and everything it started (npx → node, php -S → its workers),
+# so no stray process keeps the port after the run.
+kill_tree() {
+  local child
+  for child in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$child"; done
+  kill "$1" 2>/dev/null || true
+}
 cleanup() {
-  for pid in "${PIDS[@]:-}"; do [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true; done
+  for pid in "${PIDS[@]:-}"; do [[ -n "$pid" ]] && kill_tree "$pid"; done
   wait 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
@@ -96,6 +79,12 @@ if [[ "${E2E_SKIP_RESET:-0}" != "1" ]]; then
   [[ -n "$BACKUP" && -f "$BACKUP" ]] && rm -f "$BACKUP"
 fi
 
+for port in "$API_PORT" "$WEB_PORT"; do
+  if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
+    fail "Port $port is already in use (an earlier run still serving?). Stop it first."
+  fi
+done
+
 say "API on $API_URL"
 # Not `artisan serve`: it drops variables that aren't in .env, which would
 # quietly point the API back at the real database.
@@ -114,7 +103,7 @@ VITE_API_URL="$API_URL/api" VITE_REVERB_APP_KEY="" \
 if grep -rqE "onrender\.com|https://[a-z0-9.-]+/api" "$SITE_DIR/assets"; then
   fail "The built site points at a remote API; refusing to test against it."
 fi
-npx vite preview --mode e2e --outDir "$SITE_DIR" --port "$WEB_PORT" --strictPort \
+./node_modules/.bin/vite preview --mode e2e --outDir "$SITE_DIR" --port "$WEB_PORT" --strictPort \
   >"$LOG_DIR/web.log" 2>&1 &
 PIDS+=($!)
 wait_for "$WEB_URL/" "The website"
@@ -125,7 +114,15 @@ if [[ "${E2E_SERVE_ONLY:-0}" == "1" ]]; then
   exit 0
 fi
 
-say "Selenium suite"
 # The suite makes its own temporary accounts in this database and deletes
 # them at the end (support/accounts.mjs).
-E2E_BASE_URL="$WEB_URL" npx mocha --config e2e/selenium/.mocharc.json "$@"
+STATUS=0
+if [[ "${E2E_ONLY:-}" != "flow" ]]; then
+  say "Selenium: every page, read-only"
+  npx mocha --config e2e/selenium/.mocharc.json "$@" || STATUS=$?
+fi
+if [[ "${E2E_ONLY:-}" != "pages" ]]; then
+  say "Selenium: the whole system, end to end (creates records in $E2E_DB)"
+  npx mocha --config e2e/selenium/.mocharc.flow.json "$@" || STATUS=$?
+fi
+exit $STATUS

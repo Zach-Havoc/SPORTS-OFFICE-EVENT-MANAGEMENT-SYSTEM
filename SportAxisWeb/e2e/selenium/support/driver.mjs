@@ -30,6 +30,8 @@ const WAIT = Number(process.env.E2E_WAIT_MS || 15000);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ARTIFACTS = path.resolve(here, '../artifacts');
+export const DOWNLOADS = path.join(ARTIFACTS, 'downloads');
+export const FIXTURES = path.resolve(here, '../fixtures');
 
 export async function startBrowser({ width = 1366, height = 900 } = {}) {
   const options = new chrome.Options().addArguments(
@@ -39,6 +41,11 @@ export async function startBrowser({ width = 1366, height = 900 } = {}) {
     '--disable-search-engine-choice-screen',
   );
   if (HEADLESS) options.addArguments('--headless=new');
+  fs.mkdirSync(DOWNLOADS, { recursive: true });
+  options.setUserPreferences({
+    'download.default_directory': DOWNLOADS,
+    'download.prompt_for_download': false,
+  });
   const prefs = new logging.Preferences();
   prefs.setLevel(logging.Type.BROWSER, logging.Level.SEVERE);
   options.setLoggingPrefs(prefs);
@@ -122,11 +129,49 @@ export async function currentPath(driver) {
 export async function login(driver, role) {
   if (!ACCOUNTS[role]) throw new Error(`No test account for "${role}"; the suite's setup did not run.`);
   const { email, password } = ACCOUNTS[role];
+  await loginAs(driver, email, password, `/${role}`);
+}
+
+/**
+ * Each account's session after its first sign-in, like a person who stays
+ * signed in on their own device. Switching back to an account reuses it
+ * instead of the form, which the server limits to 5 tries a minute.
+ */
+const sessions = new Map();
+
+/**
+ * Sign in with any account; `home` is where it should land. The first time
+ * (or with `fresh`) this goes through the sign-in form.
+ */
+export async function loginAs(driver, email, password, home, { fresh = false } = {}) {
+  await signOut(driver);
+  const saved = sessions.get(email);
+  if (saved && !fresh && home) {
+    // A new browser starts on a blank page, which has no storage: open the site first.
+    if (!(await driver.getCurrentUrl()).startsWith(BASE_URL)) await visit(driver, '/');
+    await driver.executeScript('localStorage.setItem("auth_token", arguments[0])', saved);
+    await visit(driver, home);
+    const landed = await driver
+      .wait(async () => ['/login', home].includes(await currentPath(driver)) ? currentPath(driver) : null, 30000)
+      .catch(() => null);
+    if (landed === home) return;
+    sessions.delete(email); // signed out elsewhere; use the form
+    await signOut(driver);
+  }
   await visit(driver, '/login');
   await typeInto(driver, By.id('email'), email);
   await typeInto(driver, By.id('password'), password);
   await (await find(driver, By.css('form button[type="submit"]'))).click();
-  await waitForPath(driver, `/${role}`, 30000);
+  if (home) {
+    await waitForPath(driver, home, 30000);
+    sessions.set(email, await driver.executeScript('return localStorage.getItem("auth_token")'));
+  }
+}
+
+/** Forget the session in this browser (no UI). */
+async function signOut(driver) {
+  if (!(await driver.getCurrentUrl()).startsWith(BASE_URL)) return;
+  await driver.executeScript('window.localStorage.clear(); window.sessionStorage.clear();');
 }
 
 export async function typeInto(driver, locator, value) {
@@ -143,16 +188,18 @@ export async function logout(driver) {
 }
 
 /**
- * Script errors in the page since the last call: uncaught exceptions, React
- * crashes, chunks that failed to load. Plain HTTP failures (a 401 while
- * logged out, a 404 image) are left out; specs assert on what the user sees.
+ * Script failures in the page since the last call: uncaught exceptions,
+ * React crashes, chunks that failed to load. Left out: HTTP failures (a 401
+ * while logged out) and the app's own console.error lines for a request it
+ * handled, e.g. a refused sign-in; specs assert on what the user sees.
  */
 export async function pageErrors(driver) {
   const logs = await driver.manage().logs().get(logging.Type.BROWSER).catch(() => []);
   return logs
     .filter((l) => l.level.name === 'SEVERE')
     .map((l) => l.message)
-    .filter((m) => !/Failed to load resource/i.test(m));
+    .filter((m) => !/Failed to load resource/i.test(m))
+    .filter((m) => /Uncaught|dynamically imported module|ChunkLoadError|Minified React error|The above error occurred/i.test(m));
 }
 
 /** Save a screenshot under e2e/selenium/artifacts. */
@@ -235,4 +282,75 @@ export async function clickLink(driver, text) {
 /** How many elements match right now (no waiting). */
 export async function count(driver, locator) {
   return (await driver.findElements(locator)).length;
+}
+
+/**
+ * Set an input's value the way React notices (date and time inputs can't be
+ * typed into reliably: their format follows the browser's locale).
+ */
+export async function setValue(driver, el, value) {
+  await driver.executeScript(
+    `const el = arguments[0], value = arguments[1];
+     const proto = el.tagName === 'SELECT' ? HTMLSelectElement.prototype
+       : el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+     Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+     el.dispatchEvent(new Event('input', { bubbles: true }));
+     el.dispatchEvent(new Event('change', { bubbles: true }));`,
+    el,
+    value,
+  );
+}
+
+/** Attach a file to a file input, even one the page keeps hidden behind a button. */
+export async function attach(driver, input, file) {
+  await driver.executeScript(
+    "arguments[0].style.display='block'; arguments[0].style.visibility='visible'; arguments[0].classList.remove('hidden');",
+    input,
+  );
+  await input.sendKeys(path.isAbsolute(file) ? file : path.join(FIXTURES, file));
+}
+
+/** Pick an option in a native <select> by its visible text (or part of it). */
+export async function selectNative(driver, select, text) {
+  const value = await driver.executeScript(
+    `const opt = [...arguments[0].options].find((o) => o.text.trim() === arguments[1])
+       ?? [...arguments[0].options].find((o) => o.text.includes(arguments[1]));
+     return opt ? opt.value : null;`,
+    select,
+    text,
+  );
+  if (value === null) throw new Error(`No option "${text}" in the list`);
+  await setValue(driver, select, value);
+}
+
+/** Open a Radix select (combobox element) and click the option containing `text`. */
+export async function pick(driver, trigger, text, { exact = false } = {}) {
+  await driver.executeScript('arguments[0].scrollIntoView({block: "center"})', trigger);
+  await trigger.click();
+  const option = await findText(driver, text, { tag: '*[@role="option"]', exact });
+  await option.click();
+  await driver.wait(async () => (await driver.findElements(By.css('[role="listbox"]'))).length === 0, WAIT);
+}
+
+/** A button by its exact text, inside `scope` (an element) or the page. */
+export async function button(driver, text, scope) {
+  const xpath = `.//button[normalize-space(.)=${xpathLiteral(text)}]`;
+  return driver.wait(async () => {
+    const root = scope ?? (await driver.findElement(By.css('body')));
+    for (const b of await root.findElements(By.xpath(xpath))) {
+      if ((await b.isDisplayed().catch(() => false)) && (await b.isEnabled().catch(() => false))) return b;
+    }
+    return null;
+  }, WAIT, `No enabled button "${text}"`);
+}
+
+/** Click via script: for buttons behind sticky bars or hover-only actions. */
+export async function jsClick(driver, el) {
+  await driver.executeScript('arguments[0].scrollIntoView({block: "center"}); arguments[0].click();', el);
+}
+
+/** The closest card-like ancestor of the first visible element containing `text`. */
+export async function cardWith(driver, text, ancestor = 'div[contains(@class,"rounded")]') {
+  const el = await findText(driver, text);
+  return el.findElement(By.xpath(`./ancestor::${ancestor}[1]`));
 }

@@ -20,8 +20,8 @@ use Illuminate\Support\Str;
  * athletes on that coach's roster (the first athlete can sign in), all with
  * a fresh random password and an @e2e.sportaxis.test address. `delete`
  * removes every account on that domain together with what hangs off it
- * (roster rows, sign-in tokens, notifications, audit entries), so nothing of
- * a test run stays in the database. `create` cleans up a previous run first,
+ * (roster rows, sign-in tokens, notifications, audit entries, and the
+ * scores, appeals and attendance they made), so no test account stays. `create` cleans up a previous run first,
  * in case it was interrupted.
  *
  * Local and test environments only: it refuses to run in production.
@@ -152,7 +152,20 @@ class E2eAccounts extends Command
             $athleteIds = Athlete::withTrashed()
                 ->whereIn('coach_id', $ids)->orWhereIn('user_id', $ids)->pluck('id');
 
-            return [
+            // Records the database won't let an account be deleted from under
+            // (ON DELETE RESTRICT): what these test accounts scored, filed or
+            // recorded during a full-system run.
+            $sessions = DB::table('attendance_sessions')->whereIn('created_by', $ids)->pluck('id');
+            $kept = [
+                'attendance' => DB::table('attendance_records')
+                    ->whereIn('recorded_by', $ids)->orWhereIn('session_id', $sessions)->delete(),
+                'sessions' => DB::table('attendance_sessions')->whereIn('id', $sessions)->delete(),
+                'amendments' => DB::table('score_amendments')->whereIn('amended_by', $ids)->delete(),
+                'scores' => DB::table('scores')->whereIn('judge_id', $ids)->delete(),
+                'protests' => DB::table('protests')->whereIn('filed_by', $ids)->delete(),
+            ];
+
+            return $kept + [
                 'roster' => Athlete::withTrashed()->whereIn('id', $athleteIds)->forceDelete(),
                 'tokens' => DB::table('personal_access_tokens')->where('tokenable_type', User::class)->whereIn('tokenable_id', $ids)->delete(),
                 'notifications' => DB::table('notifications')->whereIn('notifiable_id', $ids)->delete(),

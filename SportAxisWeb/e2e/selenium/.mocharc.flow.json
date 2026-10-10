@@ -1,0 +1,8 @@
+{
+  "spec": ["e2e/selenium/flows/**/*.flow.mjs"],
+  "require": ["e2e/selenium/support/accounts.mjs"],
+  "timeout": 120000,
+  "slow": 15000,
+  "bail": true,
+  "reporter": "spec"
+}

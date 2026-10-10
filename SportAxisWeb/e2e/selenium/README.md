@@ -43,12 +43,35 @@ This runs [`run.sh`](run.sh), which takes about 3 minutes and leaves even your d
 1. It creates a separate database, `sportaxis_e2e`, then migrates it and loads demo data. It refuses to run against any database whose name doesn't contain `e2e` or `test`, and it checks that the app really sees the scratch database before wiping anything.
 2. It starts a test API on port 8001. Mail goes to the log, the queue runs inline and broadcasting is off.
 3. It builds the website in its own `e2e` mode, pointing only at that API, and serves it on port 4173.
-4. It runs the whole suite (temporary accounts included), then shuts everything down.
+4. It runs the page tests, then the whole-system test below (temporary accounts included), then shuts everything down.
 
 | Option | Use |
 |---|---|
 | `E2E_SKIP_RESET=1` | Reuse the last run's data (faster) |
 | `E2E_SERVE_ONLY=1` | Start the throwaway site and keep it up, to look at a failure by hand |
+
+## The whole system, end to end
+
+`flows/system.flow.mjs` runs one season the way it really happens, in 49 steps. Each step is done by the role that does it, and records are created for real:
+
+| # | Part | What happens |
+|---|---|---|
+| 1 | The office sets up | Generates coach, committee and athlete registration codes. Imports the registrar's student list (CSV). Adds a sport, a venue and the next season. |
+| 2 | Sign-ups | A coach, a committee member and an athlete sign up with those codes; the athlete is checked against the student list. A used code is refused. |
+| 3 | The team forms | The office assigns the coach a college. The coach picks a sport and is refused one the college already has a coach for. The athlete joins with the team code. The coach adds and edits an athlete by hand. |
+| 4 | Tryouts | The coach posts a tryout. A student applies from the public page, with email verification. The coach accepts them onto the roster. |
+| 5 | CMO requirements | The athlete uploads every required document (PDF). The coach approves them and forwards the athlete; the office accepts. The batch shows in Transactions, and the coach is notified. |
+| 6 | A game | The office creates a game in four parts and assigns the committee member. It shows on their panel. It is scored live and finalised through the mobile app's API, appears on the live board, is made official in Reports and shows in the history. |
+| 7 | Coaching | The coach records a performance and takes attendance; the athlete sees both. |
+| 8 | An appeal | The coach files an appeal (PDF). The office asks the other college for a counter, that college's coach files it (PDF), and the office decides. The coach sees the decision. |
+| 9 | Brackets | A round-robin bracket for the new sport is generated, published, and opened from the public page. |
+| 10–12 | The rest | A slideshow slide (image upload). Disabling and re-enabling an account. Changing a name and password. Forgot password. Deleting a game and restoring it from the recycle bin. Exporting standings as CSV. |
+
+It creates records, so it runs **only on the throwaway database** (`npm run test:e2e:auto`, where mail goes to the log) and refuses any other database. The accounts it signs up use `@e2e.sportaxis.test` and are deleted at the end, along with the scores, appeals and attendance they made. Everything else (the game, venue, bracket and so on) stays in `sportaxis_e2e` for you to inspect until the next run rebuilds it.
+
+The mobile app itself can't be driven by Selenium. The committee's scoring is done through the same API the app calls, and the result is checked on the website.
+
+Run only one of the two suites with `E2E_ONLY=pages` or `E2E_ONLY=flow`.
 
 ## Settings
 

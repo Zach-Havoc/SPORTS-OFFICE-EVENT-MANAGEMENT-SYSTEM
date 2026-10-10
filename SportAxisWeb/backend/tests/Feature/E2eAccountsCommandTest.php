@@ -65,6 +65,21 @@ class E2eAccountsCommandTest extends TestCase
         $this->assertSame(0, Athlete::withTrashed()->where('email', 'like', '%'.E2eAccounts::DOMAIN)->count());
     }
 
+    public function test_delete_also_removes_scores_the_test_committee_entered(): void
+    {
+        $out = $this->accounts('create');
+        $judge = User::where('email', $out['accounts']['judge']['email'])->first();
+        $event = $this->events()->create();
+        $this->scores()->create(['event_id' => $event->id, 'judge_id' => $judge->id, 'department' => 'CAS']);
+
+        // scores.judge_id is ON DELETE RESTRICT; the cleanup must clear it first.
+        $deleted = $this->accounts('delete')['deleted'];
+
+        $this->assertSame(1, $deleted['scores']);
+        $this->assertDatabaseMissing('users', ['id' => $judge->id]);
+        $this->assertDatabaseHas('events', ['id' => $event->id]);
+    }
+
     public function test_create_twice_replaces_a_previous_run(): void
     {
         $this->accounts('create');
