@@ -11,7 +11,7 @@ import {
  *  - attaches a bearer token for authed calls, and refuses without one
  *  - converts snake_case response keys to camelCase
  *  - surfaces Laravel-style error payloads as Error messages
- *  - on 401/403 for an authed call, clears the stored token
+ *  - on a 401 for an authed call, clears the stored token (a 403 keeps it)
  */
 
 const BASE = 'http://localhost:8000/api'
@@ -82,6 +82,14 @@ describe('apiRequest — authentication', () => {
 
     await expect(getAthletes()).rejects.toThrow(/session has expired/i)
     expect(localStorage.getItem('auth_token')).toBeNull()
+  })
+
+  it("keeps the session on a 403: the role can't do this, but the user is still signed in", async () => {
+    localStorage.setItem('auth_token', 'abc')
+    fetchMock.mockResolvedValueOnce(fakeResponse({ error: 'Forbidden: requires role coach' }, { ok: false, status: 403 }))
+
+    await expect(getAthletes()).rejects.toThrow(/requires role coach/)
+    expect(localStorage.getItem('auth_token')).toBe('abc')
   })
 })
 

@@ -127,10 +127,14 @@ async function apiRequest(
       // not JSON
     }
 
-    // Only treat 401/403 as "session expired" for authenticated routes.
-    // For public routes (e.g. /login, /signup), fall through and surface
-    // the server's real error message (e.g. "Access denied" or "Invalid credentials").
-    if (requiresAuth && (response.status === 401 || response.status === 403)) {
+    // Only a 401 on an authenticated route means the session is gone
+    // (expired, signed out elsewhere, or the account was disabled, which
+    // revokes its tokens). A 403 is "your role can't do this": the session is
+    // fine, so keep it. Treating 403 as expired signed people out whenever a
+    // page fired a request their role isn't allowed, e.g. an athlete who
+    // opened an admin address. Public routes (/login, /signup) fall through
+    // with the server's real message.
+    if (requiresAuth && response.status === 401) {
       localStorage.removeItem("auth_token");
       throw new Error("Your session has expired. Please log in again.");
     }
