@@ -56,6 +56,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import Loading from '../../components/Loading';
 import {
   filterUsers,
@@ -107,6 +108,9 @@ export default function AdminUsers() {
   const [deleting, setDeleting] = useState<ManagedUser | null>(null);
   // Why the server refused a delete. Shown in the dialog: toasts are silent in the build.
   const [deleteError, setDeleteError] = useState('');
+  const [editError, setEditError] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [toggleError, setToggleError] = useState('');
 
   const allUsers: ManagedUser[] = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
   const visible = useMemo(() => filterUsers(allUsers, filters), [allUsers, filters]);
@@ -128,6 +132,7 @@ export default function AdminUsers() {
     filters.search.trim() !== '' || filters.role !== 'all' || filters.status !== 'all';
 
   const openEdit = (u: ManagedUser) => {
+    setEditError('');
     setEditing(u);
     setDraft({
       name: u.name,
@@ -141,6 +146,9 @@ export default function AdminUsers() {
 
   const submitEdit = async () => {
     if (!editing || !draft) return;
+    setEditError('');
+    if (!draft.name.trim()) return setEditError('Enter a name.');
+    if (!/^\S+@\S+\.\S+$/.test(draft.email.trim())) return setEditError('Enter a valid email address.');
     try {
       await updateMut.mutateAsync({
         id: editing.id,
@@ -156,12 +164,14 @@ export default function AdminUsers() {
       toast.success('Account updated');
       setEditing(null);
     } catch (e: any) {
-      toast.error(e.message || 'Update failed');
+      setEditError(errorText(e, 'Update failed'));
     }
   };
 
   const submitReset = async () => {
     if (!resetting) return;
+    setResetError('');
+    if (resetPw.trim() && resetPw.trim().length < 8) return setResetError('The new password needs at least 8 characters.');
     try {
       const res = await resetMut.mutateAsync({
         id: resetting.id,
@@ -170,19 +180,22 @@ export default function AdminUsers() {
       setTempPw(res.tempPassword);
       toast.success('Password reset');
     } catch (e: any) {
-      toast.error(e.message || 'Reset failed');
+      setResetError(errorText(e, 'Reset failed'));
     }
   };
 
-  const confirmToggle = async () => {
+  const confirmToggle = async (ev: React.MouseEvent) => {
+    // Keep the dialog open until the server answers, so a refusal can be read.
+    ev.preventDefault();
     if (!toggling) return;
     const next = !toggling.active;
+    setToggleError('');
     try {
       await activeMut.mutateAsync({ id: toggling.id, active: next });
       toast.success(next ? 'Account enabled' : 'Account disabled');
       setToggling(null);
     } catch (e: any) {
-      toast.error(e.message || 'Change failed');
+      setToggleError(errorText(e, 'Change failed'));
     }
   };
 
@@ -409,6 +422,7 @@ export default function AdminUsers() {
                           title="Reset password"
                           onClick={() => {
                             setResetting(u);
+                            setResetError('');
                             setResetPw('');
                             setTempPw(null);
                           }}
@@ -419,7 +433,10 @@ export default function AdminUsers() {
                           size="icon-sm"
                           variant="ghost"
                           disabled={isSelf(u)}
-                          onClick={() => setToggling(u)}
+                          onClick={() => {
+                            setToggleError('');
+                            setToggling(u);
+                          }}
                           aria-label={u.active ? `Disable ${u.name}` : `Enable ${u.name}`}
                           title={isSelf(u) ? 'You cannot disable your own account' : u.active ? 'Disable' : 'Enable'}
                         >
@@ -577,6 +594,7 @@ export default function AdminUsers() {
               </div>
             </div>
           )}
+          <FormError message={editError} />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setEditing(null)}>
               Cancel
@@ -642,6 +660,7 @@ export default function AdminUsers() {
             </div>
           )}
 
+          <FormError message={resetError} />
           <DialogFooter>
             {tempPw ? (
               <Button
@@ -680,9 +699,10 @@ export default function AdminUsers() {
                 : `${toggling?.name} will be able to sign in again.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <FormError message={toggleError} />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmToggle}>
+            <AlertDialogAction onClick={confirmToggle} disabled={activeMut.isPending}>
               {toggling?.active ? 'Disable' : 'Enable'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -710,11 +730,7 @@ export default function AdminUsers() {
               undone. Prefer disabling if you may need the record later.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {deleteError && (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
-              {deleteError}
-            </p>
-          )}
+          <FormError message={deleteError} />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction

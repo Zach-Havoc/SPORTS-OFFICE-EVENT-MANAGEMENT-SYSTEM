@@ -13,6 +13,7 @@ import {
   CalendarDays, Trash2, Plus, Check, Loader2, Pencil, Clock, MapPin, Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import {
   useAthletes, useAttendanceRecords, useAttendanceSessions, useAttendanceSession,
   useCreateAttendanceSession, useUpdateAttendanceSession, useDeleteAttendanceSession,
@@ -94,6 +95,9 @@ export default function CoachAttendance() {
   const [until, setUntil] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<AttendanceSession | null>(null);
+  // Why scheduling or deleting failed, shown on the page (no pop-ups here).
+  const [createError, setCreateError] = useState('');
+  const [listError, setListError] = useState('');
 
   const openSession = sessions.find((s) => s.id === openId) ?? null;
 
@@ -104,12 +108,14 @@ export default function CoachAttendance() {
   };
 
   const create = () => {
-    if (!title.trim()) return toast.error('Give the session a title.');
-    if (startTime && endTime && endTime <= startTime) return toast.error('End time must be after the start time.');
+    setCreateError('');
+    if (!title.trim()) return setCreateError('Give the session a title.');
+    if (!date) return setCreateError('Pick the date of the session.');
+    if (startTime && endTime && endTime <= startTime) return setCreateError('End time must be after the start time.');
 
     if (repeat) {
-      if (!weekdays.length) return toast.error('Pick at least one day of the week.');
-      if (!until || until < date) return toast.error('Pick an end date on or after the start date.');
+      if (!weekdays.length) return setCreateError('Pick at least one day of the week.');
+      if (!until || until < date) return setCreateError('Pick an end date on or after the start date.');
       recurringMut.mutate(
         { title: title.trim(), from: date, to: until, weekdays, ...timing },
         {
@@ -122,7 +128,7 @@ export default function CoachAttendance() {
             );
             resetForm();
           },
-          onError: (e: any) => toast.error(e?.message || 'Could not create the schedule.'),
+          onError: (e: any) => setCreateError(errorText(e, 'Could not create the schedule.')),
         },
       );
       return;
@@ -135,7 +141,7 @@ export default function CoachAttendance() {
           resetForm();
           setOpenId(s.id);
         },
-        onError: (e: any) => toast.error(e?.message || 'Could not create the session.'),
+        onError: (e: any) => setCreateError(errorText(e, 'Could not create the session.')),
       },
     );
   };
@@ -237,10 +243,12 @@ export default function CoachAttendance() {
               {busy ? 'Scheduling…' : repeat ? 'Create schedule' : 'Create session'}
             </Button>
           </div>
+          <FormError message={createError} />
         </CardContent>
       </Card>
 
       {/* Sessions */}
+      <FormError message={listError} className="mb-4" />
       {loading ? (
         <div className="py-16 text-center text-sm text-gray-500">Loading sessions…</div>
       ) : sessions.length === 0 ? (
@@ -325,9 +333,10 @@ export default function CoachAttendance() {
             <AlertDialogAction
               onClick={() => {
                 if (!toDelete) return;
+                setListError('');
                 deleteMut.mutate(toDelete.id, {
                   onSuccess: () => { if (openId === toDelete.id) setOpenId(null); setToDelete(null); },
-                  onError: (e: any) => toast.error(e?.message || 'Could not delete.'),
+                  onError: (e: any) => setListError(errorText(e, 'Could not delete.')),
                 });
               }}
             >
@@ -382,6 +391,7 @@ function SessionDialog({
   const [startTime, setStartTime] = useState(session.startTime ?? '');
   const [endTime, setEndTime] = useState(session.endTime ?? '');
   const [venue, setVenue] = useState(session.venueName ?? '');
+  const [metaError, setMetaError] = useState('');
 
   // Hydrate from what's saved for this session.
   useEffect(() => {
@@ -429,13 +439,16 @@ function SessionDialog({
   };
 
   const saveMeta = () => {
-    if (!title.trim()) return toast.error('Title is required.');
+    setMetaError('');
+    if (!title.trim()) return setMetaError('Title is required.');
+    if (!date) return setMetaError('Pick the date of the session.');
+    if (startTime && endTime && endTime <= startTime) return setMetaError('End time must be after the start time.');
     updateMut.mutate(
       {
         id: session.id,
         patch: { title: title.trim(), date, startTime: startTime || null, endTime: endTime || null, venueName: venue.trim() || null },
       },
-      { onSuccess: () => setEditMeta(false), onError: (e: any) => toast.error(e?.message || 'Could not update.') },
+      { onSuccess: () => setEditMeta(false), onError: (e: any) => setMetaError(errorText(e, 'Could not update.')) },
     );
   };
 
@@ -458,6 +471,7 @@ function SessionDialog({
               <input type="time" className={`${inputCls} sm:col-span-1`} value={startTime} onChange={(e) => setStartTime(e.target.value)} aria-label="Start time" />
               <input type="time" className={`${inputCls} sm:col-span-1`} value={endTime} onChange={(e) => setEndTime(e.target.value)} aria-label="End time" />
               <input className={`${inputCls} col-span-2 sm:col-span-4`} placeholder="Venue" value={venue} maxLength={120} onChange={(e) => setVenue(e.target.value)} aria-label="Venue" />
+              <FormError message={metaError} className="col-span-2 sm:col-span-6" />
               <div className="col-span-2 flex gap-2 sm:col-span-6">
                 <Button size="sm" onClick={saveMeta} disabled={updateMut.isPending}>Save</Button>
                 <Button size="sm" variant="secondary" onClick={() => {

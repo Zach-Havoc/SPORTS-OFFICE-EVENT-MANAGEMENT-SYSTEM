@@ -14,6 +14,7 @@ import {
   Trophy, BookOpen, AlertTriangle, UserMinus, Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import {
   useAthletes,
   useCategories,
@@ -92,6 +93,7 @@ export default function CoachAthletes() {
   // Why the server refused the setup (e.g. the college already has a coach
   // for that sport). Shown in the dialog: toasts are silent in the build.
   const [setupError, setSetupError] = useState('');
+  const [removeError, setRemoveError] = useState('');
 
   // Remove confirm dialog
   const [removeTarget, setRemoveTarget] = useState<Athlete | null>(null);
@@ -153,9 +155,9 @@ export default function CoachAthletes() {
   };
 
   const handleSaveSport = async () => {
-    if (!departmentDraft) { toast.error('Please select your department'); return; }
-    if (sportsDraft.length === 0) { toast.error('Please select at least one sport'); return; }
-    if (!genderCategoryDraft) { toast.error('Please select a sex category'); return; }
+    if (!departmentDraft) { setSetupError('Please select your department'); return; }
+    if (sportsDraft.length === 0) { setSetupError('Please select at least one sport'); return; }
+    if (!genderCategoryDraft) { setSetupError('Please select a sex category'); return; }
     setSetupError('');
     try {
       await updateProfile.mutateAsync({
@@ -180,12 +182,13 @@ export default function CoachAthletes() {
 
   const handleRemove = async () => {
     if (!removeTarget) return;
+    setRemoveError('');
     try {
       await removeFromRoster.mutateAsync(removeTarget.id);
       toast.success(`${removeTarget.firstName} ${removeTarget.lastName} removed from roster`);
       setRemoveTarget(null);
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to remove athlete');
+      setRemoveError(errorText(err, 'Failed to remove athlete'));
     }
   };
 
@@ -212,7 +215,10 @@ export default function CoachAthletes() {
     return matchSearch && matchStatus && matchSport && matchDivision;
   });
 
-  const handleRemoveClick = useCallback((athlete: Athlete) => setRemoveTarget(athlete), []);
+  const handleRemoveClick = useCallback((athlete: Athlete) => {
+    setRemoveError('');
+    setRemoveTarget(athlete);
+  }, []);
 
   if (!user) return null;
 
@@ -500,11 +506,7 @@ export default function CoachAthletes() {
             </Select>
           </div>
 
-          {setupError && (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
-              {setupError}
-            </p>
-          )}
+          <FormError message={setupError} />
 
           <DialogFooter>
             <Button variant="secondary" onClick={() => setSetupOpen(false)}>Cancel</Button>
@@ -527,6 +529,7 @@ export default function CoachAthletes() {
                 : ' The athlete record will be permanently deleted.'}
             </DialogDescription>
           </DialogHeader>
+          <FormError message={removeError} />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setRemoveTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleRemove}>Remove</Button>

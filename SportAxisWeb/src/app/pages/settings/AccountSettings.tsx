@@ -12,6 +12,7 @@ import {
   AlertTriangle, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrator',
@@ -66,6 +67,8 @@ export default function AccountSettings() {
   const [name, setName] = useState(user?.name || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [studentError, setStudentError] = useState('');
 
   // Athlete profile form
   const [yearLevel, setYearLevel] = useState(user?.yearLevel || '');
@@ -91,7 +94,8 @@ export default function AccountSettings() {
   // ── Profile save ──────────────────────────────────────────────────────────
   const handleSaveProfile = async () => {
     const trimmed = name.trim();
-    if (!trimmed) { toast.error('Name cannot be empty'); return; }
+    setProfileError('');
+    if (!trimmed) { setProfileError('Name cannot be empty'); return; }
     if (trimmed === user.name) { toast.info('No changes to save'); return; }
 
     setSavingProfile(true);
@@ -106,7 +110,7 @@ export default function AccountSettings() {
       toast.success('Name updated successfully');
       setTimeout(() => setProfileSaved(false), 3000);
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to update name');
+      setProfileError(errorText(err, 'Failed to update name'));
     } finally {
       setSavingProfile(false);
     }
@@ -114,6 +118,7 @@ export default function AccountSettings() {
 
   // ── Athlete profile save ─────────────────────────────────────────────────
   const handleSaveStudentProfile = async () => {
+    setStudentError('');
     setSavingStudent(true);
     try {
       await updateAccountProfile({
@@ -129,7 +134,7 @@ export default function AccountSettings() {
       await refreshUser();
       toast.success('Profile updated');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to update profile');
+      setStudentError(errorText(err, 'Failed to update profile'));
     } finally {
       setSavingStudent(false);
     }
@@ -220,6 +225,7 @@ export default function AccountSettings() {
               onKeyDown={e => e.key === 'Enter' && handleSaveProfile()}
             />
           </div>
+          <FormError message={profileError} />
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-400">
               Email address cannot be changed here.
@@ -288,6 +294,7 @@ export default function AccountSettings() {
               </div>
             </div>
 
+            <FormError message={studentError} />
             <div className="flex justify-end">
               <Button onClick={handleSaveStudentProfile} disabled={savingStudent} size="sm" className="min-w-24">
                 {savingStudent ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving…</> : 'Save Profile'}

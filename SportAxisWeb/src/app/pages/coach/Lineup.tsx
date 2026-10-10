@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../../components/ui/badge';
 import { Swords } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import {
   useAthletes,
   useCategories,
@@ -60,6 +61,8 @@ export default function CoachLineup() {
 
   const [sport, setSport] = useState<string>('');
   const [gender, setGender] = useState<'M' | 'W'>('M');
+  // Why a line-up change failed, shown under the page title.
+  const [pageError, setPageError] = useState('');
 
   useEffect(() => {
     if (!sport && racquetSports.length) setSport(racquetSports[0]);
@@ -106,7 +109,7 @@ export default function CoachLineup() {
       if (existing) {
         removeMut.mutate(existing.id, {
           onSuccess: () => toast.success('Slot cleared'),
-          onError: (e: any) => toast.error(e?.message || 'Could not clear the slot'),
+          onError: (e: any) => setPageError(errorText(e, 'Could not clear the slot')),
         });
       }
       return;
@@ -115,7 +118,7 @@ export default function CoachLineup() {
       { category, athleteId, pairSlot },
       {
         onSuccess: () => toast.success('Line-up updated'),
-        onError: (e: any) => toast.error(e?.message || 'Could not save'),
+        onError: (e: any) => setPageError(errorText(e, 'Could not save')),
       },
     );
   };
@@ -138,6 +141,7 @@ export default function CoachLineup() {
         <p className="text-gray-500 text-sm mt-1">
           Who plays for your college: each basketball and volleyball game's players, and your racquet lines.
         </p>
+        <FormError message={pageError} className="mt-3" />
       </header>
 
       {basketballGames.length > 0 && <GameLineups games={basketballGames} />}

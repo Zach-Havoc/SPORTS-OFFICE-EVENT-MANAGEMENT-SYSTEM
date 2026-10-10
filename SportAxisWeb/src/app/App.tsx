@@ -297,8 +297,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       {/* No pop-up messages anywhere: there's deliberately no <Toaster />, so
-          toast.success / toast.error calls draw nothing. Pages that need to
-          say something show it on the page itself. */}
+          toast.success calls draw nothing. Errors are always shown on the page
+          itself with <FormError> (components/ui/form-error); a test keeps
+          toast.error out of the app. */}
     </QueryClientProvider>
   );
 }

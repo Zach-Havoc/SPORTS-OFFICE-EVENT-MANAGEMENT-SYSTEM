@@ -29,6 +29,7 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 
 function fmt(d: string | null) {
   return d
@@ -59,12 +60,20 @@ export default function AdminSeasons() {
   const [endsOn, setEndsOn] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  // Why creating or changing a season failed, shown on the page.
+  const [createError, setCreateError] = useState("");
+  const [listError, setListError] = useState("");
 
   const seasons = seasonsQuery.data ?? [];
 
   const onCreate = () => {
+    setCreateError("");
     if (name.trim().length < 3) {
-      toast.error("Give the season a name (at least 3 characters).");
+      setCreateError("Give the season a name (at least 3 characters).");
+      return;
+    }
+    if (startsOn && endsOn && endsOn < startsOn) {
+      setCreateError("The season can't end before it starts.");
       return;
     }
     create.mutate(
@@ -76,13 +85,13 @@ export default function AdminSeasons() {
           setStartsOn("");
           setEndsOn("");
         },
-        onError: (e: any) =>
-          toast.error(e?.message || "Could not create the season"),
+        onError: (e: any) => setCreateError(errorText(e, "Could not create the season")),
       },
     );
   };
 
   const onActivate = (s: Season) => {
+    setListError("");
     if (s.isActive) return;
     if (
       !confirm(
@@ -92,11 +101,12 @@ export default function AdminSeasons() {
       return;
     activate.mutate(s.id, {
       onSuccess: () => toast.success(`"${s.name}" is now active`),
-      onError: (e: any) => toast.error(e?.message || "Could not activate"),
+      onError: (e: any) => setListError(errorText(e, "Could not activate")),
     });
   };
 
   const onSaveEdit = (s: Season) => {
+    setListError("");
     update.mutate(
       { id: s.id, data: { name: editName.trim() } },
       {
@@ -104,17 +114,18 @@ export default function AdminSeasons() {
           toast.success("Renamed");
           setEditingId(null);
         },
-        onError: (e: any) => toast.error(e?.message || "Could not rename"),
+        onError: (e: any) => setListError(errorText(e, "Could not rename")),
       },
     );
   };
 
   const onDelete = (s: Season) => {
+    setListError("");
     if (!confirm(`Delete "${s.name}"? This only works when it has no events.`))
       return;
     remove.mutate(s.id, {
       onSuccess: () => toast.success("Season deleted"),
-      onError: (e: any) => toast.error(e?.message || "Could not delete"),
+      onError: (e: any) => setListError(errorText(e, "Could not delete")),
     });
   };
 
@@ -187,6 +198,7 @@ export default function AdminSeasons() {
               Create
             </Button>
           </div>
+          <FormError message={createError} className="mt-3" />
         </CardContent>
       </Card>
 
@@ -195,6 +207,7 @@ export default function AdminSeasons() {
           <CardTitle className="text-base">All editions</CardTitle>
         </CardHeader>
         <CardContent>
+          <FormError message={listError} className="mb-3" />
           <ul className="divide-y divide-gray-100">
             {seasons.map((s) => (
               <li

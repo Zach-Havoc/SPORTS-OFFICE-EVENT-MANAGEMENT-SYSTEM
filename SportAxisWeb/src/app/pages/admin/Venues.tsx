@@ -10,6 +10,7 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { MapPin, Plus, Edit, Trash2, Building, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import {
   useVenues,
   useCreateVenue,
@@ -53,6 +54,9 @@ export default function AdminVenues() {
   });
 
   const [sportInput, setSportInput] = useState('');
+  // Why a save or delete failed, shown on the page (no pop-ups on this site).
+  const [formError, setFormError] = useState('');
+  const [pageError, setPageError] = useState('');
 
   const sportsSuggestions = [
     'Basketball', 'Volleyball', 'Badminton', 'Football',
@@ -83,8 +87,9 @@ export default function AdminVenues() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.location) {
-      toast.error('Name and location are required');
+    setFormError('');
+    if (!formData.name.trim() || !formData.location.trim()) {
+      setFormError('Enter the venue name and location.');
       return;
     }
 
@@ -100,7 +105,7 @@ export default function AdminVenues() {
       resetForm();
     } catch (error: any) {
       console.error('Error saving venue:', error);
-      toast.error(error.message || 'Failed to save venue');
+      setFormError(errorText(error, 'Failed to save venue'));
     }
   };
 
@@ -123,12 +128,13 @@ export default function AdminVenues() {
       return;
     }
 
+    setPageError('');
     try {
       await deleteMut.mutateAsync(id);
       toast.success('Venue deleted successfully');
     } catch (error) {
       console.error('Error deleting venue:', error);
-      toast.error('Failed to delete venue');
+      setPageError(errorText(error, 'Failed to delete venue'));
     }
   };
 
@@ -193,6 +199,7 @@ export default function AdminVenues() {
             />
           </div>
           <p className="text-gray-600 mt-2">Manage sports facilities and venues</p>
+          <FormError message={pageError} className="mt-3" />
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
@@ -363,6 +370,7 @@ export default function AdminVenues() {
       <Dialog open={dialogOpen} onOpenChange={(open) => {
         setDialogOpen(open);
         if (!open) resetForm();
+        setFormError('');
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -502,6 +510,8 @@ export default function AdminVenues() {
                 rows={3}
               />
             </div>
+
+            <FormError message={formError} />
 
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>

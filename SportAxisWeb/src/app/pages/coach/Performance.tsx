@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '../../components/ui/badge';
 import { TrendingUp, Plus, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import {
   useAthletes,
   useEvents,
@@ -54,6 +55,7 @@ export default function CoachPerformance() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const [formData, setFormData] = useState({
     athleteId: '',
@@ -134,9 +136,10 @@ export default function CoachPerformance() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
 
     if (!formData.athleteId || !formData.eventId) {
-      toast.error('Please select athlete and event');
+      setFormError('Please select athlete and event');
       return;
     }
 
@@ -168,7 +171,7 @@ export default function CoachPerformance() {
       resetForm();
     } catch (error: any) {
       console.error('Error recording performance:', error);
-      toast.error(error.message || 'Failed to record performance');
+      setFormError(errorText(error, 'Failed to record performance'));
     }
   };
 
@@ -219,7 +222,7 @@ export default function CoachPerformance() {
           </div>
           <p className="text-gray-600 mt-2">Track and analyze athlete performance</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => { setFormError(''); setDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           Record Performance
         </Button>
@@ -259,7 +262,7 @@ export default function CoachPerformance() {
               <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
               <p className="text-gray-500 mb-2">No performance records yet</p>
               <p className="text-sm text-gray-400 mb-4">Start recording athlete performance</p>
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button onClick={() => { setFormError(''); setDialogOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Record First Performance
               </Button>
@@ -444,6 +447,7 @@ export default function CoachPerformance() {
               />
             </div>
 
+            <FormError message={formError} />
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
                 Cancel

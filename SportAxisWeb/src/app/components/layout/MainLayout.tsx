@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigation, Link } from "react-router";
 import { toast } from "sonner";
+import { FormError } from "../ui/form-error";
 
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/button";
@@ -41,15 +42,19 @@ export default function MainLayout() {
   const routerNavigation = useNavigation();
   const [collapsed, setCollapsed] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
 
-  const handleLogout = async () => {
+  const handleLogout = async (ev?: React.MouseEvent) => {
+    // Stay open until it's done, so a failure can be read.
+    ev?.preventDefault();
+    setLogoutError("");
     try {
       await logout();
       toast.success("Signed out");
       window.location.href = "/";
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("We couldn't sign you out. Please try again.");
+      setLogoutError("We couldn't sign you out. Please try again.");
     }
   };
 
@@ -193,6 +198,7 @@ export default function MainLayout() {
               stays saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <FormError message={logoutError} />
           <AlertDialogFooter>
             <AlertDialogCancel>Stay signed in</AlertDialogCancel>
             <AlertDialogAction onClick={handleLogout}>

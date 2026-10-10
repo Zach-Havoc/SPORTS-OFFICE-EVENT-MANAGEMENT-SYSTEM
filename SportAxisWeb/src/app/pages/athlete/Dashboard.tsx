@@ -31,6 +31,7 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 
 interface CoachInfo {
   id: string;
@@ -49,14 +50,16 @@ interface EnrollmentState {
 // ── Enrollment Gate ────────────────────────────────────────────────────────
 function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
   const [code, setCode] = useState("");
+  const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const enroll = useEnrollWithCode();
   const loading = enroll.isPending;
 
   const handleEnroll = async () => {
     const trimmed = code.trim().toUpperCase();
+    setError("");
     if (trimmed.length < 4) {
-      toast.error("Please enter a valid enrollment code");
+      setError("Please enter a valid enrollment code");
       return;
     }
     try {
@@ -64,7 +67,7 @@ function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
       toast.success(res.message || `Enrolled in ${res.coach?.sport}!`);
       onEnrolled();
     } catch (err: any) {
-      toast.error(err?.message || "Invalid enrollment code");
+      setError(errorText(err, "Invalid enrollment code"));
     }
   };
 
@@ -127,6 +130,7 @@ function EnrollmentGate({ onEnrolled }: { onEnrolled: () => void }) {
                   </>
                 )}
               </Button>
+              <FormError message={error} />
             </div>
           </CardContent>
         </Card>
@@ -150,6 +154,7 @@ function EnrolledDashboard({
   onUnenroll: () => void;
 }) {
   const unenroll = useUnenrollFromCoach();
+  const [leaveError, setLeaveError] = useState("");
   const unenrolling = unenroll.isPending;
 
   const scheduleQuery = useAthleteSchedule();
@@ -208,12 +213,13 @@ function EnrolledDashboard({
       )
     )
       return;
+    setLeaveError("");
     try {
       await unenroll.mutateAsync();
       toast.success("Successfully unenrolled");
       onUnenroll();
     } catch (err: any) {
-      toast.error(err?.message || "Failed to unenroll");
+      setLeaveError(errorText(err, "Failed to unenroll"));
     }
   };
 
@@ -454,6 +460,7 @@ function EnrolledDashboard({
           Leave team
         </Button>
       </div>
+      <FormError message={leaveError} className="mt-3" />
     </div>
   );
 }

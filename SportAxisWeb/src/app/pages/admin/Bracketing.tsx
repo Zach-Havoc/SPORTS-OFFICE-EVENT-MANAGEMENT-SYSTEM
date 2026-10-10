@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Check, Trophy, RefreshCw, MapPin, Calendar, Users, ArrowRight, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import { getStandings } from '../../services/api';
 import { useBrackets, useCategories, useDepartments, useVenues, useCreateBracket, usePublishBracket } from '../../hooks/api';
 import { Badge } from '../../components/ui/badge';
@@ -212,6 +213,9 @@ export default function AdminBracketing() {
 
   // One-line venue/time clash notice shown in the preview when a save is blocked.
   const [saveConflict, setSaveConflict] = useState<string | null>(null);
+  // Why generating or saving failed, shown by its button (no pop-ups here).
+  const [generateError, setGenerateError] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   const sportsList = [
     'Basketball', 'Volleyball', 'Badminton', 'Football',
@@ -416,18 +420,19 @@ export default function AdminBracketing() {
   };
 
   const handleGenerateBracket = () => {
+    setGenerateError('');
     if (!config.sport) {
-      toast.error('Please select a sport');
+      setGenerateError('Please select a sport');
       return;
     }
 
     if (config.participants.length < minParticipants) {
-      toast.error(`Please select at least ${minParticipants} participants`);
+      setGenerateError(`Please select at least ${minParticipants} participants`);
       return;
     }
 
     if (!config.startDate || !config.startTime) {
-      toast.error('Set a start date and time.');
+      setGenerateError('Set a start date and time.');
       return;
     }
 
@@ -445,7 +450,7 @@ export default function AdminBracketing() {
           const rank = new Map<string, number>();
           standings.forEach((row: any, i: number) => rank.set(row.department, i));
           if (config.participants.every((p) => !rank.has(p))) {
-            toast.error('No standings for this sport yet.');
+            setGenerateError('No standings for this sport yet.');
             setGenerating(false);
             return;
           }
@@ -486,7 +491,7 @@ export default function AdminBracketing() {
       }
     } catch (error: any) {
       console.error('Error generating bracket:', error);
-      toast.error('Failed to generate bracket');
+      setGenerateError(errorText(error, 'Failed to generate bracket'));
     } finally {
       setGenerating(false);
     }
@@ -497,6 +502,7 @@ export default function AdminBracketing() {
   // and we land on its detail page so the admin can adjust and re-publish.
   const handleSaveBracket = async () => {
     if (!bracket) return;
+    setSaveError('');
 
     try {
       setSaveConflict(null);
@@ -518,7 +524,7 @@ export default function AdminBracketing() {
       // Racquet sport → one bracket per selected line of the chosen division.
       const targets = isRacquet ? targetLineCategories() : [divisionCategory ?? config.sport];
       if (isRacquet && targets.length === 0) {
-        toast.error('Pick at least one line.');
+        setSaveError('Pick at least one line.');
         setGenerating(false);
         return;
       }
@@ -552,7 +558,7 @@ export default function AdminBracketing() {
       }
 
       if (failed.length) {
-        toast.error(`Could not create: ${failed.map((s) => s.split('—').pop()?.trim()).join(', ')}.`);
+        setSaveError(`Could not create: ${failed.map((s) => s.split('—').pop()?.trim()).join(', ')}.`);
       }
       if (drafted.length) {
         setSaveConflict(`Saved as draft (venue clash): ${drafted.map((s) => s.split('—').pop()?.trim()).join(', ')}. Open each and publish.`);
@@ -573,7 +579,7 @@ export default function AdminBracketing() {
       }
     } catch (error: any) {
       console.error('Error saving bracket:', error);
-      toast.error(error.message || 'Failed to save bracket.');
+      setSaveError(errorText(error, 'Failed to save bracket.'));
     } finally {
       setGenerating(false);
     }
@@ -1019,6 +1025,10 @@ export default function AdminBracketing() {
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Generate bracket
               </Button>
+              <FormError message={generateError} className="mt-2" />
+              {config.sport && config.participants.length >= minParticipants && (!config.startDate || !config.startTime) && (
+                <p className="mt-2 text-center text-xs text-gray-500">Set the start date and the first game's time.</p>
+              )}
               {config.participants.length < minParticipants && (
                 <p className="mt-2 text-center text-xs text-gray-500">
                   Pick at least {isDouble ? 'three' : 'two'} colleges.
@@ -1176,6 +1186,7 @@ export default function AdminBracketing() {
                   </div>
                 )}
 
+                <FormError message={saveError} />
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t">
                   <Button onClick={() => { setBracket(null); setPreviewedOrder(null); setSaveConflict(null); }} variant="secondary" className="flex-1">

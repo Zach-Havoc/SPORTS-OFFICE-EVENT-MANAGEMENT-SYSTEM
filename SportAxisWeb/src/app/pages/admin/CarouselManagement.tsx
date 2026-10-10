@@ -34,6 +34,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import Loading from '../../components/Loading';
 
 type SlideType = 'carousel' | 'popup';
@@ -71,26 +72,29 @@ function AddSlideForm({ type, onDone }: { type: SlideType; onDone: () => void })
   const [caption, setCaption] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [active, setActive] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   const pickFile = (f: File | null) => {
     if (!f) return;
     const err = validateImage(f);
-    if (err) { toast.error(err); return; }
+    setError(err ?? '');
+    if (err) return;
     if (preview) URL.revokeObjectURL(preview);
     setFile(f);
     setPreview(URL.createObjectURL(f));
   };
 
   const submit = async () => {
-    if (!file) { toast.error('Choose an image first.'); return; }
+    if (!file) { setError('Choose an image first.'); return; }
+    setError('');
     try {
       await create.mutateAsync({ type, image: file, title, caption, linkUrl, active });
       toast.success(type === 'popup' ? 'Popup image added.' : 'Slide added.');
       onDone();
     } catch (e: any) {
-      toast.error(e.message || 'Could not save.');
+      setError(errorText(e, 'Could not save.'));
     }
   };
 
@@ -137,6 +141,7 @@ function AddSlideForm({ type, onDone }: { type: SlideType; onDone: () => void })
           </div>
         </div>
 
+        <FormError message={error} />
         <div className="flex gap-2">
           <Button onClick={submit} disabled={create.isPending}>
             {create.isPending ? 'Saving…' : 'Save'}
@@ -157,6 +162,7 @@ function EditSlideDialog({ slide, onClose }: { slide: Slide | null; onClose: () 
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setFile(null);
@@ -173,13 +179,15 @@ function EditSlideDialog({ slide, onClose }: { slide: Slide | null; onClose: () 
   const pickFile = (f: File | null) => {
     if (!f) return;
     const err = validateImage(f);
-    if (err) { toast.error(err); return; }
+    setError(err ?? '');
+    if (err) return;
     if (preview) URL.revokeObjectURL(preview);
     setFile(f);
     setPreview(URL.createObjectURL(f));
   };
 
   const save = async () => {
+    setError('');
     try {
       await update.mutateAsync({
         id: slide.id,
@@ -188,7 +196,7 @@ function EditSlideDialog({ slide, onClose }: { slide: Slide | null; onClose: () 
       toast.success('Saved.');
       onClose();
     } catch (e: any) {
-      toast.error(e.message || 'Could not save.');
+      setError(errorText(e, 'Could not save.'));
     }
   };
 
@@ -217,6 +225,7 @@ function EditSlideDialog({ slide, onClose }: { slide: Slide | null; onClose: () 
             <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://…" />
           </div>
         </div>
+        <FormError message={error} />
         <DialogFooter>
           <Button variant="secondary" onClick={onClose} disabled={update.isPending}>Cancel</Button>
           <Button onClick={save} disabled={update.isPending}>{update.isPending ? 'Saving…' : 'Save changes'}</Button>
@@ -241,22 +250,25 @@ function SlideManager({ type }: { type: SlideType }) {
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Slide | null>(null);
+  const [listError, setListError] = useState('');
 
   const toggleActive = async (s: Slide) => {
+    setListError('');
     try {
       await update.mutateAsync({ id: s.id, data: { active: !s.active } });
     } catch (e: any) {
-      toast.error(e.message || 'Could not update.');
+      setListError(errorText(e, 'Could not update.'));
     }
   };
 
   const del = async (s: Slide) => {
     if (!confirm('Delete this image? This cannot be undone.')) return;
+    setListError('');
     try {
       await remove.mutateAsync(s.id);
       toast.success('Deleted.');
     } catch (e: any) {
-      toast.error(e.message || 'Could not delete.');
+      setListError(errorText(e, 'Could not delete.'));
     }
   };
 
@@ -265,10 +277,11 @@ function SlideManager({ type }: { type: SlideType }) {
     if (target < 0 || target >= slides.length) return;
     const order = slides.map((s) => s.id);
     [order[index], order[target]] = [order[target], order[index]];
+    setListError('');
     try {
       await reorder.mutateAsync({ type, order });
     } catch (e: any) {
-      toast.error(e.message || 'Could not reorder.');
+      setListError(errorText(e, 'Could not reorder.'));
     }
   };
 
@@ -290,6 +303,7 @@ function SlideManager({ type }: { type: SlideType }) {
         )}
       </div>
 
+      <FormError message={listError} className="mb-4" />
       {adding && <AddSlideForm type={type} onDone={() => setAdding(false)} />}
 
       {slides.length === 0 && !adding ? (

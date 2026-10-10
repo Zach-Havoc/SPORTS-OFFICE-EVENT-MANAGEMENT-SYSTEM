@@ -15,6 +15,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { Plus, Edit, Trash2, Megaphone, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import {
   useAnnouncements,
   useCreateAnnouncement,
@@ -44,6 +45,9 @@ export default function CoachAnnouncements() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
+  // Why saving or deleting failed, shown in the dialog or on the page.
+  const [formError, setFormError] = useState('');
+  const [pageError, setPageError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
   const [formData, setFormData] = useState({
@@ -74,14 +78,23 @@ export default function CoachAnnouncements() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
 
     if (!formData.title.trim() || !formData.content.trim()) {
-      toast.error('Title and content are required');
+      setFormError('Title and content are required');
       return;
     }
 
     if (formData.isTryout && formData.tryoutStartTime && formData.tryoutEndTime && formData.tryoutEndTime <= formData.tryoutStartTime) {
-      toast.error('The tryout must end after it starts');
+      setFormError('The tryout must end after it starts');
+      return;
+    }
+
+    // A new tryout can't be on a day that has already passed (local date).
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (!editingId && formData.isTryout && formData.tryoutDate && formData.tryoutDate < today) {
+      setFormError('The tryout date has already passed.');
       return;
     }
     // Blank schedule fields are sent as null so clearing one really clears it.
@@ -105,7 +118,7 @@ export default function CoachAnnouncements() {
       resetForm();
     } catch (error: any) {
       console.error('Error saving announcement:', error);
-      toast.error(error.message || 'Failed to save announcement');
+      setFormError(errorText(error, 'Failed to save announcement'));
     }
   };
 
@@ -121,18 +134,20 @@ export default function CoachAnnouncements() {
       tryoutEndTime: announcement.tryoutEndTime ?? '',
       tryoutVenue: announcement.tryoutVenue ?? '',
     });
+    setFormError('');
     setDialogOpen(true);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    setPageError('');
     try {
       await deleteMut.mutateAsync(deleteTarget.id);
       toast.success('Announcement deleted successfully');
       setDeleteTarget(null);
     } catch (error) {
       console.error('Error deleting announcement:', error);
-      toast.error('Failed to delete announcement');
+      setPageError(errorText(error, 'Failed to delete announcement'));
     }
   };
 
@@ -173,8 +188,9 @@ export default function CoachAnnouncements() {
             />
           </div>
           <p className="text-gray-600 mt-2">Create and manage announcements for tryouts and events</p>
+          <FormError message={pageError} className="mt-3" />
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => { setFormError(''); setDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           New Announcement
         </Button>
@@ -327,6 +343,8 @@ export default function CoachAnnouncements() {
                 required
               />
             </div>
+
+            <FormError message={formError} />
 
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => handleDialogClose(false)}>

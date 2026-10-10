@@ -24,6 +24,7 @@ import Loading from "../../components/Loading";
 import { RefreshStatus } from "../../components/RefreshStatus";
 import { Gavel, CheckCircle2, XCircle, Clock, Reply } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 import {
   FormLink,
   STATUS_LABEL,
@@ -53,26 +54,34 @@ export default function AdminProtests() {
   }, []);
 
   const protests = query.data ?? [];
+  // Why an action on an appeal failed, by appeal, shown in its card.
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const setErrorFor = useCallback(
+    (id: string, message: string) => setErrors((prev) => ({ ...prev, [id]: message })),
+    [],
+  );
 
   const requestCounter = useCallback(
     (p: Protest, department?: string) => {
+      setErrorFor(p.id, "");
       askCounter.mutate(
         { id: p.id, department },
         {
           onSuccess: (r) => toast.success(`Asked ${r.counterDepartment} for a counter. They have 12 hours.`),
-          onError: (e: any) => toast.error(e?.message || "Could not ask for a counter"),
+          onError: (e: any) => setErrorFor(p.id, errorText(e, "Could not ask for a counter")),
         },
       );
     },
-    [askCounter],
+    [askCounter, setErrorFor],
   );
 
   // Stable across renders so a keystroke in one card's resolution textarea
   // doesn't re-render every other (memoized) card in the list.
   const submit = useCallback(
     (p: Protest, decision: "upheld" | "dismissed", resolution: string, onDone: () => void) => {
+      setErrorFor(p.id, "");
       if (resolution.trim().length < 10) {
-        toast.error("Write a short resolution note (at least 10 characters).");
+        setErrorFor(p.id, "Write a short resolution note (at least 10 characters).");
         return;
       }
       resolve.mutate(
@@ -82,11 +91,11 @@ export default function AdminProtests() {
             toast.success(`Appeal ${decision}`);
             onDone();
           },
-          onError: (e: any) => toast.error(e?.message || "Could not resolve"),
+          onError: (e: any) => setErrorFor(p.id, errorText(e, "Could not resolve")),
         },
       );
     },
-    [resolve],
+    [resolve, setErrorFor],
   );
 
   if (query.isLoading)
@@ -145,6 +154,7 @@ export default function AdminProtests() {
               onRequestCounter={requestCounter}
               submitting={resolve.isPending}
               requesting={askCounter.isPending}
+              error={errors[p.id]}
             />
           ))}
         </div>
@@ -164,8 +174,10 @@ const ProtestCard = memo(function ProtestCard({
   onRequestCounter,
   submitting,
   requesting,
+  error,
 }: {
   protest: Protest;
+  error?: string;
   now: number;
   onSubmit: (
     p: Protest,
@@ -346,6 +358,7 @@ const ProtestCard = memo(function ProtestCard({
             )}
           </div>
         )}
+        <FormError message={error} className="mt-3" />
       </CardContent>
     </Card>
   );

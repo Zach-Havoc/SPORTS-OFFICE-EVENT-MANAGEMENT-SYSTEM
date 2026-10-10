@@ -32,6 +32,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 import {
   useMyRequirements,
   useSubmitRequirement,
@@ -132,17 +133,25 @@ export default function AthleteRequirements() {
     description: "",
     file: null as File | null,
   });
+  const [formError, setFormError] = useState("");
 
   const openFor = (type?: RequirementTypeRow, supersedes?: RequirementRow) => {
     setTarget({ type, supersedes });
     setFormData({ name: type?.name ?? "", description: "", file: null });
+    setFormError("");
     setDialogOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name) return toast.error("Document name is required");
-    if (!formData.file) return toast.error("Please select a file to upload");
+    setFormError("");
+    if (!formData.name.trim()) return setFormError("Document name is required");
+    if (!formData.file) return setFormError("Please select a file to upload");
+    // Same limits as the server: PDF, Word or an image, up to 10 MB.
+    if (!/\.(pdf|docx?|jpe?g|png)$/i.test(formData.file.name)) {
+      return setFormError("Upload a PDF, Word document or image (JPG or PNG).");
+    }
+    if (formData.file.size > 10 * 1024 * 1024) return setFormError("The file is larger than 10 MB.");
 
     try {
       await submitMut.mutateAsync({
@@ -158,7 +167,7 @@ export default function AthleteRequirements() {
       );
       setDialogOpen(false);
     } catch (error: any) {
-      toast.error(error.message || "Failed to submit requirement");
+      setFormError(errorText(error, "Failed to submit requirement"));
     }
   };
 
@@ -413,6 +422,8 @@ export default function AthleteRequirements() {
                 </p>
               )}
             </div>
+
+            <FormError message={formError} />
 
             <DialogFooter>
               <Button

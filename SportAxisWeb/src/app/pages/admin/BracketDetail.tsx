@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { ArrowLeft, Trophy, Trash2, Calendar, MapPin, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import Loading from '../../components/Loading';
 import { useDeptAbbreviator } from '../../utils/departments';
 import BracketTree from '../../components/BracketTree';
@@ -209,6 +210,8 @@ export default function BracketDetail() {
   const publish = usePublishBracket();
 
   const [manageId, setManageId] = useState<string | null>(null);
+  // Why advancing or publishing failed, on the page and in the open dialog.
+  const [actionError, setActionError] = useState('');
 
   const rounds = useMemo(() => {
     const matches: BMatch[] = bracket?.matches ?? [];
@@ -236,6 +239,7 @@ export default function BracketDetail() {
   const manageMatch: BMatch | undefined = (bracket.matches as BMatch[]).find((m) => m.id === manageId);
 
   const onAdvance: Advance = (matchId, body) => {
+    setActionError('');
     advance.mutate(
       { bracketId: bracket.id, matchId, body },
       {
@@ -243,7 +247,7 @@ export default function BracketDetail() {
           toast.success('Bracket updated.');
           setManageId(null);
         },
-        onError: (e: any) => toast.error(e?.message || 'Could not advance. Score the match first, or use “Pick winner”.'),
+        onError: (e: any) => setActionError(errorText(e, 'Could not advance. Score the match first, or use “Pick winner”.')),
       },
     );
   };
@@ -269,6 +273,7 @@ export default function BracketDetail() {
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="t-page-title break-words">{bracket.name}</h1>
+          <FormError message={actionError} className="my-2" />
           <p className="text-sm text-gray-500">
             {formatLabel(bracket.format)} ·{' '}
             {isDoubleElim
@@ -303,7 +308,7 @@ export default function BracketDetail() {
             onClick={() =>
               publish.mutate(bracket.id, {
                 onSuccess: () => toast.success('Published — events created.'),
-                onError: (e: any) => toast.error(e?.message || 'Venue already scheduled — adjust and retry.'),
+                onError: (e: any) => setActionError(errorText(e, 'Venue already scheduled — adjust and retry.')),
               })
             }
           >
@@ -387,7 +392,10 @@ export default function BracketDetail() {
                 {bracket.status === 'draft' ? (
                   <p className="text-xs text-gray-400">Publish the bracket to record results.</p>
                 ) : (
-                  <MatchActions m={manageMatch} onAdvance={onAdvance} busy={advance.isPending} />
+                  <>
+                    <MatchActions m={manageMatch} onAdvance={onAdvance} busy={advance.isPending} />
+                    <FormError message={actionError} className="mt-3" />
+                  </>
                 )}
               </div>
             </>

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '../../components/ui/badge';
 import { Trophy, Edit, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import Loading from '../../components/Loading';
 
 interface Coach {
@@ -32,6 +33,8 @@ export default function AdminCoaches() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [pageError, setPageError] = useState('');
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null);
   const [departmentDraft, setDepartmentDraft] = useState('');
 
@@ -51,7 +54,7 @@ export default function AdminCoaches() {
       setDepartments(deptData || []);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load data');
+      setPageError('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -68,6 +71,7 @@ export default function AdminCoaches() {
       (d) => d.name?.toLowerCase() === stored || d.abbreviation?.toLowerCase() === stored,
     );
     setDepartmentDraft(match?.name || coach.department || NONE_VALUE);
+    setFormError('');
     setDialogOpen(true);
   }, [departments]);
 
@@ -84,7 +88,7 @@ export default function AdminCoaches() {
       loadData();
     } catch (error: any) {
       console.error('Error updating coach:', error);
-      toast.error(error.message || 'Failed to update coach');
+      setFormError(errorText(error, 'Failed to update coach'));
     }
   };
 
@@ -101,6 +105,7 @@ export default function AdminCoaches() {
       <div className="mb-8">
         <h1 className="t-page-title">Coach Management</h1>
         <p className="text-gray-500 mt-1">Manage coaches and their assigned colleges</p>
+        <FormError message={pageError} className="mt-3" />
       </div>
 
       {/* Coaches List */}
@@ -152,6 +157,7 @@ export default function AdminCoaches() {
             )}
           </div>
 
+          <FormError message={formError} />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>
               Cancel

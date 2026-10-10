@@ -104,7 +104,6 @@ export default function Login() {
       console.error('Auth error:', err);
       const errorMessage = err.message || "We couldn't complete that. Please try again.";
       setError(errorMessage);
-      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

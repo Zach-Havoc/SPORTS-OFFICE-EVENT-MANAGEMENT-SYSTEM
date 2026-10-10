@@ -23,6 +23,7 @@ import Loading from "../../components/Loading";
 import { RefreshStatus } from "../../components/RefreshStatus";
 import { Undo2, Trash2, ScrollText, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 
 const KIND_LABEL: Record<TrashKind, string> = {
   events: "Events",
@@ -79,6 +80,7 @@ function summariseChange(entry: {
 function RecycleBin() {
   const trashQuery = useTrash();
   const restore = useRestoreTrashItem();
+  const [restoreError, setRestoreError] = useState("");
 
   const groups = useMemo(() => {
     const data = trashQuery.data;
@@ -89,11 +91,12 @@ function RecycleBin() {
   }, [trashQuery.data]);
 
   const onRestore = (kind: TrashKind, item: TrashItem) => {
+    setRestoreError("");
     restore.mutate(
       { kind, id: item.id },
       {
         onSuccess: () => toast.success(`Restored "${item.label}"`),
-        onError: (e: any) => toast.error(e?.message || "Restore failed"),
+        onError: (e: any) => setRestoreError(errorText(e, "Restore failed")),
       },
     );
   };
@@ -118,6 +121,7 @@ function RecycleBin() {
           was; a bracket also restores the events removed with it.
         </CardDescription>
       </CardHeader>
+      <FormError message={restoreError} className="mx-6 mb-3" />
       <CardContent>
         {groups.length === 0 ? (
           <p className="py-8 text-center text-sm text-gray-400">

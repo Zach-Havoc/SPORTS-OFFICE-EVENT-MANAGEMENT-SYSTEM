@@ -23,6 +23,7 @@ import {
 } from "../../components/ui/dialog";
 import { CheckCircle, XCircle, Clock, Download, Eye, Search } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 import { useRequirements, useUpdateRequirementStatus } from "../../hooks/api";
 import { RefreshStatus } from "../../components/RefreshStatus";
 import { CmoOfficeBoard } from "../../components/cmo/CmoOfficeBoard";
@@ -55,6 +56,7 @@ export default function AdminRequirements() {
   const [selected, setSelected] = useState<Requirement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewError, setReviewError] = useState("");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -80,6 +82,7 @@ export default function AdminRequirements() {
   const reviewed = requirements.filter((r) => r.status !== "pending");
 
   const handleView = (req: Requirement) => {
+    setReviewError("");
     setSelected(req);
     setReviewNotes(req.notes || "");
     setDialogOpen(true);
@@ -97,7 +100,7 @@ export default function AdminRequirements() {
       setSelected(null);
       setReviewNotes("");
     } catch (error: any) {
-      toast.error(error.message || "Failed to update requirement");
+      setReviewError(errorText(error, "Failed to update requirement"));
     }
   };
 
@@ -382,6 +385,7 @@ export default function AdminRequirements() {
             </div>
           )}
 
+          <FormError message={reviewError} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
               Cancel

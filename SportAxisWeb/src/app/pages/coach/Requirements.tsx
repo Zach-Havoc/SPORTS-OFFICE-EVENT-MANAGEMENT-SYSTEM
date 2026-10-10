@@ -53,6 +53,7 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 import {
   useRequirements,
   useUpdateRequirementStatus,
@@ -74,6 +75,7 @@ function RequirementTypeManager() {
   const deleteTemplate = useDeleteRequirementTypeTemplate();
 
   const [name, setName] = useState("");
+  const [error, setError] = useState("");
   const [sport, setSport] = useState("");
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
 
@@ -81,17 +83,19 @@ function RequirementTypeManager() {
 
   const onPickTemplate = (id: string, file: File | null) => {
     if (!file) return;
+    setError("");
     uploadTemplate.mutate(
       { id, file },
       {
         onSuccess: () => toast.success("Template uploaded"),
-        onError: (e: any) => toast.error(e?.message || "Could not upload the template"),
+        onError: (e: any) => setError(errorText(e, "Could not upload the template")),
       },
     );
   };
 
   const onAdd = () => {
-    if (!name.trim()) return toast.error("Give the document a name");
+    setError("");
+    if (!name.trim()) return setError("Give the document a name");
     create.mutate(
       { name: name.trim(), sport: sport.trim() || null },
       {
@@ -100,7 +104,7 @@ function RequirementTypeManager() {
           setName("");
           setSport("");
         },
-        onError: (e: any) => toast.error(e?.message || "Could not add it"),
+        onError: (e: any) => setError(errorText(e, "Could not add it")),
       },
     );
   };
@@ -136,6 +140,7 @@ function RequirementTypeManager() {
             Add
           </Button>
         </div>
+        <FormError message={error} />
 
         {types.length === 0 ? (
           <p className="py-4 text-center text-sm text-gray-400">
@@ -282,6 +287,7 @@ export default function CoachRequirements() {
     useState<Requirement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewError, setReviewError] = useState("");
 
   useEffect(() => {
     if (!user || user.role !== "coach") navigate("/login");
@@ -302,6 +308,7 @@ export default function CoachRequirements() {
   const processing = updateStatus.isPending;
 
   const handleViewRequirement = (requirement: Requirement) => {
+    setReviewError("");
     setSelectedRequirement(requirement);
     setReviewNotes(requirement.notes || "");
     setDialogOpen(true);
@@ -324,7 +331,7 @@ export default function CoachRequirements() {
       setReviewNotes("");
     } catch (error: any) {
       console.error("Error updating requirement:", error);
-      toast.error(error.message || "Failed to update requirement");
+      setReviewError(errorText(error, "Failed to update requirement"));
     }
   };
 
@@ -630,6 +637,7 @@ export default function CoachRequirements() {
             </div>
           )}
 
+          <FormError message={reviewError} />
           <DialogFooter>
             <Button
               type="button"

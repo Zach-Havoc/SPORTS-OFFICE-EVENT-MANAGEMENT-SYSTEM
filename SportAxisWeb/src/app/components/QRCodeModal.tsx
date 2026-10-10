@@ -5,6 +5,7 @@ import { Download, Check, Mail } from 'lucide-react';
 import { sendEventQr } from '../services/api';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { FormError, errorText } from './ui/form-error';
 
 
 interface QRCodeModalProps {
@@ -18,22 +19,24 @@ interface QRCodeModalProps {
 export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }: QRCodeModalProps) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
 
   // A different event (or reopening) starts back at "Email to committee".
-  useEffect(() => { if (open) setSent(false); }, [open, eventId]);
+  useEffect(() => { if (open) { setSent(false); setError(''); } }, [open, eventId]);
 
   const emailCommittee = async () => {
+    setError('');
     try {
       setSending(true);
       const result = await sendEventQr(eventId);
       if (result.sent.length > 0) setSent(true);
       if (result.failed.length > 0) {
-        toast.error(`Could not email ${result.failed.map(f => f.email).join(', ')}. Try again.`);
+        setError(`Could not email ${result.failed.map(f => f.email).join(', ')}. Try again.`);
       } else if (result.sent.length === 0) {
-        toast.error('The committee member has no email address; they got the in-app notification only.');
+        setError('The committee member has no email address; they got the in-app notification only.');
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Could not email the QR code');
+      setError(errorText(e, 'Could not email the QR code'));
     } finally {
       setSending(false);
     }
@@ -77,6 +80,7 @@ export function QRCodeModal({ open, onOpenChange, eventId, eventName, qrToken }:
         </DialogHeader>
 
         <div className="flex flex-col gap-5">
+          <FormError message={error} />
           {/* QR Code */}
           <div className="flex flex-col items-center gap-3">
             <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-gray-100">

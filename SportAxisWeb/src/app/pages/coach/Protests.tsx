@@ -29,6 +29,7 @@ import Loading from "../../components/Loading";
 import { RefreshStatus } from "../../components/RefreshStatus";
 import { Clock, Flag, Reply } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 import {
   FormLink,
   PdfPicker,
@@ -66,6 +67,7 @@ export default function CoachProtests() {
   const [eventId, setEventId] = useState("");
   const [reason, setReason] = useState("");
   const [form, setForm] = useState<File | null>(null);
+  const [error, setError] = useState("");
 
   const protests = protestsQuery.data ?? [];
   const games = gamesQuery.data ?? [];
@@ -79,10 +81,11 @@ export default function CoachProtests() {
   const ours = protests.filter((p) => p.department === mine || !mine);
 
   const submit = () => {
-    if (!eventId) return void toast.error("Pick the game you are appealing.");
+    setError("");
+    if (!eventId) return void setError("Pick the game you are appealing.");
     if (reason.trim().length < 15)
-      return void toast.error("Explain the appeal in a bit more detail (at least 15 characters).");
-    if (!form) return void toast.error("Attach the formal protest form (PDF).");
+      return void setError("Explain the appeal in a bit more detail (at least 15 characters).");
+    if (!form) return void setError("Attach the formal protest form (PDF).");
     file.mutate(
       { eventId, reason: reason.trim(), form },
       {
@@ -92,7 +95,7 @@ export default function CoachProtests() {
           setReason("");
           setForm(null);
         },
-        onError: (e: any) => toast.error(e?.message || "Could not file the appeal"),
+        onError: (e: any) => setError(errorText(e, "Could not file the appeal")),
       },
     );
   };
@@ -169,9 +172,10 @@ export default function CoachProtests() {
           <PdfPicker
             file={form}
             onChange={setForm}
-            onError={(m) => toast.error(m)}
+            onError={setError}
             label="Attach the formal protest form (PDF)"
           />
+          <FormError message={error} />
           <Button onClick={submit} disabled={file.isPending}>
             {file.isPending ? "Submitting…" : "Submit appeal"}
           </Button>
@@ -244,16 +248,18 @@ function CounterRequest({ protest: p, now }: { protest: Protest; now: number }) 
   const counter = useFileProtestCounter();
   const [reason, setReason] = useState("");
   const [form, setForm] = useState<File | null>(null);
+  const [error, setError] = useState("");
   const closed = p.counterLapsed || timeLeft(p.counterDueAt, now) === "closed";
 
   const submit = () => {
-    if (reason.trim().length < 15) return void toast.error("Explain your counter (at least 15 characters).");
-    if (!form) return void toast.error("Attach the formal counter form (PDF).");
+    setError("");
+    if (reason.trim().length < 15) return void setError("Explain your counter (at least 15 characters).");
+    if (!form) return void setError("Attach the formal counter form (PDF).");
     counter.mutate(
       { id: p.id, data: { reason: reason.trim(), form } },
       {
         onSuccess: () => toast.success("Counter filed. The sports office will decide."),
-        onError: (e: any) => toast.error(e?.message || "Could not file the counter"),
+        onError: (e: any) => setError(errorText(e, "Could not file the counter")),
       },
     );
   };
@@ -299,9 +305,10 @@ function CounterRequest({ protest: p, now }: { protest: Protest; now: number }) 
             <PdfPicker
               file={form}
               onChange={setForm}
-              onError={(m) => toast.error(m)}
+              onError={setError}
               label="Attach the formal counter form (PDF)"
             />
+            <FormError message={error} />
             <Button onClick={submit} disabled={counter.isPending}>
               <Reply className="mr-1.5 h-4 w-4" />
               {counter.isPending ? "Submitting…" : "Submit counter"}

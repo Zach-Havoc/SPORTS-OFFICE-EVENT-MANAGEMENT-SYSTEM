@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../ui/form-error';
 import { useCmoRoster, useSubmitCmo } from '../../hooks/api';
 import type { CmoRosterAthlete } from '../../services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -25,6 +26,7 @@ export function CmoForwardPanel() {
   const ready = useMemo(() => athletes.filter(forwardable), [athletes]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [note, setNote] = useState('');
+  const [error, setError] = useState('');
 
   // Everyone ready is picked by default; re-picked when the list changes.
   const readyKey = ready.map((a) => a.id).join(',');
@@ -46,7 +48,8 @@ export function CmoForwardPanel() {
 
   const send = () => {
     const ids = [...picked].filter((id) => ready.some((a) => a.id === id));
-    if (ids.length === 0) return void toast.error('Pick at least one cleared athlete to forward.');
+    setError('');
+    if (ids.length === 0) return void setError('Pick at least one cleared athlete to forward.');
     submit.mutate(
       { athleteIds: ids, note: note.trim() || undefined },
       {
@@ -54,7 +57,7 @@ export function CmoForwardPanel() {
           toast.success(`${r.count} ${r.count === 1 ? 'athlete' : 'athletes'} forwarded to the sports office.`);
           setNote('');
         },
-        onError: (e: any) => toast.error(e?.message || 'Could not forward to the office'),
+        onError: (e: any) => setError(errorText(e, 'Could not forward to the office')),
       },
     );
   };
@@ -160,6 +163,7 @@ export function CmoForwardPanel() {
           </div>
         )}
 
+        <FormError message={error} />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <Textarea
             value={note}

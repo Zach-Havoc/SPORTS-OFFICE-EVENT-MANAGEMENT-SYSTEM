@@ -59,6 +59,7 @@ import {
   Award,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 import Loading from "../../components/Loading";
 
 interface Event {
@@ -137,6 +138,9 @@ export default function AdminReports() {
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
+  // Why loading, an export or a result action failed, shown on the page.
+  const [pageError, setPageError] = useState("");
+  const [resultError, setResultError] = useState("");
   const [sheetScore, setSheetScore] = useState<ScoreRow | null>(null);
   const [query, setQuery] = useState("");
   const [sport, setSport] = useState(ALL_SPORTS);
@@ -156,7 +160,7 @@ export default function AdminReports() {
           ),
         );
       } catch {
-        toast.error("Failed to load events");
+        setPageError("Failed to load events");
       } finally {
         setLoading(false);
       }
@@ -196,7 +200,7 @@ export default function AdminReports() {
       setReport(rep);
       setScores(sc as ScoreRow[]);
     } catch {
-      toast.error("Failed to load the event result");
+      setResultError("Failed to load the event result");
     } finally {
       setReportLoading(false);
     }
@@ -204,6 +208,7 @@ export default function AdminReports() {
 
   const onSelect = (id: string) => {
     setSelectedEvent(id);
+    setResultError("");
     setReport(null);
     setScores([]);
     load(id);
@@ -211,12 +216,13 @@ export default function AdminReports() {
 
   const act = async (label: string, fn: () => Promise<unknown>) => {
     setBusy(label);
+    setResultError("");
     try {
       await fn();
       await load(selectedEvent);
       toast.success("Done");
     } catch (e: any) {
-      toast.error(e?.message || "Action failed");
+      setResultError(errorText(e, "Action failed"));
     } finally {
       setBusy("");
     }
@@ -229,7 +235,7 @@ export default function AdminReports() {
     if (reason && reason.trim().length >= 5) {
       act(`dispute-${s.id}`, () => disputeScore(s.id, reason.trim()));
     } else if (reason !== null) {
-      toast.error("Give a short reason (at least 5 characters).");
+      setResultError("Give a short reason (at least 5 characters).");
     }
   };
 
@@ -238,10 +244,11 @@ export default function AdminReports() {
     fn: () => Promise<{ blob: Blob; filename: string }>,
   ) => {
     setBusy(label);
+    setPageError("");
     try {
       deliverExport(await fn());
     } catch (e: any) {
-      toast.error(e?.message || "Export failed");
+      setPageError(errorText(e, "Export failed"));
     } finally {
       setBusy("");
     }
@@ -253,8 +260,9 @@ export default function AdminReports() {
     fn: () => Promise<{ blob: Blob; filename: string }>,
   ) => {
     setBusy(label);
+    setPageError("");
     openPrintable(fn)
-      .catch((e: any) => toast.error(e?.message || "Could not open the report"))
+      .catch((e: any) => setPageError(errorText(e, "Could not open the report")))
       .finally(() => setBusy(""));
   };
 
@@ -281,6 +289,7 @@ export default function AdminReports() {
           Print or download official results. Season documents cover the
           active season; pick an event below for its own result sheet.
         </p>
+        <FormError message={pageError} className="mt-3" />
       </div>
 
       <section aria-labelledby="season-docs" className="mb-8">
@@ -405,6 +414,7 @@ export default function AdminReports() {
         <h2 id="event-reports" className="t-section mb-3">
           Event result sheet
         </h2>
+        <FormError message={resultError} className="mb-3" />
         <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
           <Card className="self-start">
             <CardContent className="space-y-3 pt-5">

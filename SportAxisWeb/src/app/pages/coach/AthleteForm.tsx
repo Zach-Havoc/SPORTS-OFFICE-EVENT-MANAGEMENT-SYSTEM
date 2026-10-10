@@ -91,11 +91,9 @@ export default function AthleteForm() {
   }, [athleteQuery.data]);
 
   useEffect(() => {
-    if (athleteQuery.isLoadingError) {
-      toast.error('Failed to load athlete data');
-      navigate('/coach/athletes');
-    }
-  }, [athleteQuery.isLoadingError, navigate]);
+    // Stay on the page and say why; the form's alert shows it.
+    if (athleteQuery.isLoadingError) setError('Failed to load athlete data.');
+  }, [athleteQuery.isLoadingError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +114,6 @@ export default function AthleteForm() {
       } catch (err: any) {
         console.error('Error saving athlete:', err);
         setError(err.message || 'Failed to save. Please try again.');
-        toast.error(err.message || 'Failed to save');
       }
       return;
     }
@@ -167,7 +164,6 @@ export default function AthleteForm() {
     } catch (err: any) {
       console.error('Error saving athlete:', err);
       setError(err.message || 'Failed to save athlete. Please try again.');
-      toast.error(err.message || 'Failed to save athlete');
     }
   };
 

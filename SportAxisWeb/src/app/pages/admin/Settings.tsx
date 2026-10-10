@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Plus, Pencil, Trash2, Users, Tag, GraduationCap, Upload, Search, Loader2, Wrench, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import Loading from '../../components/Loading';
 import DemoResetCard from '../../components/admin/DemoResetCard';
 import StandingsRulesCard from '../../components/admin/StandingsRulesCard';
@@ -45,6 +46,10 @@ export default function AdminSettings() {
   // Categories state
   const [categories, setCategories] = useState<Category[]>([]);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
+  // Why a save or delete failed, shown on the page or in its dialog.
+  const [pageError, setPageError] = useState('');
+  const [deptError, setDeptError] = useState('');
+  const [catError, setCatError] = useState('');
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [catFormData, setCatFormData] = useState<{ name: string; description: string; format: SportFormat }>({ name: '', description: '', format: 'versus' });
   
@@ -68,7 +73,7 @@ export default function AdminSettings() {
       setCategories(cats);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load settings data');
+      setPageError('Failed to load settings data');
     } finally {
       setLoading(false);
     }
@@ -83,10 +88,13 @@ export default function AdminSettings() {
       setEditingDept(null);
       setDeptFormData({ name: '', abbreviation: '' });
     }
+    setDeptError('');
     setDeptDialogOpen(true);
   };
 
   const handleSaveDepartment = async () => {
+    setDeptError('');
+    if (!deptFormData.name.trim()) return setDeptError('Enter the college name.');
     try {
       if (editingDept) {
         await updateDepartment(editingDept.id, deptFormData);
@@ -99,7 +107,7 @@ export default function AdminSettings() {
       loadData();
     } catch (error) {
       console.error('Error saving department:', error);
-      toast.error('Failed to save department');
+      setDeptError(errorText(error, 'Failed to save department'));
     }
   };
 
@@ -113,7 +121,7 @@ export default function AdminSettings() {
       toast.success('Logo updated');
       loadData();
     } catch (e: any) {
-      toast.error(e.message || 'Could not upload the logo');
+      setDeptError(errorText(e, 'Could not upload the logo'));
     } finally {
       setLogoBusy(false);
     }
@@ -127,7 +135,7 @@ export default function AdminSettings() {
       toast.success('Logo removed');
       loadData();
     } catch (e: any) {
-      toast.error(e.message || 'Could not remove the logo');
+      setDeptError(errorText(e, 'Could not remove the logo'));
     } finally {
       setLogoBusy(false);
     }
@@ -135,14 +143,14 @@ export default function AdminSettings() {
 
   const handleDeleteDepartment = async (id: string) => {
     if (!confirm('Are you sure you want to delete this department?')) return;
-    
+    setPageError('');
     try {
       await deleteDepartment(id);
       toast.success('College deleted successfully');
       loadData();
     } catch (error) {
       console.error('Error deleting department:', error);
-      toast.error('Failed to delete department');
+      setPageError(errorText(error, 'Failed to delete department'));
     }
   };
 
@@ -155,10 +163,13 @@ export default function AdminSettings() {
       setEditingCat(null);
       setCatFormData({ name: '', description: '', format: 'versus' });
     }
+    setCatError('');
     setCatDialogOpen(true);
   };
 
   const handleSaveCategory = async () => {
+    setCatError('');
+    if (!catFormData.name.trim()) return setCatError('Enter the sport name.');
     try {
       if (editingCat) {
         await updateCategory(editingCat.id, catFormData);
@@ -171,12 +182,13 @@ export default function AdminSettings() {
       loadData();
     } catch (error) {
       console.error('Error saving sport:', error);
-      toast.error('Failed to save sport');
+      setCatError(errorText(error, 'Failed to save sport'));
     }
   };
 
   const handleDeleteCategory = async (id: string) => {
     if (!confirm('Delete this sport?')) return;
+    setPageError('');
 
     try {
       await deleteCategory(id);
@@ -184,7 +196,7 @@ export default function AdminSettings() {
       loadData();
     } catch (error) {
       console.error('Error deleting sport:', error);
-      toast.error('Failed to delete sport');
+      setPageError(errorText(error, 'Failed to delete sport'));
     }
   };
 
@@ -202,6 +214,7 @@ export default function AdminSettings() {
         </div>
       </div>
 
+      <FormError message={pageError} className="mb-4" />
       <Tabs defaultValue="departments" className="w-full">
         <TabsList className="grid w-full max-w-3xl grid-cols-5">
           <TabsTrigger value="departments">
@@ -438,6 +451,7 @@ export default function AdminSettings() {
               )}
             </div>
           </div>
+          <FormError message={deptError} />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDeptDialogOpen(false)}>
               Cancel
@@ -499,6 +513,7 @@ export default function AdminSettings() {
               </p>
             </div>
           </div>
+          <FormError message={catError} />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setCatDialogOpen(false)}>
               Cancel
@@ -521,6 +536,9 @@ function CampusStudentsTab() {
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  // The outcome of the last import, on the page (no pop-ups on this site).
+  const [importResult, setImportResult] = useState('');
+  const [importError, setImportError] = useState('');
   const listQuery = useCampusStudents(debounced || undefined);
   const importMut = useImportCampusStudents();
 
@@ -531,17 +549,20 @@ function CampusStudentsTab() {
 
   const onPickFile = async (file: File | undefined) => {
     if (!file) return;
+    setImportError('');
+    setImportResult('');
     try {
       const r = await importMut.mutateAsync(file);
-      toast.success(`Imported: ${r.added} added, ${r.updated} updated${r.skipped ? `, ${r.skipped} skipped` : ''}. ${r.total} students on file.`);
+      setImportResult(`Imported: ${r.added} added, ${r.updated} updated${r.skipped ? `, ${r.skipped} skipped` : ''}. ${r.total} students on file.`);
     } catch (e: any) {
-      toast.error(e?.message || 'Import failed');
+      setImportError(errorText(e, 'Import failed'));
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
   };
 
   const students = listQuery.data?.students ?? [];
+
   const total = listQuery.data?.total ?? 0;
 
   return (
@@ -569,6 +590,12 @@ function CampusStudentsTab() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <FormError message={importError} />
+        {importResult && (
+          <p role="status" className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+            {importResult}
+          </p>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-gray-600">
             <span className="font-semibold text-gray-900">{total.toLocaleString()}</span> student{total === 1 ? '' : 's'} on file

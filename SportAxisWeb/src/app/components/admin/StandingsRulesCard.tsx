@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError } from '../ui/form-error';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -32,6 +33,7 @@ export default function StandingsRulesCard() {
   const [custom, setCustom] = useState<MedalPoints>({ gold: 10, silver: 7, bronze: 5 });
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     getStandingsRules()
@@ -61,6 +63,7 @@ export default function StandingsRulesCard() {
 
   const save = async () => {
     setSaving(true);
+    setSaveError('');
     try {
       const r = await updateStandingsRules(method, custom);
       setRules(r);
@@ -68,7 +71,7 @@ export default function StandingsRulesCard() {
       await queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
       toast.success('Standings ranking updated');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save the ranking rules.');
+      setSaveError(e instanceof Error ? e.message : 'Could not save the ranking rules.');
     } finally {
       setSaving(false);
     }
@@ -153,6 +156,7 @@ export default function StandingsRulesCard() {
               </div>
             )}
 
+            <FormError message={saveError} />
             <Button onClick={save} disabled={saving || unchanged || !!customError}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save

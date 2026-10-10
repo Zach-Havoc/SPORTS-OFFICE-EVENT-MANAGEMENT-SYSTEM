@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Edit, Mail, Phone, User, Calendar, BookOpen, Building, AlertCircle, TrendingUp, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { toast } from 'sonner';
 import { useAthlete, useAttendanceRecords, useCoachSchedule, usePerformanceRecords, useRequirements } from '../../hooks/api';
 import { AthleteLedger, type LedgerEntry } from '../../components/coach/AthleteLedger';
 import { RefreshStatus } from '../../components/RefreshStatus';
@@ -90,12 +89,6 @@ export default function AthleteDetail() {
   const requirementsQuery = useRequirements();
   const scheduleQuery = useCoachSchedule();
 
-  useEffect(() => {
-    if (athleteQuery.isLoadingError) {
-      toast.error('Failed to load athlete details');
-      navigate('/coach/athletes');
-    }
-  }, [athleteQuery.isLoadingError, navigate]);
 
   const attendance = useMemo(
     () => ((attendanceQuery.data ?? []) as AttendanceRow[]).filter((r) => r.athleteId === id),
@@ -202,7 +195,9 @@ export default function AthleteDetail() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center py-12">
-          <p className="text-gray-500">Athlete not found</p>
+          <p className="text-gray-500">
+            {athleteQuery.isLoadingError ? "Couldn't load this athlete. Check your connection and try again." : 'Athlete not found'}
+          </p>
           <Link to="/coach/athletes">
             <Button className="mt-4">Back to Athletes</Button>
           </Link>

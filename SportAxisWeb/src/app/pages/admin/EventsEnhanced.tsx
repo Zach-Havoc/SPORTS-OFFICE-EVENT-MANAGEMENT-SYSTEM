@@ -25,11 +25,13 @@ import {
 } from '../../utils/venueAvailability';
 
 /** `abbr` turns a college's full name into its short name, for sheets that print those. */
-const openScoreSheet = (event: any, abbr?: (name: string) => string) => {
+/** Returns an error message when the browser blocked the print window. */
+const openScoreSheet = (event: any, abbr?: (name: string) => string): string => {
   const teamLabels = abbr ? (event.departments ?? []).map((d: string) => abbr(d)) : undefined;
-  if (!printScoreSheet({ ...event, teamLabels })) toast.error('Allow pop-ups for this site to print the sheet.');
+  return printScoreSheet({ ...event, teamLabels }) ? '' : 'Allow pop-ups for this site to print the sheet.';
 };
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import { Checkbox } from '../../components/ui/checkbox';
 import { QRCodeModal } from '../../components/QRCodeModal';
 import { CardGridSkeleton } from '../../components/ListSkeleton';
@@ -201,6 +203,9 @@ export default function AdminEventsEnhanced() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  // Why a page action (loading, deleting, bulk changes, printing) failed.
+  const [pageError, setPageError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   // The form is filled in four parts, in the order each depends on the last:
   // the sport decides how colleges are picked, and the time decides which
   // committee members are free.
@@ -255,7 +260,7 @@ export default function AdminEventsEnhanced() {
         completed: normalizedEvents.filter((e: Event) => e.status === 'completed').length,
       });
     } catch (err) {
-      toast.error('Failed to load events data');
+      setPageError('Failed to load events data');
     } finally {
       setLoading(false);
     }
@@ -266,7 +271,7 @@ export default function AdminEventsEnhanced() {
       setVenues(venueData || []);
     } catch (err) {
       console.error('Failed to load venues:', err);
-      toast.error('Could not load venues — check your connection');
+      setPageError('Could not load venues — check your connection');
     }
 
     // Load judges independently so it doesn't block the main event load
@@ -275,7 +280,7 @@ export default function AdminEventsEnhanced() {
       setJudges(judgeData || []);
     } catch (err) {
       console.error('Failed to load judges:', err);
-      toast.error('Could not load judge accounts');
+      setPageError('Could not load judge accounts');
     }
 
     // Sports + their format (versus / ranked) — drives the college picker
@@ -456,7 +461,6 @@ export default function AdminEventsEnhanced() {
     } catch (err: any) {
       const msg = err?.message || 'Failed to save event';
       setFormError(msg);
-      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -465,35 +469,38 @@ export default function AdminEventsEnhanced() {
   // ── Delete ────────────────────────────────────────────────────────────
   const confirmDelete = async () => {
     if (!eventToDelete) return;
+    setDeleteError('');
     try {
       await deleteEvent(eventToDelete.id);
       toast.success('Event deleted');
       setDeleteConfirmOpen(false);
       setEventToDelete(null);
       loadData();
-    } catch {
-      toast.error('Failed to delete event');
+    } catch (e) {
+      setDeleteError(errorText(e, 'Failed to delete event'));
     }
   };
 
   const handleBulkDelete = async () => {
-    if (!selectedEvents.size) { toast.error('No events selected'); return; }
+    setPageError('');
+    if (!selectedEvents.size) { setPageError('No events selected'); return; }
     try {
       const { deleted } = await bulkDeleteEvents(Array.from(selectedEvents));
       toast.success(`${deleted ?? selectedEvents.size} events deleted`);
       setSelectedEvents(new Set());
       loadData();
-    } catch (e: any) { toast.error(e?.message || 'Failed to delete events'); }
+    } catch (e: any) { setPageError(errorText(e, 'Failed to delete events')); }
   };
 
   const handleBulkStatusChange = async (newStatus: string) => {
-    if (!selectedEvents.size) { toast.error('No events selected'); return; }
+    setPageError('');
+    if (!selectedEvents.size) { setPageError('No events selected'); return; }
     try {
       const { updated } = await bulkUpdateEventStatus(Array.from(selectedEvents), newStatus);
       toast.success(`${updated ?? selectedEvents.size} events updated`);
       setSelectedEvents(new Set());
       loadData();
-    } catch (e: any) { toast.error(e?.message || 'Failed to update events'); }
+    } catch (e: any) { setPageError(errorText(e, 'Failed to update events')); }
   };
 
   const handleExport = () => {
@@ -570,6 +577,7 @@ export default function AdminEventsEnhanced() {
   }, []);
 
   const handleDeleteClick = useCallback((event: Event) => {
+    setDeleteError('');
     setEventToDelete(event);
     setDeleteConfirmOpen(true);
   }, []);
@@ -595,6 +603,7 @@ export default function AdminEventsEnhanced() {
               Sports Event Management
             </h1>
             <p className="text-gray-500 mt-1">Create and manage sports competition events</p>
+            <FormError message={pageError} className="mt-3" />
           </div>
           <div className="flex gap-2">
             <Button onClick={handleExport} variant="secondary" size="sm"><Download className="h-4 w-4 mr-2" />Export</Button>
@@ -773,7 +782,7 @@ export default function AdminEventsEnhanced() {
               onToggleSelect={handleToggleSelect}
               onEdit={handleOpenDialog}
               onQR={handleQRClick}
-              onPrint={(e: any) => openScoreSheet(e, abbr)}
+              onPrint={(e: any) => setPageError(openScoreSheet(e, abbr))}
               onDelete={handleDeleteClick}
             />
           ))}
@@ -791,7 +800,7 @@ export default function AdminEventsEnhanced() {
                   onToggleSelect={handleToggleSelect}
                   onEdit={handleOpenDialog}
                   onQR={handleQRClick}
-                  onPrint={(e: any) => openScoreSheet(e, abbr)}
+                  onPrint={(e: any) => setPageError(openScoreSheet(e, abbr))}
                   onDelete={handleDeleteClick}
                 />
               ))}
@@ -1195,6 +1204,7 @@ export default function AdminEventsEnhanced() {
               Are you sure you want to delete <strong>"{abbr(eventToDelete?.name ?? '')}"</strong>? All scores will be permanently removed.
             </DialogDescription>
           </DialogHeader>
+          <FormError message={deleteError} />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete}>Delete Event</Button>

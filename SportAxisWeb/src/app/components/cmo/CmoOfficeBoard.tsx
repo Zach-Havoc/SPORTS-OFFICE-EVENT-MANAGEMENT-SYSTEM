@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../ui/form-error';
 import { useCmoOverview, useReviewCmo } from '../../hooks/api';
 import type { CmoEntry } from '../../services/api';
 import { useDeptAbbreviator } from '../../utils/departments';
@@ -71,6 +72,8 @@ export function CmoOfficeBoard() {
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [reviewing, setReviewing] = useState<number | null>(null);
+  // Why a decision failed, shown above the board (no pop-ups on this site).
+  const [decideError, setDecideError] = useState('');
   const [bulkReturn, setBulkReturn] = useState(false);
 
   const sports = useMemo(() => [...new Set(entries.map(sportKey))].sort(), [entries]);
@@ -146,7 +149,8 @@ export function CmoOfficeBoard() {
   const count = (s: CmoEntry['status']) => entries.filter((e) => e.status === s).length;
   const staleCount = entries.filter(stale).length;
 
-  const decide: Decide = (ids, decision, note, done) =>
+  const decide: Decide = (ids, decision, note, done) => {
+    setDecideError('');
     review.mutate(
       { entryIds: ids, status: decision, note },
       {
@@ -155,9 +159,10 @@ export function CmoOfficeBoard() {
           setPicked((prev) => new Set([...prev].filter((id) => !ids.includes(id))));
           done?.();
         },
-        onError: (e: any) => toast.error(e?.message || 'Could not save the decision'),
+        onError: (e: any) => setDecideError(errorText(e, 'Could not save the decision')),
       },
     );
+  };
 
   const toggle = (ids: number[], on: boolean) =>
     setPicked((prev) => {
@@ -175,6 +180,7 @@ export function CmoOfficeBoard() {
 
   return (
     <div className="space-y-4">
+      <FormError message={decideError} />
       {/* Status */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" role="tablist" aria-label="Status">

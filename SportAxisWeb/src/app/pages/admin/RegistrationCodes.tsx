@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '../../components/ui/badge';
 import { Plus, Copy, Trash2, CheckCircle2, XCircle, Clock, Shield, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormError, errorText } from '../../components/ui/form-error';
 import Loading from '../../components/Loading';
 
 interface RegistrationCode {
@@ -34,6 +35,8 @@ export default function AdminRegistrationCodes() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [pageError, setPageError] = useState('');
 
   const [formData, setFormData] = useState({
     role: 'judge' as 'admin' | 'coach' | 'athlete' | 'judge',
@@ -75,7 +78,7 @@ export default function AdminRegistrationCodes() {
       setFormData({ role: 'judge', label: '', expiresInDays: 0 });
     } catch (error: any) {
       console.error('Error generating code:', error);
-      toast.error(error.message || 'Failed to generate code');
+      setFormError(errorText(error, 'Failed to generate code'));
     }
   };
 
@@ -92,7 +95,7 @@ export default function AdminRegistrationCodes() {
       toast.success('Registration code revoked');
     } catch (error: any) {
       console.error('Error revoking code:', error);
-      toast.error(error.message || 'Failed to revoke code');
+      setPageError(errorText(error, 'Failed to revoke code'));
     }
   };
 
@@ -125,6 +128,7 @@ export default function AdminRegistrationCodes() {
 
   return (
     <div className="page-container px-4 sm:px-6 lg:px-8 py-8">
+      <FormError message={pageError} className="mb-4" />
       <div className="flex justify-between items-center mb-8">
         <div>
           <div className="flex items-center gap-3">
@@ -137,7 +141,7 @@ export default function AdminRegistrationCodes() {
           </div>
           <p className="text-gray-500 mt-1">Generate and manage registration codes for all user roles</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => { setFormError(''); setDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           Generate Code
         </Button>
@@ -403,6 +407,7 @@ export default function AdminRegistrationCodes() {
               </p>
             </div>
 
+            <FormError message={formError} />
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
                 Cancel

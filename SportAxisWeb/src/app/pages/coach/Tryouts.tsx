@@ -20,6 +20,7 @@ import {
 } from "../../components/ui/dialog";
 import { CheckCircle, Mail, Phone, Search, UserPlus, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { FormError, errorText } from "../../components/ui/form-error";
 import { useTryoutApplications, useUpdateTryoutStatus } from "../../hooks/api";
 
 type Status = "pending" | "accepted" | "rejected";
@@ -73,6 +74,7 @@ export default function Tryouts() {
   const [tab, setTab] = useState<Status>("pending");
   const [search, setSearch] = useState("");
   const [target, setTarget] = useState<{ applicant: Applicant; status: "accepted" | "rejected" } | null>(null);
+  const [decideError, setDecideError] = useState("");
   const [note, setNote] = useState("");
 
   const all: Applicant[] = query.data ?? [];
@@ -100,6 +102,7 @@ export default function Tryouts() {
 
   const openDecision = (applicant: Applicant, status: "accepted" | "rejected") => {
     setNote("");
+    setDecideError("");
     setTarget({ applicant, status });
   };
 
@@ -115,7 +118,7 @@ export default function Tryouts() {
       );
       setTarget(null);
     } catch (e: any) {
-      toast.error(e?.message || "Could not save the decision");
+      setDecideError(errorText(e, "Could not save the decision"));
     }
   };
 
@@ -289,6 +292,7 @@ export default function Tryouts() {
               }
             />
           </div>
+          <FormError message={decideError} />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setTarget(null)}>
               Cancel
