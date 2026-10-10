@@ -197,3 +197,49 @@ function xpathLiteral(s) {
   if (!s.includes('"')) return `"${s}"`;
   return `concat('${s.replace(/'/g, `',"'",'`)}')`;
 }
+
+/** The open dialog (Radix dialog, alert dialog or sheet). */
+export async function openDialog(driver, timeout = WAIT) {
+  return find(driver, By.css('[role="dialog"], [role="alertdialog"]'), timeout);
+}
+
+/** Close the open dialog with Escape and wait until it is gone. */
+export async function closeDialog(driver) {
+  await driver.actions().sendKeys('').perform(); // Escape
+  await driver.wait(async () => {
+    for (const d of await driver.findElements(By.css('[role="dialog"], [role="alertdialog"]'))) {
+      if (await d.isDisplayed().catch(() => false)) return false;
+    }
+    return true;
+  }, WAIT, 'The dialog did not close');
+}
+
+/** Pick an option in a Radix select: open the trigger, click the option. */
+export async function choose(driver, triggerLocator, optionText) {
+  await (await find(driver, triggerLocator)).click();
+  const option = await findText(driver, optionText, { tag: '*[@role="option"]', exact: true });
+  await option.click();
+  await driver.wait(async () => (await driver.findElements(By.css('[role="listbox"]'))).length === 0, WAIT);
+}
+
+/** Every option a Radix select offers (opens and closes it). */
+export async function optionsOf(driver, triggerLocator) {
+  await (await find(driver, triggerLocator)).click();
+  await find(driver, By.css('[role="option"]'));
+  const texts = [];
+  for (const o of await driver.findElements(By.css('[role="option"]'))) texts.push((await o.getText()).trim());
+  await driver.actions().sendKeys('').perform();
+  return texts;
+}
+
+/** Click a link or button by its exact visible text. */
+export async function clickLink(driver, text) {
+  const el = await find(driver, By.xpath(`//a[normalize-space(.)=${xpathLiteral(text)}]`));
+  await el.click();
+  return el;
+}
+
+/** How many elements match right now (no waiting). */
+export async function count(driver, locator) {
+  return (await driver.findElements(locator)).length;
+}

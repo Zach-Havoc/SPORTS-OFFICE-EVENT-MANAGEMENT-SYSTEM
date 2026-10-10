@@ -44,13 +44,17 @@ E2E_BASE_URL=https://your-site.onrender.com E2E_PASSWORD=... npm run test:e2e
 
 ## What is covered
 
+91 checks in total. They open every page of every role, plus the main actions on each page that don't save anything.
+
 | Spec | Covers |
 |---|---|
-| `public.e2e.mjs` | Every public page loads with its heading and no script errors. Includes the 404 page and the sign-in page. |
+| `public.e2e.mjs` | Every public page loads with no script errors: schedule, live, leaderboard, brackets, announcements, history, the TV standings board, the privacy notice and the 404 page. Opening a bracket from the list. The announcement department and sport filters and search. |
 | `auth.e2e.mjs` | A wrong password is refused. The admin signs in and lands on the dashboard. Sign out works from the account menu. |
 | `access.e2e.mjs` | A visitor who isn't signed in is sent to sign in. Coaches and athletes are kept out of admin pages. |
-| `admin.e2e.mjs` | The dashboard figures, sidebar navigation, the events search, the CMO Requirements tabs, and Ctrl+K page search. |
-| `roles.e2e.mjs` | Coach, athlete and committee pages, including the coach's "Forward to the Sports Office" panel. |
+| `admin.e2e.mjs` | All 15 sidebar pages. Dashboard figures and charts, notifications, Ctrl+K search. Events: counts, search, sport filter, the New Event form, grid and list views. Venue schedules, seasons, bracket formats, user search, coaches, the CMO tabs, transaction filters, registration codes, appeals, reports, history, recovery and audit, site content tabs, every Settings section, and account settings. |
+| `coach.e2e.mjs` | All 12 coach pages. Opening an athlete and each tab of their record. The edit page and Cancel. The add form refusing an empty athlete. The schedule, the performance and announcement forms, attendance, tryout tabs, CMO forwarding, the appeal form, the line-up, and every sidebar link. |
+| `athlete.e2e.mjs` | All 7 athlete pages, including their key sections, and every sidebar link. |
+| `judge.e2e.mjs` | The committee panel lists its games, and account settings. |
 
 ## Rules for new tests
 

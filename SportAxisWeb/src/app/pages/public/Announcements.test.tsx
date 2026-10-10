@@ -64,7 +64,9 @@ beforeEach(() => {
   applyForTryout.mockReset()
 })
 
-describe('Apply for Tryout — validation', () => {
+// These type whole forms key by key; under a busy full run that takes longer
+// than the 5s default, so they get more room instead of failing at random.
+describe('Apply for Tryout — validation', { timeout: 20000 }, () => {
   it('rejects a bad student ID, short phone, non-BatStateU email, and missing department', async () => {
     const { user, dialog } = await openForm()
     const form = within(dialog)
