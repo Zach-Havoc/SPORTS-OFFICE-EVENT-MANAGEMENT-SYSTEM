@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -267,8 +268,11 @@ class AuthController extends Controller
         }
         Cache::put($cooldownKey, true, now()->addMinutes(15));
 
-        // Generate a temporary password
+        // Generate a temporary password. Keep the current hash so a failed
+        // email can put it back: otherwise the account is locked out with a
+        // password nobody received.
         $tempPassword = Str::random(12);
+        $previousHash = $user->password;
         $user->update(['password' => Hash::make($tempPassword)]);
 
         try {
@@ -280,6 +284,12 @@ class AuthController extends Controller
                 }
             );
         } catch (\Exception $e) {
+            // Query builder, so the stored hash is written as-is (no re-hash).
+            User::whereKey($user->getKey())->update(['password' => $previousHash]);
+            // Nothing was changed, so let them try again straight away.
+            Cache::forget($cooldownKey);
+            Log::error('Password reset email failed to send: '.$e->getMessage());
+
             return response()->json(['error' => 'Failed to send email. Please contact admin.'], 500);
         }
 

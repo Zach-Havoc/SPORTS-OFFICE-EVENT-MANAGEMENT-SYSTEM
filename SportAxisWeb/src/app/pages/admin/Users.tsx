@@ -105,6 +105,8 @@ export default function AdminUsers() {
   const [tempPw, setTempPw] = useState<string | null>(null);
   const [toggling, setToggling] = useState<ManagedUser | null>(null);
   const [deleting, setDeleting] = useState<ManagedUser | null>(null);
+  // Why the server refused a delete. Shown in the dialog: toasts are silent in the build.
+  const [deleteError, setDeleteError] = useState('');
 
   const allUsers: ManagedUser[] = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
   const visible = useMemo(() => filterUsers(allUsers, filters), [allUsers, filters]);
@@ -184,14 +186,17 @@ export default function AdminUsers() {
     }
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = async (ev: React.MouseEvent) => {
+    // Keep the dialog open until the server answers, so a refusal can be read.
+    ev.preventDefault();
     if (!deleting) return;
+    setDeleteError('');
     try {
       await deleteMut.mutateAsync(deleting.id);
       toast.success('Account deleted');
       setDeleting(null);
     } catch (e: any) {
-      toast.error(e.message || 'Delete failed');
+      setDeleteError(e.message || 'Delete failed');
     }
   };
 
@@ -430,9 +435,11 @@ export default function AdminUsers() {
                           title={
                             isSelf(u)
                               ? 'You cannot delete your own account'
-                              : hasDependents(u)
-                                ? 'Reassign this account\u2019s records first'
-                                : 'Delete'
+                              : (u.links.historyCount ?? 0) > 0 && !u.links.athleteCount && !u.links.scoreCount
+                                ? 'Has attendance or announcement history. Disable the account instead'
+                                : hasDependents(u)
+                                  ? 'Reassign this account\u2019s records first'
+                                  : 'Delete'
                           }
                         >
                           <Trash2 className="size-4" />
@@ -683,7 +690,15 @@ export default function AdminUsers() {
       </AlertDialog>
 
       {/* Delete */}
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleting(null);
+            setDeleteError('');
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -695,13 +710,19 @@ export default function AdminUsers() {
               undone. Prefer disabling if you may need the record later.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+              {deleteError}
+            </p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
+              disabled={deleteMut.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              {deleteMut.isPending ? 'Deleting…' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

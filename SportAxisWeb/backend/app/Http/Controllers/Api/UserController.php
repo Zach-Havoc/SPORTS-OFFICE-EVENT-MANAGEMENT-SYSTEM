@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\Paginates;
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Athlete;
+use App\Models\AttendanceSession;
 use App\Models\Event;
 use App\Models\RegistrationCode;
 use App\Models\Score;
@@ -209,6 +211,14 @@ class UserController extends Controller
         if (Score::where('judge_id', $user->id)->exists()) {
             throw ValidationException::withMessages(['user' => ['User has submitted scores.']]);
         }
+        // Both cascade from users.id in the database, so deleting the user
+        // would erase them for good (the recycle bin can't bring them back).
+        if (AttendanceSession::where('coach_id', $user->id)->exists()) {
+            throw ValidationException::withMessages(['user' => ['User has attendance history. Disable the account instead.']]);
+        }
+        if (Announcement::withTrashed()->where('coach_id', $user->id)->exists()) {
+            throw ValidationException::withMessages(['user' => ['User has posted announcements. Disable the account instead.']]);
+        }
 
         $user->tokens()->delete();
         $user->delete();
@@ -280,6 +290,11 @@ class UserController extends Controller
         $scoreCounts = Score::whereIn('judge_id', $ids)
             ->selectRaw('judge_id, count(*) as c')->groupBy('judge_id')->pluck('c', 'judge_id');
         $codes = RegistrationCode::whereIn('used_by', $ids)->get()->keyBy('used_by');
+        // Attendance sessions and announcements: deleting the user would cascade them away.
+        $sessionCounts = AttendanceSession::whereIn('coach_id', $ids)
+            ->selectRaw('coach_id, count(*) as c')->groupBy('coach_id')->pluck('c', 'coach_id');
+        $announcementCounts = Announcement::withTrashed()->whereIn('coach_id', $ids)
+            ->selectRaw('coach_id, count(*) as c')->groupBy('coach_id')->pluck('c', 'coach_id');
 
         $eventCounts = [];
         if ($users->contains(fn ($u) => $u->role === 'judge')) {
@@ -300,6 +315,7 @@ class UserController extends Controller
                     'athleteCount' => (int) ($athleteCounts[$u->id] ?? 0) + (int) ($rosterCounts[$u->id] ?? 0),
                     'scoreCount' => (int) ($scoreCounts[$u->id] ?? 0),
                     'assignedEventCount' => (int) ($eventCounts[$u->id] ?? 0),
+                    'historyCount' => (int) ($sessionCounts[$u->id] ?? 0) + (int) ($announcementCounts[$u->id] ?? 0),
                     'registrationCode' => optional($codes->get($u->id))->code,
                 ],
             ]),

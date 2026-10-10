@@ -6,18 +6,17 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * UserController::destroy() only guards against two kinds of dependents
- * (rostered athletes, submitted scores — see coachDependents() and the
- * Score::judge_id check) before deleting a `users` row. It does not check
- * attendance_sessions or announcements, even though the schema wires both up
- * with `ON DELETE CASCADE` back to users.id:
+ * UserController::destroy() used to guard only against two kinds of
+ * dependents (rostered athletes, submitted scores) before deleting a `users`
+ * row. It did not check attendance_sessions or announcements, even though
+ * the schema wires both up with `ON DELETE CASCADE` back to users.id:
  *
  *   attendance_sessions.coach_id   -> users.id  ON DELETE CASCADE
  *   attendance_records.session_id -> attendance_sessions.id ON DELETE CASCADE
  *   announcements.coach_id        -> users.id  ON DELETE CASCADE
  *
- * A coach with zero rostered athletes and no scores passes every existing
- * guard and IS deleted — silently hard-deleting their entire attendance
+ * A coach with zero rostered athletes and no scores passed every guard and
+ * WAS deleted — silently hard-deleting their entire attendance
  * history and every announcement they posted via cascade. Neither
  * attendance_sessions/attendance_records nor (for the CASCADE path
  * specifically) the announcement row goes through Eloquent's soft-delete
@@ -29,8 +28,8 @@ use Tests\TestCase;
  * These tests encode the behaviour the app's own guard pattern (see the
  * neighbouring "cannot be deleted" tests in UserManagementTest) implies is
  * intended — a coach with dependent records other than athletes/scores
- * should also be blocked from deletion — and currently FAIL because
- * UserController::destroy() has no such guard.
+ * should also be blocked from deletion. destroy() now refuses both, and
+ * tells the admin to disable the account instead.
  */
 class UserDeletionDependencyGapsTest extends TestCase
 {
@@ -70,5 +69,9 @@ class UserDeletionDependencyGapsTest extends TestCase
 
         $this->assertDatabaseHas('users', ['id' => $coach->id]);
         $this->assertDatabaseHas('announcements', ['id' => $announcement->id]);
+
+        // The user list says so up front, so the page can disable Delete.
+        $row = collect($this->getJson('/api/admin/users?perPage=100')->json('data'))->firstWhere('id', $coach->id);
+        $this->assertSame(1, $row['links']['historyCount']);
     }
 }

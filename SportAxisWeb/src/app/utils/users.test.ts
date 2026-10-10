@@ -66,6 +66,7 @@ describe('hasDependents', () => {
   it('is true when a coach has athletes or a committee member has scores', () => {
     expect(hasDependents(make({ links: { athleteCount: 2, scoreCount: 0, assignedEventCount: 0 } }))).toBe(true);
     expect(hasDependents(make({ links: { athleteCount: 0, scoreCount: 5, assignedEventCount: 0 } }))).toBe(true);
+    expect(hasDependents(make({ links: { athleteCount: 0, scoreCount: 0, assignedEventCount: 0, historyCount: 3 } }))).toBe(true);
     expect(hasDependents(make())).toBe(false);
   });
 });

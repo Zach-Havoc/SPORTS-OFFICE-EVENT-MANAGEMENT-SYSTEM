@@ -25,9 +25,8 @@ use Tests\TestCase;
  * delivered. The account is locked out with no recovery path until an admin
  * intervenes directly in the database.
  *
- * This is a genuine, currently-uncovered defect in
- * app/Http/Controllers/Api/AuthController.php (resetPassword). Not fixed
- * here — this test only proves it.
+ * Fixed: resetPassword now puts the previous password hash back (and clears
+ * the cooldown) when the email can't be sent. This test guards that.
  */
 class PasswordResetMailFailureTest extends TestCase
 {
@@ -47,10 +46,8 @@ class PasswordResetMailFailureTest extends TestCase
 
         $fresh = $user->fresh();
 
-        // BUG (currently fails): the controller already overwrote the
-        // password with an unknown temporary one before the mail attempt,
-        // so neither the original password nor any password the user could
-        // know still works — the account is locked out with no recovery.
+        // The temporary password was never delivered, so the original one
+        // must still work.
         $this->assertTrue(
             Hash::check('original-password', $fresh->password),
             'Expected the original password to still work after a failed reset email, '

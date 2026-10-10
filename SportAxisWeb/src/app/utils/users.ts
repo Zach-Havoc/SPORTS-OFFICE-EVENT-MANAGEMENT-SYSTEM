@@ -10,6 +10,8 @@ export interface ManagedUserLinks {
   athleteCount: number;
   scoreCount: number;
   assignedEventCount: number;
+  /** Attendance sessions and announcements, which a delete would erase. */
+  historyCount?: number;
   registrationCode?: string | null;
 }
 
@@ -71,5 +73,5 @@ export function summarizeUsers(users: ManagedUser[]) {
 
 /** True when deleting this account would strand dependent records. */
 export function hasDependents(u: ManagedUser): boolean {
-  return u.links.athleteCount > 0 || u.links.scoreCount > 0;
+  return u.links.athleteCount > 0 || u.links.scoreCount > 0 || (u.links.historyCount ?? 0) > 0;
 }
