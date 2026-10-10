@@ -140,11 +140,18 @@ describe('Coach', () => {
       assert.ok((await count(driver, By.css('input[type="file"]'))) >= 1);
     });
 
-    it('the line-up lists the games', async () => {
+    it("the line-up lists the college's games, or says there are none", async () => {
       const driver = browser();
       await visit(driver, '/coach/lineup');
       await expectHeading(driver, 'Line-up');
-      await findText(driver, 'Games');
+      // Depends on the schedule: the test coach's college may have no upcoming games.
+      await driver.wait(
+        async () =>
+          (await count(driver, By.xpath("//main//*[normalize-space(.)='Games']"))) > 0 ||
+          (await count(driver, By.xpath("//main//*[contains(., 'Nothing to set up here')]"))) > 0,
+        15000,
+      );
+      assert.deepEqual(await pageErrors(driver), []);
     });
   });
 

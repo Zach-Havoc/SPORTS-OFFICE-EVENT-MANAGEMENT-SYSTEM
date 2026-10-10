@@ -2,8 +2,7 @@
 #
 # Automated Selenium run: builds a throwaway copy of SportAxis, fills it with
 # demo data, serves it, runs the whole suite, then shuts everything down.
-# The same script runs on a laptop (`npm run test:e2e:auto`) and in GitHub
-# Actions (.github/workflows/e2e.yml).
+# Local only: run it on your own machine with `npm run test:e2e:auto`.
 #
 # It never touches your real database or your inboxes:
 #   - the API runs against its own database (E2E_DB, default sportaxis_e2e),
@@ -121,15 +120,12 @@ PIDS+=($!)
 wait_for "$WEB_URL/" "The website"
 
 if [[ "${E2E_SERVE_ONLY:-0}" == "1" ]]; then
-  say "Serving $WEB_URL (API $API_URL). Admin: admin@university.edu / admin123; others: demo123. Ctrl+C to stop."
+  say "Serving $WEB_URL (API $API_URL). Demo accounts: admin@university.edu / admin123, others demo123. Ctrl+C to stop."
   wait
   exit 0
 fi
 
 say "Selenium suite"
-# A fresh database keeps the seeded admin password (admin123); the demo
-# reset gives every other account demo123.
-E2E_BASE_URL="$WEB_URL" \
-E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
-E2E_PASSWORD="${E2E_PASSWORD:-demo123}" \
-  npx mocha --config e2e/selenium/.mocharc.json "$@"
+# The suite makes its own temporary accounts in this database and deletes
+# them at the end (support/accounts.mjs).
+E2E_BASE_URL="$WEB_URL" npx mocha --config e2e/selenium/.mocharc.json "$@"

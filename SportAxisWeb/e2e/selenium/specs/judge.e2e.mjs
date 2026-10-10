@@ -7,11 +7,17 @@ describe('Committee', () => {
   const browser = useBrowser();
   before(async () => login(browser(), 'judge'));
 
-  it('the panel lists the games assigned to the committee', async () => {
+  it('the panel shows the assigned games, or says there are none', async () => {
     const driver = browser();
     await visit(driver, '/judge');
     await expectHeading(driver, 'Committee Panel');
-    await driver.wait(async () => (await count(driver, By.css('main h2, main [data-slot="card-title"]'))) > 0, 15000);
+    // The test committee member is new, so usually nothing is assigned yet.
+    await driver.wait(
+      async () =>
+        (await count(driver, By.xpath("//main//*[contains(., 'No games assigned right now')]"))) > 0 ||
+        (await count(driver, By.css('main h2, main [data-slot="card-title"]'))) > 0,
+      15000,
+    );
     assert.deepEqual(await pageErrors(driver), []);
   });
 

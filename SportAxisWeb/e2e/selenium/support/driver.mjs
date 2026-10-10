@@ -1,14 +1,15 @@
 /**
  * Shared Selenium setup for the end-to-end suite.
  *
- * Everything is configured by environment variables, so the same specs run
- * against the local dev servers or a deployed site:
+ * Chrome opens on screen and the tests drive it by themselves. They sign in
+ * with temporary accounts made just for the run (support/accounts.mjs) and
+ * removed afterwards, and only ever against this machine.
  *
- *   E2E_BASE_URL      site under test             (default http://localhost:5173)
- *   E2E_HEADLESS      "0" to watch the browser     (default headless)
+ *   E2E_BASE_URL      local site under test        (default http://localhost:5173)
+ *   E2E_HEADLESS      "1" to run without a window   (default: the window is shown)
+ *   E2E_SLOW_MS       pause after each page, to follow along (default 0)
  *   CHROME_BIN        a Chrome binary to drive      (default: Selenium Manager finds
  *                                                    or downloads Chrome for Testing)
- *   E2E_<ROLE>_EMAIL / E2E_<ROLE>_PASSWORD  accounts (default: the demo data accounts)
  *
  * Specs only read and navigate. They never create events or send anything,
  * because the queue worker would email real people.
@@ -18,28 +19,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Builder, By, logging, until } from 'selenium-webdriver';
 import chrome from 'selenium-webdriver/chrome.js';
+import { ACCOUNTS, assertLocal } from './accounts.mjs';
 
-export { By, until };
+export { By, until, ACCOUNTS };
 
 export const BASE_URL = (process.env.E2E_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
-const HEADLESS = process.env.E2E_HEADLESS !== '0';
+const HEADLESS = process.env.E2E_HEADLESS === '1';
+const SLOW_MS = Number(process.env.E2E_SLOW_MS || 0);
 const WAIT = Number(process.env.E2E_WAIT_MS || 15000);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ARTIFACTS = path.resolve(here, '../artifacts');
-
-/** Demo-data accounts (sportaxis:reset-demo, password demo123). */
-export const ACCOUNTS = {
-  admin: { email: 'admin@university.edu' },
-  coach: { email: 'coach15@g.batstate-u.edu.ph' },
-  athlete: { email: 'athlete6@g.batstate-u.edu.ph' },
-  judge: { email: 'judge4@g.batstate-u.edu.ph' },
-};
-for (const [role, acct] of Object.entries(ACCOUNTS)) {
-  const key = role.toUpperCase();
-  acct.email = process.env[`E2E_${key}_EMAIL`] || acct.email;
-  acct.password = process.env[`E2E_${key}_PASSWORD`] || process.env.E2E_PASSWORD || 'demo123';
-}
 
 export async function startBrowser({ width = 1366, height = 900 } = {}) {
   const options = new chrome.Options().addArguments(
@@ -61,7 +51,9 @@ export async function startBrowser({ width = 1366, height = 900 } = {}) {
 
 /** Open a path on the site under test. */
 export async function visit(driver, pathname = '/') {
+  assertLocal();
   await driver.get(BASE_URL + pathname);
+  if (SLOW_MS) await driver.sleep(SLOW_MS);
 }
 
 export async function find(driver, locator, timeout = WAIT) {
@@ -128,6 +120,7 @@ export async function currentPath(driver) {
 
 /** Log in through the real form and wait for the role's home page. */
 export async function login(driver, role) {
+  if (!ACCOUNTS[role]) throw new Error(`No test account for "${role}"; the suite's setup did not run.`);
   const { email, password } = ACCOUNTS[role];
   await visit(driver, '/login');
   await typeInto(driver, By.id('email'), email);

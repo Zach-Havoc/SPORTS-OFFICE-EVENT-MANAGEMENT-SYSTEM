@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { By, Key } from 'selenium-webdriver';
 import {
+  ACCOUNTS,
   clickText,
   closeDialog,
   count,
@@ -164,8 +165,8 @@ describe('Admin', () => {
       await visit(driver, '/admin/users');
       await expectHeading(driver, 'User Management');
       const search = await find(driver, By.css('input[placeholder="Search by name or email"]'));
-      await search.sendKeys('admin@university.edu');
-      await findText(driver, 'admin@university.edu');
+      await search.sendKeys(ACCOUNTS.admin.email);
+      await findText(driver, ACCOUNTS.admin.email);
     });
 
     it('Coaches lists coaches with their college', async () => {

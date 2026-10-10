@@ -14,8 +14,9 @@
     "test:watch": "vitest",
     "verify": "node verify-setup.js",
     "test:e2e": "mocha --config e2e/selenium/.mocharc.json",
-    "test:e2e:headed": "E2E_HEADLESS=0 mocha --config e2e/selenium/.mocharc.json",
-    "test:e2e:auto": "bash e2e/selenium/run.sh"
+    "test:e2e:auto": "bash e2e/selenium/run.sh",
+    "test:e2e:headless": "E2E_HEADLESS=1 mocha --config e2e/selenium/.mocharc.json",
+    "test:e2e:cleanup": "node e2e/selenium/support/accounts.mjs delete"
   },
   "dependencies": {
     "@g-loot/react-tournament-brackets": "^1.0.31-rc",

@@ -1,5 +1,6 @@
 {
   "spec": ["e2e/selenium/specs/**/*.e2e.mjs"],
+  "require": ["e2e/selenium/support/accounts.mjs"],
   "timeout": 60000,
   "slow": 8000,
   "reporter": "spec"
