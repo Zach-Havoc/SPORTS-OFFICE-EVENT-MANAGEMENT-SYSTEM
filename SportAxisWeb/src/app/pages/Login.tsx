@@ -26,6 +26,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  // Shown on the sign-in form after a sign-up (toasts are silent in the build).
+  const [signedUp, setSignedUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { login, user } = useAuth();
@@ -86,6 +88,7 @@ export default function Login() {
 
         // Switch to login mode after successful signup
         setMode('login');
+        setSignedUp(true);
         setPassword('');
         setConfirmPassword('');
         setName('');
@@ -118,6 +121,7 @@ export default function Login() {
     setPrivacyAccepted(false);
     setError('');
     setResetSent(false);
+    setSignedUp(false);
   };
 
   const switchMode = (newMode: AuthMode) => {
@@ -174,6 +178,14 @@ export default function Login() {
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {signedUp && mode === 'login' && !error && (
+              <Alert>
+                <AlertDescription>
+                  Account created. Sign in with your email and the password you just set.
+                </AlertDescription>
               </Alert>
             )}
 

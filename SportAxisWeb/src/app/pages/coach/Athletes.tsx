@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import {
   useAthletes,
+  useCategories,
   useCoachProfile,
   useDepartments,
   useRemoveAthleteFromRoster,
@@ -24,7 +25,8 @@ import {
 import { RefreshStatus } from '../../components/RefreshStatus';
 import { TableRowsSkeleton } from '../../components/ListSkeleton';
 
-const SPORTS = [
+/** Common sports, offered alongside whatever the office set up in Settings → Sports. */
+const COMMON_SPORTS = [
   'Basketball','Volleyball','Badminton','Swimming','Track & Field',
   'Table Tennis','Football','Tennis','Sepak Takraw','Arnis',
   'Softball','Baseball','Chess','Gymnastics','Boxing','Weightlifting',
@@ -87,6 +89,9 @@ export default function CoachAthletes() {
   const [sportsDraft, setSportsDraft] = useState<string[]>([]);
   const [departmentDraft, setDepartmentDraft] = useState('');
   const [genderCategoryDraft, setGenderCategoryDraft] = useState('');
+  // Why the server refused the setup (e.g. the college already has a coach
+  // for that sport). Shown in the dialog: toasts are silent in the build.
+  const [setupError, setSetupError] = useState('');
 
   // Remove confirm dialog
   const [removeTarget, setRemoveTarget] = useState<Athlete | null>(null);
@@ -102,6 +107,16 @@ export default function CoachAthletes() {
   const athletes: Athlete[] = athletesQuery.data ?? [];
   const coachProfile: CoachProfile | null = profileQuery.data ?? null;
   const departments: { id?: string; name: string }[] = departmentsQuery.data ?? [];
+  const categoriesQuery = useCategories();
+  // The office's sports first (Settings → Sports, divisions left out), then
+  // the common ones, plus anything this coach already has.
+  const sportChoices = useMemo(() => {
+    const office = (categoriesQuery.data ?? [])
+      .filter((c: { parentId?: string | null }) => !c.parentId)
+      .map((c: { name: string }) => c.name);
+    const mine = coachProfile?.sports ?? (coachProfile?.sport ? [coachProfile.sport] : []);
+    return [...new Set([...office, ...COMMON_SPORTS, ...mine])];
+  }, [categoriesQuery.data, coachProfile]);
   const loading = athletesQuery.isLoading || profileQuery.isLoading;
   const fetching =
     (athletesQuery.isFetching || profileQuery.isFetching) && !loading;
@@ -130,6 +145,7 @@ export default function CoachAthletes() {
     );
 
   const openSetup = () => {
+    setSetupError('');
     setSportsDraft(coachSports);
     setDepartmentDraft(coachProfile?.department || '');
     setGenderCategoryDraft(coachProfile?.genderCategory || '');
@@ -140,6 +156,7 @@ export default function CoachAthletes() {
     if (!departmentDraft) { toast.error('Please select your department'); return; }
     if (sportsDraft.length === 0) { toast.error('Please select at least one sport'); return; }
     if (!genderCategoryDraft) { toast.error('Please select a sex category'); return; }
+    setSetupError('');
     try {
       await updateProfile.mutateAsync({
         sports: sportsDraft,
@@ -149,7 +166,7 @@ export default function CoachAthletes() {
       setSetupOpen(false);
       toast.success(sportsDraft.length > 1 ? 'Sports updated' : 'Sport class updated');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to save');
+      setSetupError(err?.message || 'Failed to save');
     }
   };
 
@@ -450,7 +467,7 @@ export default function CoachAthletes() {
               )}
             </Label>
             <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
-              {SPORTS.map((s) => {
+              {sportChoices.map((s) => {
                 const selected = sportsDraft.includes(s);
                 return (
                   <Button
@@ -482,6 +499,12 @@ export default function CoachAthletes() {
               </SelectContent>
             </Select>
           </div>
+
+          {setupError && (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+              {setupError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button variant="secondary" onClick={() => setSetupOpen(false)}>Cancel</Button>
