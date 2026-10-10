@@ -73,6 +73,19 @@ The mobile app itself can't be driven by Selenium. The committee's scoring is do
 
 Run only one of the two suites with `E2E_ONLY=pages` or `E2E_ONLY=flow`.
 
+## The error catcher (invalid input)
+
+`errors/` throws invalid input at the system on purpose and checks that it is refused cleanly. It runs on the throwaway database too (`E2E_ONLY=errors npm run test:e2e:auto`), and it doesn't stop at the first failure, so you get the full list.
+
+| Spec | What it does | Passes when |
+|---|---|---|
+| `server.errors.mjs` (109 probes) | Sends bad input straight to the API, the way a tampered page or script could, bypassing the browser's checks. Examples: impossible dates (February 30, "next Tuesday"), times like 25:99, 10:75 or "noon-ish", a game that ends before it starts, 300-character names, capacity 0, −10, "abc" or a trillion, scores of 101, −1 or "ten", wrong file types or files over the size limit, a .pdf that is really code, a malformed email, a short password, a forged sign-in, double-booking a venue, scoring a college that isn't in the game, a coach assigned as committee, a role that doesn't exist. | The server answers with a 4xx refusal (never a 500 crash) and the database table is unchanged. |
+| `forms.errors.mjs` (29 checks) | Types the same kinds of mistakes into the real forms: sign-in and sign-up, registration codes, venues, the event form's dates and times, seasons, slideshow images, training sessions, adding an athlete, appeals, document uploads, password changes, and the tryout application. It also tries odd characters in search boxes, a script tag in an announcement title, and addresses that don't exist. | The form stops the input or explains why on the page, nothing is saved, and the page doesn't crash. Injected script never runs. |
+
+Three probes are marked **pending (design question)**: a game for a sport or college that isn't registered, and a coach choosing a college that doesn't exist. The system currently allows these on purpose: colleges also go by abbreviation, and only the office creates games. Un-skip them if that should be refused too.
+
+Pop-up messages are switched off on this site, so every error must appear on the page (`<FormError>` in `components/ui/form-error.tsx`). A unit test (`form-error.test.ts`) fails if `toast.error` is used anywhere in the app.
+
 ## Settings
 
 | Variable | Default | Use |

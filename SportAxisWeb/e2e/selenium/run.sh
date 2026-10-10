@@ -16,8 +16,9 @@
 #   E2E_API_PORT    port for the throwaway API     (default 8001)
 #   E2E_WEB_PORT    port for the throwaway website (default 4173)
 #   E2E_SKIP_RESET  1 = reuse the data from the last run (faster re-runs)
-#   E2E_ONLY        "pages" = only the read-only page tests,
-#                   "flow"  = only the full-system test
+#   E2E_ONLY        "pages"  = only the read-only page tests,
+#                   "flow"   = only the full-system test,
+#                   "errors" = only the error catcher (invalid input)
 #   E2E_SERVE_ONLY  1 = start the site and keep it up (no tests), to look
 #                   at a failure by hand; Ctrl+C stops it
 #   DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD  MySQL server
@@ -117,12 +118,16 @@ fi
 # The suite makes its own temporary accounts in this database and deletes
 # them at the end (support/accounts.mjs).
 STATUS=0
-if [[ "${E2E_ONLY:-}" != "flow" ]]; then
+if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "pages" ]]; then
   say "Selenium: every page, read-only"
   npx mocha --config e2e/selenium/.mocharc.json "$@" || STATUS=$?
 fi
-if [[ "${E2E_ONLY:-}" != "pages" ]]; then
+if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "flow" ]]; then
   say "Selenium: the whole system, end to end (creates records in $E2E_DB)"
   npx mocha --config e2e/selenium/.mocharc.flow.json "$@" || STATUS=$?
+fi
+if [[ -z "${E2E_ONLY:-}" || "${E2E_ONLY:-}" == "errors" ]]; then
+  say "Error catcher: invalid input, refused cleanly? (in $E2E_DB)"
+  npx mocha --config e2e/selenium/.mocharc.errors.json "$@" || STATUS=$?
 fi
 exit $STATUS

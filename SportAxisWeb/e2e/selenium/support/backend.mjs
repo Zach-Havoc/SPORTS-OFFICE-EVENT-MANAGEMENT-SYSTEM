@@ -61,3 +61,32 @@ export async function api(pathname, { method = 'GET', token, body } = {}) {
 export async function apiToken(email, password) {
   return (await api('/login', { method: 'POST', body: { email, password } })).token;
 }
+
+/**
+ * Call the API and return { status, data } without throwing, for checking
+ * how it answers bad input. `files` are { field: { name, type, bytes } }.
+ */
+export async function attempt(pathname, { method = 'POST', token, body, files } = {}) {
+  let payload;
+  const headers = { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  if (files) {
+    payload = new FormData();
+    for (const [k, v] of Object.entries(body ?? {})) {
+      if (Array.isArray(v)) v.forEach((x) => payload.append(`${k}[]`, x));
+      else if (v !== undefined && v !== null) payload.append(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+    }
+    for (const [k, f] of Object.entries(files)) payload.append(k, new Blob([f.bytes], { type: f.type }), f.name);
+  } else if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    payload = JSON.stringify(body);
+  }
+  const res = await fetch(API_URL + pathname, { method, headers, body: payload });
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = text.slice(0, 300);
+  }
+  return { status: res.status, data };
+}
