@@ -23,6 +23,35 @@ You don't need to install Chrome yourself. Selenium Manager downloads a matching
 
 When a test fails, a screenshot of the page is saved to `e2e/selenium/artifacts/`. That folder is not committed.
 
+## Automated runs
+
+You can run the whole suite with no setup, against a throwaway copy of the system:
+
+```bash
+npm run test:e2e:auto
+```
+
+This runs [`run.sh`](run.sh), which takes about 3 minutes:
+
+1. It creates its own database, `sportaxis_e2e`, then migrates and seeds it and loads the demo data. It refuses to run against any database whose name doesn't contain `e2e` or `test`. It also checks that the app really sees the scratch database before wiping anything.
+2. It starts a throwaway API on port 8001. Mail goes to the log, the queue runs inline and broadcasting is off, so nobody is emailed.
+3. It builds the website in its own `e2e` mode, pointing only at that API, and serves it on port 4173. It never uses `.env.production` or Render. It stops if the build points anywhere remote.
+4. It runs all the specs, then shuts everything down.
+
+Your normal `composer dev` setup and your real database are left alone, and both can keep running at the same time. On a fresh database the admin password is `admin123`; every other account uses `demo123`.
+
+Options for the automated run:
+
+```bash
+E2E_SKIP_RESET=1 npm run test:e2e:auto        # reuse the last run's data (faster)
+E2E_SERVE_ONLY=1 npm run test:e2e:auto        # start the throwaway site and keep it up, to look at a failure by hand
+npm run test:e2e:auto -- --grep "Coach"       # only some tests
+```
+
+### On GitHub
+
+[`.github/workflows/e2e.yml`](../../../.github/workflows/e2e.yml) runs the same script on GitHub Actions on every push and pull request to `main`. You can also start it by hand from the Actions tab ("Run workflow"). It uses a MySQL service container, so the deployed TiDB and Render are never touched. If a test fails, the screenshots and server logs are attached to the run as `e2e-artifacts`.
+
 ## Settings
 
 All settings are environment variables:

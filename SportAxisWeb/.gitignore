@@ -22,3 +22,4 @@ pnpm-debug.log*
 
 # Selenium failure screenshots
 e2e/selenium/artifacts/
+e2e/selenium/.site/
