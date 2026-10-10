@@ -112,7 +112,8 @@ describe('eventService.getEvents — warm cache (stale-while-revalidate)', () =>
 
     const events = await eventService.getEvents();
 
-    expect(events).toBe(cached);
+    // The cached rows (de-duplicated into a new array), not the slower network result.
+    expect(events).toEqual(cached);
   });
 
   it('invokes onFresh once the background refetch resolves, with the walked/paginated result', async () => {

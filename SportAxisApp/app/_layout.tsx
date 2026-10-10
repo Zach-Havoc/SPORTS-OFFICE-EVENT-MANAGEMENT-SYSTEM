@@ -130,7 +130,7 @@ export default function RootLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }} onLayout={onLayout} {...panResponder.panHandlers}>
-      <StatusBar style="dark" backgroundColor={COLORS.surface} />
+      <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(auth)" />
