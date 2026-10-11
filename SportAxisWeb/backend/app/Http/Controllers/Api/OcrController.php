@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
+use App\Services\OcrScoreMatcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -24,12 +26,9 @@ use Illuminate\Support\Str;
  *
  * The tradeoff versus a vision-AI model: PaddleOCR only reads text, it does
  * not understand the document. It has no idea which number belongs to which
- * college — this controller works that out itself. Real printed scoresheets
- * put a college's name and its score in separate table cells (same row,
- * different column), not one sentence, so the matching is row-aware: find
- * the line with the college's name, then look across every other detected
- * line sitting on that same row (by vertical position) for the first
- * plausible number — see matchScoresToDepartments(). A scoresheet where OCR
+ * college — OcrScoreMatcher works that out: it finds the row with the
+ * college's name (not the sheet's header) and the number under the result
+ * column (FINAL, SETS WON, OVERALL SCORE…) on that row. A scoresheet where OCR
  * misreads the name entirely, or where nothing on that row is a readable
  * number, simply won't get a match for that college — which is the same
  * "don't guess" principle the rest of this endpoint follows: no number is
@@ -111,7 +110,11 @@ class OcrController extends Controller
             );
         }
 
-        [$scores, $notes] = $this->matchScoresToDepartments($lines, $departments);
+        $abbreviations = Department::whereIn('name', $departments)
+            ->whereNotNull('abbreviation')
+            ->pluck('abbreviation', 'name')
+            ->all();
+        [$scores, $notes] = app(OcrScoreMatcher::class)->match($lines, $departments, $abbreviations);
 
         if ($scores === []) {
             return $this->unreadableResponse(
@@ -159,7 +162,7 @@ class OcrController extends Controller
      * Call the local PaddleOCR service and return every text line it found,
      * or null if the service couldn't be reached / returned nothing useful.
      *
-     * @return array<int, array{text: string, confidence: float}>|null
+     * @return array<int, array{text: string, confidence: float, poly: mixed}>|null
      */
     private function callOcrService(string $imageData): ?array
     {
@@ -191,221 +194,13 @@ class OcrController extends Controller
 
         return collect($lines)
             ->filter(fn ($l) => is_array($l) && is_string($l['text'] ?? null))
-            ->map(function ($l) {
-                $line = [
-                    'text' => $l['text'],
-                    'confidence' => is_numeric($l['confidence'] ?? null) ? (float) $l['confidence'] : 0.5,
-                ];
-                $bounds = $this->verticalBounds($l['poly'] ?? null);
-                $line['y1'] = $bounds[0];
-                $line['y2'] = $bounds[1];
-                $line['x1'] = $this->horizontalStart($l['poly'] ?? null);
-
-                return $line;
-            })
+            ->map(fn ($l) => [
+                'text' => $l['text'],
+                'confidence' => is_numeric($l['confidence'] ?? null) ? (float) $l['confidence'] : 0.5,
+                'poly' => $l['poly'] ?? null,
+            ])
             ->values()
             ->all();
-    }
-
-    /**
-     * The min/max Y coordinate of a detected line's bounding polygon
-     * (`[[x,y], [x,y], ...]`), or `[null, null]` if it's missing/malformed —
-     * used to tell whether two lines sit on the same table row. Falls back
-     * to treating a line with no position data as never overlapping anything
-     * (it can still be matched by text, just not by row).
-     *
-     * @return array{0: float|null, 1: float|null}
-     */
-    private function verticalBounds($poly): array
-    {
-        if (! is_array($poly) || $poly === []) {
-            return [null, null];
-        }
-
-        $ys = array_map(fn ($p) => (float) ($p[1] ?? 0), $poly);
-
-        return [min($ys), max($ys)];
-    }
-
-    private function horizontalStart($poly): ?float
-    {
-        if (! is_array($poly) || $poly === []) {
-            return null;
-        }
-
-        return min(array_map(fn ($p) => (float) ($p[0] ?? 0), $poly));
-    }
-
-    /** Two lines are "the same table row" if their vertical spans overlap at all. */
-    private function sameRow(array $a, array $b): bool
-    {
-        if ($a['y1'] === null || $a['y2'] === null || $b['y1'] === null || $b['y2'] === null) {
-            return false;
-        }
-
-        return $a['y1'] <= $b['y2'] && $b['y1'] <= $a['y2'];
-    }
-
-    /**
-     * Look for each requested department's name among the recognised text
-     * lines (case-insensitive substring match — good enough since these are
-     * short, specific college names, not ambiguous common words). A real,
-     * printed scoresheet almost always has the college's name and its score
-     * in *separate table cells* — same row, different column — not one
-     * sentence, so a plain "does this line contain both the name and a
-     * number" check misses nearly every real sheet. Instead: once a
-     * department's name-line is found, first check that same line for a
-     * number (covers a sheet that really does write "Team: 87" together),
-     * and if there isn't one, look at every OTHER line sitting on the same
-     * row (overlapping vertical position) and take the first one with a
-     * plausible score — that's the adjacent cell.
-     *
-     * A department whose name isn't found anywhere, or whose row has no
-     * readable number anywhere on it, is simply left out of the result —
-     * never guessed.
-     *
-     * @param  array<int, array{text: string, confidence: float, y1: ?float, y2: ?float, x1: ?float}>  $lines
-     * @param  array<int, string>  $departments
-     * @return array{0: array<int, array{department: string, score: float, confidence: float}>, 1: string}
-     */
-    private function matchScoresToDepartments(array $lines, array $departments): array
-    {
-        $scores = [];
-        $unmatched = [];
-
-        foreach ($departments as $department) {
-            $nameLine = null;
-
-            foreach ($lines as $line) {
-                if (trim($department) !== '' && $this->lineMatchesDepartment($line['text'], $department)) {
-                    $nameLine = $line;
-                    break;
-                }
-            }
-
-            if ($nameLine === null) {
-                $unmatched[] = $department;
-
-                continue;
-            }
-
-            // Same line first (handles "Team: 87" written as one sentence).
-            $number = $this->firstPlausibleScore($nameLine['text']);
-            $confidence = $nameLine['confidence'];
-
-            // Otherwise, the same row's other cells — sorted left to right,
-            // since these templates always print the name first and the
-            // score in a column after it.
-            if ($number === null) {
-                $rowMates = collect($lines)
-                    ->filter(fn ($l) => $l !== $nameLine && $this->sameRow($nameLine, $l))
-                    ->sortBy('x1')
-                    ->values();
-
-                foreach ($rowMates as $mate) {
-                    $found = $this->firstPlausibleScore($mate['text']);
-                    if ($found !== null) {
-                        $number = $found;
-                        $confidence = $mate['confidence'];
-                        break;
-                    }
-                }
-            }
-
-            if ($number === null) {
-                $unmatched[] = $department;
-
-                continue;
-            }
-
-            $scores[] = [
-                'department' => $department,
-                'score' => $number,
-                'confidence' => $confidence,
-            ];
-        }
-
-        $notes = $unmatched === []
-            ? ''
-            : 'Could not find a score for: '.implode(', ', $unmatched).'.';
-
-        return [$scores, $notes];
-    }
-
-    /**
-     * Word-by-word fuzzy match, tolerant of the odd single-character OCR
-     * misread ("Sclences" for "Sciences") that would defeat a plain
-     * str_contains() check outright. Every word in the department name must
-     * have a close match somewhere in the line; short (<=3 letter) words —
-     * "of", "and" — must match exactly, since fuzzy matching those causes
-     * false positives (nearly anything is "close" to a 2-3 letter word).
-     */
-    private function lineMatchesDepartment(string $lineText, string $department): bool
-    {
-        $deptWords = $this->normalizedWords($department);
-        if ($deptWords === []) {
-            return false;
-        }
-
-        $lineWords = $this->normalizedWords($lineText);
-
-        foreach ($deptWords as $deptWord) {
-            $hasMatch = false;
-            foreach ($lineWords as $lineWord) {
-                if ($this->wordsAreClose($deptWord, $lineWord)) {
-                    $hasMatch = true;
-                    break;
-                }
-            }
-            if (! $hasMatch) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /** @return array<int, string> */
-    private function normalizedWords(string $text): array
-    {
-        $clean = (string) preg_replace('/[^a-z0-9\s]/', ' ', mb_strtolower($text));
-
-        return array_values(array_filter(preg_split('/\s+/', trim($clean)) ?: []));
-    }
-
-    private function wordsAreClose(string $a, string $b): bool
-    {
-        if ($a === $b) {
-            return true;
-        }
-
-        if (mb_strlen($a) <= 3 || mb_strlen($b) <= 3) {
-            return false;
-        }
-
-        // Roughly 1 tolerated edit per 6 characters — enough to absorb a
-        // single misread letter on a real college-name-length word without
-        // starting to match genuinely different words.
-        $maxLen = max(mb_strlen($a), mb_strlen($b));
-
-        return levenshtein($a, $b) <= max(1, (int) floor($maxLen / 6));
-    }
-
-    /** Pull the first 0-100 numeric substring out of a line of text. */
-    private function firstPlausibleScore(string $text): ?float
-    {
-        if (! preg_match_all('/\d{1,3}(?:\.\d{1,2})?/', $text, $matches)) {
-            return null;
-        }
-
-        foreach ($matches[0] as $raw) {
-            $value = (float) $raw;
-            if ($value >= 0 && $value <= 100) {
-                return $value;
-            }
-        }
-
-        return null;
     }
 
     private function unreadableResponse(?string $imageUrl, string $error)

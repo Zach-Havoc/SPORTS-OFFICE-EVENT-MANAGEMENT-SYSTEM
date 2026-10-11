@@ -125,9 +125,10 @@ def main():
         folder = os.path.abspath(args.real); sheets = load_real(folder)
         out_dir = os.path.join(folder, 'results')
     else:
-        folder = os.path.join(HERE, 'out', 'sheets')
+        set_dir = os.path.join(HERE, 'out', os.environ['OCR_SET']) if os.environ.get('OCR_SET') else os.path.join(HERE, 'out')
+        folder = os.path.join(set_dir, 'sheets')
         sheets = [json.load(open(os.path.join(folder, f))) for f in sorted(os.listdir(folder)) if re.match(r'\d+-.*\.json$', f)]
-        out_dir = os.path.join(HERE, 'out', 'results')
+        out_dir = os.path.join(set_dir, 'results')
     os.makedirs(out_dir, exist_ok=True)
 
     for n, s in enumerate(sheets):

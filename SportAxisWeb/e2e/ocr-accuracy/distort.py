@@ -24,8 +24,10 @@ import cv2
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, 'out', 'clean')
-DST = os.path.join(HERE, 'out', 'sheets')
+SET_DIR = os.path.join(HERE, 'out', os.environ['OCR_SET']) if os.environ.get('OCR_SET') else os.path.join(HERE, 'out')
+SRC = os.path.join(SET_DIR, 'clean')
+DST = os.path.join(SET_DIR, 'sheets')
+SEED = int(os.environ.get('OCR_SEED', 20261010))
 CONDITIONS = ['scan', 'phone', 'poor']
 SETTINGS = {
     #        long side, rotate°, perspective, blur σ, noise σ, shadow, JPEG
@@ -67,8 +69,8 @@ def shadow_mask(out_w, out_h, strength, rng):
 def main():
     os.makedirs(DST, exist_ok=True)
     files = sorted(glob.glob(os.path.join(SRC, '*.png')))
-    rng = np.random.default_rng(20261010)
-    random.seed(20261010)
+    rng = np.random.default_rng(SEED)
+    random.seed(SEED)
     manifest = []
     for n, png in enumerate(files):
         sheet_id = os.path.splitext(os.path.basename(png))[0]

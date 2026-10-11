@@ -31,6 +31,33 @@ npx vite-node e2e/ocr-accuracy/generate.ts 54            # 1. clean sheets → o
 3. **evaluate.py** sends each photo to the OCR service (timed; the reply is
    cached in `out/results/<id>.ocr.json`, delete it to re-read) and scores it.
 
+### A held-out test set
+
+The matching rules were tuned while looking at the default 54 sheets, so
+their score on those is optimistic. A second set with another seed, which the
+rules were never tuned on, gives the fair figure:
+
+```bash
+export OCR_SET=heldout OCR_SEED=777
+npx vite-node e2e/ocr-accuracy/generate.ts 36
+../OCR/paddleocr-env/bin/python e2e/ocr-accuracy/distort.py
+../OCR/paddleocr-env/bin/python e2e/ocr-accuracy/evaluate.py   # → out/heldout/results/
+```
+
+### Results (2026-10-11)
+
+Score extraction, before and after the matching rewrite (`OcrScoreMatcher`):
+
+| Set | Before: P / R / F1 | After: P / R / F1 | Sheets fully correct |
+|---|---|---|---|
+| Tuning set, 54 sheets | 0.20 / 0.15 / 0.17 | 0.98 / 0.86 / 0.92 | 5 → 41 |
+| **Held-out set, 36 sheets** | 0.20 / 0.17 / 0.18 | **0.98 / 0.90 / 0.94** | 4 → 30 |
+
+Reading the handwritten numbers (the OCR model itself, unchanged): F1 0.80
+(tuning) and 0.85 (held-out). Most scores still missed are digits the model
+did not read at all, mostly the small "sets won" boxes on the volleyball
+sheet; the matcher can't recover a number that was never read.
+
 ## Real sheets (later)
 
 Photograph filled-in sheets with a phone, put the photos in one folder with a

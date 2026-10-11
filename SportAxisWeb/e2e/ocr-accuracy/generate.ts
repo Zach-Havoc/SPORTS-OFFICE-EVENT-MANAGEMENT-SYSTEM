@@ -21,7 +21,10 @@ import chrome from 'selenium-webdriver/chrome.js';
 import { buildScoreSheetHtml } from '../../src/app/utils/scoresheet';
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
-const OUT = path.join(HERE, 'out', 'clean');
+// OCR_SET puts a second, separate set under out/<set>/ (e.g. a held-out
+// test set made with another OCR_SEED); fonts are shared.
+const SET_DIR = process.env.OCR_SET ? path.join(HERE, 'out', process.env.OCR_SET) : path.join(HERE, 'out');
+const OUT = path.join(SET_DIR, 'clean');
 const FONTS = path.join(HERE, 'out', 'fonts');
 const COUNT = Number(process.argv[2] || 54);
 
@@ -50,7 +53,7 @@ const FONT_FILES: Record<string, string> = {
 const INKS = ['#1a2a7a', '#10204f', '#1b1b1b', '#2b2b6b', '#0d3b8c'];
 
 /* Small deterministic random generator, so a run can be reproduced. */
-let seed = 20261010;
+let seed = Number(process.env.OCR_SEED || 20261010);
 const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
 const int = (a: number, b: number) => a + Math.floor(rnd() * (b - a + 1));
 const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rnd() * xs.length)];
