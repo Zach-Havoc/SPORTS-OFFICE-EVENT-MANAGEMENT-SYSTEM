@@ -23,7 +23,7 @@ describe('Coach', () => {
 
   describe('Every page opens', () => {
     const pages = [
-      ['/coach', 'Coach Dashboard'],
+      ['/coach', /^Good (morning|afternoon|evening)/],
       ['/coach/athletes', / Team$/],
       ['/coach/lineup', 'Line-up'],
       ['/coach/schedule', 'My Schedule'],

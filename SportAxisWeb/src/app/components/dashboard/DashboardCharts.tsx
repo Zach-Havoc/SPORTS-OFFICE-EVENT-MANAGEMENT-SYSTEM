@@ -1,6 +1,6 @@
 /**
- * The admin dashboard's Chart.js panels: the mixed games-and-results chart
- * and the win-rate radar. Chart.js's own entrance animations run once when a
+ * The dashboards' Chart.js panels: the admin's mixed games-and-results chart
+ * and win-rate radar, and the coach's training attendance. Chart.js's own entrance animations run once when a
  * chart first draws (bars grow, the line draws in, the radar opens from the
  * centre); a resize redraws without animating, and reduced motion turns
  * animation off.
@@ -24,9 +24,10 @@ import {
   type ChartOptions,
 } from 'chart.js';
 import { Chart, Radar } from 'react-chartjs-2';
-import { CalendarPlus, Trophy } from 'lucide-react';
+import { CalendarPlus, ClipboardList, Trophy } from 'lucide-react';
 import { Panel, PanelEmpty, PanelLink } from './ConsoleKit';
 import { sportOf } from '../../utils/sports';
+import { ATTENDANCE_COLORS } from './DashboardKit';
 
 ChartJS.register(
   BarController,
@@ -329,6 +330,115 @@ export function WinRateRadar({
       ) : (
         <PanelEmpty icon={Trophy} title="Not enough results yet">
           Once games in at least three sports have results, each college's win rate shows here.
+        </PanelEmpty>
+      )}
+    </Panel>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Coach: each recent training session's attendance, stacked by mark.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+type Mark = keyof typeof ATTENDANCE_COLORS;
+const MARKS: Mark[] = ['present', 'late', 'excused', 'absent'];
+
+export function TrainingAttendanceChart({
+  sessions,
+  records,
+  className,
+}: {
+  sessions: { id: string; title: string; date: string }[];
+  records: any[];
+  className?: string;
+}) {
+  const model = useMemo(() => {
+    const todayIso = isoDay(new Date());
+    // The last eight sessions that have happened, oldest first.
+    const recent = sessions
+      .filter((s) => String(s.date).slice(0, 10) <= todayIso)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      .slice(-8);
+    if (recent.length === 0) return null;
+
+    const bySession = new Map<string, Record<Mark, number>>();
+    for (const r of records) {
+      const id = r.sessionId ?? r.session_id;
+      const mark = r.status as Mark;
+      if (!id || !MARKS.includes(mark)) continue;
+      if (!bySession.has(id)) bySession.set(id, { present: 0, late: 0, excused: 0, absent: 0 });
+      bySession.get(id)![mark]++;
+    }
+    const counts = recent.map((s) => bySession.get(s.id) ?? { present: 0, late: 0, excused: 0, absent: 0 });
+
+    // Rate over the sessions shown: present or late, out of everyone marked.
+    const marked = counts.reduce((n, c) => n + c.present + c.late + c.excused + c.absent, 0);
+    const came = counts.reduce((n, c) => n + c.present + c.late, 0);
+    return {
+      labels: recent.map((s) =>
+        new Date(`${String(s.date).slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      ),
+      titles: recent.map((s) => s.title),
+      counts,
+      rate: marked ? Math.round((came / marked) * 100) : null,
+    };
+  }, [sessions, records]);
+
+  const label = (m: Mark) => m[0].toUpperCase() + m.slice(1);
+  const data: ChartData<'bar', number[], string> | null = model && {
+    labels: model.labels,
+    datasets: MARKS.map((m) => ({
+      label: label(m),
+      data: model.counts.map((c) => c[m]),
+      backgroundColor: ATTENDANCE_COLORS[m],
+      stack: 'a',
+      borderRadius: 2,
+    })),
+  };
+
+  const options: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    ...motion(900),
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { position: 'top', align: 'start', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, font: { size: 12 } } },
+      tooltip: {
+        padding: 10,
+        boxPadding: 4,
+        callbacks: { title: (items) => (items[0] ? `${model!.titles[items[0].dataIndex]} · ${items[0].label}` : '') },
+      },
+    },
+    scales: {
+      x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, font: { size: 11 } } },
+      y: {
+        stacked: true,
+        beginAtZero: true,
+        title: { display: true, text: 'Athletes marked', font: { size: 11 } },
+        ticks: { precision: 0, font: { size: 11 } },
+        grid: { color: '#eef0f3' },
+      },
+    },
+  };
+
+  return (
+    <Panel
+      className={className}
+      title="Training attendance"
+      description={
+        model?.rate != null
+          ? `${model.rate}% came (present or late) across the last ${model.labels.length} ${model.labels.length === 1 ? 'session' : 'sessions'}`
+          : 'Who came to each training session'
+      }
+      action={<PanelLink to="/coach/attendance">Attendance</PanelLink>}
+    >
+      {data ? (
+        <div className="h-64 w-full lg:h-72" role="img" aria-label="Attendance marks for each recent training session">
+          <Chart type="bar" data={data} options={options} />
+        </div>
+      ) : (
+        <PanelEmpty icon={ClipboardList} title="No training sessions yet" action={<PanelLink to="/coach/attendance">Start a session</PanelLink>}>
+          Each session's present, late, excused and absent marks show here.
         </PanelEmpty>
       )}
     </Panel>
